@@ -1251,7 +1251,7 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 	}
 
 	// Ew! MAC code! What Peter Hull wrote!
-	#ifndef ALLEGRO_MACOSX
+	#ifdef ALLEGRO_WINDOWS
 		HWND hWindow = win_get_window();
 		HWND hDesktop = GetDesktopWindow();
 		
@@ -4511,7 +4511,6 @@ void OUTPUT_store_frame_info_in_entity_collision_including_scale (int *entity_po
 	entity_pointer [ENT_LOWER_WIDTH] = ((width-1) - pivot_x) + modifier;
 	entity_pointer [ENT_LOWER_HEIGHT] = ((height-1) - pivot_y) + modifier;
 }
-
 
 
 

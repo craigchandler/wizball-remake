@@ -1,0 +1,6 @@
+#ifndef _UFORTIFY_LOWER_WRAPPER_H_
+#define _UFORTIFY_LOWER_WRAPPER_H_
+
+#include "UFORTIFY.H"
+
+#endif

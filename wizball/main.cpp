@@ -5,7 +5,7 @@
 #include <string.h>
 #include <allegro.h>
 
-#ifndef ALLEGRO_MACOSX
+#ifdef ALLEGRO_WINDOWS
 	#include <winalleg.h>
 	#include <windows.h>
 #endif
@@ -25,7 +25,7 @@
 #include "file_stuff.h"
 #include "math_stuff.h"
 
-#ifndef ALLEGRO_MACOSX
+#ifdef ALLEGRO_WINDOWS
 	#include "direct.h"
 #endif
 
@@ -1054,7 +1054,7 @@ void MAIN_read_project_list (void)
 			project_counter++;
 
 		}
-#ifdef ALLEGRO_MACOSX
+#if defined(ALLEGRO_MACOSX) || !defined(ALLEGRO_WINDOWS)
 		while ( (dir_pointer = FILE_read_dir_entry (false)) != NULL);
 #else
 		while ( (dir_pointer = FILE_read_dir_entry (true)) != NULL);
@@ -1207,7 +1207,7 @@ int main (int argc, char *argv[])
 		}
 	}
 
-#ifndef ALLEGRO_MACOSX
+#ifdef ALLEGRO_WINDOWS
 	SystemParametersInfo(SPI_GETSCREENSAVEACTIVE, 0, &restorescreensaver, 0);
 
 	if (restorescreensaver)
@@ -1253,7 +1253,7 @@ int main (int argc, char *argv[])
 	if (parse_all_data)
 	{
 		MAIN_add_to_log ("Parsing scripts...");
-		if (PARSER_parse ("scriptlanguage.txt") == true)
+		if (PARSER_parse ("SCRIPTLANGUAGE.TXT") == true)
 		{
 			OUTPUT_message("Error during parsing! Consult 'DIAGNOSIS.TXT'");
 			assert(0);
@@ -1473,7 +1473,7 @@ int main (int argc, char *argv[])
 	allegro_exit();
 	MAIN_add_to_log ("\tOK!");
 
-#ifndef ALLEGRO_MACOSX
+#ifdef ALLEGRO_WINDOWS
 	SystemParametersInfo(SPI_GETSCREENSAVEACTIVE, 0, &restorescreensaver, 0);
 
 	if (restorescreensaver)

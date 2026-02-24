@@ -38,8 +38,7 @@
 #include <assert.h>
 #include <allegro.h>
 
-#ifdef ALLEGRO_MACOSX
-#else
+#ifdef ALLEGRO_WINDOWS
 	#include <io.h>
 	#include <sys\stat.h>
 #endif
@@ -3800,6 +3799,5 @@ bool PARSER_parse ( char *filename )
 	return false; // All okay, mum!
 
 }
-
 
 

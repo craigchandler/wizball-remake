@@ -14,14 +14,14 @@
 
 
 
-#ifdef ALLEGRO_MACOSX
+#ifdef ALLEGRO_WINDOWS
+	#include <winalleg.h>
+	#include "windows.h"
+#else
 	#include <stdlib.h>
 	#include <sys/types.h>
 	#include <sys/stat.h>
 	#include <string.h>
-#else
-	#include <winalleg.h>
-	#include "windows.h"
 #endif
 
 #include "graphics.h" // So we can draw stuff.
@@ -322,5 +322,4 @@ void GAME_destroy_everything (bool create_dat_file)
 
 	EDIT_close_down ();
 }
-
 

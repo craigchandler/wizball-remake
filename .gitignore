@@ -1,0 +1,46 @@
+# Build directories
+/build/
+/cmake-build-*/
+
+# CMake/Ninja/Make artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+Makefile
+*.ninja
+.ninja_deps
+.ninja_log
+
+# Compiled objects and binaries
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+a.out
+*.app
+
+# Debug/symbol/profiler files
+*.dSYM/
+*.pdb
+*.idb
+*.ilk
+*.map
+*.gcno
+*.gcda
+*.profraw
+*.profdata
+
+# Project-generated pack/build scripts and logs
+wizball/data_compile*
+wizball/logfile.txt
+wizball/the_last_thing_i_did.txt
+wizball/OpenGL_Extension.txt
+wizball/fortify.log

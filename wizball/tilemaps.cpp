@@ -2165,10 +2165,14 @@ void TILEMAPS_load_game_data (void)
 				assert(0);
 				break;
 			}
-			fread (cm[tilemap_number].map_pointer , sizeof(short), cm[tilemap_number].map_layers * cm[tilemap_number].map_width * cm[tilemap_number].map_height, file_pointer);
-			for (int map = 0; map < cm[tilemap_number].map_layers * cm[tilemap_number].map_width * cm[tilemap_number].map_height; ++map)
-				endian(cm[tilemap_number].map_pointer[map]);
-			fread (cm[tilemap_number].group_pointer , sizeof(char), cm[tilemap_number].map_layers * cm[tilemap_number].map_width * cm[tilemap_number].map_height, file_pointer);
+				fread (cm[tilemap_number].map_pointer , sizeof(short), cm[tilemap_number].map_layers * cm[tilemap_number].map_width * cm[tilemap_number].map_height, file_pointer);
+				#ifdef ALLEGRO_MACOSX
+				for (int map = 0; map < cm[tilemap_number].map_layers * cm[tilemap_number].map_width * cm[tilemap_number].map_height; ++map)
+				{
+					endian(cm[tilemap_number].map_pointer[map]);
+				}
+				#endif
+				fread (cm[tilemap_number].group_pointer , sizeof(char), cm[tilemap_number].map_layers * cm[tilemap_number].map_width * cm[tilemap_number].map_height, file_pointer);
 			fread (cm[tilemap_number].helper_tag_pointer , sizeof(char), cm[tilemap_number].map_layers * cm[tilemap_number].map_width * cm[tilemap_number].map_height, file_pointer);
 			fread (cm[tilemap_number].helper_x_offset_pointer , sizeof(char), cm[tilemap_number].map_layers * cm[tilemap_number].map_width * cm[tilemap_number].map_height, file_pointer);
 			fread (cm[tilemap_number].helper_y_offset_pointer , sizeof(char), cm[tilemap_number].map_layers * cm[tilemap_number].map_width * cm[tilemap_number].map_height, file_pointer);
@@ -5070,4 +5074,3 @@ void TILEMAPS_input_zone_flags_from_file (char *filename)
 		assert(0);
 	}
 }
-

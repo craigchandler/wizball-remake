@@ -123,7 +123,7 @@ void SOUND_fade_channels (void)
 
 	for (channel=0; channel<fading_channel_count; channel++)
 	{
-		if (fading_channel_array_active [channel] = true)
+		if (fading_channel_array_active [channel] == true)
 		{
 			volume = FSOUND_GetVolume (fading_channel_array[channel]);
 			volume -= 15;
@@ -426,6 +426,5 @@ void SOUND_stop_stream (int stream_number)
 {
 	FSOUND_Stream_Stop (sound_streams[stream_number]);
 }
-
 
 
