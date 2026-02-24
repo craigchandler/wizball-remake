@@ -1,0 +1,59 @@
+// This is our intro. How jolly exciting, eh?
+
+// Menu Defines
+
+	let signal = signal OR SLEEP_CREDITS
+	let signal = signal OR SLEEP_LOGO
+	let signal = signal OR SLEEP_SCROLLY
+	let signal = signal OR INTRO_WIZ_AND_CAT
+	let signal = signal OR WAKE_TUNNEL_LIGHT
+
+	// Each of the menus has a wait 5 at the start to allow everything from the previous one to do it's thing.
+	wait 5
+
+	SET_GLOBAL_FLAG_AS_ENTITY_ID (menu_entity_identity_flag)
+
+	// This variable isn't used to kill this thing, though. Just as a reminder, really.
+	let ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	for counter = 0 to INTRO_LOGO_COUNT
+		spawn_entity menu_intro_logo
+		let last_child.passed_param_1 = counter
+	next
+
+	let counter = 0
+
+
+
+start
+	IF_INPUT_KEYBOARD_HIT key_any then
+		goto skip_intro
+	END_IF
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,FIRE_1) then
+		goto skip_intro
+	END_IF
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_2,FIRE_1) then
+		goto skip_intro
+	END_IF
+
+	if last_child.alive < 0 then
+		goto skip_intro
+	end_if
+end
+
+
+
+.skip_intro
+
+	spawn_entity menu_main,0,0,process_next
+
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_SPECIFIC_MENU_ENTITY )
+
+	let signal = signal OR DESTROY_INTRO_OBJECTS
+
+	kill_entity own_id
+
+	end
+

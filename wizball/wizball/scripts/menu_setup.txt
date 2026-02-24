@@ -1,0 +1,47 @@
+// This is the first thing called which sets up the stuff which is present on all menu types.
+// It then decides whether it needs to spawn the main menu or whether it needs to spawn the hiscore
+// screen depending on whether there's a highscore pending or not.
+
+#define slice_size		3000
+
+let entity_type = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+let temp_1 = get_global_flag (player_score)
+
+let temp_2 = GET_HISCORE (MAIN_HISCORE_TABLE, LOWEST_SCORE)
+
+enable_window MENU_WINDOW
+let window_number = MENU_WINDOW
+SET_WINDOW_MAP_POSITION (0, 0)
+
+// Here we'd spawn the credit manager and whatnot...
+
+spawn_entity menu_credit_manager
+spawn_entity menu_scrolly_manager
+spawn_entity menu_main_logo_manager
+spawn_entity main_menu_background_slice_manager
+spawn_entity menu_tunnel_starfield
+spawn_entity menu_intro_wiz_or_cat
+let last_child.passed_param_1 = INTRO_ELEMENT_ID_CAT
+spawn_entity menu_intro_wiz_or_cat
+let last_child.passed_param_1 = INTRO_ELEMENT_ID_WIZ
+
+// Now we spawn whichever menu we're really going to (so that it is processed before the above routines).
+
+if parent.script_number = startup then
+	spawn_entity menu_intro_title
+else_if parent.script_number = pause_manager then
+	spawn_entity menu_main
+else
+	if temp_1 > temp_2 then
+		add_retrospec_hiscore (main_hiscore_table,temp_1)
+		spawn_entity menu_hiscore_entry
+	else
+		spawn_entity menu_main
+	end_if
+end_if
+
+// And now we pop our clogs...
+
+kill_entity own_id
+

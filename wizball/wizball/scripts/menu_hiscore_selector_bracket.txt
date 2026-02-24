@@ -1,0 +1,86 @@
+#define start_x				v0
+#define start_y				v1
+#define target_x			v2
+#define target_y			v3
+
+#define progress_percentage		v4
+#define bias_progress_percentage	v5
+
+#define colour_degree			v6
+
+#define sine_wobble_counter		v7
+
+#define current_menu_entity_id		v8
+
+#define sine_wobble_size		3
+
+	// It's created at 10000 so that it sticks to the letter it's on.
+	let progress_percentage = 10000
+
+	let draw_order = MENU_HISCORE_SELECTION_BRACKET_DRAW_ORDER
+
+	let entity_type = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_vertex_colour_alpha
+
+	let sprite = font[arb]
+
+	let opengl_vertex_alpha = 0
+
+	let colour_degree = 0
+
+start
+
+	let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+	if current_menu_entity_id != CONST_UNSET then
+		if current_menu_entity_id.signal & DESTROY_HISCORE_TEXT then
+			goto sleepy_bye_byes
+		end_if
+	end_if
+
+	let opengl_vertex_alpha = opengl_vertex_alpha + 15 !> 255
+
+	gosub update_position_and_colour
+end
+
+
+
+.sleepy_bye_byes
+
+start
+	let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+
+	if opengl_vertex_alpha = 0 then
+		kill_entity own_id
+	end_if
+
+	gosub update_position_and_colour
+end
+
+
+
+.update_position_and_colour
+
+	GET_VERTEX_COLOURS_FROM_HSL colour_degree 256 128
+	let colour_degree = colour_degree + 1 !< 0 !> 359
+
+	let progress_percentage = progress_percentage + 500 !> 10000
+
+	let bias_progress_percentage = progress_percentage curve_percentage CURVE_PERCENTAGE_FISO
+
+	let world_x = lerp (start_x, target_x, bias_progress_percentage)
+	let world_y = lerp (start_y, target_y, bias_progress_percentage)
+
+	let temp_1 = sine_wobble_size sin sine_wobble_counter
+
+	let world_x = world_x + temp_1
+
+	let sine_wobble_counter = sine_wobble_counter + 750 !< 0 !> 35999
+
+	set_private_co_ords
+
+	return
+

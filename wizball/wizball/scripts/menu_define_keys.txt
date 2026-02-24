@@ -1,0 +1,189 @@
+#define redefining_control_number		v0
+#define redefining_control_index		v1
+#define redefining_control_name			v2
+#define text_y_co_ord				v3
+#define key_pressed				v4
+
+#define control_device_number			v5
+#define control_device_button_or_stick		v6
+#define control_device_port			v7
+#define text_counter				v8
+#define control_device_axis			v9
+
+#define font_script				v10
+
+#define sleep_shadow_line_number		v11
+
+#define player_number				0
+
+#define defined_control_name_array		1
+#define max_control_name_length			50
+
+	wait 5
+
+	SET_STICK_SENSITIVITY 112
+
+	let signal = signal OR SLEEP_LOGO
+	let signal = signal OR SLEEP_TUNNEL_LIGHT
+
+	create_array defined_control_name_array max_control_name_length
+
+	SET_GLOBAL_FLAG_AS_ENTITY_ID (menu_entity_identity_flag)
+
+	let ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let signal = signal OR SLEEP_CREDITS
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE,0,menu_option_text, DEFINE_KEYS, process_next, CENTER_X, 320, DEFINE_KEYS_HEADER_Y_CO_ORD, 0, 0, font[arb])
+
+	let redefining_control_number = 0
+	let redefining_control_index = 0
+	let sleep_shadow_line_number = CONST_UNSET
+
+	let font_script = menu_shadow_define_text
+
+	let text_y_co_ord = DEFINE_KEYS_FIRST_DESCRIPTION_LINE_Y_CO_ORD
+	let redefining_control_name = REDEFINE_CONTROL_FIRST
+
+	for redefining_control_number = 0 to NUMBER_OF_DEFINABLE_KEYS
+
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,menu_option_text, redefining_control_name, process_next, CENTER_X, 320, text_y_co_ord, -1, 0, font[arb])
+		let text_y_co_ord = text_y_co_ord + DEFINE_KEYS_LINE_GAP
+
+		let redefining_control_index = READ_FROM_DATATABLE (defined_key_indexes,0,redefining_control_number)
+		SET_DEFINING_DUPLICATION_CHECK (PLAYER_1,redefining_control_index,false)
+		gosub draw_control
+
+		let redefining_control_name = redefining_control_name + 1
+
+	next
+
+	let text_y_co_ord = DEFINE_KEYS_FIRST_INPUT_LINE_Y_CO_ORD
+
+	let redefining_control_number = 0
+	let redefining_control_index = 0
+	let font_script = menu_option_text
+start
+	let redefining_control_index = READ_FROM_DATATABLE (defined_key_indexes,0,redefining_control_number)
+
+	let key_pressed = DEFINE_PLAYER_CONTROL_FROM_KEYPRESS player_number redefining_control_index TRUE
+
+	if key_pressed = true then
+		gosub draw_control
+
+		SET_DEFINING_DUPLICATION_CHECK (PLAYER_1,redefining_control_index,true)
+
+		PLAY_SOUND menu_select 255 CONST_SOUND_FREQUENCY 128
+
+		let sleep_shadow_line_number = redefining_control_index
+
+		let redefining_control_number = redefining_control_number + 1
+
+		if redefining_control_number = 6 then
+			goto finished_defining
+		end_if
+	end_if
+
+end
+
+
+
+
+.finished_defining
+
+	let counter = 90
+
+start
+
+	let counter = counter - 1 !< 0
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,FIRE_1) then
+		let counter = 0
+		PLAY_SOUND menu_select_back 255 CONST_SOUND_FREQUENCY 128
+	END_IF	
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_2,FIRE_1) then
+		let counter = 0
+		PLAY_SOUND menu_select_back 255 CONST_SOUND_FREQUENCY 128
+	END_IF
+
+	IF_INPUT_KEYBOARD_HIT key_any then
+		let counter = 0
+		PLAY_SOUND menu_select_back 255 CONST_SOUND_FREQUENCY 128
+	END_IF
+
+	if counter = 0 then
+		SET_STICK_SENSITIVITY 64
+		spawn_entity menu_options,0,0,process_next
+		alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_SPECIFIC_MENU_ENTITY )
+		let signal = signal OR DESTROY_OPTION_TEXT
+		kill_entity own_id
+	end_if
+
+end
+
+
+
+.draw_control
+
+	let text_counter = 0
+	reset_array (own_id,defined_control_name_array)
+
+	// Have this as a separate bit for clarity so the switch above don't get to bloaty.
+
+	let control_device_number = GET_CONTROL_DEVICE player_number redefining_control_index
+
+	if control_device_number = CONTROL_DEVICE_KEYBOARD then
+
+		let control_device_button_or_stick = GET_CONTROL_BUTTON player_number redefining_control_index
+
+		LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , KEYBOARD_TAG, text_counter, FALSE)
+		let temp_2 = FIRST_KEYBOARD_KEY_TAG
+		let temp_2 = temp_2 + control_device_button_or_stick
+		LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , temp_2, text_counter, FALSE)
+
+	else_if control_device_number = CONTROL_DEVICE_JOYPAD then
+
+		let control_device_port = GET_CONTROL_PORT player_number redefining_control_index
+		let control_device_button_or_stick = GET_CONTROL_BUTTON player_number redefining_control_index
+		let temp_1 = JOYPAD_TAG + control_device_port
+		let temp_2 = BUTTON_1_TAG + control_device_button_or_stick
+		LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , temp_1, text_counter, FALSE)
+		LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , temp_2, text_counter, FALSE)
+
+	else_if control_device_number = CONTROL_DEVICE_MOUSE_BUTTONS then
+
+		// Summat here...
+
+	else // It's CONTROL_DEVICE_JOYSTICK_POS or CONTROL_DEVICE_JOYSTICK_NEG
+
+		let control_device_port = GET_CONTROL_PORT player_number redefining_control_index
+		let control_device_button_or_stick = GET_CONTROL_STICK player_number redefining_control_index
+		let control_device_axis = GET_CONTROL_AXIS player_number redefining_control_index
+
+		let temp_1 = JOYPAD_TAG + control_device_port
+		let temp_2 = STICK_1_TAG + control_device_button_or_stick
+		let temp_3 = AXIS_1_TAG + control_device_axis
+
+		LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , temp_1, text_counter, FALSE)
+		LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , temp_2, text_counter, FALSE)
+		LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , temp_3, text_counter, FALSE)
+
+		if control_device_number = CONTROL_DEVICE_JOYSTICK_POS then
+			LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , AXIS_POSITIVE_TAG, text_counter, FALSE)
+		else
+			LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , AXIS_NEGATIVE_TAG, text_counter, FALSE)
+		end_if
+
+	end_if
+
+	let temp_1 = redefining_control_number * DEFINE_KEYS_LINE_GAP
+	let temp_1 = temp_1 + DEFINE_KEYS_FIRST_INPUT_LINE_Y_CO_ORD
+
+	SPAWN_ENTITIES_FROM_TEXT_IN_ARRAY (FALSE,redefining_control_index,font_script, defined_control_name_array, process_next, CENTER_X , 320, temp_1, -1, 0, font[arb])
+
+return
+
+
+
+

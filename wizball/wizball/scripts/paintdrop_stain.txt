@@ -1,0 +1,50 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	#define colour_flag				passed_param_2
+	#define special_bonus_flag			passed_param_3
+
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = paintballs_and_drips[arb]
+
+	if special_bonus_flag = CONST_UNSET THEN
+		let base_frame = colour_flag + 11
+	ELSE
+		let base_frame = special_bonus_flag + 14
+	END_IF
+
+	let current_frame = base_frame 
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_MULTIPLY + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let draw_order = PAINT_STAIN_DRAW_ORDER
+
+	let counter = 10
+
+start
+
+	if counter > 0 then
+
+		let opengl_scale_x = opengl_scale_x >% 15000 2000
+		let opengl_scale_y = opengl_scale_x
+
+	else
+
+		let opengl_vertex_alpha = opengl_vertex_alpha - 5 !< 0
+		let opengl_scale_x = opengl_scale_x - 100
+		let opengl_scale_y = opengl_scale_x
+
+		if opengl_vertex_alpha = 0 then
+			kill_entity own_id
+		end_if
+
+	end_if
+
+	let counter = counter - 1 !< 0
+
+end

@@ -1,0 +1,75 @@
+// This spawns the different elements of the logo and makes
+// sure they all hang together.
+
+#define matriarch_alpha			v0
+#define current_menu_entity_id		v1
+#define go_to_sleep_mode		v2
+
+	let matriarch = own_id
+
+	let world_x = 320
+	let world_y = WIZBALL_LOGO_END_Y_CO_ORD
+
+	let entity_type = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	set_private_co_ords
+
+	// So that we don't accidentally appear, we wait here in this loop until told otherwise.
+
+start
+
+	let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+	if current_menu_entity_id != CONST_UNSET then
+		if current_menu_entity_id.signal & WAKE_LOGO then
+			goto start_for_proper
+		end_if
+	end_if
+
+end
+
+.start_for_proper
+
+	spawn_entity main_menu_logo_section,0,0,process_next
+	let last_child.current_frame = 0
+	let last_child.opengl_booleans = COMPOUND_BITFLAG (opengl_boolean_blend_multiply, opengl_boolean_vertex_colour_alpha)
+	let last_child.draw_order = MENU_LOGO_MAIN_DRAW_ORDER
+
+	spawn_entity main_menu_logo_section,0,0,process_next
+	let last_child.current_frame = 1
+	let last_child.opengl_booleans = COMPOUND_BITFLAG (opengl_boolean_blend_multiply, opengl_boolean_vertex_colour_alpha)
+	let last_child.draw_order = MENU_LOGO_MAIN_DRAW_ORDER
+
+	spawn_entity main_menu_logo_section,0,0,process_next
+	let last_child.opengl_booleans = COMPOUND_BITFLAG (opengl_boolean_blend_add, opengl_boolean_vertex_colour_alpha, opengl_boolean_scale, opengl_boolean_filtered)
+	let last_child.current_frame = 2
+	let last_child.opengl_scale_x = 20000
+	let last_child.opengl_scale_y = 20000
+	let last_child.draw_order = MENU_LOGO_GLOW_DRAW_ORDER
+
+	for counter = 0 to 20
+		spawn_entity menu_main_light_shard,0,0,process_next
+	next
+
+	let go_to_sleep_mode = false
+	let opengl_vertex_alpha = 0
+
+start
+
+	let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+	if current_menu_entity_id != CONST_UNSET then
+		if current_menu_entity_id.signal & SLEEP_LOGO then
+			let go_to_sleep_mode = true
+		else_if current_menu_entity_id.signal & WAKE_LOGO then
+			let go_to_sleep_mode = false
+		end_if
+	end_if
+
+	if go_to_sleep_mode = false then
+		let opengl_vertex_alpha = opengl_vertex_alpha + 15 !> 255
+	else
+		let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+	end_if
+
+end

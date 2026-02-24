@@ -1,0 +1,193 @@
+#define angular_offset 				v0
+#define base_angle 				v1
+#define target_base_angle 			v2
+#define counter_to_angle_multiplier 		v3
+#define half_counter_to_angle_multiplier 	v4
+#define angle_speed 				v5
+#define private_number 				v5
+#define base_score_count 			v6
+#define speed_direction 			v7
+#define target_speed_direction 			v8
+#define top_speed 				v9
+#define current_front_runner 			v10
+#define level_number 				v11
+#define background_id				v12
+
+#define max_settle_time				120
+
+#define left_or_right		passed_param_1
+#define left			0
+#define right			1
+
+// Kill off the pause hander first!
+
+kill_entities SELECT_BY_SCRIPT_NUMBER ex_pause_game_handler
+
+let window_number = FLOATING_OVERLAY_WINDOW
+enable_window FLOATING_OVERLAY_WINDOW
+
+SET_WINDOW_MAP_POSITION (0, 0)
+
+let level_number = get_global_flag (level_number_flag)
+
+#define number_of_scores 8
+
+let world_x = 320
+let world_y = 240
+
+set_private_co_ords
+
+spawn_entity ex_bonus_score_background 0 0 process_next
+let background_id = last_child
+
+wait 45
+
+let counter_to_angle_multiplier = 36000 / number_of_scores
+let half_counter_to_angle_multiplier = counter_to_angle_multiplier / 2
+
+let counter = level_number
+
+let POINT_VALUE = 1000 << level_number
+
+let signal = CONST_UNSET
+
+for temp_1 = 0 to number_of_scores
+	spawn_entity ex_score_bar 0 0 process_next
+	let last_child.angular_offset = temp_1 * counter_to_angle_multiplier
+
+	let temp_2 = temp_1 mod 2
+
+	let last_child.private_number = temp_1
+
+	if temp_2 = 1 then
+
+		let last_child.POINT_VALUE = POINT_VALUE
+		let last_child.base_frame = counter + 2
+
+		let counter = counter + 1
+
+		if counter > 6 then
+			let counter = 6
+		end_if
+
+		let POINT_VALUE = POINT_VALUE * 2
+
+		if POINT_VALUE > 64000 then
+			let POINT_VALUE = 64000
+		end_if
+	else
+		let last_child.POINT_VALUE = 0
+		let last_child.base_frame = 1
+	end_if
+next
+
+spawn_entity ex_score_pointer_arrow -128 0 PROCESS_NEXT
+let last_child.base_frame = 0
+let last_child.angular_offset = 0
+
+spawn_entity ex_score_pointer_arrow 128 0 PROCESS_NEXT
+let last_child.base_frame = 1
+let last_child.angular_offset = 18000
+
+let angle_speed = -400
+
+let counter = 0
+
+wait 15
+
+spawn_entity ex_bonus_score_arrow 0 0 PROCESS_NEXT
+let last_child.left_or_right = left
+
+spawn_entity ex_bonus_score_arrow 0 0 PROCESS_NEXT
+let last_child.left_or_right = right
+
+start
+	let base_angle = base_angle + angle_speed
+	
+	let base_angle = WRAP_ANGLE base_angle
+
+	if counter > 60 then
+		IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 FIRE_1 then
+			goto settle_angle
+		end_if
+	end_if
+
+	let counter = counter + 1
+end
+
+.settle_angle
+
+let target_base_angle = base_angle + half_counter_to_angle_multiplier
+let target_base_angle = target_base_angle / counter_to_angle_multiplier
+let target_base_angle = target_base_angle mod number_of_scores
+let signal = number_of_scores - target_base_angle
+let signal = signal + 2
+let signal = signal mod number_of_scores
+let target_base_angle = target_base_angle * counter_to_angle_multiplier
+
+let top_speed = abs angle_speed
+
+let counter = max_settle_time
+
+start
+	let base_angle = base_angle + angle_speed
+
+	let base_angle = WRAP_ANGLE base_angle
+
+	let temp_1 = DIFF_ANGLE target_base_angle base_angle
+
+	let speed_direction = sgn angle_speed
+	let target_speed_direction = sgn temp_1 
+	
+	if speed_direction = target_speed_direction then
+		// We don't accellerate as much if we're heading in the right direction...
+		let target_speed_direction = target_speed_direction * 20
+	else
+		let target_speed_direction = target_speed_direction * 20
+	end_if
+
+	let angle_speed = min_max (-top_speed, top_speed)
+
+	if top_speed > 9 then
+		let top_speed = top_speed - 3
+	end_if
+
+	let angle_speed = angle_speed + target_speed_direction 
+
+	let temp_2 = abs temp_1
+	let temp_3 = abs angle_speed
+
+	let counter = counter - 1
+
+	if counter = 0 then
+		goto score_selected
+	end_if
+end
+
+.score_selected
+
+wait 50 // So it fades all the way out!
+
+spawn_entity (ex_fade_level_end_music,0,0,process_next)
+
+let background_id.signal = 1
+
+start
+	if background_id.signal = 2 then
+		goto waiting_for_godoh
+	end_if
+end
+
+.waiting_for_godoh
+
+SET_WINDOW_MAP_POSITION (0, 0)
+
+disable_window FLOATING_OVERLAY_WINDOW
+
+start
+
+end
+
+
+
+

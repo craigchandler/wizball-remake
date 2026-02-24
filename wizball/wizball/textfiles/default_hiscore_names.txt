@@ -1,0 +1,12 @@
+top_score_text_tag	GRAHAM GORING
+dummy			TREVOR STOREY
+dummy			INFAMOUS     
+dummy			-------------
+dummy			YOUR INFERIOR
+dummy			SCORES CAN GO
+dummy			IN THIS PART 
+dummy			OF THE HIGH- 
+dummy			SCORE TABLE  
+dummy			PUNY MORTALS!
+
+default_score_name	.............

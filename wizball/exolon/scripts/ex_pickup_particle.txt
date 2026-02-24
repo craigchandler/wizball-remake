@@ -1,0 +1,28 @@
+	let Bitshift = 8
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = pickup_particles[set][32][32][16][16]
+	let current_frame = rand 0 3
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+
+	let lifetime = 50
+	let opengl_angle = rand 0 36000
+	let angular_vel = 200
+start
+	let opengl_scale_x = opengl_scale_x % 9600
+	let opengl_scale_y = opengl_scale_y % 9600
+
+	let x_vel = x_vel % 9500
+	let y_vel = y_vel % 9500
+
+	let opengl_angle = opengl_angle + angular_vel
+
+	let lifetime = lifetime - 1
+
+	if lifetime = 0 then
+		kill_entity own_id
+	end_if
+end

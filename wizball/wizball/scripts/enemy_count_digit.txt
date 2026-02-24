@@ -1,0 +1,80 @@
+// This is the text used for the options. It simply fades in and out when it sees the signal from it's parent. Really fast.
+
+#define digit_number				passed_param_1
+
+#define score_base				v0
+#define main_game_handler_id			v1
+#define current_level_number			v2
+#define enemy_count				v3
+
+	let score_base = 1
+
+	if digit_number > 0 then
+		for temp_1 = 0 to digit_number
+			let score_base = score_base * 10
+		next
+	end_if
+
+	let world_x = digit_number * 12
+	let world_x = ENEMY_COUNT_WORLD_X_BASE - world_x
+
+	let world_y = SCORE_WORLD_Y_BASE
+
+	set_private_co_ords
+
+	let draw_order = 0
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_vertex_colour_alpha
+	let opengl_booleans = opengl_booleans + opengl_boolean_filtered
+	let opengl_booleans = opengl_booleans + opengl_boolean_scale
+
+	let sprite = font[arb]
+
+	let opengl_vertex_alpha = 255
+
+	let current_frame = 0
+
+	let opengl_scale_x = 7500
+	let opengl_scale_y = 7500
+
+.displayed
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+start
+
+	let main_game_handler_id = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+
+	if main_game_handler_id != CONST_UNSET then
+
+		let current_level_number = get_global_flag (player_on_level_number)
+		let enemy_count = read_from_array (main_game_handler_id, LEVEL_ENEMY_COUNT_ARRAY_ID, current_level_number)
+
+		if (enemy_count > 0) then
+			let enemy_count = enemy_count / score_base
+			let enemy_count = enemy_count mod 10
+
+			let current_frame = enemy_count + 64 // First frame of justified numbers
+		else
+			let current_frame = 64
+		end_if
+
+		if_flag (currently_on_bonus_level) = true then
+			goto not_displayed
+		end_if
+	end_if
+
+end
+
+.not_displayed
+
+	let draw_mode = DRAW_MODE_INVISIBLE
+
+start
+
+	if_flag (currently_on_bonus_level) = false then
+		goto displayed
+	end_if
+
+end
+

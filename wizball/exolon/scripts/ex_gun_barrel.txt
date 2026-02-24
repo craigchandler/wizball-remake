@@ -1,0 +1,104 @@
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+// This will be used by both the large gun and the hybrid as
+// apart from it's appearance it's functionally identical.
+// It'll just read the parent's type and use that to determine the correct
+// gun frame.
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = level_scenery_sprites[arb]
+
+	if parent.script_number = ex_large_gun then
+		let base_frame = 15
+	else_if parent.script_number = ex_gun_cannon_hybrid_top then
+		let base_frame = 16
+	else
+		// WTF?!
+		stop
+	end_if
+
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let COLLIDE_TYPE = ENT_TYPE_ENEMY_EMPLACEMENT
+	let COLLIDE_wITH = ENT_TYPE_PLAYER_SUPER_BULLET
+
+	let COLLISION_SHAPE = RECTANGLE
+
+	SET_COLLISION_FROM_FRAME
+
+	entity_hitline gosub destroyed
+
+	let v0 = world_x - parent.world_x
+	let v1 = world_y - parent.world_y
+
+	let current_zone = get_global_flag (Player_zone_number)
+
+	let BOUNDARY_START_X, BOUNDARY_END_X = GET_HORIZONTAL_ZONE_EXTENTS (current_zone)
+
+	let v2 = 0
+
+	let FACING_DIRECTION = -1
+
+	let DIFFICULTY = get_global_flag (difficulty_level)
+	let DIFFICULTY = 100 % DIFFICULTY
+start
+	let world_x = parent.world_x + v0
+	let world_x = world_x + v2
+	let world_y = parent.world_y + v1
+
+	set_private_co_ords
+
+	if parent.signal = 3 then
+		kill_entity own_id
+	end_if
+
+	if v2 > 0 then
+		let v2 = v2 % 9000
+	end_if
+
+	let CHANCE = rand DIFFICULTY 150
+
+	if parent.signal != 2 then
+		if v2 = 0 then
+			if CHANCE = DIFFICULTY then
+
+				let temp_1 = get_global_flag (intro_in_progress)
+
+				if temp_1 = 0 then
+					play_sound gunpod_fire 196 22050 128
+
+					let v2 = 24
+					spawn_entity ex_enemy_bullet 24 0 PROCESS_NEXT
+					let last_child.BOUNDARY_START_X = BOUNDARY_START_X - 16
+					let last_child.BOUNDARY_END_X = BOUNDARY_END_X + 16
+					let last_child.FACING_DIRECTION = FACING_DIRECTION
+
+					spawn_entity ex_muzzle_flame 0 0 PROCESS_NEXT
+					for counter = 0 to 3
+						spawn_entity ex_smoke 0 0 PROCESS_NEXT
+						let last_child.draw_order = last_child.draw_order - 1
+						let last_child.x_vel = rand -24 -40
+						let last_child.y_acc = -2
+						let last_child.y_vel = rand -10 10
+						let last_child.PASSED_PARAM_1 = 1000
+						let last_child.PASSED_PARAM_2 = 5000
+						let last_child.PASSED_PARAM_4 = 9900
+						let last_child.bitshift = 4
+						let last_child.lifetime = rand 30 50
+					next
+				end_if
+			end_if
+		end_if
+	end_if
+end
+
+.destroyed
+	REMOVE_FROM_COLLISION_LIST
+	let collide_type = 0
+
+	let parent.signal = 1
+	end

@@ -1,0 +1,50 @@
+// This is the text used for the options. It simply fades in and out when it sees the signal from it's parent. Really fast.
+
+#define digit_number				passed_param_1
+
+#define score_base				v0
+
+	let score_base = 1
+
+	if digit_number > 0 then
+		for temp_1 = 0 to digit_number
+			let score_base = score_base * 10
+		next
+	end_if
+
+	let world_x = digit_number * 12
+	let world_x = SCORE_WORLD_X_BASE - world_x
+
+	let world_y = SCORE_WORLD_Y_BASE
+
+	set_private_co_ords
+
+	let draw_order = 0
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_vertex_colour_alpha
+	let opengl_booleans = opengl_booleans + opengl_boolean_filtered
+	let opengl_booleans = opengl_booleans + opengl_boolean_scale
+
+	let sprite = font[arb]
+
+	let opengl_vertex_alpha = 255
+
+	let current_frame = 0
+
+	let opengl_scale_x = 7500
+	let opengl_scale_y = 7500
+
+start
+
+	let temp_1 = get_global_flag (player_display_score)
+
+	let temp_1 = temp_1 / score_base
+	let temp_1 = temp_1 mod 10
+
+	let current_frame = temp_1 + 64 // First frame of justified numbers
+
+end
+
+

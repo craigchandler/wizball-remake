@@ -1,0 +1,229 @@
+#define planet_size 		v0
+#define planet_width 		v1
+#define noise			v2
+#define total_noise		v3
+
+#define explosion_distance	v4
+#define explosion_angle		v5
+#define planet_radius		v6
+#define half_planet_radius	v7
+#define explosion_chance	v8
+
+#define x_offset		v9
+#define y_offset		v10
+
+#define blinder_scale		v11
+
+#define extra_helpings		v12
+
+#define planet_type		v29
+
+
+
+#define generation		v5
+#define sub_child		v7
+
+#define planet_section 		passed_param_1
+#define main_movement_angle	passed_param_2
+
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	let sprite = icons[set][32][32][16][16]
+	let base_frame = 3
+
+	let explosion_chance = 1000
+
+start
+
+	let Bitshift = 7
+	SET_PRIVATE_CO_ORDS
+
+	let planet_type = parent.planet_type
+
+	wait 4
+
+	let planet_radius = parent.planet_width % 4500
+	let half_planet_radius = planet_radius / 2
+
+	let blinder_scale = planet_radius * 600
+
+	let sprite = background_stuff[arb]
+	let base_frame = 4 - parent.planet_size
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let opengl_vertex_red = 0
+	let opengl_vertex_blue = 0
+	let opengl_vertex_green = 0
+
+	let y_acc = 1
+
+start
+
+	let counter = counter - 1
+
+	if counter = 0 then
+		goto main_loop
+	end_if
+
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+	set_private_co_ords
+end
+
+.main_loop
+	
+start
+
+	let total_noise = opengl_vertex_red + opengl_vertex_green
+	let total_noise = total_noise + opengl_vertex_blue
+	let total_noise = total_noise / 70
+
+	let explosion_chance = explosion_chance - 1
+
+	let noise = rand 0 total_noise
+	let parent.world_x = parent.world_x + noise
+
+	let noise = rand 0 total_noise
+	let parent.world_y = parent.world_y + noise
+
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+	set_private_co_ords
+
+	let opengl_vertex_red = opengl_vertex_red + 3
+
+	if opengl_vertex_red > 192 then
+
+		if opengl_vertex_red > 255 then
+			let opengl_vertex_red = 255
+		end_if
+
+		let opengl_vertex_green = opengl_vertex_green + 3
+
+		if opengl_vertex_green > 192 then
+
+			if opengl_vertex_green > 255 then
+				let opengl_vertex_green = 255
+			end_if
+
+			let opengl_vertex_blue = opengl_vertex_blue + 3
+
+			if opengl_vertex_blue > 255 then
+
+				let opengl_vertex_blue = 255
+				let counter = counter + 1
+			end_if
+		end_if
+	end_if
+
+	if counter = 50 then
+		goto destroyed
+	end_if
+
+	gosub explosion
+end
+
+.destroyed
+
+	spawn_entity ex_blinder 0 0 process_next
+	let last_child.draw_order = draw_order + 1
+
+
+
+	IF_HARDWARE_GRAPHICS then
+		IF_BLEND_MODE_AVAILABLE then
+			spawn_entity ex_planet_shatter_section 0 0 process_next
+			let last_child.parent = parent
+			let last_child.planet_type = planet_type
+			let last_child.planet_radius = planet_radius
+			let last_child.planet_section = 0
+			let last_child.main_movement_angle = 18000
+
+			spawn_entity ex_planet_shatter_section 0 0 process_next
+			let last_child.parent = parent
+			let last_child.planet_type = planet_type
+			let last_child.planet_radius = planet_radius
+			let last_child.planet_section = 1
+			let last_child.main_movement_angle = -4500
+
+			spawn_entity ex_planet_shatter_section 0 0 process_next
+			let last_child.parent = parent
+			let last_child.planet_type = planet_type
+			let last_child.planet_radius = planet_radius
+			let last_child.planet_section = 2
+			let last_child.main_movement_angle = 7000
+
+			let extra_helpings = 0
+		else
+			// Just have extra helpings of the regular debris
+			let extra_helpings = 12
+		end_if
+	else
+		// Just have extra helpings of the regular debris
+		let extra_helpings = 12
+	end_if
+
+	// Then create some lovely chunks
+
+	let temp_1 = rand 3 6
+	let temp_1 = temp_1 + extra_helpings
+
+	for counter = 0 to temp_1
+
+		let explosion_distance = rand 8 half_planet_radius
+		let explosion_angle = rand 0 36000
+		let x_offset = explosion_distance cos explosion_angle
+		let y_offset = explosion_distance sin explosion_angle
+
+		spawn_entity ex_planet_shatter_asteroid x_offset y_offset process_next
+
+		let last_child.parent = parent
+		let last_child.main_movement_angle = explosion_angle
+		let last_child.generation = rand 1 3
+		let last_child.sub_child = false
+
+	next
+
+	kill_entity parent
+
+	kill_entity own_id
+
+
+.explosion
+
+	let temp_1 = rand 0 explosion_chance
+
+	if temp_1 < 25 then
+		let explosion_distance = rand 0 planet_radius
+		let explosion_angle = rand 0 36000
+
+		if explosion_distance < half_planet_radius then
+			spawn_entity ex_player_rocket_explosion_flame x_offset y_offset process_next
+
+			let last_child.opengl_angle = explosion_angle + 9000
+			let last_child.opengl_scale_x = 2000
+			let last_child.opengl_scale_y = 2000
+			let last_child.draw_order = last_child.draw_order + 2
+		else
+			let x_offset = explosion_distance cos explosion_angle
+			let y_offset = explosion_distance sin explosion_angle
+
+			spawn_entity ex_mushroom_cloud_explosion x_offset y_offset process_next
+
+			let last_child.opengl_angle = explosion_angle + 9000
+			let last_child.opengl_scale_x = 2000
+			let last_child.opengl_scale_y = 2000
+			let last_child.draw_order = last_child.draw_order + 2
+		end_if
+
+	end_if
+
+
+return

@@ -1,0 +1,3 @@
+	SET_GLOBAL_FLAG (fuzz_counter,FUZZ_COUNTER_START_VALUE)
+
+return

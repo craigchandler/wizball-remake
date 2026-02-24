@@ -1,0 +1,1021 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		880026B00CDE5DE400DF3F28 /* libAlleg.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 880026AF0CDE5DE400DF3F28 /* libAlleg.a */; };
+		880026B20CDE5DFD00DF3F28 /* libagl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 880026B10CDE5DFD00DF3F28 /* libagl.a */; };
+		880026B30CDE5E1700DF3F28 /* ai_nodes.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024B10CDE5CDA00DF3F28 /* ai_nodes.cpp */; };
+		880026B40CDE5E1B00DF3F28 /* ai_zones.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024B30CDE5CDA00DF3F28 /* ai_zones.cpp */; };
+		880026B50CDE5E1C00DF3F28 /* arrays.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024B60CDE5CDA00DF3F28 /* arrays.cpp */; };
+		880026B60CDE5E3400DF3F28 /* tilemaps.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880025060CDE5CDA00DF3F28 /* tilemaps.cpp */; };
+		880026B70CDE5E3500DF3F28 /* tilegroup.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880025040CDE5CDA00DF3F28 /* tilegroup.cpp */; };
+		880026B80CDE5E3500DF3F28 /* tilecolour.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880025020CDE5CDA00DF3F28 /* tilecolour.cpp */; };
+		880026B90CDE5E3600DF3F28 /* hiscores.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024DA0CDE5CDA00DF3F28 /* hiscores.cpp */; };
+		880026BA0CDE5E3700DF3F28 /* vertex_colouring.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8800250E0CDE5CDA00DF3F28 /* vertex_colouring.cpp */; };
+		880026BB0CDE5E3700DF3F28 /* graphics.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024D60CDE5CDA00DF3F28 /* graphics.cpp */; };
+		880026BC0CDE5E3900DF3F28 /* report.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024EF0CDE5CDA00DF3F28 /* report.cpp */; };
+		880026BD0CDE5E3900DF3F28 /* control.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024BA0CDE5CDA00DF3F28 /* control.cpp */; };
+		880026BE0CDE5E3A00DF3F28 /* global_param_list.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024D40CDE5CDA00DF3F28 /* global_param_list.cpp */; };
+		880026BF0CDE5E3A00DF3F28 /* file_stuff.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024C90CDE5CDA00DF3F28 /* file_stuff.cpp */; };
+		880026C00CDE5E3B00DF3F28 /* paths.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024EC0CDE5CDA00DF3F28 /* paths.cpp */; };
+		880026C10CDE5E3C00DF3F28 /* FORTIFY.CPP in Sources */ = {isa = PBXBuildFile; fileRef = 880024CD0CDE5CDA00DF3F28 /* FORTIFY.CPP */; };
+		880026C20CDE5E3D00DF3F28 /* font_routines.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024CB0CDE5CDA00DF3F28 /* font_routines.cpp */; };
+		880026C30CDE5E3E00DF3F28 /* output.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024E60CDE5CDA00DF3F28 /* output.cpp */; };
+		880026C40CDE5E3E00DF3F28 /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024E80CDE5CDA00DF3F28 /* parser.cpp */; };
+		880026C50CDE5E3F00DF3F28 /* object_collision.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024E40CDE5CDA00DF3F28 /* object_collision.cpp */; };
+		880026C60CDE5E4100DF3F28 /* string_stuff.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024FE0CDE5CDA00DF3F28 /* string_stuff.cpp */; };
+		880026C70CDE5E4200DF3F28 /* scripting.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024F40CDE5CDA00DF3F28 /* scripting.cpp */; };
+		880026C80CDE5E4300DF3F28 /* game.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024D10CDE5CDA00DF3F28 /* game.cpp */; };
+		880026C90CDE5E4300DF3F28 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024DE0CDE5CDA00DF3F28 /* main.cpp */; };
+		880026CA0CDE5E4500DF3F28 /* helpertag.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024D80CDE5CDA00DF3F28 /* helpertag.cpp */; };
+		880026CB0CDE5E4600DF3F28 /* input_recording.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024DC0CDE5CDA00DF3F28 /* input_recording.cpp */; };
+		880026CC0CDE5E4600DF3F28 /* tilesets.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880025080CDE5CDA00DF3F28 /* tilesets.cpp */; };
+		880026CD0CDE5E4700DF3F28 /* vector_collision.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8800250B0CDE5CDA00DF3F28 /* vector_collision.cpp */; };
+		880026CE0CDE5E4800DF3F28 /* particles.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024EA0CDE5CDA00DF3F28 /* particles.cpp */; };
+		880026CF0CDE5E4A00DF3F28 /* events.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024C70CDE5CDA00DF3F28 /* events.cpp */; };
+		880026D00CDE5E4A00DF3F28 /* math_stuff.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024E00CDE5CDA00DF3F28 /* math_stuff.cpp */; };
+		880026D10CDE5E4B00DF3F28 /* simple_gui.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024F70CDE5CDA00DF3F28 /* simple_gui.cpp */; };
+		880026D20CDE5E4B00DF3F28 /* sound.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024F90CDE5CDA00DF3F28 /* sound.cpp */; };
+		880026D30CDE5E4D00DF3F28 /* roomzones.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024F10CDE5CDA00DF3F28 /* roomzones.cpp */; };
+		880026D40CDE5E4D00DF3F28 /* new_editor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024E20CDE5CDA00DF3F28 /* new_editor.cpp */; };
+		880026D50CDE5E4E00DF3F28 /* spawn_points.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024FB0CDE5CDA00DF3F28 /* spawn_points.cpp */; };
+		880026D60CDE5E4F00DF3F28 /* textfiles.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880025000CDE5CDA00DF3F28 /* textfiles.cpp */; };
+		880026D70CDE5E5000DF3F28 /* world_collision.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8800269F0CDE5CDB00DF3F28 /* world_collision.cpp */; };
+		880026D80CDE5E5100DF3F28 /* funkyfont.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024CF0CDE5CDA00DF3F28 /* funkyfont.cpp */; };
+		880026DA0CDE5E7400DF3F28 /* libfmod_fat.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 880026D90CDE5E7400DF3F28 /* libfmod_fat.a */; };
+		880249B30D0C814D0043C6F4 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 880249B20D0C814D0043C6F4 /* CoreServices.framework */; };
+		880249B40D0C814D0043C6F4 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 880249B20D0C814D0043C6F4 /* CoreServices.framework */; };
+		8813AD9D0CE112D2003F7CA5 /* report.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024EF0CDE5CDA00DF3F28 /* report.cpp */; };
+		8813AD9E0CE112D2003F7CA5 /* ai_zones.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024B30CDE5CDA00DF3F28 /* ai_zones.cpp */; };
+		8813AD9F0CE112D2003F7CA5 /* vector_collision.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8800250B0CDE5CDA00DF3F28 /* vector_collision.cpp */; };
+		8813ADA00CE112D2003F7CA5 /* particles.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024EA0CDE5CDA00DF3F28 /* particles.cpp */; };
+		8813ADA10CE112D2003F7CA5 /* events.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024C70CDE5CDA00DF3F28 /* events.cpp */; };
+		8813ADA20CE112D2003F7CA5 /* math_stuff.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024E00CDE5CDA00DF3F28 /* math_stuff.cpp */; };
+		8813ADA30CE112D2003F7CA5 /* simple_gui.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024F70CDE5CDA00DF3F28 /* simple_gui.cpp */; };
+		8813ADA40CE112D2003F7CA5 /* FORTIFY.CPP in Sources */ = {isa = PBXBuildFile; fileRef = 880024CD0CDE5CDA00DF3F28 /* FORTIFY.CPP */; };
+		8813ADA50CE112D2003F7CA5 /* sound.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024F90CDE5CDA00DF3F28 /* sound.cpp */; };
+		8813ADA60CE112D2003F7CA5 /* graphics.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024D60CDE5CDA00DF3F28 /* graphics.cpp */; };
+		8813ADA70CE112D2003F7CA5 /* font_routines.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024CB0CDE5CDA00DF3F28 /* font_routines.cpp */; };
+		8813ADA80CE112D2003F7CA5 /* output.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024E60CDE5CDA00DF3F28 /* output.cpp */; };
+		8813ADA90CE112D2003F7CA5 /* parser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024E80CDE5CDA00DF3F28 /* parser.cpp */; };
+		8813ADAA0CE112D2003F7CA5 /* object_collision.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024E40CDE5CDA00DF3F28 /* object_collision.cpp */; };
+		8813ADAB0CE112D2003F7CA5 /* roomzones.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024F10CDE5CDA00DF3F28 /* roomzones.cpp */; };
+		8813ADAC0CE112D2003F7CA5 /* new_editor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024E20CDE5CDA00DF3F28 /* new_editor.cpp */; };
+		8813ADAD0CE112D2003F7CA5 /* spawn_points.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024FB0CDE5CDA00DF3F28 /* spawn_points.cpp */; };
+		8813ADAE0CE112D2003F7CA5 /* tilegroup.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880025040CDE5CDA00DF3F28 /* tilegroup.cpp */; };
+		8813ADAF0CE112D2003F7CA5 /* string_stuff.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024FE0CDE5CDA00DF3F28 /* string_stuff.cpp */; };
+		8813ADB00CE112D2003F7CA5 /* control.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024BA0CDE5CDA00DF3F28 /* control.cpp */; };
+		8813ADB10CE112D2003F7CA5 /* arrays.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024B60CDE5CDA00DF3F28 /* arrays.cpp */; };
+		8813ADB20CE112D2003F7CA5 /* global_param_list.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024D40CDE5CDA00DF3F28 /* global_param_list.cpp */; };
+		8813ADB30CE112D2003F7CA5 /* file_stuff.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024C90CDE5CDA00DF3F28 /* file_stuff.cpp */; };
+		8813ADB40CE112D2003F7CA5 /* paths.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024EC0CDE5CDA00DF3F28 /* paths.cpp */; };
+		8813ADB50CE112D2003F7CA5 /* tilecolour.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880025020CDE5CDA00DF3F28 /* tilecolour.cpp */; };
+		8813ADB60CE112D2003F7CA5 /* scripting.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024F40CDE5CDA00DF3F28 /* scripting.cpp */; };
+		8813ADB70CE112D2003F7CA5 /* game.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024D10CDE5CDA00DF3F28 /* game.cpp */; };
+		8813ADB80CE112D2003F7CA5 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024DE0CDE5CDA00DF3F28 /* main.cpp */; };
+		8813ADB90CE112D2003F7CA5 /* tilemaps.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880025060CDE5CDA00DF3F28 /* tilemaps.cpp */; };
+		8813ADBA0CE112D2003F7CA5 /* helpertag.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024D80CDE5CDA00DF3F28 /* helpertag.cpp */; };
+		8813ADBB0CE112D2003F7CA5 /* textfiles.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880025000CDE5CDA00DF3F28 /* textfiles.cpp */; };
+		8813ADBC0CE112D2003F7CA5 /* world_collision.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8800269F0CDE5CDB00DF3F28 /* world_collision.cpp */; };
+		8813ADBD0CE112D2003F7CA5 /* ai_nodes.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024B10CDE5CDA00DF3F28 /* ai_nodes.cpp */; };
+		8813ADBE0CE112D2003F7CA5 /* hiscores.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024DA0CDE5CDA00DF3F28 /* hiscores.cpp */; };
+		8813ADBF0CE112D2003F7CA5 /* funkyfont.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024CF0CDE5CDA00DF3F28 /* funkyfont.cpp */; };
+		8813ADC00CE112D2003F7CA5 /* vertex_colouring.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 8800250E0CDE5CDA00DF3F28 /* vertex_colouring.cpp */; };
+		8813ADC10CE112D2003F7CA5 /* input_recording.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880024DC0CDE5CDA00DF3F28 /* input_recording.cpp */; };
+		8813ADC20CE112D2003F7CA5 /* tilesets.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 880025080CDE5CDA00DF3F28 /* tilesets.cpp */; };
+		8813ADC30CE112E3003F7CA5 /* libagl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 880026B10CDE5DFD00DF3F28 /* libagl.a */; };
+		8813ADC40CE112E4003F7CA5 /* libfmod_fat.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 880026D90CDE5E7400DF3F28 /* libfmod_fat.a */; };
+		8813ADC50CE112E5003F7CA5 /* libAlleg.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 880026AF0CDE5DE400DF3F28 /* libAlleg.a */; };
+		8813ADDF0CE1137F003F7CA5 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06DB0CDFA7AE004AB5F0 /* Carbon.framework */; };
+		8813ADE00CE1137F003F7CA5 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06D90CDFA7AE004AB5F0 /* AudioToolbox.framework */; };
+		8813ADE10CE11380003F7CA5 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06DC0CDFA7AE004AB5F0 /* Cocoa.framework */; };
+		8813ADE20CE11381003F7CA5 /* System.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06E20CDFA7AE004AB5F0 /* System.framework */; };
+		8813ADE30CE11382003F7CA5 /* Quartz.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06E00CDFA7AE004AB5F0 /* Quartz.framework */; };
+		8813ADE40CE11383003F7CA5 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06DE0CDFA7AE004AB5F0 /* IOKit.framework */; };
+		8813ADE50CE11383003F7CA5 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06DD0CDFA7AE004AB5F0 /* CoreAudio.framework */; };
+		8813ADE60CE11384003F7CA5 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06DF0CDFA7AE004AB5F0 /* OpenGL.framework */; };
+		8813ADE70CE11384003F7CA5 /* QuickTime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06E10CDFA7AE004AB5F0 /* QuickTime.framework */; };
+		8813ADE80CE11385003F7CA5 /* AudioUnit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06DA0CDFA7AE004AB5F0 /* AudioUnit.framework */; };
+		8813ADF60CE1155B003F7CA5 /* macosx.m in Sources */ = {isa = PBXBuildFile; fileRef = 88962C710CE0E3B800FF6F8B /* macosx.m */; };
+		88714AE30CE27E7C0072BD63 /* datatable.dat in Resources */ = {isa = PBXBuildFile; fileRef = 88714AE20CE27E7C0072BD63 /* datatable.dat */; };
+		88906E8D0CE27767005BD389 /* gfx.dat in Resources */ = {isa = PBXBuildFile; fileRef = 88906E840CE27767005BD389 /* gfx.dat */; };
+		88906E8F0CE27767005BD389 /* prefabs.dat in Resources */ = {isa = PBXBuildFile; fileRef = 88906E860CE27767005BD389 /* prefabs.dat */; };
+		88906E900CE27767005BD389 /* sfx.dat in Resources */ = {isa = PBXBuildFile; fileRef = 88906E870CE27767005BD389 /* sfx.dat */; };
+		88906E910CE27767005BD389 /* stream.dat in Resources */ = {isa = PBXBuildFile; fileRef = 88906E880CE27767005BD389 /* stream.dat */; };
+		88906EA80CE27B35005BD389 /* data.dat in Resources */ = {isa = PBXBuildFile; fileRef = 88906EA70CE27B35005BD389 /* data.dat */; };
+		88906EAA0CE27B54005BD389 /* scriptfile.tsl in Resources */ = {isa = PBXBuildFile; fileRef = 88906EA90CE27B54005BD389 /* scriptfile.tsl */; };
+		88906EB70CE27B97005BD389 /* tilesets.dat in Resources */ = {isa = PBXBuildFile; fileRef = 88906E8A0CE27767005BD389 /* tilesets.dat */; };
+		88906EBC0CE27BA7005BD389 /* tilemaps.dat in Resources */ = {isa = PBXBuildFile; fileRef = 88906E890CE27767005BD389 /* tilemaps.dat */; };
+		88906EC40CE27C22005BD389 /* paths.dat in Resources */ = {isa = PBXBuildFile; fileRef = 88906E850CE27767005BD389 /* paths.dat */; };
+		88962C720CE0E3B800FF6F8B /* macosx.m in Sources */ = {isa = PBXBuildFile; fileRef = 88962C710CE0E3B800FF6F8B /* macosx.m */; };
+		88BD3A910CEE2C2A003D3E51 /* Wizball.icns in Resources */ = {isa = PBXBuildFile; fileRef = 88BD3A900CEE2C2A003D3E51 /* Wizball.icns */; };
+		88DB06E30CDFA7AE004AB5F0 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06D90CDFA7AE004AB5F0 /* AudioToolbox.framework */; };
+		88DB06E40CDFA7AE004AB5F0 /* AudioUnit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06DA0CDFA7AE004AB5F0 /* AudioUnit.framework */; };
+		88DB06E50CDFA7AE004AB5F0 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06DB0CDFA7AE004AB5F0 /* Carbon.framework */; };
+		88DB06E60CDFA7AE004AB5F0 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06DC0CDFA7AE004AB5F0 /* Cocoa.framework */; };
+		88DB06E70CDFA7AE004AB5F0 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06DD0CDFA7AE004AB5F0 /* CoreAudio.framework */; };
+		88DB06E80CDFA7AE004AB5F0 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06DE0CDFA7AE004AB5F0 /* IOKit.framework */; };
+		88DB06E90CDFA7AE004AB5F0 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06DF0CDFA7AE004AB5F0 /* OpenGL.framework */; };
+		88DB06EA0CDFA7AE004AB5F0 /* Quartz.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06E00CDFA7AE004AB5F0 /* Quartz.framework */; };
+		88DB06EB0CDFA7AE004AB5F0 /* QuickTime.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06E10CDFA7AE004AB5F0 /* QuickTime.framework */; };
+		88DB06EC0CDFA7AE004AB5F0 /* System.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 88DB06E20CDFA7AE004AB5F0 /* System.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		880024B10CDE5CDA00DF3F28 /* ai_nodes.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ai_nodes.cpp; path = ../WizBall/wizball/ai_nodes.cpp; sourceTree = SOURCE_ROOT; };
+		880024B20CDE5CDA00DF3F28 /* ai_nodes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ai_nodes.h; path = ../WizBall/wizball/ai_nodes.h; sourceTree = SOURCE_ROOT; };
+		880024B30CDE5CDA00DF3F28 /* ai_zones.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = ai_zones.cpp; path = ../WizBall/wizball/ai_zones.cpp; sourceTree = SOURCE_ROOT; };
+		880024B40CDE5CDA00DF3F28 /* ai_zones.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ai_zones.h; path = ../WizBall/wizball/ai_zones.h; sourceTree = SOURCE_ROOT; };
+		880024B50CDE5CDA00DF3F28 /* algorithms.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = algorithms.h; path = ../WizBall/wizball/algorithms.h; sourceTree = SOURCE_ROOT; };
+		880024B60CDE5CDA00DF3F28 /* arrays.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = arrays.cpp; path = ../WizBall/wizball/arrays.cpp; sourceTree = SOURCE_ROOT; };
+		880024B70CDE5CDA00DF3F28 /* arrays.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = arrays.h; path = ../WizBall/wizball/arrays.h; sourceTree = SOURCE_ROOT; };
+		880024B80CDE5CDA00DF3F28 /* bitshift_amount.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = bitshift_amount.h; path = ../WizBall/wizball/bitshift_amount.h; sourceTree = SOURCE_ROOT; };
+		880024B90CDE5CDA00DF3F28 /* blim.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = blim.h; path = ../WizBall/wizball/blim.h; sourceTree = SOURCE_ROOT; };
+		880024BA0CDE5CDA00DF3F28 /* control.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = control.cpp; path = ../WizBall/wizball/control.cpp; sourceTree = SOURCE_ROOT; };
+		880024BB0CDE5CDA00DF3F28 /* control.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = control.h; path = ../WizBall/wizball/control.h; sourceTree = SOURCE_ROOT; };
+		880024BD0CDE5CDA00DF3F28 /* block_profiles.bmp */ = {isa = PBXFileReference; lastKnownFileType = image.bmp; path = block_profiles.bmp; sourceTree = "<group>"; };
+		880024BE0CDE5CDA00DF3F28 /* editor_bitmask.bmp */ = {isa = PBXFileReference; lastKnownFileType = image.bmp; path = editor_bitmask.bmp; sourceTree = "<group>"; };
+		880024BF0CDE5CDA00DF3F28 /* editor_font_large.bmp */ = {isa = PBXFileReference; lastKnownFileType = image.bmp; path = editor_font_large.bmp; sourceTree = "<group>"; };
+		880024C00CDE5CDA00DF3F28 /* editor_font_medium.bmp */ = {isa = PBXFileReference; lastKnownFileType = image.bmp; path = editor_font_medium.bmp; sourceTree = "<group>"; };
+		880024C10CDE5CDA00DF3F28 /* editor_font_small_bak.bmp */ = {isa = PBXFileReference; lastKnownFileType = image.bmp; path = editor_font_small_bak.bmp; sourceTree = "<group>"; };
+		880024C20CDE5CDA00DF3F28 /* editor_gui.bmp */ = {isa = PBXFileReference; lastKnownFileType = image.bmp; path = editor_gui.bmp; sourceTree = "<group>"; };
+		880024C30CDE5CDA00DF3F28 /* editor_object_sides.bmp */ = {isa = PBXFileReference; lastKnownFileType = image.bmp; path = editor_object_sides.bmp; sourceTree = "<group>"; };
+		880024C40CDE5CDA00DF3F28 /* grouping_example.bmp */ = {isa = PBXFileReference; lastKnownFileType = image.bmp; path = grouping_example.bmp; sourceTree = "<group>"; };
+		880024C50CDE5CDA00DF3F28 /* intelligent_tiling_example.bmp */ = {isa = PBXFileReference; lastKnownFileType = image.bmp; path = intelligent_tiling_example.bmp; sourceTree = "<group>"; };
+		880024C60CDE5CDA00DF3F28 /* Thumbs.db */ = {isa = PBXFileReference; lastKnownFileType = file; path = Thumbs.db; sourceTree = "<group>"; };
+		880024C70CDE5CDA00DF3F28 /* events.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = events.cpp; path = ../WizBall/wizball/events.cpp; sourceTree = SOURCE_ROOT; };
+		880024C80CDE5CDA00DF3F28 /* events.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = events.h; path = ../WizBall/wizball/events.h; sourceTree = SOURCE_ROOT; };
+		880024C90CDE5CDA00DF3F28 /* file_stuff.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = file_stuff.cpp; path = ../WizBall/wizball/file_stuff.cpp; sourceTree = SOURCE_ROOT; };
+		880024CA0CDE5CDA00DF3F28 /* file_stuff.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = file_stuff.h; path = ../WizBall/wizball/file_stuff.h; sourceTree = SOURCE_ROOT; };
+		880024CB0CDE5CDA00DF3F28 /* font_routines.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = font_routines.cpp; path = ../WizBall/wizball/font_routines.cpp; sourceTree = SOURCE_ROOT; };
+		880024CC0CDE5CDA00DF3F28 /* font_routines.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = font_routines.h; path = ../WizBall/wizball/font_routines.h; sourceTree = SOURCE_ROOT; };
+		880024CD0CDE5CDA00DF3F28 /* FORTIFY.CPP */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = FORTIFY.CPP; path = ../WizBall/wizball/FORTIFY.CPP; sourceTree = SOURCE_ROOT; };
+		880024CE0CDE5CDA00DF3F28 /* FORTIFY.H */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.h; name = FORTIFY.H; path = ../WizBall/wizball/FORTIFY.H; sourceTree = SOURCE_ROOT; };
+		880024CF0CDE5CDA00DF3F28 /* funkyfont.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = funkyfont.cpp; path = ../WizBall/wizball/funkyfont.cpp; sourceTree = SOURCE_ROOT; };
+		880024D00CDE5CDA00DF3F28 /* funkyfont.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = funkyfont.h; path = ../WizBall/wizball/funkyfont.h; sourceTree = SOURCE_ROOT; };
+		880024D10CDE5CDA00DF3F28 /* game.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = game.cpp; path = ../WizBall/wizball/game.cpp; sourceTree = SOURCE_ROOT; };
+		880024D20CDE5CDA00DF3F28 /* game.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = game.h; path = ../WizBall/wizball/game.h; sourceTree = SOURCE_ROOT; };
+		880024D30CDE5CDA00DF3F28 /* glext.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = glext.h; path = ../WizBall/wizball/glext.h; sourceTree = SOURCE_ROOT; };
+		880024D40CDE5CDA00DF3F28 /* global_param_list.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = global_param_list.cpp; path = ../WizBall/wizball/global_param_list.cpp; sourceTree = SOURCE_ROOT; };
+		880024D50CDE5CDA00DF3F28 /* global_param_list.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = global_param_list.h; path = ../WizBall/wizball/global_param_list.h; sourceTree = SOURCE_ROOT; };
+		880024D60CDE5CDA00DF3F28 /* graphics.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = graphics.cpp; path = ../WizBall/wizball/graphics.cpp; sourceTree = SOURCE_ROOT; };
+		880024D70CDE5CDA00DF3F28 /* graphics.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = graphics.h; path = ../WizBall/wizball/graphics.h; sourceTree = SOURCE_ROOT; };
+		880024D80CDE5CDA00DF3F28 /* helpertag.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = helpertag.cpp; path = ../WizBall/wizball/helpertag.cpp; sourceTree = SOURCE_ROOT; };
+		880024D90CDE5CDA00DF3F28 /* helpertag.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = helpertag.h; path = ../WizBall/wizball/helpertag.h; sourceTree = SOURCE_ROOT; };
+		880024DA0CDE5CDA00DF3F28 /* hiscores.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = hiscores.cpp; path = ../WizBall/wizball/hiscores.cpp; sourceTree = SOURCE_ROOT; };
+		880024DB0CDE5CDA00DF3F28 /* hiscores.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = hiscores.h; path = ../WizBall/wizball/hiscores.h; sourceTree = SOURCE_ROOT; };
+		880024DC0CDE5CDA00DF3F28 /* input_recording.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = input_recording.cpp; path = ../WizBall/wizball/input_recording.cpp; sourceTree = SOURCE_ROOT; };
+		880024DD0CDE5CDA00DF3F28 /* input_recording.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = input_recording.h; path = ../WizBall/wizball/input_recording.h; sourceTree = SOURCE_ROOT; };
+		880024DE0CDE5CDA00DF3F28 /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = ../WizBall/wizball/main.cpp; sourceTree = SOURCE_ROOT; };
+		880024DF0CDE5CDA00DF3F28 /* main.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = main.h; path = ../WizBall/wizball/main.h; sourceTree = SOURCE_ROOT; };
+		880024E00CDE5CDA00DF3F28 /* math_stuff.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = math_stuff.cpp; path = ../WizBall/wizball/math_stuff.cpp; sourceTree = SOURCE_ROOT; };
+		880024E10CDE5CDA00DF3F28 /* math_stuff.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = math_stuff.h; path = ../WizBall/wizball/math_stuff.h; sourceTree = SOURCE_ROOT; };
+		880024E20CDE5CDA00DF3F28 /* new_editor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = new_editor.cpp; path = ../WizBall/wizball/new_editor.cpp; sourceTree = SOURCE_ROOT; };
+		880024E30CDE5CDA00DF3F28 /* new_editor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = new_editor.h; path = ../WizBall/wizball/new_editor.h; sourceTree = SOURCE_ROOT; };
+		880024E40CDE5CDA00DF3F28 /* object_collision.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = object_collision.cpp; path = ../WizBall/wizball/object_collision.cpp; sourceTree = SOURCE_ROOT; };
+		880024E50CDE5CDA00DF3F28 /* object_collision.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = object_collision.h; path = ../WizBall/wizball/object_collision.h; sourceTree = SOURCE_ROOT; };
+		880024E60CDE5CDA00DF3F28 /* output.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = output.cpp; path = ../WizBall/wizball/output.cpp; sourceTree = SOURCE_ROOT; };
+		880024E70CDE5CDA00DF3F28 /* output.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = output.h; path = ../WizBall/wizball/output.h; sourceTree = SOURCE_ROOT; };
+		880024E80CDE5CDA00DF3F28 /* parser.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = parser.cpp; path = ../WizBall/wizball/parser.cpp; sourceTree = SOURCE_ROOT; };
+		880024E90CDE5CDA00DF3F28 /* parser.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = parser.h; path = ../WizBall/wizball/parser.h; sourceTree = SOURCE_ROOT; };
+		880024EA0CDE5CDA00DF3F28 /* particles.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = particles.cpp; path = ../WizBall/wizball/particles.cpp; sourceTree = SOURCE_ROOT; };
+		880024EB0CDE5CDA00DF3F28 /* particles.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = particles.h; path = ../WizBall/wizball/particles.h; sourceTree = SOURCE_ROOT; };
+		880024EC0CDE5CDA00DF3F28 /* paths.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = paths.cpp; path = ../WizBall/wizball/paths.cpp; sourceTree = SOURCE_ROOT; };
+		880024ED0CDE5CDA00DF3F28 /* paths.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = paths.h; path = ../WizBall/wizball/paths.h; sourceTree = SOURCE_ROOT; };
+		880024EE0CDE5CDA00DF3F28 /* physics.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = physics.h; path = ../WizBall/wizball/physics.h; sourceTree = SOURCE_ROOT; };
+		880024EF0CDE5CDA00DF3F28 /* report.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = report.cpp; path = ../WizBall/wizball/report.cpp; sourceTree = SOURCE_ROOT; };
+		880024F00CDE5CDA00DF3F28 /* report.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = report.h; path = ../WizBall/wizball/report.h; sourceTree = SOURCE_ROOT; };
+		880024F10CDE5CDA00DF3F28 /* roomzones.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = roomzones.cpp; path = ../WizBall/wizball/roomzones.cpp; sourceTree = SOURCE_ROOT; };
+		880024F20CDE5CDA00DF3F28 /* roomzones.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = roomzones.h; path = ../WizBall/wizball/roomzones.h; sourceTree = SOURCE_ROOT; };
+		880024F30CDE5CDA00DF3F28 /* scripting_enums.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = scripting_enums.h; path = ../WizBall/wizball/scripting_enums.h; sourceTree = SOURCE_ROOT; };
+		880024F40CDE5CDA00DF3F28 /* scripting.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = scripting.cpp; path = ../WizBall/wizball/scripting.cpp; sourceTree = SOURCE_ROOT; };
+		880024F50CDE5CDA00DF3F28 /* scripting.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = scripting.h; path = ../WizBall/wizball/scripting.h; sourceTree = SOURCE_ROOT; };
+		880024F60CDE5CDA00DF3F28 /* shared_collision_defines.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = shared_collision_defines.h; path = ../WizBall/wizball/shared_collision_defines.h; sourceTree = SOURCE_ROOT; };
+		880024F70CDE5CDA00DF3F28 /* simple_gui.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = simple_gui.cpp; path = ../WizBall/wizball/simple_gui.cpp; sourceTree = SOURCE_ROOT; };
+		880024F80CDE5CDA00DF3F28 /* simple_gui.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = simple_gui.h; path = ../WizBall/wizball/simple_gui.h; sourceTree = SOURCE_ROOT; };
+		880024F90CDE5CDA00DF3F28 /* sound.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = sound.cpp; path = ../WizBall/wizball/sound.cpp; sourceTree = SOURCE_ROOT; };
+		880024FA0CDE5CDA00DF3F28 /* sound.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = sound.h; path = ../WizBall/wizball/sound.h; sourceTree = SOURCE_ROOT; };
+		880024FB0CDE5CDA00DF3F28 /* spawn_points.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = spawn_points.cpp; path = ../WizBall/wizball/spawn_points.cpp; sourceTree = SOURCE_ROOT; };
+		880024FC0CDE5CDA00DF3F28 /* spawn_points.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = spawn_points.h; path = ../WizBall/wizball/spawn_points.h; sourceTree = SOURCE_ROOT; };
+		880024FD0CDE5CDA00DF3F28 /* string_size_constants.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = string_size_constants.h; path = ../WizBall/wizball/string_size_constants.h; sourceTree = SOURCE_ROOT; };
+		880024FE0CDE5CDA00DF3F28 /* string_stuff.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = string_stuff.cpp; path = ../WizBall/wizball/string_stuff.cpp; sourceTree = SOURCE_ROOT; };
+		880024FF0CDE5CDA00DF3F28 /* string_stuff.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = string_stuff.h; path = ../WizBall/wizball/string_stuff.h; sourceTree = SOURCE_ROOT; };
+		880025000CDE5CDA00DF3F28 /* textfiles.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = textfiles.cpp; path = ../WizBall/wizball/textfiles.cpp; sourceTree = SOURCE_ROOT; };
+		880025010CDE5CDA00DF3F28 /* textfiles.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = textfiles.h; path = ../WizBall/wizball/textfiles.h; sourceTree = SOURCE_ROOT; };
+		880025020CDE5CDA00DF3F28 /* tilecolour.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = tilecolour.cpp; path = ../WizBall/wizball/tilecolour.cpp; sourceTree = SOURCE_ROOT; };
+		880025030CDE5CDA00DF3F28 /* tilecolour.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = tilecolour.h; path = ../WizBall/wizball/tilecolour.h; sourceTree = SOURCE_ROOT; };
+		880025040CDE5CDA00DF3F28 /* tilegroup.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = tilegroup.cpp; path = ../WizBall/wizball/tilegroup.cpp; sourceTree = SOURCE_ROOT; };
+		880025050CDE5CDA00DF3F28 /* tilegroup.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = tilegroup.h; path = ../WizBall/wizball/tilegroup.h; sourceTree = SOURCE_ROOT; };
+		880025060CDE5CDA00DF3F28 /* tilemaps.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = tilemaps.cpp; path = ../WizBall/wizball/tilemaps.cpp; sourceTree = SOURCE_ROOT; };
+		880025070CDE5CDA00DF3F28 /* tilemaps.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = tilemaps.h; path = ../WizBall/wizball/tilemaps.h; sourceTree = SOURCE_ROOT; };
+		880025080CDE5CDA00DF3F28 /* tilesets.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = tilesets.cpp; path = ../WizBall/wizball/tilesets.cpp; sourceTree = SOURCE_ROOT; };
+		880025090CDE5CDA00DF3F28 /* tilesets.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = tilesets.h; path = ../WizBall/wizball/tilesets.h; sourceTree = SOURCE_ROOT; };
+		8800250A0CDE5CDA00DF3F28 /* UFORTIFY.H */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.h; name = UFORTIFY.H; path = ../WizBall/wizball/UFORTIFY.H; sourceTree = SOURCE_ROOT; };
+		8800250B0CDE5CDA00DF3F28 /* vector_collision.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = vector_collision.cpp; path = ../WizBall/wizball/vector_collision.cpp; sourceTree = SOURCE_ROOT; };
+		8800250C0CDE5CDA00DF3F28 /* vector_collision.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = vector_collision.h; path = ../WizBall/wizball/vector_collision.h; sourceTree = SOURCE_ROOT; };
+		8800250D0CDE5CDA00DF3F28 /* version.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = version.h; path = ../WizBall/wizball/version.h; sourceTree = SOURCE_ROOT; };
+		8800250E0CDE5CDA00DF3F28 /* vertex_colouring.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = vertex_colouring.cpp; path = ../WizBall/wizball/vertex_colouring.cpp; sourceTree = SOURCE_ROOT; };
+		8800250F0CDE5CDA00DF3F28 /* vertex_colouring.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = vertex_colouring.h; path = ../WizBall/wizball/vertex_colouring.h; sourceTree = SOURCE_ROOT; };
+		8800269F0CDE5CDB00DF3F28 /* world_collision.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = world_collision.cpp; path = ../WizBall/wizball/world_collision.cpp; sourceTree = SOURCE_ROOT; };
+		880026A00CDE5CDB00DF3F28 /* world_collision.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = world_collision.h; path = ../WizBall/wizball/world_collision.h; sourceTree = SOURCE_ROOT; };
+		880026A70CDE5D5D00DF3F28 /* Wizball.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wizball.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		880026AA0CDE5D5D00DF3F28 /* Wizball-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Wizball-Info.plist"; sourceTree = "<group>"; };
+		880026AF0CDE5DE400DF3F28 /* libAlleg.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libAlleg.a; sourceTree = "<group>"; };
+		880026B10CDE5DFD00DF3F28 /* libagl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libagl.a; sourceTree = "<group>"; };
+		880026D90CDE5E7400DF3F28 /* libfmod_fat.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libfmod_fat.a; sourceTree = "<group>"; };
+		880249B20D0C814D0043C6F4 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
+		8813AD910CE1122E003F7CA5 /* Editor */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Editor; sourceTree = BUILT_PRODUCTS_DIR; };
+		88714AE20CE27E7C0072BD63 /* datatable.dat */ = {isa = PBXFileReference; lastKnownFileType = file; name = datatable.dat; path = wizball/wizball/datatable.dat; sourceTree = "<group>"; };
+		88906E840CE27767005BD389 /* gfx.dat */ = {isa = PBXFileReference; lastKnownFileType = file; name = gfx.dat; path = wizball/wizball/gfx.dat; sourceTree = "<group>"; };
+		88906E850CE27767005BD389 /* paths.dat */ = {isa = PBXFileReference; lastKnownFileType = file; name = paths.dat; path = wizball/wizball/paths.dat; sourceTree = "<group>"; };
+		88906E860CE27767005BD389 /* prefabs.dat */ = {isa = PBXFileReference; lastKnownFileType = file; name = prefabs.dat; path = wizball/wizball/prefabs.dat; sourceTree = "<group>"; };
+		88906E870CE27767005BD389 /* sfx.dat */ = {isa = PBXFileReference; lastKnownFileType = file; name = sfx.dat; path = wizball/wizball/sfx.dat; sourceTree = "<group>"; };
+		88906E880CE27767005BD389 /* stream.dat */ = {isa = PBXFileReference; lastKnownFileType = file; name = stream.dat; path = wizball/wizball/stream.dat; sourceTree = "<group>"; };
+		88906E890CE27767005BD389 /* tilemaps.dat */ = {isa = PBXFileReference; lastKnownFileType = file; name = tilemaps.dat; path = wizball/wizball/tilemaps.dat; sourceTree = "<group>"; };
+		88906E8A0CE27767005BD389 /* tilesets.dat */ = {isa = PBXFileReference; lastKnownFileType = file; name = tilesets.dat; path = wizball/wizball/tilesets.dat; sourceTree = "<group>"; };
+		88906EA70CE27B35005BD389 /* data.dat */ = {isa = PBXFileReference; lastKnownFileType = file; name = data.dat; path = wizball/wizball/data.dat; sourceTree = "<group>"; };
+		88906EA90CE27B54005BD389 /* scriptfile.tsl */ = {isa = PBXFileReference; explicitFileType = file; name = scriptfile.tsl; path = wizball/wizball/scriptfile.tsl; sourceTree = "<group>"; };
+		88962C5C0CE0E29300FF6F8B /* SCRIPTLANGUAGE.TXT */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = SCRIPTLANGUAGE.TXT; path = wizball/SCRIPTLANGUAGE.TXT; sourceTree = "<group>"; };
+		88962C710CE0E3B800FF6F8B /* macosx.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; path = macosx.m; sourceTree = "<group>"; };
+		88BD3A900CEE2C2A003D3E51 /* Wizball.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = Wizball.icns; sourceTree = "<group>"; };
+		88DB06D90CDFA7AE004AB5F0 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = /System/Library/Frameworks/AudioToolbox.framework; sourceTree = "<absolute>"; };
+		88DB06DA0CDFA7AE004AB5F0 /* AudioUnit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioUnit.framework; path = /System/Library/Frameworks/AudioUnit.framework; sourceTree = "<absolute>"; };
+		88DB06DB0CDFA7AE004AB5F0 /* Carbon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Carbon.framework; path = /System/Library/Frameworks/Carbon.framework; sourceTree = "<absolute>"; };
+		88DB06DC0CDFA7AE004AB5F0 /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
+		88DB06DD0CDFA7AE004AB5F0 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = /System/Library/Frameworks/CoreAudio.framework; sourceTree = "<absolute>"; };
+		88DB06DE0CDFA7AE004AB5F0 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		88DB06DF0CDFA7AE004AB5F0 /* OpenGL.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGL.framework; path = /System/Library/Frameworks/OpenGL.framework; sourceTree = "<absolute>"; };
+		88DB06E00CDFA7AE004AB5F0 /* Quartz.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Quartz.framework; path = /System/Library/Frameworks/Quartz.framework; sourceTree = "<absolute>"; };
+		88DB06E10CDFA7AE004AB5F0 /* QuickTime.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickTime.framework; path = /System/Library/Frameworks/QuickTime.framework; sourceTree = "<absolute>"; };
+		88DB06E20CDFA7AE004AB5F0 /* System.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = System.framework; path = /System/Library/Frameworks/System.framework; sourceTree = "<absolute>"; };
+		88DB07030CDFA824004AB5F0 /* wizball */ = {isa = PBXFileReference; lastKnownFileType = folder; name = wizball; path = wizball/wizball; sourceTree = "<group>"; };
+		88DB089D0CDFA824004AB5F0 /* wizball.prj */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = wizball.prj; path = wizball/wizball.prj; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		880026A50CDE5D5C00DF3F28 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				880026B20CDE5DFD00DF3F28 /* libagl.a in Frameworks */,
+				880026B00CDE5DE400DF3F28 /* libAlleg.a in Frameworks */,
+				880026DA0CDE5E7400DF3F28 /* libfmod_fat.a in Frameworks */,
+				88DB06E30CDFA7AE004AB5F0 /* AudioToolbox.framework in Frameworks */,
+				88DB06E40CDFA7AE004AB5F0 /* AudioUnit.framework in Frameworks */,
+				88DB06E50CDFA7AE004AB5F0 /* Carbon.framework in Frameworks */,
+				88DB06E60CDFA7AE004AB5F0 /* Cocoa.framework in Frameworks */,
+				88DB06E70CDFA7AE004AB5F0 /* CoreAudio.framework in Frameworks */,
+				88DB06E80CDFA7AE004AB5F0 /* IOKit.framework in Frameworks */,
+				88DB06E90CDFA7AE004AB5F0 /* OpenGL.framework in Frameworks */,
+				88DB06EA0CDFA7AE004AB5F0 /* Quartz.framework in Frameworks */,
+				88DB06EB0CDFA7AE004AB5F0 /* QuickTime.framework in Frameworks */,
+				88DB06EC0CDFA7AE004AB5F0 /* System.framework in Frameworks */,
+				880249B30D0C814D0043C6F4 /* CoreServices.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8813AD8F0CE1122E003F7CA5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8813ADC30CE112E3003F7CA5 /* libagl.a in Frameworks */,
+				8813ADC40CE112E4003F7CA5 /* libfmod_fat.a in Frameworks */,
+				8813ADC50CE112E5003F7CA5 /* libAlleg.a in Frameworks */,
+				8813ADDF0CE1137F003F7CA5 /* Carbon.framework in Frameworks */,
+				8813ADE00CE1137F003F7CA5 /* AudioToolbox.framework in Frameworks */,
+				8813ADE10CE11380003F7CA5 /* Cocoa.framework in Frameworks */,
+				8813ADE20CE11381003F7CA5 /* System.framework in Frameworks */,
+				8813ADE30CE11382003F7CA5 /* Quartz.framework in Frameworks */,
+				8813ADE40CE11383003F7CA5 /* IOKit.framework in Frameworks */,
+				8813ADE50CE11383003F7CA5 /* CoreAudio.framework in Frameworks */,
+				8813ADE60CE11384003F7CA5 /* OpenGL.framework in Frameworks */,
+				8813ADE70CE11384003F7CA5 /* QuickTime.framework in Frameworks */,
+				8813ADE80CE11385003F7CA5 /* AudioUnit.framework in Frameworks */,
+				880249B40D0C814D0043C6F4 /* CoreServices.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		880024A00CDE5C3200DF3F28 = {
+			isa = PBXGroup;
+			children = (
+				88906EC80CE27D12005BD389 /* Resources */,
+				88DB07030CDFA824004AB5F0 /* wizball */,
+				88DB089D0CDFA824004AB5F0 /* wizball.prj */,
+				88DB06D80CDFA766004AB5F0 /* Frameworks */,
+				880026AE0CDE5DC200DF3F28 /* Libraries */,
+				880024B00CDE5C8D00DF3F28 /* Source */,
+				880024BC0CDE5CDA00DF3F28 /* editor */,
+				880026A80CDE5D5D00DF3F28 /* Products */,
+				880026AA0CDE5D5D00DF3F28 /* Wizball-Info.plist */,
+			);
+			sourceTree = "<group>";
+		};
+		880024B00CDE5C8D00DF3F28 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				88962C710CE0E3B800FF6F8B /* macosx.m */,
+				880024B10CDE5CDA00DF3F28 /* ai_nodes.cpp */,
+				880024B20CDE5CDA00DF3F28 /* ai_nodes.h */,
+				880024B30CDE5CDA00DF3F28 /* ai_zones.cpp */,
+				880024B40CDE5CDA00DF3F28 /* ai_zones.h */,
+				880024B50CDE5CDA00DF3F28 /* algorithms.h */,
+				880024B60CDE5CDA00DF3F28 /* arrays.cpp */,
+				880024B70CDE5CDA00DF3F28 /* arrays.h */,
+				880024B80CDE5CDA00DF3F28 /* bitshift_amount.h */,
+				880024B90CDE5CDA00DF3F28 /* blim.h */,
+				880024BA0CDE5CDA00DF3F28 /* control.cpp */,
+				880024BB0CDE5CDA00DF3F28 /* control.h */,
+				880024C70CDE5CDA00DF3F28 /* events.cpp */,
+				880024C80CDE5CDA00DF3F28 /* events.h */,
+				880024C90CDE5CDA00DF3F28 /* file_stuff.cpp */,
+				880024CA0CDE5CDA00DF3F28 /* file_stuff.h */,
+				880024CB0CDE5CDA00DF3F28 /* font_routines.cpp */,
+				880024CC0CDE5CDA00DF3F28 /* font_routines.h */,
+				880024CD0CDE5CDA00DF3F28 /* FORTIFY.CPP */,
+				880024CE0CDE5CDA00DF3F28 /* FORTIFY.H */,
+				880024CF0CDE5CDA00DF3F28 /* funkyfont.cpp */,
+				880024D00CDE5CDA00DF3F28 /* funkyfont.h */,
+				880024D10CDE5CDA00DF3F28 /* game.cpp */,
+				880024D20CDE5CDA00DF3F28 /* game.h */,
+				880024D30CDE5CDA00DF3F28 /* glext.h */,
+				880024D40CDE5CDA00DF3F28 /* global_param_list.cpp */,
+				880024D50CDE5CDA00DF3F28 /* global_param_list.h */,
+				880024D60CDE5CDA00DF3F28 /* graphics.cpp */,
+				880024D70CDE5CDA00DF3F28 /* graphics.h */,
+				880024D80CDE5CDA00DF3F28 /* helpertag.cpp */,
+				880024D90CDE5CDA00DF3F28 /* helpertag.h */,
+				880024DA0CDE5CDA00DF3F28 /* hiscores.cpp */,
+				880024DB0CDE5CDA00DF3F28 /* hiscores.h */,
+				880024DC0CDE5CDA00DF3F28 /* input_recording.cpp */,
+				880024DD0CDE5CDA00DF3F28 /* input_recording.h */,
+				880024DE0CDE5CDA00DF3F28 /* main.cpp */,
+				880024DF0CDE5CDA00DF3F28 /* main.h */,
+				880024E00CDE5CDA00DF3F28 /* math_stuff.cpp */,
+				880024E10CDE5CDA00DF3F28 /* math_stuff.h */,
+				880024E20CDE5CDA00DF3F28 /* new_editor.cpp */,
+				880024E30CDE5CDA00DF3F28 /* new_editor.h */,
+				880024E40CDE5CDA00DF3F28 /* object_collision.cpp */,
+				880024E50CDE5CDA00DF3F28 /* object_collision.h */,
+				880024E60CDE5CDA00DF3F28 /* output.cpp */,
+				880024E70CDE5CDA00DF3F28 /* output.h */,
+				880024E80CDE5CDA00DF3F28 /* parser.cpp */,
+				880024E90CDE5CDA00DF3F28 /* parser.h */,
+				880024EA0CDE5CDA00DF3F28 /* particles.cpp */,
+				880024EB0CDE5CDA00DF3F28 /* particles.h */,
+				880024EC0CDE5CDA00DF3F28 /* paths.cpp */,
+				880024ED0CDE5CDA00DF3F28 /* paths.h */,
+				880024EE0CDE5CDA00DF3F28 /* physics.h */,
+				880024EF0CDE5CDA00DF3F28 /* report.cpp */,
+				880024F00CDE5CDA00DF3F28 /* report.h */,
+				880024F10CDE5CDA00DF3F28 /* roomzones.cpp */,
+				880024F20CDE5CDA00DF3F28 /* roomzones.h */,
+				880024F30CDE5CDA00DF3F28 /* scripting_enums.h */,
+				880024F40CDE5CDA00DF3F28 /* scripting.cpp */,
+				880024F50CDE5CDA00DF3F28 /* scripting.h */,
+				880024F60CDE5CDA00DF3F28 /* shared_collision_defines.h */,
+				880024F70CDE5CDA00DF3F28 /* simple_gui.cpp */,
+				880024F80CDE5CDA00DF3F28 /* simple_gui.h */,
+				880024F90CDE5CDA00DF3F28 /* sound.cpp */,
+				880024FA0CDE5CDA00DF3F28 /* sound.h */,
+				880024FB0CDE5CDA00DF3F28 /* spawn_points.cpp */,
+				880024FC0CDE5CDA00DF3F28 /* spawn_points.h */,
+				880024FD0CDE5CDA00DF3F28 /* string_size_constants.h */,
+				880024FE0CDE5CDA00DF3F28 /* string_stuff.cpp */,
+				880024FF0CDE5CDA00DF3F28 /* string_stuff.h */,
+				880025000CDE5CDA00DF3F28 /* textfiles.cpp */,
+				880025010CDE5CDA00DF3F28 /* textfiles.h */,
+				880025020CDE5CDA00DF3F28 /* tilecolour.cpp */,
+				880025030CDE5CDA00DF3F28 /* tilecolour.h */,
+				880025040CDE5CDA00DF3F28 /* tilegroup.cpp */,
+				880025050CDE5CDA00DF3F28 /* tilegroup.h */,
+				880025060CDE5CDA00DF3F28 /* tilemaps.cpp */,
+				880025070CDE5CDA00DF3F28 /* tilemaps.h */,
+				880025080CDE5CDA00DF3F28 /* tilesets.cpp */,
+				880025090CDE5CDA00DF3F28 /* tilesets.h */,
+				8800250A0CDE5CDA00DF3F28 /* UFORTIFY.H */,
+				8800250B0CDE5CDA00DF3F28 /* vector_collision.cpp */,
+				8800250C0CDE5CDA00DF3F28 /* vector_collision.h */,
+				8800250D0CDE5CDA00DF3F28 /* version.h */,
+				8800250E0CDE5CDA00DF3F28 /* vertex_colouring.cpp */,
+				8800250F0CDE5CDA00DF3F28 /* vertex_colouring.h */,
+				8800269F0CDE5CDB00DF3F28 /* world_collision.cpp */,
+				880026A00CDE5CDB00DF3F28 /* world_collision.h */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		880024BC0CDE5CDA00DF3F28 /* editor */ = {
+			isa = PBXGroup;
+			children = (
+				880024BD0CDE5CDA00DF3F28 /* block_profiles.bmp */,
+				880024BE0CDE5CDA00DF3F28 /* editor_bitmask.bmp */,
+				880024BF0CDE5CDA00DF3F28 /* editor_font_large.bmp */,
+				880024C00CDE5CDA00DF3F28 /* editor_font_medium.bmp */,
+				880024C10CDE5CDA00DF3F28 /* editor_font_small_bak.bmp */,
+				880024C20CDE5CDA00DF3F28 /* editor_gui.bmp */,
+				880024C30CDE5CDA00DF3F28 /* editor_object_sides.bmp */,
+				880024C40CDE5CDA00DF3F28 /* grouping_example.bmp */,
+				880024C50CDE5CDA00DF3F28 /* intelligent_tiling_example.bmp */,
+				880024C60CDE5CDA00DF3F28 /* Thumbs.db */,
+			);
+			name = editor;
+			path = ../WizBall/wizball/editor;
+			sourceTree = SOURCE_ROOT;
+		};
+		880026A80CDE5D5D00DF3F28 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				880026A70CDE5D5D00DF3F28 /* Wizball.app */,
+				8813AD910CE1122E003F7CA5 /* Editor */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		880026AE0CDE5DC200DF3F28 /* Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				880026D90CDE5E7400DF3F28 /* libfmod_fat.a */,
+				880026B10CDE5DFD00DF3F28 /* libagl.a */,
+				880026AF0CDE5DE400DF3F28 /* libAlleg.a */,
+			);
+			name = Libraries;
+			sourceTree = "<group>";
+		};
+		88906EC80CE27D12005BD389 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				88BD3A900CEE2C2A003D3E51 /* Wizball.icns */,
+				88714AE20CE27E7C0072BD63 /* datatable.dat */,
+				88906EA90CE27B54005BD389 /* scriptfile.tsl */,
+				88906EA70CE27B35005BD389 /* data.dat */,
+				88906E840CE27767005BD389 /* gfx.dat */,
+				88906E850CE27767005BD389 /* paths.dat */,
+				88906E860CE27767005BD389 /* prefabs.dat */,
+				88906E870CE27767005BD389 /* sfx.dat */,
+				88906E880CE27767005BD389 /* stream.dat */,
+				88906E890CE27767005BD389 /* tilemaps.dat */,
+				88906E8A0CE27767005BD389 /* tilesets.dat */,
+				88962C5C0CE0E29300FF6F8B /* SCRIPTLANGUAGE.TXT */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		88DB06D80CDFA766004AB5F0 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				880249B20D0C814D0043C6F4 /* CoreServices.framework */,
+				88DB06D90CDFA7AE004AB5F0 /* AudioToolbox.framework */,
+				88DB06DA0CDFA7AE004AB5F0 /* AudioUnit.framework */,
+				88DB06DB0CDFA7AE004AB5F0 /* Carbon.framework */,
+				88DB06DC0CDFA7AE004AB5F0 /* Cocoa.framework */,
+				88DB06DD0CDFA7AE004AB5F0 /* CoreAudio.framework */,
+				88DB06DE0CDFA7AE004AB5F0 /* IOKit.framework */,
+				88DB06DF0CDFA7AE004AB5F0 /* OpenGL.framework */,
+				88DB06E00CDFA7AE004AB5F0 /* Quartz.framework */,
+				88DB06E10CDFA7AE004AB5F0 /* QuickTime.framework */,
+				88DB06E20CDFA7AE004AB5F0 /* System.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		880026A60CDE5D5C00DF3F28 /* Wizball */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 880026AB0CDE5D5E00DF3F28 /* Build configuration list for PBXNativeTarget "Wizball" */;
+			buildPhases = (
+				880026A30CDE5D5C00DF3F28 /* Resources */,
+				880026A40CDE5D5C00DF3F28 /* Sources */,
+				880026A50CDE5D5C00DF3F28 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Wizball;
+			productName = Wizball;
+			productReference = 880026A70CDE5D5D00DF3F28 /* Wizball.app */;
+			productType = "com.apple.product-type.application";
+		};
+		8813AD900CE1122E003F7CA5 /* Editor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8813AD930CE1124C003F7CA5 /* Build configuration list for PBXNativeTarget "Editor" */;
+			buildPhases = (
+				8813AD8E0CE1122E003F7CA5 /* Sources */,
+				8813AD8F0CE1122E003F7CA5 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Editor;
+			productName = Editor;
+			productReference = 8813AD910CE1122E003F7CA5 /* Editor */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		880024A20CDE5C3200DF3F28 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+			};
+			buildConfigurationList = 880024A30CDE5C3200DF3F28 /* Build configuration list for PBXProject "Wizball" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 880024A00CDE5C3200DF3F28;
+			productRefGroup = 880026A80CDE5D5D00DF3F28 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				880026A60CDE5D5C00DF3F28 /* Wizball */,
+				8813AD900CE1122E003F7CA5 /* Editor */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		880026A30CDE5D5C00DF3F28 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				88714AE30CE27E7C0072BD63 /* datatable.dat in Resources */,
+				88906E8D0CE27767005BD389 /* gfx.dat in Resources */,
+				88906E8F0CE27767005BD389 /* prefabs.dat in Resources */,
+				88906EC40CE27C22005BD389 /* paths.dat in Resources */,
+				88906EB70CE27B97005BD389 /* tilesets.dat in Resources */,
+				88906E900CE27767005BD389 /* sfx.dat in Resources */,
+				88906EBC0CE27BA7005BD389 /* tilemaps.dat in Resources */,
+				88906E910CE27767005BD389 /* stream.dat in Resources */,
+				88906EA80CE27B35005BD389 /* data.dat in Resources */,
+				88906EAA0CE27B54005BD389 /* scriptfile.tsl in Resources */,
+				88BD3A910CEE2C2A003D3E51 /* Wizball.icns in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		880026A40CDE5D5C00DF3F28 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				880026B30CDE5E1700DF3F28 /* ai_nodes.cpp in Sources */,
+				880026B40CDE5E1B00DF3F28 /* ai_zones.cpp in Sources */,
+				880026B50CDE5E1C00DF3F28 /* arrays.cpp in Sources */,
+				880026B60CDE5E3400DF3F28 /* tilemaps.cpp in Sources */,
+				880026B70CDE5E3500DF3F28 /* tilegroup.cpp in Sources */,
+				880026B80CDE5E3500DF3F28 /* tilecolour.cpp in Sources */,
+				880026B90CDE5E3600DF3F28 /* hiscores.cpp in Sources */,
+				880026BA0CDE5E3700DF3F28 /* vertex_colouring.cpp in Sources */,
+				880026BB0CDE5E3700DF3F28 /* graphics.cpp in Sources */,
+				880026BC0CDE5E3900DF3F28 /* report.cpp in Sources */,
+				880026BD0CDE5E3900DF3F28 /* control.cpp in Sources */,
+				880026BE0CDE5E3A00DF3F28 /* global_param_list.cpp in Sources */,
+				880026BF0CDE5E3A00DF3F28 /* file_stuff.cpp in Sources */,
+				880026C00CDE5E3B00DF3F28 /* paths.cpp in Sources */,
+				880026C10CDE5E3C00DF3F28 /* FORTIFY.CPP in Sources */,
+				880026C20CDE5E3D00DF3F28 /* font_routines.cpp in Sources */,
+				880026C30CDE5E3E00DF3F28 /* output.cpp in Sources */,
+				880026C40CDE5E3E00DF3F28 /* parser.cpp in Sources */,
+				880026C50CDE5E3F00DF3F28 /* object_collision.cpp in Sources */,
+				880026C60CDE5E4100DF3F28 /* string_stuff.cpp in Sources */,
+				880026C70CDE5E4200DF3F28 /* scripting.cpp in Sources */,
+				880026C80CDE5E4300DF3F28 /* game.cpp in Sources */,
+				880026C90CDE5E4300DF3F28 /* main.cpp in Sources */,
+				880026CA0CDE5E4500DF3F28 /* helpertag.cpp in Sources */,
+				880026CB0CDE5E4600DF3F28 /* input_recording.cpp in Sources */,
+				880026CC0CDE5E4600DF3F28 /* tilesets.cpp in Sources */,
+				880026CD0CDE5E4700DF3F28 /* vector_collision.cpp in Sources */,
+				880026CE0CDE5E4800DF3F28 /* particles.cpp in Sources */,
+				880026CF0CDE5E4A00DF3F28 /* events.cpp in Sources */,
+				880026D00CDE5E4A00DF3F28 /* math_stuff.cpp in Sources */,
+				880026D10CDE5E4B00DF3F28 /* simple_gui.cpp in Sources */,
+				880026D20CDE5E4B00DF3F28 /* sound.cpp in Sources */,
+				880026D30CDE5E4D00DF3F28 /* roomzones.cpp in Sources */,
+				880026D40CDE5E4D00DF3F28 /* new_editor.cpp in Sources */,
+				880026D50CDE5E4E00DF3F28 /* spawn_points.cpp in Sources */,
+				880026D60CDE5E4F00DF3F28 /* textfiles.cpp in Sources */,
+				880026D70CDE5E5000DF3F28 /* world_collision.cpp in Sources */,
+				880026D80CDE5E5100DF3F28 /* funkyfont.cpp in Sources */,
+				88962C720CE0E3B800FF6F8B /* macosx.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8813AD8E0CE1122E003F7CA5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8813AD9D0CE112D2003F7CA5 /* report.cpp in Sources */,
+				8813AD9E0CE112D2003F7CA5 /* ai_zones.cpp in Sources */,
+				8813AD9F0CE112D2003F7CA5 /* vector_collision.cpp in Sources */,
+				8813ADA00CE112D2003F7CA5 /* particles.cpp in Sources */,
+				8813ADA10CE112D2003F7CA5 /* events.cpp in Sources */,
+				8813ADA20CE112D2003F7CA5 /* math_stuff.cpp in Sources */,
+				8813ADA30CE112D2003F7CA5 /* simple_gui.cpp in Sources */,
+				8813ADA40CE112D2003F7CA5 /* FORTIFY.CPP in Sources */,
+				8813ADA50CE112D2003F7CA5 /* sound.cpp in Sources */,
+				8813ADA60CE112D2003F7CA5 /* graphics.cpp in Sources */,
+				8813ADA70CE112D2003F7CA5 /* font_routines.cpp in Sources */,
+				8813ADA80CE112D2003F7CA5 /* output.cpp in Sources */,
+				8813ADA90CE112D2003F7CA5 /* parser.cpp in Sources */,
+				8813ADAA0CE112D2003F7CA5 /* object_collision.cpp in Sources */,
+				8813ADAB0CE112D2003F7CA5 /* roomzones.cpp in Sources */,
+				8813ADAC0CE112D2003F7CA5 /* new_editor.cpp in Sources */,
+				8813ADAD0CE112D2003F7CA5 /* spawn_points.cpp in Sources */,
+				8813ADAE0CE112D2003F7CA5 /* tilegroup.cpp in Sources */,
+				8813ADAF0CE112D2003F7CA5 /* string_stuff.cpp in Sources */,
+				8813ADB00CE112D2003F7CA5 /* control.cpp in Sources */,
+				8813ADB10CE112D2003F7CA5 /* arrays.cpp in Sources */,
+				8813ADB20CE112D2003F7CA5 /* global_param_list.cpp in Sources */,
+				8813ADB30CE112D2003F7CA5 /* file_stuff.cpp in Sources */,
+				8813ADB40CE112D2003F7CA5 /* paths.cpp in Sources */,
+				8813ADB50CE112D2003F7CA5 /* tilecolour.cpp in Sources */,
+				8813ADB60CE112D2003F7CA5 /* scripting.cpp in Sources */,
+				8813ADB70CE112D2003F7CA5 /* game.cpp in Sources */,
+				8813ADB80CE112D2003F7CA5 /* main.cpp in Sources */,
+				8813ADB90CE112D2003F7CA5 /* tilemaps.cpp in Sources */,
+				8813ADBA0CE112D2003F7CA5 /* helpertag.cpp in Sources */,
+				8813ADBB0CE112D2003F7CA5 /* textfiles.cpp in Sources */,
+				8813ADBC0CE112D2003F7CA5 /* world_collision.cpp in Sources */,
+				8813ADBD0CE112D2003F7CA5 /* ai_nodes.cpp in Sources */,
+				8813ADBE0CE112D2003F7CA5 /* hiscores.cpp in Sources */,
+				8813ADBF0CE112D2003F7CA5 /* funkyfont.cpp in Sources */,
+				8813ADC00CE112D2003F7CA5 /* vertex_colouring.cpp in Sources */,
+				8813ADC10CE112D2003F7CA5 /* input_recording.cpp in Sources */,
+				8813ADC20CE112D2003F7CA5 /* tilesets.cpp in Sources */,
+				8813ADF60CE1155B003F7CA5 /* macosx.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		880024A40CDE5C3200DF3F28 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			name = Debug;
+		};
+		880024A50CDE5C3200DF3F28 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = YES;
+			};
+			name = Release;
+		};
+		880026AC0CDE5D5E00DF3F28 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = i386;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_ONE_BYTE_BOOL = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					RELEASE_MODE,
+					"$(inherited)",
+				);
+				HEADER_SEARCH_PATHS = (
+					../alleggl/include,
+					../fmodapi375mac/api/inc,
+					"../allegro/4.2/include/**",
+					"$(inherited)",
+				);
+				INFOPLIST_FILE = "Wizball-Info.plist";
+				INSTALL_PATH = "$(HOME)/Applications";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+				);
+				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)\"";
+				MACOSX_DEPLOYMENT_TARGET = 10.4;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = Wizball;
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = YES;
+			};
+			name = Debug;
+		};
+		880026AD0CDE5D5E00DF3F28 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
+				COPY_PHASE_STRIP = YES;
+				GCC_DEBUGGING_SYMBOLS = full;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_ONE_BYTE_BOOL = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					RELEASE_MODE,
+					"$(inherited)",
+				);
+				HEADER_SEARCH_PATHS = (
+					../alleggl/include,
+					../fmodapi375mac/api/inc,
+					"../allegro/4.2/include/**",
+					"$(inherited)",
+				);
+				INFOPLIST_FILE = "Wizball-Info.plist";
+				INSTALL_PATH = "$(HOME)/Applications";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+				);
+				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)\"";
+				MACOSX_DEPLOYMENT_TARGET = 10.4;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = Wizball;
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		8813AD940CE1124C003F7CA5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = (
+					../fmodapi375mac/api/inc,
+					../allegrogl/include,
+					"../allegro/4.2/include/**",
+					"$(inherited)",
+				);
+				INSTALL_PATH = "$(HOME)/bin";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+				);
+				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)\"";
+				PREBINDING = NO;
+				PRODUCT_NAME = Editor;
+				ZERO_LINK = YES;
+			};
+			name = Debug;
+		};
+		8813AD950CE1124C003F7CA5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = (
+					../fmodapi375mac/api/inc,
+					../allegrogl/include,
+					"../allegro/4.2/include/**",
+					"$(inherited)",
+				);
+				INSTALL_PATH = "$(HOME)/bin";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+				);
+				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)\"";
+				PREBINDING = NO;
+				PRODUCT_NAME = Editor;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		883751BE0D73F215009D4F8E /* OldSDK */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+				);
+				COPY_PHASE_STRIP = YES;
+				GCC_DEBUGGING_SYMBOLS = full;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_ONE_BYTE_BOOL = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					RELEASE_MODE,
+					"$(inherited)",
+				);
+				HEADER_SEARCH_PATHS = (
+					../alleggl/include,
+					../fmodapi375mac/api/inc,
+					"../allegro/4.2/include/**",
+					"$(inherited)",
+				);
+				INFOPLIST_FILE = "Wizball-Info.plist";
+				INSTALL_PATH = "$(HOME)/Applications";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+				);
+				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)\"";
+				MACOSX_DEPLOYMENT_TARGET = 10.4;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = Wizball;
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = NO;
+			};
+			name = OldSDK;
+		};
+		883751BF0D73F215009D4F8E /* OldSDK */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = (
+					../fmodapi375mac/api/inc,
+					../allegrogl/include,
+					"../allegro/4.2/include/**",
+					"$(inherited)",
+				);
+				INSTALL_PATH = "$(HOME)/bin";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+				);
+				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)\"";
+				PREBINDING = NO;
+				PRODUCT_NAME = Editor;
+				ZERO_LINK = NO;
+			};
+			name = OldSDK;
+		};
+		883751C00D73F215009D4F8E /* OldSDK */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
+				COPY_PHASE_STRIP = YES;
+			};
+			name = OldSDK;
+		};
+		88814A120D245BBD00A549FF /* Release_with_Symbols */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = i386;
+				COPY_PHASE_STRIP = NO;
+				GCC_DEBUGGING_SYMBOLS = full;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_ONE_BYTE_BOOL = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					RELEASE_MODE,
+					"$(inherited)",
+				);
+				HEADER_SEARCH_PATHS = (
+					../alleggl/include,
+					../fmodapi375mac/api/inc,
+					"../allegro/4.2/include/**",
+					"$(inherited)",
+				);
+				INFOPLIST_FILE = "Wizball-Info.plist";
+				INSTALL_PATH = "$(HOME)/Applications";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+				);
+				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)\"";
+				MACOSX_DEPLOYMENT_TARGET = 10.4;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = Wizball;
+				WRAPPER_EXTENSION = app;
+				ZERO_LINK = NO;
+			};
+			name = Release_with_Symbols;
+		};
+		88814A130D245BBD00A549FF /* Release_with_Symbols */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = (
+					../fmodapi375mac/api/inc,
+					../allegrogl/include,
+					"../allegro/4.2/include/**",
+					"$(inherited)",
+				);
+				INSTALL_PATH = "$(HOME)/bin";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(LIBRARY_SEARCH_PATHS_QUOTED_1)",
+				);
+				LIBRARY_SEARCH_PATHS_QUOTED_1 = "\"$(SRCROOT)\"";
+				PREBINDING = NO;
+				PRODUCT_NAME = Editor;
+				ZERO_LINK = NO;
+			};
+			name = Release_with_Symbols;
+		};
+		88814A140D245BBD00A549FF /* Release_with_Symbols */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DEBUGGING_SYMBOLS = full;
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = Release_with_Symbols;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		880024A30CDE5C3200DF3F28 /* Build configuration list for PBXProject "Wizball" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				880024A40CDE5C3200DF3F28 /* Debug */,
+				880024A50CDE5C3200DF3F28 /* Release */,
+				883751C00D73F215009D4F8E /* OldSDK */,
+				88814A140D245BBD00A549FF /* Release_with_Symbols */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = OldSDK;
+		};
+		880026AB0CDE5D5E00DF3F28 /* Build configuration list for PBXNativeTarget "Wizball" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				880026AC0CDE5D5E00DF3F28 /* Debug */,
+				880026AD0CDE5D5E00DF3F28 /* Release */,
+				883751BE0D73F215009D4F8E /* OldSDK */,
+				88814A120D245BBD00A549FF /* Release_with_Symbols */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = OldSDK;
+		};
+		8813AD930CE1124C003F7CA5 /* Build configuration list for PBXNativeTarget "Editor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8813AD940CE1124C003F7CA5 /* Debug */,
+				8813AD950CE1124C003F7CA5 /* Release */,
+				883751BF0D73F215009D4F8E /* OldSDK */,
+				88814A130D245BBD00A549FF /* Release_with_Symbols */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = OldSDK;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 880024A20CDE5C3200DF3F28 /* Project object */;
+}

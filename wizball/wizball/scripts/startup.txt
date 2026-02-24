@@ -1,0 +1,89 @@
+ERASE_PROGRAM_TRACE_FILE
+
+set_global_flag (record_games, true)
+
+set_global_flag (c64_or_spectrum_game_mode,GAME_MODE_C64)
+
+set_global_flag (wizball_entity_id_flag,CONST_UNSET)
+set_global_flag (catellite_entity_id_flag,CONST_UNSET)
+
+set_global_flag (player_score,0)
+set_global_flag (cursor_controlled_menu,false)
+
+let temp_1 = GET_COLOUR_DEPTH
+
+if (temp_1 = 16) then
+	let temp_1 = 0
+else_if (temp_1 = 32) then
+	let temp_1 = 1
+else
+	// Didn't do it with a simple divide and minus so I could make sure of the values
+	stop
+end_if
+
+let temp_2 = GET_WINDOWED_STATUS
+let temp_2 = 1 - temp_2
+let temp_2 = temp_2 * 2
+
+let temp_3 = temp_1 + temp_2
+
+set_global_flag (display_mode_flag,temp_3)
+
+set_global_flag (played_tunes_flag,0)
+
+LOAD_SAVE_FILE (save_file_tag)
+
+SETUP_TILEMAP_COLLISION
+SETUP_TILE_PROFILES (16)
+
+SET_RESET_PREFAB (RESET_PREFAB)
+
+SET_WINDOW_COUNT (6)
+SET_UP_WINDOW (MENU_WINDOW, 0, 0, 640, 480, 128, 256, 2)
+SET_UP_WINDOW (GAME_MAIN_WINDOW, 0, 0, 640, 416, 32, 128, 9) // Effectively no y-ordering at all.
+SET_UP_WINDOW (GAME_TEMP_WINDOW, 0, 0, 640, 416, 32, 128, 8)
+SET_UP_WINDOW (GAME_PANEL_WINDOW, 0, 416, 640, 64, 32, 16, 4)
+SET_UP_WINDOW (FLOATING_OVERLAY_WINDOW, 0, 0, 640, 480, 32, 60, 2)
+SET_UP_WINDOW (SCORE_OVERLAY_WINDOW, 0, 0, 640, 480, 32, 128, 9)
+
+spawn_entity (menu_setup,0,0,process_next)
+
+spawn_entity (set_up_or_load_hiscores,0,0,process_next)
+
+set_global_flag (playing_music_channel_flag,CONST_UNSET)
+
+let temp_1 = 3
+
+set_global_flag (particle_commonness_multiplier,temp_1)
+let temp_1 = MAXIMUM_PARTICLE_MULTIPLIER_PLUS_ONE - temp_1
+set_global_flag (particle_rareness_multiplier,temp_1)
+
+if_key_undefined PLAYER_1 UP then
+	spawn_entity (define_default_controls)
+end_if
+
+CONVERT_DATATABLE_TO_SPECIAL_PATH solid_diamond
+CONVERT_DATATABLE_TO_SPECIAL_PATH fuzz_type_a
+CONVERT_DATATABLE_TO_SPECIAL_PATH fuzz_type_b
+CONVERT_DATATABLE_TO_SPECIAL_PATH bonus_level_fuzz
+
+create_starfield MAIN_GAME_STARFIELD_ID 200 STARFIELD_STYLE_PARALLAX 640 416 200 100
+create_starfield FREAKOUT_STARFIELD_ID 200 STARFIELD_STYLE_PARALLAX 640 416 200 0
+create_starfield BONUS_LEVEL_STARFIELD_ID 200 STARFIELD_STYLE_PARALLAX 640 416 200 30
+create_starfield BONUS_LEVEL_STARFIELD_OTHER_ID 200 STARFIELD_STYLE_PARALLAX 640 416 200 30
+create_starfield TUNNEL_STARFIELD_ID 400 STARFIELD_STYLE_FIRST_PERSON 640 480 10 20 10500 10500
+create_starfield GET_READY_STARFIELD_ID 1000 STARFIELD_STYLE_FIRST_PERSON 640 480 10 20 9900 10500
+create_starfield LABORATORY_STARFIELD_ID 400 STARFIELD_STYLE_PARALLAX 280 280 50 200
+create_starfield COMPLETION_EFFECT_STARFIELD_ID 200 STARFIELD_STYLE_PARALLAX 640 480 200 30
+
+// Just needs working in a bit to get everything nice and ready...
+for temp_1 = 0 to 200
+	update_starfield TUNNEL_STARFIELD_ID 10000 10000 TRUE
+	update_starfield GET_READY_STARFIELD_ID 300000 10000 TRUE
+next
+
+// toggle_debug
+
+kill_entity own_id
+
+end

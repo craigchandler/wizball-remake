@@ -1,0 +1,34 @@
+#define digit_number 		passed_param_1
+#define current_score 		v0
+#define digit_divider 		v1
+#define stat_flag		v2
+
+let entity_type = ENT_TYPE_INDESTRUCTABLE
+// So it won't be killed in the end of level cull
+
+let opengl_booleans = OPENGL_BOOLEAN_MASKED
+let draw_mode = DRAW_MODE_SPRITE
+
+let sprite = score_digits_medium[set][16][16][8][8]
+
+let draw_order = 1
+
+set_private_co_ords
+
+let digit_divider = 1
+
+if digit_number > 0 then
+	for counter = 0 to digit_number
+		let digit_divider = digit_divider * 10
+	next
+end_if
+
+start
+
+	let current_score = get_global_flag (stat_flag)
+
+	let current_score = current_score / digit_divider
+
+	let current_frame = current_score mod 10
+
+end

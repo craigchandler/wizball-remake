@@ -1,0 +1,35 @@
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 7
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 69
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let lifetime = 255
+
+	let y_acc = 1
+	
+start
+	let v0 = lifetime - 100
+	if v0 < 0 then
+		let v0 = 0
+	end_if
+
+	let opengl_scale_x = rand v0 lifetime
+	let opengl_scale_x = opengl_scale_x * 50
+	let opengl_scale_y = opengl_scale_x
+
+	let lifetime = lifetime - 3
+
+	if lifetime < 50 then
+		kill_entity own_id
+	end_if
+end

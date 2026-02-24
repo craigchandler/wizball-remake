@@ -1,0 +1,33 @@
+#define y_offset		v0
+#define x_offset		v1
+
+let counter = 0
+let signal = 0
+let y_offset = -7
+
+let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+start
+	let counter = counter + 1
+
+	let world_y = parent.world_y
+	let world_x = parent.world_x
+	set_private_co_ords
+
+	let x_offset = rand -24 24
+
+	if counter < 50 then
+		spawn_entity (ex_negative_twinkle,x_offset,y_offset,process_next)
+		let last_child.draw_order = draw_order + 1
+		let y_offset = y_offset - 1
+	end_if
+
+	if counter = 50 then
+		let signal = 1
+	end_if
+
+	if counter = 100 then
+		let signal = 2
+		kill_entity own_id
+	end_if
+end

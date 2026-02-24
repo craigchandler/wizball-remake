@@ -1,0 +1,63 @@
+#define real_parent		v10
+#define offset_x		v11
+#define offset_y		v12
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 7
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 101
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_SUBTRACT
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let opengl_vertex_red = 255
+	let opengl_vertex_green = 192
+	let opengl_vertex_blue = 128
+
+	let lifetime = 255
+
+	let real_parent = parent.parent
+
+	let offset_x = world_x - real_parent.world_x
+	let offset_y = world_y - real_parent.world_y
+
+	let counter = -9000
+
+	let signal = parent.signal
+	// So it breaks off when the player's position changes.
+	
+start
+	if signal != CONST_UNSET then
+		if parent.signal != 1 then
+			let world_x = real_parent.world_x + offset_x
+			let world_y = real_parent.world_y + offset_y
+
+			SET_PRIVATE_CO_ORDS
+		else
+			let signal = CONST_UNSET 
+		end_if
+	end_if
+
+	let temp_1 = 25000 sin counter
+	let temp_1 = temp_1 - 2000
+	let temp_2 = temp_1 + 2000
+	if temp_1 < 0 then
+		let temp_1 = 0
+	end_if
+
+	let opengl_scale_x = rand temp_1 temp_2
+	let opengl_scale_y = opengl_scale_x
+
+	let counter = counter + 125
+
+	if counter = 0 then
+		kill_entity own_id
+	end_if
+end
+

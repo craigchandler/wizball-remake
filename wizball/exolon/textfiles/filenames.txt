@@ -1,0 +1,5 @@
+game_demo		game_demo
+error_demo		error_demo
+save_file_tag		save_game
+hiscore_file_tag	hiscores.txt
+

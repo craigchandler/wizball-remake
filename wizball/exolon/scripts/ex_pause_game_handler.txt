@@ -1,0 +1,39 @@
+// This is spawned at the start of the level, and killed off at the end by the end of level
+// holdover thing that creates the whizzy score window. Anyway...
+
+let entity_type = ENT_TYPE_INDESTRUCTABLE
+
+// First we wait for the press of the ESCAPE key...
+
+.start_of_loop
+
+wait 1
+
+start
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 PAUSE then
+		goto sleepy_time
+	end_if
+
+end
+
+.sleepy_time
+
+sleep_entities (SELECT_BY_DIFFERING_ENTITY_TYPE,ENT_TYPE_INDESTRUCTABLE)
+
+// We wait 1 to blank the keyboard buffer of that keyhit...
+
+wait 1
+
+// Now we spawn the pause menu...
+
+spawn_entity (ex_pause_game_menu,0,0,PROCESS_NEXT)
+
+start
+
+	if last_child.signal = 1 then
+		wake_entities (SELECT_BY_DIFFERING_ENTITY_TYPE,ENT_TYPE_INDESTRUCTABLE)
+		goto start_of_loop
+	end_if
+
+end

@@ -1,0 +1,63 @@
+// This is used for the wiz and cat on the menu.
+// If they're told to wake up when they're not asleep they start adapting to their eventual positions.
+// However if they're asleep and told to wake up that progress skips straight to 10000 so that when we
+// come out of the hiscore entry phase they don't appear in the middle of the screen, but rather at the edges
+// where they belong.
+
+#define generation					passed_param_1
+#define reduction_percentage				v0
+#define position_offset_percentage			v1
+#define scale_offset_percentage				v2
+
+#define max_distance_percentage				2000
+#define max_scale_percentage				2000
+#define percentage_reduction_per_generation		2000
+
+
+	let reduction_percentage = percentage_reduction_per_generation * generation
+	let reduction_percentage = 10000 - reduction_percentage
+	// So, first generation is 8000, second 6000, 4000, 2000
+
+	let position_offset_percentage = max_distance_percentage % reduction_percentage
+	let position_offset_percentage = max_distance_percentage - position_offset_percentage
+
+	let scale_offset_percentage = max_scale_percentage % reduction_percentage
+	let scale_offset_percentage = max_scale_percentage - scale_offset_percentage
+
+
+	let draw_order = MENU_INTRO_WIZ_AND_CAT_DRAW_ORDER - generation
+
+	LET ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let sprite = parent.sprite
+
+	let current_frame = parent.current_frame
+
+	let opengl_booleans = parent.opengl_booleans
+
+
+start
+
+	let draw_mode = parent.draw_mode
+
+	let opengl_vertex_alpha = parent.opengl_vertex_alpha % reduction_percentage
+
+	let world_x = lerp (parent.world_x, 320, position_offset_percentage)
+	let world_y = lerp (parent.world_y, 240, position_offset_percentage)
+
+	let opengl_scale_x = lerp (parent.opengl_scale_x, 0, scale_offset_percentage)
+	let opengl_scale_y = opengl_scale_x
+
+	let opengl_angle = parent.opengl_angle
+
+	set_private_co_ords
+
+end
+
+
+
+
+
+
+
+

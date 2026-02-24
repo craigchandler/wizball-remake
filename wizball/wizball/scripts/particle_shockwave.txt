@@ -1,0 +1,53 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE + ENT_TYPE_DISPOSABLE
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+#define target_scale_x			v0
+#define target_scale_y			v1
+
+#define xy_ratio			v2
+
+#define progress			v3
+#define explosion_power			v4
+
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = particle_effects[arb]
+	let base_frame = 8
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SECONDARY_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let xy_ratio = rand (4000,8000)
+
+	let opengl_angle = rand (0,36000)
+
+	let opengl_vertex_alpha = 255
+
+	let opengl_secondary_angle = rand 0 36000
+	
+	let opengl_scale_x = 5000
+	let opengl_scale_y = opengl_scale_x % xy_ratio
+
+	let target_scale_x = 20000
+	let target_scale_y = target_scale_x % xy_ratio
+
+	let progress = 10000
+
+start
+
+	let opengl_scale_x = opengl_scale_x >% target_scale_x 1000
+	let opengl_scale_y = opengl_scale_y >% target_scale_y 1000
+
+	let opengl_vertex_alpha = opengl_vertex_alpha - 5 !< 0
+	if opengl_vertex_alpha <= 0 then
+		kill_entity own_id
+	end_if
+
+end

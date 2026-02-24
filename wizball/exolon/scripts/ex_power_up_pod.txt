@@ -1,0 +1,84 @@
+#define sound_target_volume	v10
+#define sound_volume		v11
+#define sound_channel		v12
+
+	let sound_volume = 128
+
+	let sound_channel = PLAY_LOOPED_SOUND (upgrade_pod_noise, sound_volume, 22050, 128)
+	add_to_persistant_channels sound_channel
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 9
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let draw_order = 10
+
+	let COLLISION_SHAPE = RECTANGLE
+	SET_COLLISION_FROM_FRAME
+
+// This lump of code below here just plonks various areas of tile into the map
+// which make the bio growth solid to the player.
+
+	let v0 = world_x - upper_width
+	let v1 = world_y - upper_height
+
+	let v0 = v0 / 16
+	let v1 = v1 / 16
+
+	let v0 = v0 + 1
+
+	SET_COLLISION_BY_PARAMETERS v0 v1 2 1 1
+
+	let v0 = v0 - 1
+	let v1 = v1 + 5
+
+	SET_COLLISION_BY_PARAMETERS v0 v1 4 2 1
+
+	let upper_width = upper_width - 16
+	let lower_width = lower_width - 16
+
+	let COLLIDE_WITH = ENT_TYPE_PLAYER
+	let COLLIDE_TYPE = ENT_TYPE_PLAYER_EMPLACEMENT
+
+	let matriarch = own_id
+	spawn_entity ex_vertical_recursive_lightning 0 0 PROCESS_NEXT
+	let last_child.passed_param_1 = 4
+
+	entity_hitline gosub power_up
+
+start
+
+	let temp_1 = rand 0 100
+
+	if temp_1 = 0 then
+		
+	end_if
+
+	if signal > 0 then
+		let sound_target_volume = 256
+		let signal = signal - 1
+	else
+		let sound_target_volume = 128
+	end_if
+
+	if sound_target_volume > sound_volume then
+		let sound_volume = sound_volume + 4
+		adjust_sound sound_channel sound_volume 22050 128
+	else_if sound_target_volume < sound_volume then
+		let sound_volume = sound_volume - 4
+		adjust_sound sound_channel sound_volume 22050 128
+	end_if
+
+end
+
+.power_up
+
+	let signal = 2
+
+	end

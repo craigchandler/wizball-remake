@@ -1,0 +1,20 @@
+// Fades up, waits for death.
+
+	let window_number = SCORE_OVERLAY_WINDOW
+
+	let entity_type = ENT_TYPE_BONUS_LEVEL_ENTITY
+
+	let draw_order = 0
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_vertex_alpha = 0
+
+	let sprite = font[arb]
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_vertex_colour_alpha
+
+start
+	let opengl_vertex_alpha = opengl_vertex_alpha + 15 !> 255
+end
+

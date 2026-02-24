@@ -1,0 +1,50 @@
+#define rotation_speed		passed_param_1
+#define size			passed_param_2
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+	let draw_order = 2
+
+	let sprite = large_graphics[arb]
+	let base_frame = 7
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE_EXTRA_TRANSFORMS
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SECONDARY_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SECONDARY_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let world_x = 320
+	let world_y = 240
+
+	set_private_co_ords
+
+	let counter = 0
+
+	let opengl_vertex_alpha = 0
+
+	let opengl_secondary_angle = rand 0 36000
+	
+	let opengl_secondary_scale_x = 80000 % size
+	let opengl_secondary_scale_y = 40000 % size
+
+start
+	if opengl_vertex_alpha < 120 then
+		let opengl_vertex_alpha = opengl_vertex_alpha + 1
+	end_if
+
+	let opengl_secondary_angle = opengl_secondary_angle + rotation_speed
+
+	if signal = 1 then
+		let opengl_secondary_scale_x = opengl_secondary_scale_x % 9750
+		let opengl_secondary_scale_y = opengl_secondary_scale_y % 9750
+		let opengl_vertex_alpha = opengl_vertex_alpha - 2
+		if opengl_vertex_alpha <= 0 then
+			kill_entity own_id
+		end_if
+	else_if parent.signal & destroy_logo then
+		let signal = 1
+	end_if
+end

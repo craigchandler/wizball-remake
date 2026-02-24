@@ -1,0 +1,47 @@
+#define x_offset	v0
+#define y_offset	v1
+
+	let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = large_graphics[arb]
+
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let lifetime = 255
+
+	if parent.script_number = ex_c2_ship_flyover then
+		let base_frame = 39
+		let x_offset = 88
+		let y_offset = 7
+	else
+		let base_frame = 38
+		let x_offset = -96
+		let y_offset = 7
+	end_if
+
+	let current_frame = base_frame
+
+	let draw_order = draw_order + 1
+
+start
+
+	let world_x = parent.world_x + x_offset
+	let world_y = parent.world_y + y_offset
+
+	set_private_co_ords
+
+	let opengl_scale_y = rand 8000 12000
+	let opengl_scale_x = opengl_scale_y % 20000
+
+	if parent.signal = 1 then
+		kill_entity own_id
+	end_if
+
+end

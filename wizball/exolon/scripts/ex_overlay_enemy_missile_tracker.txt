@@ -1,0 +1,32 @@
+#define overlay_id v4
+
+spawn_entity ex_standard_overlay 0 0 PROCESS_NEXT
+let overlay_id = last_child
+let overlay_id.secondary_frame = 0
+let last_child.INTERPOLATED_FRAME = 7
+let overlay_id.passed_param_1 = parent
+let last_child.passed_param_2 = opengl_boolean_blend_add
+
+let counter = 0
+let signal = 0
+
+let overlay_id.opengl_vertex_alpha = 128
+
+start
+	let overlay_id.INTERPOLATION_Y_PERCENTAGE = overlay_id.INTERPOLATION_Y_PERCENTAGE + 500
+
+	if overlay_id.INTERPOLATION_Y_PERCENTAGE > 10000 then
+		let overlay_id.INTERPOLATION_Y_PERCENTAGE = overlay_id.INTERPOLATION_Y_PERCENTAGE - 10000
+	end_if
+
+	if parent.signal = 1 then
+		let overlay_id.signal = 1
+		kill_entity own_id
+	end_if
+
+	if parent.alive <= 0 then
+		// Best check in case it was culled during a screen clear
+		let overlay_id.signal = 1
+		kill_entity own_id
+	end_if
+end

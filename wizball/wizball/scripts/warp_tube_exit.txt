@@ -1,0 +1,75 @@
+#define move_distance			64
+
+set_global_flag_as_entity_id (proxy_entity_id_flag)
+
+let sprite = misc_stuff[arb]
+let base_frame = 2
+let current_frame = base_frame
+
+let bitshift = 4
+
+LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_MASKED
+LET DRAW_MODE = DRAW_MODE_SPRITE
+LET DRAW_ORDER = WIZBALL_PIPE_DRAW_ORDER
+let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+let world_y = -128
+
+let world_x = world_x + move_distance
+
+set_private_co_ords
+
+let y_vel = 64
+let y_acc = -1
+
+set_global_flag (stay_in_hibernation_flag, true)
+
+PLAY_SOUND warp_tube_appear 255 CONST_SOUND_FREQUENCY 128
+
+start
+	if y_vel <= 0 then
+		gosub spawn_fake_wizball
+	end_if
+
+	set_global_flag (tubetemp,world_x)
+end
+
+.spawn_fake_wizball
+
+	let y_acc = 0
+	let y_vel = 0
+
+	spawn_entity (warp_tube_exit_wizball,0,75,process_next)
+
+	let counter = 30
+
+start
+
+	let counter = counter - 1
+
+	if counter = 0 then
+		gosub remove_tube
+	end_if
+
+end
+
+.remove_tube
+
+	let y_acc = -1
+
+// This bit happens after Wizball is dumped out.
+
+	let entity_type = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	// I can now be killed during a colour-complete
+
+start
+
+	if world_y <= -128 then
+		kill_entity own_id
+	end_if
+
+end
+
+

@@ -1,0 +1,11 @@
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 85
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+start
+end

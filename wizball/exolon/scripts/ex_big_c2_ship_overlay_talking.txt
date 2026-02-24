@@ -1,0 +1,52 @@
+#define behaviour		passed_param_1
+#define at_rest			0
+#define turn_then_talk		1
+#define turned			2
+#define talking			3
+#define look_forward		4
+#define forward_talk		5
+#define end_frame		v0
+
+	let sprite = large_graphics[arb]
+	let base_frame = 26
+	let end_frame = base_frame + 4
+	let current_frame = base_frame
+	let draw_mode = draw_mode_sprite
+
+	let draw_order = draw_order + 1
+
+	let counter = 0
+start
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+
+	let temp_1 = counter mod 5
+
+	if temp_1 = 0 then
+		if behaviour = at_rest then
+			let current_frame = base_frame
+		else_if behaviour = turn_then_talk then
+			if current_frame < end_frame then
+				let current_frame = current_frame + 1
+			else
+				let behaviour = talking
+			end_if
+		else_if behaviour = talking then
+			let temp_1 = rand 0 1
+			let current_frame = end_frame - temp_1
+		else_if behaviour = turned then
+			let current_frame = end_frame - 1
+		else_if behaviour = look_forward then
+			if current_frame < 45 then
+				let current_frame = 45
+			else_if current_frame < 46 then
+				let current_frame = current_frame + 1
+			end_if
+		else_if behaviour = forward_talk then
+			let temp_1 = rand 0 1
+			let current_frame = 47 - temp_1
+		end_if
+	end_if
+
+	let counter = counter + 1
+end

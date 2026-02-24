@@ -1,0 +1,97 @@
+#define base_draw_order 		v2
+#define orbital_angle			v3
+#define horizontal_orbital_distance	v4
+#define vertical_orbital_distance	v5
+#define orbital_speed			passed_param_1
+#define skew				passed_param_2
+#define base_scale			v6
+#define scale_range			v7
+
+#define planet_base_x		v20
+#define planet_base_y		v21
+
+#define old_x			v22
+#define old_y			v23
+
+#define new_x			v24
+#define new_y			v25
+
+	let opengl_booleans = opengl_boolean_masked + opengl_boolean_scale
+	let opengl_booleans = opengl_booleans + opengl_boolean_filtered
+
+	let draw_order = parent.draw_order
+
+	let orbital_angle = rand 0 36000
+
+	let horizontal_orbital_distance	= world_x - parent.world_x
+	let vertical_orbital_distance = world_y - parent.world_y
+	
+	if orbital_speed = 0 then
+		let orbital_speed = 2 * parent.orbital_speed
+	end_if
+
+	if orbital_speed = 0 then
+		let orbital_speed = rand 25 45
+	end_if
+
+	wait 1
+
+	let horizontal_orbital_distance = horizontal_orbital_distance << bitshift
+	let vertical_orbital_distance = vertical_orbital_distance << bitshift
+
+	start
+		if parent.alive < 0 then
+			// Parent's popped their clogs, so we're the parent now.
+
+			let x_vel = new_x - old_x
+			let y_vel = new_y - old_y
+
+			let x = x + x_vel
+			let y = y + y_vel
+
+			set_world_co_ords
+
+			goto wander
+		end_if
+
+		let orbital_angle = orbital_angle + orbital_speed
+
+		let temp_1 = horizontal_orbital_distance sin orbital_angle
+		let temp_2 = vertical_orbital_distance cos orbital_angle
+
+		let old_x = new_x
+		let old_y = new_y
+
+		let x = parent.planet_base_x + temp_1
+		let y = parent.planet_base_y + temp_2
+
+		let new_x = x
+		let new_y = y
+
+		let world_x = x >> bitshift
+		let world_y = y >> bitshift
+
+	
+	let planet_base_x = x
+		let planet_base_y = y
+
+		let temp_2 = temp_2 * 25
+
+		let base_scale = parent.opengl_scale_x % 5000
+
+		let temp_2 = temp_2 >> bitshift
+
+		let opengl_scale_x = base_scale + temp_2
+		let opengl_scale_y = opengl_scale_x
+
+		set_private_co_ords
+	end
+
+
+.wander
+
+start
+	
+let planet_base_x = x
+	let planet_base_y = y
+end

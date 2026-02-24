@@ -1,0 +1,16 @@
+#define pearl_count			v0
+#define main_game_handler_id		v1
+
+	let main_game_handler_id = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+
+	let pearl_count = get_global_flag (current_level_pearl_count)
+	let pearl_count = pearl_count - 1
+	set_global_flag (current_level_pearl_count, pearl_count)
+
+	if pearl_count = 0 then
+		// As we're a pearl and the last one, we'd best check whether we've just got rid
+		// of the last thing in the level.
+		ADD_EVENT_TO_QUEUE ( main_game_handler_id , LEVEL_RESET_FLAG_CHECK_ENEMY_COUNT )
+	end_if
+
+return

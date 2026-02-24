@@ -1,0 +1,39 @@
+#define x_offset v0
+#define y_offset v1
+
+#define extra_sound_effect	v26
+
+	let extra_sound_effect = bio_explosion
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let point_value = 50
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 7
+
+	let DROP_ITEM = 8
+	let temp_1 = 11000
+
+	SET_COLLISION_FROM_FRAME
+
+// This lump of code below here just plonks various areas of tile into the map
+// which make the bio growth solid to the player.
+
+	let x_offset = world_x - upper_width
+	let y_offset = world_y - upper_height
+
+	let x_offset = x_offset / 16
+	let y_offset = y_offset / 16
+
+	SET_COLLISION_BY_PARAMETERS x_offset y_offset 3 2 66
+
+	let x_offset = x_offset + 1
+	let y_offset = y_offset + 2
+
+	SET_COLLISION_BY_PARAMETERS x_offset y_offset 1 2 66
+
+	CHANGE_SCRIPT ex_standard_destructable

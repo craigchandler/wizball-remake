@@ -1,0 +1,26 @@
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 34
+	let frame_count = 8
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let counter = 0
+start
+	let counter = counter + 1
+
+	let current_frame = counter mod frame_count
+	let current_frame = current_frame + base_frame
+
+	let opengl_scale_y = rand 18000 22000
+	let opengl_scale_x = rand 18000 22000
+end

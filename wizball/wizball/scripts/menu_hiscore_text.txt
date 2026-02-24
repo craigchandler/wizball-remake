@@ -1,0 +1,51 @@
+// This is the text used for the options. It simply fades in and out when it sees the signal from it's parent. Really fast.
+
+#define current_menu_entity_id		v0
+#define spawn_identity			passed_param_2 
+
+	let draw_order = MENU_TEXT_DRAW_ORDER
+
+	let entity_type = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_vertex_colour_alpha
+
+	let sprite = font[arb]
+
+	let opengl_vertex_alpha = 0
+
+	set_private_co_ords
+
+	if spawn_identity = 1 then
+		// If this is set then we use the alternative frames for our numbers so it's all nice and centered.
+		// BODGE AHOY!!!
+		let current_frame = current_frame + 48
+	end_if
+
+start
+
+	let opengl_vertex_alpha = opengl_vertex_alpha + 15 !> 255
+
+	let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+	if current_menu_entity_id != CONST_UNSET then
+		if current_menu_entity_id.signal & DESTROY_HISCORE_TEXT then
+			goto final_phase
+		end_if
+	end_if
+
+end
+
+.final_phase
+
+start
+
+	let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+
+	if opengl_vertex_alpha = 0 then
+		kill_entity own_id
+	end_if
+
+end
+

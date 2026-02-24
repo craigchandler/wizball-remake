@@ -1,0 +1,47 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_DISPOSABLE
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+
+	let Bitshift = 7
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = rainbow_stars[set][32][32][16][16]
+	let base_frame = rand (0,15)
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let lifetime = rand (200,255)
+
+
+
+	if parent.script_number = lab_wizard then
+		let draw_order = LABORATORY_MASK_ELEMENT_DRAW_ORDER + 1
+		let y_acc = rand (-6,6)
+	else
+		let draw_order = MAGIC_POOF_LIGHT_PARTICLE_DRAW_ORDER
+		let y_acc = 4
+	end_if
+	
+start
+
+	let v0 = lifetime - 100
+	if v0 < 10 then
+		let v0 = 10 // Any smaller than this and we could easily frig the drawing up.
+	end_if
+
+	let opengl_scale_x = rand v0 lifetime
+
+	let opengl_scale_x = opengl_scale_x * 75
+	let opengl_scale_y = opengl_scale_x
+
+	let lifetime = lifetime - 3
+
+	if lifetime < 50 then
+		kill_entity own_id
+	end_if
+end

@@ -1,0 +1,44 @@
+#define OVERRIDE_SIZE_X		PASSED_PARAM_1
+#define OVERRIDE_SIZE_Y		PASSED_PARAM_2
+
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE + ENT_TYPE_DISPOSABLE
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = particle_effects[arb]
+	let base_frame = 9
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR
+
+	let v0 = 0
+
+	IF OVERRIDE_SIZE_X = 0 THEN
+		let opengl_scale_x = 6500
+		let opengl_scale_y = opengl_scale_x
+	ELSE
+		let opengl_scale_x = OVERRIDE_SIZE_X
+		let opengl_scale_y = OVERRIDE_SIZE_Y
+	END_IF
+
+
+start
+
+	if v0 < 3 then
+		let opengl_scale_x = opengl_scale_x % 11000
+		let opengl_scale_y = opengl_scale_y % 11000
+	else
+		let opengl_scale_x = opengl_scale_x % 8000
+		let opengl_scale_y = opengl_scale_y % 8000
+	end_if
+
+
+	let v0 = v0 + 1
+
+	if v0 = 10 then
+		kill_entity own_id
+	end_if
+end

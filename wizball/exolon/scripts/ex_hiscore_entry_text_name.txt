@@ -1,0 +1,107 @@
+
+#define start_x				v0
+#define start_y				v1
+
+#define end_x				v2
+#define end_y				v3
+
+#define progress			v4
+
+#define index_within_name		v5
+
+#define true_parent			v6
+
+#define start_scale			v7
+
+#define disappear_progress		v8
+
+#define current_position_in_name_array	v28
+
+	let true_parent = parent.parent
+	// So that it can check for a delete signal
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+
+	let Bitshift = 4
+	SET_PRIVATE_CO_ORDS
+
+	let opengl_booleans = opengl_boolean_scale + opengl_boolean_masked
+
+	let draw_mode = DRAW_MODE_SPRITE
+	let COLLISION_SHAPE = RECTANGLE
+
+	let sprite = game_font[set][18][18][9][9]
+//	let sprite = game_font[set][16][16][0][0]
+
+	let current_frame = parent.current_frame
+
+	set_private_co_ords
+
+	let start_x = world_x
+	let start_y = world_y
+
+	let temp_1 = index_within_name * 32
+	let end_x = 112 + temp_1
+	let end_y = 240
+
+	let start_scale = parent.opengl_scale_x
+
+	let opengl_scale_x = start_scale
+	let opengl_scale_y = start_scale
+
+	let progress = 0
+
+start
+
+	let world_x = lerp start_x end_x progress
+	let world_y = lerp start_y end_y progress
+
+	let opengl_scale_x = lerp start_scale 20000 progress
+	let opengl_scale_y = opengl_scale_x
+
+	set_private_co_ords
+
+	let progress = progress >% 10000 1000
+
+	if progress > 9950 then
+		let progress = 10000
+	end_if
+
+	// Something was said! What was it...?
+	if true_parent.current_position_in_name_array <= index_within_name then
+		goto disappear_phase
+	end_if
+
+	if true_parent.signal & destroy_hiscore_entry_text then
+		goto disappear_phase
+	end_if
+
+end
+
+.disappear_phase
+
+let disappear_progress = 0
+let start_scale = opengl_scale_x
+
+start
+	let world_x = lerp start_x end_x progress
+	let world_y = lerp start_y end_y progress
+
+	let opengl_scale_x = lerp start_scale 0 disappear_progress
+	let opengl_scale_y = opengl_scale_x
+
+	set_private_co_ords
+
+	let progress = progress >% 10000 1000
+
+	if progress > 9950 then
+		let progress = 10000
+	end_if
+
+	let disappear_progress = disappear_progress >% 10000 1000
+
+	if disappear_progress > 9950 then
+		kill_entity own_id
+	end_if
+
+end

@@ -1,0 +1,112 @@
+#define effect_progress				v0
+#define biased_effect_progress			v1
+
+#define extra_life_signal			1
+#define lose_life_signal			2
+
+	LET WINDOW_NUMBER = GAME_PANEL_WINDOW
+	LET DRAW_ORDER = WIZBALL_LIFE_INDICATOR_BACKING_DRAW_ORDER
+
+	let sprite = wizball[set][48][48][24][24]
+	let base_frame = 64
+	let current_frame = base_frame
+
+	let world_x = LIFE_INDICATOR_X_CO_ORD
+	let world_y = LIFE_INDICATOR_Y_CO_ORD
+
+	set_private_co_ords
+
+	let counter = 0
+
+	wait 30
+
+	let draw_mode = draw_mode_sprite
+	let opengl_booleans = OPENGL_BOOLEAN_MASKED
+
+	goto wait_for_new_life
+
+
+
+
+
+.normal_behaviour
+
+start
+
+	gosub check_for_signals
+
+	let current_frame = current_frame + 1 !> 94
+
+end
+
+
+
+
+
+.extra_life
+
+	let signal = 0
+	let effect_progress = 0
+start
+
+	let biased_effect_progress = effect_progress CURVE_PERCENTAGE (CURVE_PERCENTAGE_SISO)
+
+	let current_frame = 128 % biased_effect_progress !< 0 !> 63
+
+	let effect_progress = effect_progress + 100 !> 10000
+
+	if effect_progress = 10000 then
+		let current_frame = 94
+		goto normal_behaviour
+	end_if
+end
+
+
+
+
+
+.lose_life
+
+	let signal = 0
+	let current_frame = 96
+
+start
+	let current_frame = current_frame - 1 !< 64
+
+	if current_frame = 64 then
+		goto wait_for_new_life
+	end_if
+end
+
+
+
+
+
+.wait_for_new_life
+
+	let current_frame = 97
+
+start
+
+	let temp_1 = get_global_flag (wizball_entity_id_flag)
+
+	if temp_1 != CONST_UNSET then
+		let current_frame = 64
+		goto normal_behaviour
+	end_if
+
+end
+
+
+
+
+
+.check_for_signals
+
+	if signal = extra_life_signal then
+		goto extra_life
+	else_if signal = lose_life_signal then
+		goto lose_life
+	end_if
+
+return

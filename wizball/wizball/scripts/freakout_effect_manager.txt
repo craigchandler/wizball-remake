@@ -1,0 +1,71 @@
+#define freakout_stage			v0
+#define message				v1
+#define effect_level			v2
+#define bump_counter			v3
+
+	LET ENTITY_TYPE = ENT_TYPE_PAUSABLE
+
+	SET_GLOBAL_FLAG_AS_ENTITY_ID (freak_out_manager_entity_id)
+	CREATE_EVENT_QUEUE (10)
+
+	let freakout_stage = FREAK_OUT_STAGE_INTRO
+
+	set_global_flag (freak_out_flag, TRUE)
+	set_global_flag (freak_out_counter, 0)
+
+	spawn_entity (freakout_background,0,0,process_next)
+
+start
+
+	let message = GET_NEXT_EVENT_FROM_QUEUE
+
+	if message != CONST_UNSET then
+		switch message
+
+			case FREAKOUT_EVENT_LARGE_BUMP
+				if freakout_stage = FREAK_OUT_STAGE_INTRO then
+					let bump_counter = get_global_flag (freak_out_landscape_bump_counter)
+					if bump_counter < FREAKOUT_RELAPSE_FULL_LENGTH then
+						set_global_flag (freak_out_landscape_bump_counter, FREAKOUT_RELAPSE_FULL_LENGTH)
+					end_if
+				end_if
+			break
+
+			case FREAKOUT_EVENT_SMALL_BUMP
+				if freakout_stage = FREAK_OUT_STAGE_INTRO then
+					let bump_counter = get_global_flag (freak_out_landscape_bump_counter)
+					if bump_counter < FREAKOUT_RELAPSE_SHORT_LENGTH then
+						set_global_flag (freak_out_landscape_bump_counter, FREAKOUT_RELAPSE_SHORT_LENGTH)
+					end_if
+				end_if
+			break
+
+			case FREAKOUT_EVENT_EXIT
+				PLAY_SOUND freaky_bits_cancelled 255 CONST_SOUND_FREQUENCY 128
+				let freakout_stage = FREAK_OUT_STAGE_OUTRO
+			break
+
+		end_switch
+	end_if
+
+	let effect_level = get_global_flag (freak_out_counter)
+
+	if freakout_stage = FREAK_OUT_STAGE_INTRO then
+		let effect_level = effect_level + 1 !> FREAKOUT_MAXIMUM_EFFECT_LEVEL
+		set_global_flag (freak_out_counter, effect_level)
+	else_if freakout_stage = FREAK_OUT_STAGE_OUTRO then
+		let effect_level = effect_level - 1 !< 0
+		set_global_flag (freak_out_counter, effect_level)
+		if effect_level = 0 then
+			set_global_flag (freak_out_flag, FALSE)
+			kill_entity own_id
+		end_if
+	end_if
+
+	let bump_counter = get_global_flag (freak_out_landscape_bump_counter)
+	let bump_counter = bump_counter - 1 !< 0
+	set_global_flag (freak_out_landscape_bump_counter, bump_counter)
+
+end
+
+

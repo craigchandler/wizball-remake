@@ -1,0 +1,30 @@
+// The game reads in the values to compile a total range. Then makes random number within that
+// range. Then find where that position is by re-reading in the values until we find the spot
+// it sits in. Ta-da!
+
+#SIZE CONSTANT:MAX_WIZBALL_SPAWN_TUBE_POSITIONS
+
+	// Level 1 start positions
+#DATA 50,99, 112,227, 240,355, 368,395
+
+	// Level 2 start positions
+#DATA 54,283, 302,451
+
+	// Level 3 start positions
+#DATA 96,263, 302,435
+
+	// Level 4 start positions
+#DATA 72,151, 180,247, 292,419
+
+	// Level 5 start positions
+#DATA 76,98, 150,169, 340,372, 
+
+	// Level 6 start positions
+#DATA 186,212, 354,382,
+
+	// Level 7 start positions
+#DATA 218,246, 333,357, 372,382, 417,450
+
+	// Level 8 start positions
+#DATA 48,181, 206,265, 304,373, 367,455
+

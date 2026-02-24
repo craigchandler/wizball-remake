@@ -1,0 +1,94 @@
+#define ring_texture 		passed_param_1
+#define planet_size 		v0
+#define planet_width 		v1
+#define wobble_distance		v2
+#define wobble_speed		v3
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	let sprite = icons[set][32][32][16][16]
+	let base_frame = 2
+	// Don't actually use this graphic as it's just to show up in the map
+
+	let opengl_booleans = OPENGL_BOOLEAN_SCALE_AND_ROTATE + opengl_boolean_masked
+
+	let opengl_scale_y = rand 3000 5000
+
+	let wobble_distance = rand 0 2000
+
+	let counter = 0
+	let wobble_speed = rand 10 200
+
+start
+
+//	let secondary_frame = passed_param_1 + 7
+
+	if parent.script_number != ex_planet_ring then
+		switch parent.script_number
+
+			case ex_planet_blue
+				let secondary_frame = 12
+			break
+
+			case ex_planet_red
+				let secondary_frame = 10
+			break
+
+			case ex_planet_pink
+				let secondary_frame = 9
+			break
+
+			case ex_planet_brown
+				let secondary_frame = 8
+			break
+
+			case ex_planet_lava
+				let secondary_frame = 7
+			break
+
+			case ex_planet_green
+				let secondary_frame = 11
+			break
+
+		end_switch
+
+
+
+
+		// Spawn a new ring which'll be the back section.
+		spawn_entity ex_planet_ring 0 0 process_next
+		let draw_order = parent.draw_order + 1
+	else
+		// This is the back section
+		let draw_order = parent.draw_order - 2
+		let secondary_frame = parent.secondary_frame
+		let opengl_scale_y = parent.opengl_scale_y
+		let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERT_FLIPPED
+	end_if
+
+	let sprite = background_stuff[arb]
+	let multi_sprite = background_stuff[arb]
+
+	let current_frame = 6
+
+	let multi_opengl_booleans = OPENGL_BOOLEAN_FILTERED
+
+	let draw_mode = DRAW_MODE_MULTI_SPRITE
+
+start
+	if parent.script_number != ex_planet_ring then
+		// Front section, this decides the angle
+		let opengl_angle = wobble_distance sin counter
+		let counter = counter + wobble_speed
+	else
+		let opengl_angle = parent.opengl_angle
+	end_if
+
+	
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+	set_private_co_ords
+end
+

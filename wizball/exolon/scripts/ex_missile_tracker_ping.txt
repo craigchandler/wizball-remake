@@ -1,0 +1,56 @@
+#define colour		passed_param_1
+#define blue_pulse	0
+#define purple_pulse	0
+
+	let Bitshift = 7
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = background_stuff[arb]
+	let base_frame = 5
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_filtered
+
+	let opengl_vertex_green = 0
+
+	if colour = blue_pulse then
+		let opengl_vertex_red = 0
+		let opengl_vertex_blue = 192
+	else
+		let opengl_vertex_red = 128
+		let opengl_vertex_blue = 128
+	end_if
+
+	let draw_order = draw_order + 1
+
+	let lifetime = 192
+	
+start
+	let opengl_scale_x = opengl_scale_x >% 25000 500
+	let opengl_scale_y = opengl_scale_x
+
+	if colour = blue_pulse then
+		let opengl_vertex_red = 0
+		let opengl_vertex_blue = opengl_vertex_blue - 5
+	else
+		let opengl_vertex_red = opengl_vertex_red - 3
+		let opengl_vertex_blue = opengl_vertex_blue - 3
+	end_if
+
+	if opengl_vertex_red < 0 then
+		let opengl_vertex_red = 0
+	end_if
+
+	if opengl_vertex_blue < 0 then
+		let opengl_vertex_blue = 0
+	end_if
+
+	let lifetime = lifetime - 1
+
+	if lifetime = 0 then
+		kill_entity own_id
+	end_if
+end

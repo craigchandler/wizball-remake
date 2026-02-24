@@ -1,0 +1,172 @@
+// This is the glow of the cauldron, it also creates the paintdrops which fall into it.
+// It grows in size and intensity whenever a paintdrop hits it and creates sparks. Aw.
+
+#define cauldron_glow_position_x		320
+#define cauldron_glow_position_y		307
+
+#define total_paintdrops			24
+#define base_alpha				192
+#define total_blast_off_time			30
+
+#define datatable_line				v0
+#define landed_paintdrops			v1
+#define red_green_border			v2
+#define green_blue_border			v3
+#define paintdrop_colour			v4
+#define percentage_progress			v5
+#define remaining_paintdrops			v6
+#define x_offset				v7
+#define tick					v8
+#define countdown_till_blast_off		v9
+#define twinkle_speed				v10
+#define twinkle_x_offset			v11
+#define twinkle_y_offset			v12
+#define pitch_increase_frequency		v13
+
+#define burst_frequency				v14
+#define burst_volume				v15
+#define burst_channel				v16
+
+	let burst_frequency = CONST_SOUND_FREQUENCY / 2
+	let burst_volume = 64
+
+	let pitch_increase_frequency = CONST_SOUND_FREQUENCY
+
+	let entity_type = ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+
+	let world_x = cauldron_glow_position_x
+	let world_y = cauldron_glow_position_y
+
+	set_private_co_ords
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_vertex_colour_alpha
+	let opengl_booleans = opengl_booleans + opengl_boolean_scale
+	let opengl_booleans = opengl_booleans + opengl_boolean_filtered
+
+	let draw_mode = draw_mode_sprite
+	let draw_order = LABORATORY_CAULDRON_GLOW_DRAW_ORDER
+
+	let sprite = particle_effects[arb]
+	let base_frame = 34
+	let current_frame = base_frame
+
+	let landed_paintdrops = 0
+	let remaining_paintdrops = total_paintdrops
+
+	let datatable_line = get_global_flag (cauldron_colour_datatable_line_flag)
+
+	let red_green_border = READ_FROM_DATATABLE (level_completion_colours,datatable_line,0)
+	let green_blue_border = READ_FROM_DATATABLE (level_completion_colours,datatable_line,1)
+	let green_blue_border = green_blue_border + red_green_border
+
+//	let opengl_vertex_red = READ_FROM_DATATABLE (level_cauldron_colours,datatable_line,0)
+//	let opengl_vertex_green = READ_FROM_DATATABLE (level_cauldron_colours,datatable_line,1)
+//	let opengl_vertex_blue = READ_FROM_DATATABLE (level_cauldron_colours,datatable_line,2)
+
+	let counter = 0
+	let countdown_till_blast_off = total_blast_off_time
+
+	let burst_channel = PLAY_LOOPED_SOUND (cauldron_beam_burst burst_volume burst_frequency 128)
+	ADD_TO_PERSISTANT_CHANNELS (burst_channel)
+
+start
+
+	LET tick = counter MOD 4
+
+	if counter > 90 then
+		IF tick = 0 THEN
+			if remaining_paintdrops > 0 then
+
+				let remaining_paintdrops = remaining_paintdrops - 1
+
+				let paintdrop_colour = rand (0,MAX_CAULDRON_CAPACITY)
+				let x_offset = rand (-24,24)
+
+				spawn_entity lab_paintdrop,x_offset,-cauldron_glow_position_y,process_next
+
+				let last_child.pitch_increase_frequency = pitch_increase_frequency
+				let pitch_increase_frequency = pitch_increase_frequency + 1000
+
+				if paintdrop_colour <= red_green_border then
+					let last_child.base_frame = 3
+				else_if paintdrop_colour <= green_blue_border then
+					let last_child.base_frame = 4
+				else
+					let last_child.base_frame = 5
+				end_if
+
+				let burst_volume = burst_volume + 8 !> 255
+				let burst_frequency = burst_frequency + 450 !> CONST_SOUND_FREQUENCY
+
+			end_if
+		END_IF
+	end_if
+
+	ADJUST_SOUND (burst_channel, burst_volume, burst_frequency, 128)
+
+	// Use the landed_paintdrops variable to set the alpha and size.
+	let percentage_progress = unlerp (0,total_paintdrops,landed_paintdrops)
+
+	if landed_paintdrops = total_paintdrops then
+
+		let temp_2 = total_blast_off_time - countdown_till_blast_off
+
+		let twinkle_speed = temp_2 * 4
+		let temp_2 = temp_2 * 100
+
+		let opengl_scale_x = 17000
+		let opengl_scale_y = 16000 + temp_2
+
+		let countdown_till_blast_off = countdown_till_blast_off - 1 !< -6
+
+		if countdown_till_blast_off = 0 then
+
+			spawn_entity (lab_cauldron_blast,0,0,process_next)
+			let temp_1 = last_child
+
+			play_sound (cauldron_full_burst,255,CONST_SOUND_FREQUENCY)
+
+			spawn_entity (lab_cauldron_rainbow_ray,0,8,process_next)
+			
+			let temp_1.passed_param_1 = last_child
+
+		else_if countdown_till_blast_off > 0 then
+
+			let twinkle_x_offset = rand (-32,32)
+
+			spawn_entity magic_poof_twinkle,twinkle_x_offset,0,process_next
+			let last_child.y_vel = rand (-128,-256)
+			let last_child.y_vel = last_child.y_vel - twinkle_speed
+			let last_child.x_vel = rand (-128,128)
+
+		else_if countdown_till_blast_off = -6 then
+
+			// Rainbow ray should be fully extended now...
+
+			let twinkle_y_offset = rand (-320,-32)
+			let twinkle_x_offset = rand (24,32)
+			let twinkle_x_offset = rand_sign (twinkle_x_offset )
+
+			spawn_entity magic_poof_twinkle,twinkle_x_offset,twinkle_y_offset,process_next
+			let last_child.y_vel = 0
+			let last_child.x_vel = twinkle_x_offset * 6
+		end_if
+
+	else
+
+		let temp_1 = 256 - base_alpha
+		let temp_1 = temp_1 % percentage_progress
+		let opengl_vertex_alpha = base_alpha + temp_1
+
+		let opengl_scale_x = lerp (14000,17000,percentage_progress)
+		let opengl_scale_y = lerp (12000,16000,percentage_progress)
+
+		let temp_1 = rand (0,2000)
+
+		let opengl_scale_x = opengl_scale_x + temp_1
+		let opengl_scale_y = opengl_scale_y + temp_1
+
+		let counter = counter + 1
+
+	end_if
+end

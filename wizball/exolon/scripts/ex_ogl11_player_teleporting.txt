@@ -1,0 +1,42 @@
+#define adder v0
+#define twinkle_x_offset v1
+#define twinkle_y_offset v2
+#define twinker_counter v3
+
+let adder = 15
+let counter = 0
+let signal = 0
+
+let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+start
+	let counter = counter + adder
+
+	let world_x = parent.world_x
+	let world_y = parent.world_y - 32
+
+	set_private_co_ords
+
+	if counter > 255 then
+		let adder = -15
+
+		spawn_entity ex_player_teleport_mask 0 0 PROCESS_NEXT
+		let last_child.facing_direction = parent.facing_direction
+
+		for twinker_counter = 0 to 20
+			let twinkle_x_offset = rand -12 12
+			let twinkle_y_offset = rand -32 32
+			spawn_entity ex_twinkle twinkle_x_offset twinkle_y_offset PROCESS_NEXT
+		next
+
+		let signal = 1
+	else_if counter > 0 then
+		let twinkle_x_offset = rand -12 12
+		let twinkle_y_offset = rand -32 32
+		spawn_entity ex_twinkle twinkle_x_offset twinkle_y_offset PROCESS_NEXT
+		let last_child.draw_order = draw_order + 1
+	else_if counter < 0 then
+		let signal = 2
+		kill_entity own_id
+	end_if
+end

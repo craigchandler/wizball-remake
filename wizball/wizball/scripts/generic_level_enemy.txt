@@ -1,0 +1,1138 @@
+//	Proper graphics file stuff...
+//	0-15 molecule Static
+//	16-31 molecule Yellow
+//	32-47 molecule Green
+
+//	48 solid diamond
+//	49 empty circle
+//	50 empty diamond
+
+//	51-58 up and downer 
+//	59-66 up and downer
+//	67-74 up and downer
+
+
+//	0-16 plane (middle frame 8)
+//	17-33 plane (middle frame 25)
+//	34-50 plane (middle frame 42)
+
+
+	let PARENT_LEVEL = get_global_flag (player_on_level_number)
+	
+	call_script function_add_enemy_to_level_count
+
+	LET ENTITY_TYPE = ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+
+// ---------------- Defines ---------------- 
+
+// Fire spread bullets, also all fire at the same time (ie, at set repeats)
+
+// General Defines
+
+	#define top_or_bottom_flag				passed_param_1
+	#define paint_bubble_colour_flag			passed_param_2
+	#define paint_bubble_special_bonus_flag			passed_param_3
+	#define passed_in_min_horizontal_speed			passed_param_4
+	#define passed_in_max_horizontal_speed			passed_param_5
+	#define passed_in_min_height				passed_param_6
+	#define passed_in_max_height				passed_param_7
+	#define passed_in_firing_behaviour			passed_param_8
+	#define passed_in_firing_frequency			passed_param_9
+	#define passed_in_firing_initial_delay			passed_param_10
+	#define enemy_behaviour_type				passed_param_11
+	#define passed_in_gravity				passed_param_12
+	#define passed_in_min_vertical_speed			passed_param_13
+	#define passed_in_max_vertical_speed			passed_param_14
+	#define passed_in_enemy_bullet_speed_percentage		passed_param_15
+
+	#define STARTING_WORLD_X			V0
+	#define STARTING_WORLD_Y			v1
+
+	#define TOP_START_Y				V2
+	#define BOTTOM_START_Y				v3
+
+	#define STARTING_X_VEL				V4
+	#define STARTING_Y_VEL				v5
+
+	#define STARTING_X_ACC				V6
+	#define STARTING_Y_ACC				v7
+
+	#define wizball_entity_id			v8
+
+	#define firing_frequency			v9
+	#define firing_chance				V9
+		// These two variables are mutually exclusive, so we can kinda' use a union.
+	#define firing_type				v10
+
+	#define player_on_level_number_var		V11
+	#define bullet_speed_modifier			V12
+
+	#define still_inside_collision			V13
+
+	#define clockwise_bullet_angle			V14
+
+	#define direction_multiplier			V15
+
+	#define enemy_bullet_speed_percentage		v16
+
+	#define animation_counter			v17
+
+	#define target_frame				v18
+
+	#define FIRING_TYPE_NORMAL			0
+	#define FIRING_TYPE_SEMIAUTO			1
+	#define FIRING_TYPE_RADIAL			2
+
+	#define VERTICAL_BOUNCE_FLOOR			1
+	#define VERTICAL_BOUNCE_ROOF			2
+	#define VERTICAL_POSITION_TOP			3
+	#define VERTICAL_POSITION_MIDDLE		4
+	#define VERTICAL_POSITION_BOTTOM		5
+
+	#define BULLET_TYPE_SINGLE_DIRECTED		1
+	#define BULLET_TYPE_SPREAD			2
+	#define BULLET_FREQUENCY_RANDOM			4
+	#define BULLET_FREQUENCY_FIXED			8
+	#define BULLET_TYPE_CLOCKWISE			16
+
+// Solid Diamond Only Defines
+
+	#define base_world_x				V30
+	#define base_world_y				V31
+
+// Up and Downer Only Defines
+
+	#define behaviour_state				V30
+	#define behaviour_counter			V31
+
+	#define stored_vertical_speed			V32
+	#define stored_horizontal_speed			V33
+
+	#define current_rotation_angle			V34
+	#define target_rotation_angle			V35
+	#define rotation_progress			V36
+
+	#define up_and_downer_skip_first_shot		V37
+
+	#define behaviour_state_paused			0
+	#define behaviour_state_vertical		1
+	#define behaviour_state_horizontal		2
+	#define behaviour_state_diagonal		3
+
+// Paint Bubble Only Defines
+
+	#define burst_angle				passed_param_4
+	#define angular_step				V31
+	#define circular_wobble_angle			V32
+
+// Paint Bubble & Crabby Bouncer Only Defines
+
+	#define deform_angle				v33
+	#define scale_deform_amount			v34
+
+// Fuzz Only Defines
+
+	#define fuzz_loop_sound_channel			v30
+
+// External Bullet Defines
+
+	#define movement_angle				V2
+	#define movement_speed				V3
+
+// ---------------- Bitshift And Anchor ---------------- 
+
+	LET BITSHIFT = 8
+	SET_PRIVATE_CO_ORDS
+
+// ---------------- Appearance Set Up ---------------- 
+
+	LET CURRENT_FRAME = BASE_FRAME 
+
+	LET DRAW_MODE = DRAW_MODE_SPRITE
+
+	// Draw order is passed in by parent due to some enemies requiring to be drawn in front of the scenery.
+
+	LET OPENGL_SCALE_X = 10000
+	LET OPENGL_SCALE_Y = 10000
+	LET OPENGL_ANGLE = 0
+
+// ---------------- Object And World Collision Set Up ---------------- 
+
+	ENTITY_HITLINE GOSUB object_interaction_routine
+	WORLD_HITLINE GOSUB world_interaction_routine
+
+
+
+	LET COLLIDE_TYPE = ENT_TYPE_ENEMY
+	LET COLLIDE_WITH = ENT_TYPE_PLAYER + ENT_TYPE_PLAYER_BULLET
+	LET COLLIDE_WITH = COLLIDE_WITH + ENT_TYPE_CATELLITE
+
+	LET WORLD_COLLISION_BEHAVIOUR = COLLISION_RESPONSE_SIMPLE_BOUNCE_OR_DECELLERATE + COLLISION_RESPONSE_CALL_SCRIPT
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_ITERATE_MOVEMENT 
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_HORIZONTAL_WORLD_EDGE_SOLID
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_VERTICAL_WORLD_EDGE_SOLID
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_USE_EXTRA_TEST_POINTS
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + SLIDING_HORIZONTAL
+
+	LET ENTITY_MOVEMENT_BEHAVIOUR = ENTITY_MOVEMENT_HORIZONTAL_VERTICAL 
+
+	if enemy_behaviour_type = ENEMY_TYPE_SOLID_DIAMONDS then
+		spawn_entity solid_diamond_overlay,0,0,process_next
+		let draw_buddy = last_child
+	else_if enemy_behaviour_type = ENEMY_TYPE_SOLID_DIAMONDS_DEVIANT then
+		spawn_entity solid_diamond_overlay,0,0,process_next
+		let draw_buddy = last_child
+	end_if
+
+	if enemy_behaviour_type = ENEMY_TYPE_SOLID_DIAMONDS then
+		// Because these push against the floor and walls on purpose, we want to not nullify our speed on impact.
+		let WORLD_COLLISION_COEF_HORIZONTAL = 100
+		let WORLD_COLLISION_COEF_VERTICAL = 100
+		LET WORLD_COLLISION_BITMASK = WORLD_BITMASK_ONLY_BASE_COLLIDES
+
+		LET PATH_NUMBER = solid_diamond
+		LET PATH_ANGLE = 0
+		LET PATH_CURRENT_PERCENTAGE = 0
+		LET PATH_PERCENTAGE_SPEED = 4000
+		LET PATH_CURRENT_SECTION = CONST_UNSET
+		LET PATH_FLAG = CONST_UNSET
+	else_if enemy_behaviour_type = ENEMY_TYPE_FUZZ then
+		// These ignore world collision. I know. Amazing!
+		let WORLD_COLLISION_COEF_HORIZONTAL = 100
+		let WORLD_COLLISION_COEF_VERTICAL = 100
+		LET WORLD_COLLISION_BITMASK = WORLD_BITMASK_ONLY_BASE_COLLIDES
+
+		LET PATH_NUMBER = SPECIAL_RAND_CHOICE (0,fuzz_type_a,fuzz_type_b)
+		LET PATH_ANGLE = 0
+		LET PATH_CURRENT_PERCENTAGE = 0
+		LET PATH_PERCENTAGE_SPEED = 2000
+		LET PATH_CURRENT_SECTION = CONST_UNSET
+		LET PATH_FLAG = CONST_UNSET
+
+		LET base_world_x = WORLD_X
+		LET base_world_y = WORLD_y
+		let direction_multiplier = -passed_in_min_horizontal_speed
+		let passed_in_min_horizontal_speed = 0
+	else
+		let WORLD_COLLISION_COEF_HORIZONTAL = -100
+		let WORLD_COLLISION_COEF_VERTICAL = -100
+		LET WORLD_COLLISION_BITMASK = WORLD_BITMASK_ENEMY_WARP_COLLIDES
+	end_if
+
+	if enemy_behaviour_type = ENEMY_TYPE_PAINT_BUBBLES then
+		IF top_or_bottom_flag = VERTICAL_POSITION_MIDDLE then
+			LET WORLD_COLLISION_BITMASK = WORLD_BITMASK_ONLY_BASE_COLLIDES
+		END_IF
+	end_if
+
+	LET WORLD_COLLISION_LAYER = PLAYER_AND_ENEMY_WORLD_COLLISION_LAYER
+
+	LET COLLISION_SHAPE = RECTANGLE 
+
+	if enemy_behaviour_type = ENEMY_TYPE_FUZZ then
+		SET_COLLISION_FROM_FRAME -16
+
+		spawn_entity fuzz_overlay,0,0,process_next
+		let draw_buddy = last_child
+	else
+		SET_COLLISION_FROM_FRAME -8
+	end_if
+
+	SET_WORLD_COLLISION_FROM_OBJECT
+
+// ---------------- Position, Speed and Acceleration Setup ----------------
+
+	gosub choose_random_start_speed
+
+	LET temp_1 = SPECIAL_RAND (0, passed_in_min_height,passed_in_max_height)
+
+	LET TOP_START_Y = temp_1
+	LET BOTTOM_START_Y = level_height - temp_1
+
+	LET STARTING_X_ACC = 0
+
+	SWITCH top_or_bottom_flag
+
+		CASE VERTICAL_BOUNCE_FLOOR
+			LET WORLD_Y = BOTTOM_START_Y
+			LET STARTING_Y_ACC = passed_in_gravity
+		BREAK
+
+		CASE VERTICAL_BOUNCE_ROOF
+			LET WORLD_Y = TOP_START_Y
+			LET STARTING_Y_ACC = -passed_in_gravity
+		BREAK
+
+		CASE VERTICAL_POSITION_TOP
+			LET WORLD_Y = TOP_START_Y
+			LET STARTING_Y_ACC = 0
+		BREAK
+
+		CASE VERTICAL_POSITION_MIDDLE
+			LET STARTING_Y_ACC = 0
+			LET WORLD_Y = level_height / 2
+		BREAK
+
+		CASE VERTICAL_POSITION_BOTTOM
+			LET WORLD_Y = BOTTOM_START_Y
+			LET STARTING_Y_VEL = -STARTING_Y_VEL
+			LET STARTING_Y_ACC = 0
+		BREAK
+
+	END_SWITCH
+
+	LET STARTING_WORLD_X = WORLD_X
+	LET STARTING_WORLD_Y = WORLD_Y
+
+	let firing_frequency = passed_in_firing_initial_delay
+
+	let enemy_bullet_speed_percentage = passed_in_enemy_bullet_speed_percentage
+
+// ---------------- Am I inside summat pre-check ----------------
+
+	IF_INSIDE_COLLISION then
+		// We don't want to end the freakout effect just because the first entity we tried spawning
+		// got stuck in a wall and died.
+		call_script function_alt_remove_enemy_from_level
+		kill_entity own_id
+	end_if
+
+// ---------------- Final Set up ----------------
+
+	wake_line wait_until_off_screen
+
+	if enemy_behaviour_type < ENEMY_TYPE_FUZZ then
+		// All enemies apart from the fuzz wait until they're off-screen, however the fuzz is a special case.
+		goto wait_until_off_screen
+		// This means if it spawns on-screen it won't appear until it's off it.
+	else
+		LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+	end_if
+
+// ---------------- Main Loop ---------------- 
+// This enemy sort of bounces along the roof in the main. Wooters!
+
+.main_loop
+
+	let animation_counter = 0
+
+start
+
+	call_script function_normal_enemy_am_i_off_screen
+
+	if returned_value_1 = true then
+		goto wait_until_off_screen // But surely we're off screen already? Actually, no, because this function resets to the start position. Nyer!
+	end_if
+
+	fixed_switch enemy_behaviour_type
+
+		fixed_case ENEMY_TYPE_UP_AND_DOWNERS
+
+			let behaviour_counter = behaviour_counter - 1
+
+			if behaviour_counter = 0 then
+				if behaviour_state = behaviour_state_paused then
+
+					// OKay, we were PAUSED so we're now VERTICAL
+
+					let behaviour_state = behaviour_state_vertical
+					let behaviour_counter = UAD_BEHAVIOUR_DISTANCE_VERTICAL / passed_in_min_horizontal_speed
+
+					let x_vel = 0
+					let y_vel = stored_vertical_speed
+
+					if passed_in_firing_behaviour != 0 then
+						if up_and_downer_skip_first_shot = false then
+							gosub fire_shot
+						else
+							let up_and_downer_skip_first_shot = false
+						end_if
+					end_if
+
+				else_if behaviour_state = behaviour_state_vertical then
+
+					// OKay, we were VERTICAL so we're now HORIZONTAL
+
+					let behaviour_state = behaviour_state_horizontal
+					let behaviour_counter = UAD_BEHAVIOUR_DISTANCE_HORIZONTAL / passed_in_min_horizontal_speed
+
+					let stored_vertical_speed = y_vel
+
+					let x_vel = stored_horizontal_speed
+					let y_vel = 0
+
+				else_if behaviour_state = behaviour_state_horizontal then
+
+					// OKay, we were HORIZONTAL so we're now PAUSED
+
+					let behaviour_state = behaviour_state_paused
+					let behaviour_counter = UAD_BEHAVIOUR_LENGTH_PAUSED
+
+					let stored_horizontal_speed = x_vel
+
+					let x_vel = 0
+					let y_vel = 0
+
+				end_if
+			end_if
+
+			set_anim_frame (ANIM_PING_PONG, base_frame, frame_count, 2, animation_counter, false)
+
+			let animation_counter = animation_counter + 1
+
+		break
+
+		fixed_case ENEMY_TYPE_molecule_bouncers
+
+			set_anim_frame (ANIM_LOOP, base_frame, frame_count, 2, animation_counter, false)
+
+			let animation_counter = animation_counter + 1
+
+		break
+
+		fixed_case ENEMY_TYPE_BOBBLE_HATS
+			set_anim_frame (ANIM_LOOP, base_frame, frame_count, 4, animation_counter, false)
+			let animation_counter = animation_counter + 1
+		break
+
+		fixed_case ENEMY_TYPE_PLANES
+
+			let current_frame = frame_count sin animation_counter
+			let current_frame = current_frame + base_frame
+
+			let animation_counter = animation_counter + 400 !< 0 !> 35999
+
+			let behaviour_counter = behaviour_counter - 1
+
+			if behaviour_counter = 0 then
+
+				if behaviour_state = behaviour_state_horizontal then
+
+					// OKay, we were HORIZONTAL so we're now DIAGONAL
+
+					let behaviour_state = behaviour_state_diagonal
+					let behaviour_counter = PLANE_BEHAVIOUR_DISTANCE_DIAGONAL / passed_in_min_horizontal_speed
+
+					let y_vel = stored_vertical_speed
+
+				else_if behaviour_state = behaviour_state_diagonal then
+
+					// OKay, we were DIAGONAL so we're now HORIZONTAL
+
+					let behaviour_state = behaviour_state_horizontal
+					let behaviour_counter = PLANE_BEHAVIOUR_DISTANCE_HORIZONTAL / passed_in_min_horizontal_speed
+
+					let stored_vertical_speed = y_vel
+
+					let y_vel = 0
+
+				end_if
+			end_if
+
+		break
+
+		fixed_case ENEMY_TYPE_HOLLOW_CIRCLES
+
+			let opengl_vertex_red = 192 sin animation_counter
+			let opengl_vertex_red = opengl_vertex_red + 64
+			let opengl_vertex_green = opengl_vertex_red + 256
+
+			// Just make sure it ain't really -128...
+			if opengl_vertex_red < 0 then
+				let opengl_vertex_red = 0
+			end_if
+
+			let animation_counter = animation_counter + 750 !< 0 !> 35999
+
+		break
+
+		fixed_case ENEMY_TYPE_HOLLOW_DIAMONDS
+
+			let opengl_vertex_blue = 256 sin animation_counter
+			let opengl_vertex_green = opengl_vertex_blue + 256
+
+			// Just make sure it ain't really -256...
+			if opengl_vertex_blue < 0 then
+				let opengl_vertex_blue = 0
+			end_if
+
+			let animation_counter = animation_counter + 750 !< 0 !> 35999
+
+		break
+
+		fixed_case ENEMY_TYPE_SOLID_DIAMONDS
+
+			LET PATH_CURRENT_OFFSET_X, PATH_CURRENT_OFFSET_Y, PATH_CURRENT_SECTION = GET_SPECIAL_PATH_POSITION_TOTAL_OFFSET (PATH_NUMBER, PATH_ANGLE, PATH_CURRENT_PERCENTAGE, PATH_CURRENT_SECTION)
+
+			LET PATH_CURRENT_PERCENTAGE = PATH_CURRENT_PERCENTAGE + PATH_PERCENTAGE_SPEED
+
+			LET PATH_CURRENT_OFFSET_X = PATH_CURRENT_OFFSET_X * direction_multiplier
+
+			LET WORLD_X = BASE_WORLD_X + PATH_CURRENT_OFFSET_X
+			LET WORLD_Y = BASE_WORLD_Y + PATH_CURRENT_OFFSET_Y
+
+			IF WORLD_Y > 344 THEN
+				LET WORLD_Y = 344
+			END_IF
+
+			SET_PRIVATE_CO_ORDS
+
+		break
+
+		fixed_case ENEMY_TYPE_CRABBY_BOUNCERS
+			let animation_counter = animation_counter + 1
+			set_anim_frame (ANIM_PING_PONG, base_frame, frame_count, 2, animation_counter, false)
+
+			let temp_1 = scale_deform_amount sin deform_angle
+			let opengl_scale_x = 10000 + temp_1 
+			let opengl_scale_y = 10000 - temp_1 
+
+			let temp_1 = abs y_acc
+			let temp_1 = temp_1 * 20
+			let deform_angle = deform_angle + temp_1 !< 0 !> 35999
+
+			let temp_1 = abs y_acc
+			let temp_1 = temp_1 * 2
+			let scale_deform_amount = scale_deform_amount - temp_1 !< 0
+		break
+
+		fixed_case ENEMY_TYPE_FUZZ
+
+			if PATH_CURRENT_PERCENTAGE < 1000000 then
+				LET PATH_CURRENT_OFFSET_X, PATH_CURRENT_OFFSET_Y, PATH_CURRENT_SECTION = GET_SPECIAL_PATH_POSITION_TOTAL_OFFSET (PATH_NUMBER, PATH_ANGLE, PATH_CURRENT_PERCENTAGE, PATH_CURRENT_SECTION)
+
+				LET PATH_CURRENT_PERCENTAGE = PATH_CURRENT_PERCENTAGE + PATH_PERCENTAGE_SPEED
+
+				LET PATH_CURRENT_OFFSET_X = PATH_CURRENT_OFFSET_X * direction_multiplier
+
+				LET WORLD_X = BASE_WORLD_X + PATH_CURRENT_OFFSET_X
+				LET WORLD_Y = BASE_WORLD_Y + PATH_CURRENT_OFFSET_Y
+
+				SET_PRIVATE_CO_ORDS
+			else
+				LET X_VEL = direction_multiplier * 5376
+			end_if
+
+			set_anim_frame (ANIM_LOOP, base_frame, frame_count, 2, animation_counter, false)
+
+			let animation_counter = animation_counter + 1
+
+		break
+
+		fixed_case ENEMY_TYPE_PAINT_BUBBLES
+			IF top_or_bottom_flag = VERTICAL_POSITION_MIDDLE then
+
+				let x_vel = 768 sin circular_wobble_angle
+				let x_vel = x_vel * direction_multiplier
+				let y_vel = -768 cos circular_wobble_angle
+				let circular_wobble_angle = circular_wobble_angle + 250 !< 0 !> 35999
+
+			else
+
+				let temp_1 = scale_deform_amount sin deform_angle
+				let opengl_scale_x = 10000 + temp_1 
+				let opengl_scale_y = 10000 - temp_1 
+
+				let temp_1 = abs y_acc
+				let temp_1 = temp_1 * 20
+				let deform_angle = deform_angle + temp_1 !< 0 !> 35999
+
+				let temp_1 = abs y_acc
+				let temp_1 = temp_1 * 2
+				let scale_deform_amount = scale_deform_amount - temp_1 !< 0
+
+			END_IF
+		break
+
+		fixed_case ENEMY_TYPE_BONUS_MOLECULE
+			// Nothing aside from animation...
+
+			set_anim_frame (ANIM_LOOP, base_frame, frame_count, frame_delay, animation_counter, false)
+
+			let animation_counter = animation_counter + 1
+		break
+
+	end_switch
+
+	gosub fire_shots
+
+end
+
+// ---------------- Firing Routine ----------------
+
+.firing_routine
+
+
+
+
+
+
+
+
+return
+
+// ---------------- Object Interaction ----------------
+
+.object_interaction_routine
+
+	if enemy_behaviour_type = ENEMY_TYPE_PAINT_BUBBLES then
+
+		spawn_entity (paintdrop,0,0,process_next)
+		LET last_child.paint_bubble_colour_flag = paint_bubble_colour_flag
+
+		let temp_1 = get_global_flag (freak_out_flag)
+		// Don't spawn any special paintdrops during a freak out.
+
+		if temp_1 = true then
+			LET last_child.paint_bubble_special_bonus_flag = CONST_UNSET
+		else
+			LET last_child.paint_bubble_special_bonus_flag = paint_bubble_special_bonus_flag
+		end_if
+
+		for counter = 0 to 4
+			let temp_1 = rand (-8,8)
+			let temp_2 = rand (-8,8)
+			spawn_entity (particle_burst,temp_1,temp_2,process_next)
+			LET last_child.paint_bubble_colour_flag = paint_bubble_colour_flag
+		next
+
+		let angular_step = get_global_flag (particle_rareness_multiplier)
+		let angular_step = 2000 * angular_step
+
+		for counter = 0 to 36000 step angular_step
+			spawn_entity (particle_small_colour_drip,0,0,process_next)
+			LET last_child.paint_bubble_colour_flag = paint_bubble_colour_flag
+			LET last_child.paint_bubble_special_bonus_flag = paint_bubble_special_bonus_flag
+			LET temp_2 = rand -800,800
+			LET last_child.burst_angle = counter + temp_2
+		next
+
+		let temp_2 = get_global_flag (player_score)
+		let temp_2 = temp_2 + 50 !> MAXIMUM_POSSIBLE_SCORE
+		set_global_flag (player_score,temp_2)
+
+		call_script function_reset_fuzz_counter
+		call_script function_remove_enemy_from_level_count
+		kill_entity own_id
+
+	else_if enemy_behaviour_type = ENEMY_TYPE_BONUS_MOLECULE then
+
+		spawn_entity (particle_firework,0,0,process_next)
+		spawn_entity (bonus_pearl,0,0,process_next)
+
+		let temp_2 = get_global_flag (player_score)
+		let temp_2 = temp_2 + 50 !> MAXIMUM_POSSIBLE_SCORE
+		set_global_flag (player_score,temp_2)
+
+		call_script function_reset_fuzz_counter
+		call_script function_remove_enemy_from_level_count
+		kill_entity own_id
+
+	else
+		let temp_2 = get_global_flag (player_score)
+		let temp_2 = temp_2 + 50 !> MAXIMUM_POSSIBLE_SCORE
+		set_global_flag (player_score,temp_2)
+
+		call_script function_reset_fuzz_counter
+		call_script function_kill_normal_enemy
+
+	end_if
+
+
+end
+
+// ---------------- World Interaction ----------------
+
+.world_interaction_routine
+ 
+	PLAY_SOUND enemy_bounce 64 CONST_SOUND_FREQUENCY
+
+	if WORLD_HIT_AXIS = HORIZONTAL_AXIS then
+
+		switch enemy_behaviour_type
+
+			case ENEMY_TYPE_PAINT_BUBBLES
+				
+			break
+
+			case ENEMY_TYPE_HOLLOW_DIAMONDS
+
+			break
+
+			case ENEMY_TYPE_CRABBY_BOUNCERS
+
+			break
+
+			case ENEMY_TYPE_MOLECULE_BOUNCERS
+
+			break
+
+			case ENEMY_TYPE_HOLLOW_CIRCLES
+
+			break
+
+			case ENEMY_TYPE_SOLID_DIAMONDS
+
+			break
+
+			case ENEMY_TYPE_BOBBLE_HATS
+
+			break
+
+			case ENEMY_TYPE_PLANES
+				gosub flip_to_face_new_direction
+			break
+
+			case ENEMY_TYPE_UP_AND_DOWNERS
+				gosub flip_to_face_new_direction
+			break
+
+			case ENEMY_TYPE_BONUS_MOLECULE
+
+			break
+
+		end_switch
+
+	else
+
+		switch enemy_behaviour_type
+
+			case ENEMY_TYPE_PAINT_BUBBLES
+				let temp_1 = abs y_vel
+				let scale_deform_amount = temp_1 * 2
+				let deform_angle = 9000
+
+				gosub bounce_vertically_by_set_power
+			break
+
+			case ENEMY_TYPE_HOLLOW_DIAMONDS
+
+			break
+
+			case ENEMY_TYPE_CRABBY_BOUNCERS
+				let temp_1 = abs y_vel
+				let scale_deform_amount = temp_1 * 2
+				let deform_angle = 9000
+
+				gosub bounce_vertically_by_set_power
+			break
+
+			case ENEMY_TYPE_MOLECULE_BOUNCERS
+				gosub bounce_vertically_by_set_power
+			break
+
+			case ENEMY_TYPE_HOLLOW_CIRCLES
+
+			break
+
+			case ENEMY_TYPE_SOLID_DIAMONDS
+				
+			break
+
+			case ENEMY_TYPE_BOBBLE_HATS
+				gosub bounce_vertically_by_set_power
+			break
+
+			case ENEMY_TYPE_PLANES
+
+			break
+
+			case ENEMY_TYPE_UP_AND_DOWNERS
+
+			break
+
+			case ENEMY_TYPE_BONUS_MOLECULE
+
+			break
+
+		end_switch
+
+	end_if
+
+end
+
+// ---------------- Flip To Face New Direction ----------------
+// Flip to face new direction - duh!
+
+.flip_to_face_new_direction
+
+	if x_vel < 0 then
+		LET OPENGL_BOOLEANS = OPENGL_BOOLEANS OR OPENGL_BOOLEAN_HORI_FLIPPED
+	else
+		LET OPENGL_BOOLEANS = OPENGL_BOOLEANS AND !OPENGL_BOOLEAN_HORI_FLIPPED
+	end_if
+
+return
+
+// ---------------- Sleep And Wait Until Off Screen ----------------
+// This is the starting state of the enemy - it goes invisible and then waits
+// until it's not on-screen any more. Then it goes into the next mode...
+
+.wait_until_off_screen
+
+LET ENTITY_TYPE = ENTITY_TYPE AND !ENT_TYPE_PAUSABLE
+
+if enemy_behaviour_type = ENEMY_TYPE_FUZZ then
+	call_script function_remove_enemy_from_level_count
+	kill_entity draw_buddy
+	kill_entity own_id
+end_if
+
+gosub reset_to_base_position_and_wait
+
+start
+
+	call_script function_normal_enemy_am_i_on_screen
+
+	if returned_value_1 = false then
+		goto wait_until_on_screen
+	end_if
+
+end
+
+// ---------------- Wait Until On Screen ----------------
+// The enemy now waits until it's on-screen (or within a certain boundary) at
+// which point it wakes up and does it's thing according to what kind of enemy
+// it is - all the while waiting until it's off screen.
+
+.wait_until_on_screen
+
+LET ENTITY_TYPE = ENTITY_TYPE AND !ENT_TYPE_PAUSABLE
+
+start
+
+	call_script function_normal_enemy_am_i_on_screen
+
+	if returned_value_1 = true then
+		gosub start_movement
+		goto main_loop
+	end_if
+
+end
+
+// ---------------- Reset Position and Wait ----------------
+
+.reset_to_base_position_and_wait
+
+	let draw_mode = draw_mode_invisible
+
+	LET COLLIDE_TYPE = 0
+	LET COLLIDE_WITH = 0
+
+	let x_vel = 0
+	let y_vel = 0
+
+	let x_acc = 0
+	let y_acc = 0
+
+	let world_x = STARTING_WORLD_X
+	let world_y = STARTING_WORLD_Y
+
+	set_private_co_ords
+
+return
+
+// ---------------- Start Up Movement ----------------
+
+.start_movement
+
+//	let top_or_bottom_flag = top_or_bottom_flag 
+//	WTF?!
+
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	LET COLLIDE_TYPE = ENT_TYPE_ENEMY
+	LET COLLIDE_WITH = ENT_TYPE_PLAYER + ENT_TYPE_PLAYER_BULLET
+		// ENT_TYPE_PLAYER ENT_TYPE_PLAYER_HELD_BONUS ENT_TYPE_PLAYER_BULLET ENT_TYPE_ENEMY ENT_TYPE_ENEMY_BULLET ENT_TYPE_BOSS ENT_TYPE_PICKUP ENT_TYPE_ITEM ENT_TYPE_SMALL ENT_TYPE_MEDIUM ENT_TYPE_LARGE ENT_TYPE_GIGANTIC ENT_TYPE_MANAGER_ROUTINE ENT_TYPE_ENEMY_EMPLACEMENT ENT_TYPE_ENEMY_SPAWNER ENT_TYPE_PLAYER_EMPLACEMENT ENT_TYPE_PLAYER_SPAWNER ENT_TYPE_PLAYER_SUPER_BULLET ENT_TYPE_DISPOSABLE ENT_TYPE_SLEEPABLE ENT_TYPE_INDESTRUCTABLE
+
+	let draw_mode = draw_mode_sprite
+
+	if enemy_behaviour_type = ENEMY_TYPE_HOLLOW_DIAMONDS then
+		gosub choose_random_start_speed
+		let STARTING_Y_VEL = SPECIAL_RAND_SIGN (0, STARTING_Y_VEL)
+	else_if enemy_behaviour_type = ENEMY_TYPE_HOLLOW_CIRCLES then
+		gosub choose_random_start_speed
+		let STARTING_Y_VEL = SPECIAL_RAND_SIGN (0, STARTING_Y_VEL)
+	else_if enemy_behaviour_type = ENEMY_TYPE_PAINT_BUBBLES then
+		IF top_or_bottom_flag = VERTICAL_POSITION_MIDDLE then
+			let circular_wobble_angle = 0
+			let STARTING_WORLD_Y = SPECIAL_RAND (0, passed_in_min_height,passed_in_max_height)
+			set_private_co_ords
+		END_IF
+	end_if
+
+	start_loop
+
+		if enemy_behaviour_type = ENEMY_TYPE_HOLLOW_DIAMONDS then
+			let STARTING_WORLD_Y = SPECIAL_RAND (0, passed_in_min_height,passed_in_max_height)
+		else_if enemy_behaviour_type = ENEMY_TYPE_HOLLOW_CIRCLES then
+			let STARTING_WORLD_Y = SPECIAL_RAND (0, passed_in_min_height,passed_in_max_height)
+		else_if enemy_behaviour_type = ENEMY_TYPE_BONUS_MOLECULE then
+			let STARTING_WORLD_Y = SPECIAL_RAND (0, passed_in_min_height,passed_in_max_height)
+		end_if
+
+		LET WORLD_Y = STARTING_WORLD_Y
+		LET WORLD_X = STARTING_WORLD_X
+
+		IF_INSIDE_COLLISION then
+			let still_inside_collision = true
+		ELSE
+			let still_inside_collision = false
+		end_if
+
+	end_loop (still_inside_collision = true)
+
+	let X_VEL = STARTING_X_VEL
+	let Y_VEL = STARTING_Y_VEL
+
+	set_private_co_ords
+
+	LET X_ACC = STARTING_X_ACC
+	LET Y_ACC = STARTING_Y_ACC
+
+	let wizball_entity_id = get_global_flag (wizball_entity_id_flag)
+
+	if wizball_entity_id != CONST_UNSET then
+		// If the player is to the left of us, we should probably start out going left, huh?
+
+		if wizball_entity_id.world_x < world_x then
+			let X_VEL = -X_VEL
+			let direction_multiplier = -1
+		else
+			let direction_multiplier = 1
+		end_if
+	end_if
+
+	if X_VEL < 0 then
+		LET OPENGL_BOOLEANS = OPENGL_BOOLEANS OR OPENGL_BOOLEAN_HORI_FLIPPED
+	else
+		LET OPENGL_BOOLEANS = OPENGL_BOOLEANS AND !OPENGL_BOOLEAN_HORI_FLIPPED
+	end_if
+
+	if enemy_behaviour_type = ENEMY_TYPE_UP_AND_DOWNERS then
+		let stored_horizontal_speed = X_VEL
+		let stored_vertical_speed = Y_VEL
+		let x_vel = 0
+		let y_vel = 0
+		let behaviour_state = behaviour_state_paused
+		let behaviour_counter = UAD_BEHAVIOUR_LENGTH_PAUSED
+		let up_and_downer_skip_first_shot = true
+	else_if enemy_behaviour_type = ENEMY_TYPE_PLANES then
+		let stored_vertical_speed = Y_VEL
+		let y_vel = 0
+		let behaviour_state = behaviour_state_horizontal
+		let behaviour_counter = PLANE_BEHAVIOUR_DISTANCE_HORIZONTAL / passed_in_min_horizontal_speed
+	else_if enemy_behaviour_type = ENEMY_TYPE_SOLID_DIAMONDS then
+		let x_vel = 0
+		let y_vel = 0
+		let base_world_x = world_x
+		let base_world_y = world_y
+		LET PATH_CURRENT_PERCENTAGE = 0
+	else_if	enemy_behaviour_type >= ENEMY_TYPE_FUZZ then
+		let behaviour_state = 0
+		let behaviour_counter = 0
+	end_if
+
+	// So that things don't get outta' sync
+	let firing_frequency = passed_in_firing_initial_delay
+
+return
+
+
+
+.bounce_vertically_by_set_power
+
+	// If it's a bubble then set the scale deviation according to the speed at which it comes out of this
+	// hit, and likewise the speed of the wobble rotation should be LINKED permanently to the amount of deviation. So that it flexes rapidly at first and
+	// them more slowly. Also, the speed at which the deviation decreases should be linked to the gravity so that slower bouncing things
+	// take longer to settle as they'll be in the air longer (as if they are less dense).
+
+//xxxx - so it don't compile
+
+	if top_or_bottom_flag = VERTICAL_BOUNCE_FLOOR then
+
+		let temp_1 = sgn y_vel // This is the direction we'll be moving off in, but how fast? HOW FAST?!
+
+		// Use the old s = (a * t * t) / 2 formula to find "t".
+		// t = sqrt ( (2 * s) / a)
+
+		let temp_2 = BOTTOM_START_Y << bitshift
+		let temp_2 = y - temp_2 // temp_2 now equals "s" in the formula. ie, the distance travelled.
+		let temp_2 = temp_2 * 2
+		let temp_2 = temp_2 / y_acc
+		let temp_2 = sqr temp_2 // Okay, now we have "t"
+
+		// So we use the old velocity = accelleration * time
+
+		let y_vel = y_acc * temp_2
+		let y_vel = y_vel * temp_1
+
+	else_if top_or_bottom_flag = VERTICAL_BOUNCE_ROOF then
+
+		let temp_1 = sgn y_vel // This is the direction we'll be moving off in, but how fast? HOW FAST?!
+
+		// Use the old s = (a * t * t) / 2 formula to find "t".
+		// t = sqrt ( (2 * s) / a)
+
+		let temp_2 = TOP_START_Y << bitshift
+		let temp_2 = temp_2 - y // temp_2 now equals "s" in the formula. ie, the distance travelled.
+		let temp_2 = temp_2 * 2
+		let temp_2 = temp_2 / y_acc
+		let temp_2 = sqr -temp_2 // Okay, now we have "t"
+
+		// So we use the old velocity = accelleration * time
+
+		let y_vel = y_acc * -temp_2
+		let y_vel = y_vel * temp_1
+
+	end_if
+
+return
+
+
+
+// ---------------- Bullet Firing Functions ----------------
+// These functions deal with all aspects of shootin' 'n' shit.
+
+.fire_shots
+
+// This function is called by all enemies and uses the generic properties that they
+// all possess in order to either fire a spray of bullets, or to fire at the player.
+
+	if passed_in_firing_behaviour & BULLET_FREQUENCY_RANDOM then
+
+		LET firing_chance = SPECIAL_RAND (0, passed_in_firing_frequency)
+
+		IF firing_chance = 0 THEN
+
+			gosub fire_shot
+
+		END_IF
+
+	else_if passed_in_firing_behaviour & BULLET_FREQUENCY_FIXED then
+
+		let firing_frequency = firing_frequency - 1 !< 0
+
+		if firing_frequency = 0 then
+
+			let firing_frequency = passed_in_firing_frequency
+
+			gosub fire_shot
+
+		end_if
+
+	else
+
+		// Could have no type of timing behaviour if it's a special one or just doesn't fire bullets.
+
+	end_if
+
+return
+
+
+
+.fire_shot
+
+	if passed_in_firing_behaviour & BULLET_TYPE_SINGLE_DIRECTED then
+		gosub fire_directed_shot
+	else_if passed_in_firing_behaviour & BULLET_TYPE_SPREAD then
+		gosub fire_spread_shot
+	else_if passed_in_firing_behaviour & BULLET_TYPE_CLOCKWISE then
+		gosub fire_clockwise_shot
+	else
+		STOP // Uh-oh!
+	end_if
+
+return
+
+
+
+.fire_clockwise_shot
+
+	PLAY_SOUND enemy_fire_single_bullet 255 CONST_SOUND_FREQUENCY
+
+	SPAWN_ENTITY (enemy_bullet,0,0,process_next)
+	LET LAST_CHILD.movement_angle = clockwise_bullet_angle
+	LET clockwise_bullet_angle = clockwise_bullet_angle + 3000
+	LET player_on_level_number_var = get_global_flag (player_on_level_number)
+	LET bullet_speed_modifier = 10000 / CONST_NUMBER_OF_LEVELS_MINUS_ONE
+	LET bullet_speed_modifier = bullet_speed_modifier * player_on_level_number_var
+	let bullet_speed_modifier = bullet_speed_modifier % enemy_bullet_speed_percentage
+	LET LAST_CHILD.movement_speed = LERP (MINIMUM_ENEMY_BULLET_SPEED, MAXIMUM_ENEMY_BULLET_SPEED, bullet_speed_modifier)
+
+return
+
+
+
+.fire_spread_shot
+
+	PLAY_SOUND enemy_fire_bullet_spread 255 CONST_SOUND_FREQUENCY
+
+	FOR TEMP_1 = 0 TO 35999 STEP 9000
+		SPAWN_ENTITY (enemy_bullet,0,0,process_next)
+		LET LAST_CHILD.movement_angle = TEMP_1
+		LET player_on_level_number_var = get_global_flag (player_on_level_number)
+		LET bullet_speed_modifier = 10000 / CONST_NUMBER_OF_LEVELS_MINUS_ONE
+		LET bullet_speed_modifier = bullet_speed_modifier * player_on_level_number_var
+		let bullet_speed_modifier = bullet_speed_modifier % enemy_bullet_speed_percentage
+		LET LAST_CHILD.movement_speed = LERP (MINIMUM_ENEMY_BULLET_SPEED, MAXIMUM_ENEMY_BULLET_SPEED, bullet_speed_modifier)
+	NEXT
+
+	FOR TEMP_1 = 4500 TO 35999 STEP 9000
+		SPAWN_ENTITY (enemy_bullet,0,0,process_next)
+		LET LAST_CHILD.movement_angle = TEMP_1
+		LET player_on_level_number_var = get_global_flag (player_on_level_number)
+		LET bullet_speed_modifier = 10000 / CONST_NUMBER_OF_LEVELS_MINUS_ONE
+		LET bullet_speed_modifier = bullet_speed_modifier * player_on_level_number_var
+		let bullet_speed_modifier = bullet_speed_modifier % enemy_bullet_speed_percentage
+		LET LAST_CHILD.movement_speed = LERP (MINIMUM_ENEMY_BULLET_SPEED, MAXIMUM_ENEMY_BULLET_SPEED, bullet_speed_modifier)
+		LET LAST_CHILD.movement_speed = LAST_CHILD.movement_speed % 7071
+	NEXT
+
+return
+
+
+
+.fire_directed_shot
+
+	PLAY_SOUND enemy_fire_single_bullet 255 CONST_SOUND_FREQUENCY
+
+	LET TEMP_1 = GET_GLOBAL_FLAG (wizball_entity_id_flag)
+
+	IF TEMP_1 != CONST_UNSET then
+		SPAWN_ENTITY (enemy_bullet,0,0,process_next)
+		LET LAST_CHILD.movement_angle = ANGLE_TO_ENTITY (TEMP_1)
+		LET TEMP_1 = SPECIAL_RAND (0, -ENEMY_BULLET_INNACCURACY,ENEMY_BULLET_INNACCURACY)
+		LET LAST_CHILD.movement_angle = LAST_CHILD.movement_angle + TEMP_1
+		LET player_on_level_number_var = get_global_flag (player_on_level_number)
+		LET bullet_speed_modifier = 10000 / CONST_NUMBER_OF_LEVELS_MINUS_ONE
+		LET bullet_speed_modifier = bullet_speed_modifier * player_on_level_number_var
+		let bullet_speed_modifier = bullet_speed_modifier % enemy_bullet_speed_percentage
+		LET LAST_CHILD.movement_speed = LERP (MINIMUM_ENEMY_BULLET_SPEED, MAXIMUM_ENEMY_BULLET_SPEED, bullet_speed_modifier)
+	END_IF
+
+return
+
+// ---------------- Misc Support Functions ----------------
+// 
+
+.alter_rotation_angle_to_within_180_degrees
+
+	let temp_1 = current_rotation_angle - target_rotation_angle
+
+	if temp_1 < -18000 then
+		let current_rotation_angle = current_rotation_angle + 36000
+	else_if temp_1 > 18000 then
+		let current_rotation_angle = current_rotation_angle - 36000
+	end_if
+
+return
+
+
+
+.choose_random_start_speed
+
+	LET STARTING_X_VEL = SPECIAL_RAND (0, passed_in_min_horizontal_speed,passed_in_max_horizontal_speed)
+	LET STARTING_Y_VEL = SPECIAL_RAND (0, passed_in_min_vertical_speed,passed_in_max_vertical_speed)
+
+return

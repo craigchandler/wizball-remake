@@ -1,0 +1,981 @@
+	LET ENTITY_TYPE = ENT_TYPE_BONUS_LEVEL_ENTITY
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+// ---------------- Defines ---------------- 
+
+// General Defines
+
+	#define enemy_type				passed_param_1
+	#define wave_flags				passed_param_2
+	#define wave_continue_mode			passed_param_3
+
+	#define wave_number_in_bonus_level	passed_param_5
+
+	#define STARTING_WORLD_X			V0
+	#define STARTING_WORLD_Y			v1
+
+	#define TOP_START_Y				V2
+	#define BOTTOM_START_Y				v3
+
+	#define STARTING_X_VEL				V4
+	#define STARTING_Y_VEL				v5
+
+	#define STARTING_X_ACC				V6
+	#define STARTING_Y_ACC				v7
+
+	#define wizball_entity_id			v8
+
+	#define firing_counter				v9
+	#define firing_chance				V9
+		// These two variables are mutually exclusive, so we can kinda' use a union.
+	#define firing_type				v10
+
+	#define player_on_level_number_var		V11
+	#define bullet_speed_modifier			V12
+
+	#define still_inside_collision			V13
+
+	#define clockwise_bullet_angle			V14
+
+	#define direction_multiplier			V15
+
+	#define firing_behaviour			v16
+	#define firing_frequency			v17
+	#define firing_initial_delay			v18
+
+	#define behaviour_counter			V19
+
+	#define found_free_space_flag			v20
+
+	#define debugging_this_type			v21
+
+	#define enemy_bullet_speed_percentage		v22
+
+	#define animation_counter			v23
+
+// Planes
+
+	#define velocity_counter			V30
+	#define wave_height				92
+	#define wave_length				640
+
+// Bubbles
+
+	#define angular_step				V30
+	#define deformation_angle			V31
+	#define deformation_amount			v32
+
+// Circles
+
+	#define spawn_edge				V30
+	#define movement_angle				V31
+	#define circle_acceleration			32
+	#define circle_acceleration_timer		45
+
+// Asteroids
+
+	#define rotation_speed				V30
+
+	#define FIRING_TYPE_NORMAL			0
+	#define FIRING_TYPE_SEMIAUTO			1
+	#define FIRING_TYPE_RADIAL			2
+
+	#define VERTICAL_BOUNCE_FLOOR			1
+	#define VERTICAL_BOUNCE_ROOF			2
+	#define VERTICAL_POSITION_TOP			3
+	#define VERTICAL_POSITION_MIDDLE		4
+	#define VERTICAL_POSITION_BOTTOM		5
+
+	#define BULLET_TYPE_SINGLE_DIRECTED		1
+	#define BULLET_TYPE_SPREAD			2
+	#define BULLET_FREQUENCY_RANDOM			4
+	#define BULLET_FREQUENCY_FIXED			8
+	#define BULLET_TYPE_CLOCKWISE			16
+
+// 8 Way Shooters
+
+	#define stored_x_vel				V30
+	#define stored_y_vel				V31
+	#define behaviour_counter			v32
+
+// Up And Downers
+
+	#define sine_wave_counter			v30
+
+// Fuzz
+
+	#define fuzz_loop_sound_channel			v30
+
+// External Bullet Defines
+
+	#define movement_angle				V2
+	#define movement_speed				V3
+
+
+
+// Parent Wave Spawner Defines
+
+#define total_alive_children				v6
+
+
+// ---------------- Bitshift And Anchor ---------------- 
+
+	LET BITSHIFT = 8
+	SET_PRIVATE_CO_ORDS
+
+// ---------------- Appearance Set Up ---------------- 
+
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_MASKED
+
+	LET CURRENT_FRAME = BASE_FRAME 
+	LET FRAME_COUNT = 1
+
+	LET DRAW_MODE = DRAW_MODE_SPRITE
+
+	// Draw order is passed in by parent due to some enemies requiring to be drawn in front of the scenery.
+
+	LET OPENGL_SCALE_X = 10000
+	LET OPENGL_SCALE_Y = 10000
+	LET OPENGL_ANGLE = 0
+
+	LET DRAW_ORDER = BONUS_WAVE_ENEMY_DRAW_ORDER
+
+// ---------------- Object And World Collision Set Up ---------------- 
+
+	ENTITY_HITLINE GOSUB object_interaction_routine
+	WORLD_HITLINE GOSUB world_interaction_routine
+
+//	let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+	LET COLLIDE_TYPE = ENT_TYPE_ENEMY
+	LET COLLIDE_WITH = ENT_TYPE_PLAYER + ENT_TYPE_PLAYER_BULLET
+	LET COLLIDE_WITH = COLLIDE_WITH + ENT_TYPE_CATELLITE
+
+	LET WORLD_COLLISION_BEHAVIOUR = COLLISION_RESPONSE_SIMPLE_BOUNCE_OR_DECELLERATE + COLLISION_RESPONSE_CALL_SCRIPT
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_ITERATE_MOVEMENT 
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_VERTICAL_WORLD_EDGE_SOLID
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_USE_EXTRA_TEST_POINTS
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + SLIDING_HORIZONTAL
+
+	LET ENTITY_MOVEMENT_BEHAVIOUR = ENTITY_MOVEMENT_HORIZONTAL_VERTICAL 
+
+	// Increase the parent's child counter by one.
+	if wave_continue_mode = WAIT_UNTIL_LAST_DEAD then
+		let parent.total_alive_children = parent.total_alive_children + 1
+	end_if
+
+	let firing_counter = 0
+
+// ---------------- Position, Speed, Appearance and Acceleration Setup ----------------
+
+// BONUS_WAVE_TYPE_SLOW_PLANES
+// BONUS_WAVE_TYPE_REGULAR_PAINTBALL_BOUNCE
+// BONUS_WAVE_TYPE_RANDOM_ASTEROIDS
+// BONUS_WAVE_TYPE_RANDOM_CIRCLES
+// BONUS_WAVE_TYPE_RANDOM_PAINTBALL_BOUNCE
+// BONUS_WAVE_TYPE_FILTH
+// BONUS_WAVE_TYPE_BONUS_LIFE
+// BONUS_WAVE_TYPE_NEW_8_WAY_SHOOTERS
+// BONUS_WAVE_TYPE_NEW_ROTATE_SHOOTERS
+// BONUS_WAVE_TYPE_UP_AND_DOWNERS
+
+	let x_vel = 0
+	let y_vel = 0
+
+	let x_acc = 0
+	let y_acc = 0
+
+	let debugging_this_type = false
+
+	LET WORLD_COLLISION_BITMASK = WORLD_BITMASK_ONLY_BASE_COLLIDES
+
+	let enemy_bullet_speed_percentage = 10000
+
+	switch enemy_type
+
+		case BONUS_WAVE_TYPE_SLOW_PLANES
+			let WORLD_COLLISION_COEF_HORIZONTAL = 0
+			let WORLD_COLLISION_COEF_VERTICAL = 0
+
+			let x_vel = 0
+
+			let WORLD_X = LEFT_SIDE_BASE_X
+
+			if (wave_flags & Y_INVERT) then
+				let STARTING_WORLD_Y = BONUS_LEVEL_HEIGHT - 24
+			else
+				let STARTING_WORLD_Y = 24
+			end_if
+
+			let behaviour_counter = 0
+			let velocity_counter = -18000
+
+			let sprite = enemies_02[set][48][48][24][24]
+			let base_frame = 8
+			let frame_count = 8
+		break
+
+		case BONUS_WAVE_TYPE_REGULAR_PAINTBALL_BOUNCE
+			// Takes 3 seconds to cross the screen!
+
+			let sprite = paintballs_and_drips[arb]
+
+			if (wave_flags & ALTERNATE_MODE_1) then
+				let base_frame = 1
+			else
+				let base_frame = 0
+			end_if
+
+			if (wave_flags & Y_INVERT) then
+				let WORLD_Y = 416 - 160
+				let y_acc = -120
+			else
+				let WORLD_Y = 160
+				let y_acc = 120
+
+			end_if
+
+			if (wave_flags & X_INVERT) then
+				let WORLD_X = LEFT_SIDE_BASE_X
+				let x_vel = 900
+			else
+				let WORLD_X = RIGHT_SIDE_BASE_X
+				let x_vel = -900
+			end_if
+
+			let WORLD_COLLISION_COEF_HORIZONTAL = 0
+			let WORLD_COLLISION_COEF_VERTICAL = -100
+
+			LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_MASKED + OPENGL_BOOLEAN_SCALE
+		break
+
+		case BONUS_WAVE_TYPE_RANDOM_ASTEROIDS
+			LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_MASKED + OPENGL_BOOLEAN_ROTATE
+
+			let opengl_angle = rand (0,36000)
+			let rotation_speed = rand (-200,-100)
+
+			let behaviour_counter = 0
+
+			let movement_angle = SPECIAL_RAND (0, 2000,6000)
+			let movement_angle = SPECIAL_RAND_SIGN (0, movement_angle)
+			let movement_angle = movement_angle + 9000
+			let x_vel = -1280 sin movement_angle
+			let y_vel = 1280 cos movement_angle
+
+			let world_x = RIGHT_SIDE_BASE_X
+			let world_y = SPECIAL_RAND (0, 24,392)
+
+			let sprite = enemies_02[set][48][48][24][24]
+			let base_frame = 51
+			let frame_count = 16
+
+			let WORLD_COLLISION_COEF_HORIZONTAL = 0
+			let WORLD_COLLISION_COEF_VERTICAL = -100
+		break
+
+		case BONUS_WAVE_TYPE_RANDOM_CIRCLES
+			// ONLY SPAWN AT TOP AND BOTTOM!!!
+			let WORLD_COLLISION_COEF_HORIZONTAL = 0
+			let WORLD_COLLISION_COEF_VERTICAL = 0
+
+			let behaviour_counter = 0
+
+			let spawn_edge = SPECIAL_RAND_SIGN (0, 1)
+
+			let movement_angle = SPECIAL_RAND (0, 2000,7000)
+			let x_acc = circle_acceleration cos movement_angle
+			let y_acc = -circle_acceleration sin movement_angle
+			let y_acc = y_acc * spawn_edge
+
+			let wizball_entity_id = GET_GLOBAL_FLAG (wizball_entity_id_flag)
+
+			START_LOOP
+
+				let found_free_space_flag = true
+
+				let world_x = SPECIAL_RAND (0, 64,576)
+				let world_y = SPECIAL_RAND (0, 128,192)
+				let world_y = world_y * spawn_edge
+				let world_y = world_y + 208
+
+				let temp_1 = GET_DISTANCE_BETWEEN_ENTITIES (wizball_entity_id,own_id)
+
+				if temp_1 < 80 then
+					let found_free_space_flag = false
+				end_if
+
+			END_LOOP (found_free_space_flag = false)
+
+			if world_x > 320 then
+				let x_acc = -x_acc
+			end_if
+
+			let sprite = enemies_01[set][48][48][24][24]
+			let opengl_booleans = opengl_boolean_masked + opengl_boolean_vertex_colour
+			let frame_count = 1
+
+			LET BASE_FRAME = 49
+		break
+
+		case BONUS_WAVE_TYPE_RANDOM_PAINTBALL_BOUNCE
+			let WORLD_X = LEFT_SIDE_BASE_X
+
+			let temp_1 = SPECIAL_RAND (0, 0,1)
+
+			if (temp_1 = 0) then
+				let WORLD_Y = 160
+				let y_acc = 120
+			else
+				let WORLD_Y = 416 - 160
+				let y_acc = -120
+			end_if
+
+			let x_vel = SPECIAL_RAND (0, 256,1024)
+
+			let sprite = paintballs_and_drips[arb]
+			let base_frame = 2
+
+			let WORLD_COLLISION_COEF_HORIZONTAL = 0
+			let WORLD_COLLISION_COEF_VERTICAL = -100
+
+			LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_MASKED + OPENGL_BOOLEAN_SCALE
+		break
+
+		case BONUS_WAVE_TYPE_FILTH
+			let sprite = fuzz_base[set][64][64][32][32]
+			let base_frame = 0
+			let frame_count = 16
+
+			if (wave_flags & X_INVERT) then
+				let STARTING_WORLD_X = LEFT_SIDE_BASE_X
+			else
+				let STARTING_WORLD_X = RIGHT_SIDE_BASE_X
+			end_if
+
+			if (wave_flags & Y_INVERT) then
+				let STARTING_WORLD_Y = 416 - 24
+			else
+				let STARTING_WORLD_Y = 24
+			end_if
+
+			let world_x = STARTING_WORLD_X 
+			let world_y = STARTING_WORLD_Y 
+
+			let firing_behaviour = 0
+			let firing_frequency = 0
+
+			let WORLD_COLLISION_COEF_HORIZONTAL = 100
+			let WORLD_COLLISION_COEF_VERTICAL = 100
+
+			LET PATH_NUMBER = bonus_level_fuzz
+			LET PATH_ANGLE = 0
+			LET PATH_CURRENT_PERCENTAGE = 0
+			LET PATH_PERCENTAGE_SPEED = 4000
+			LET PATH_CURRENT_SECTION = CONST_UNSET
+			LET PATH_FLAG = CONST_UNSET
+
+			spawn_entity fuzz_overlay,0,0,process_next
+			let draw_buddy = last_child
+		break
+
+		case BONUS_WAVE_TYPE_BONUS_LIFE
+			// 1.75 sec per bounce
+			// 6.2 sec cross screen
+			let sprite = wizball[set][48][48][24][24]
+			let base_frame = 0
+
+			let WORLD_X = RIGHT_SIDE_BASE_X
+
+			let WORLD_Y = 416 - 64
+			let x_vel = -440
+			let y_acc = -70
+	
+			let WORLD_COLLISION_COEF_HORIZONTAL = 0
+			let WORLD_COLLISION_COEF_VERTICAL = -100
+		break
+
+		case BONUS_WAVE_TYPE_NEW_8_WAY_SHOOTERS
+
+	//		let debugging_this_type = true
+
+
+			let sprite = enemies_02[set][48][48][24][24]
+			let base_frame = 67
+			let frame_count = 8
+
+			if (wave_flags & ALTERNATE_MODE_1) then
+				// Alternate 1 - appears, moves a bit vertically, stops, shoots, etc.
+
+				LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA + OPENGL_BOOLEAN_BLEND_MULTIPLY
+				LET OPENGL_VERTEX_ALPHA = 0
+
+				let WORLD_COLLISION_COEF_HORIZONTAL = 0
+				let WORLD_COLLISION_COEF_VERTICAL = -100
+
+				let wizball_entity_id = GET_GLOBAL_FLAG (wizball_entity_id_flag)
+
+				START_LOOP
+
+					let found_free_space_flag = true
+
+					let world_x = SPECIAL_RAND (0, 64,576)
+					let world_y = SPECIAL_RAND (0, 64,352)
+
+					let temp_1 = GET_DISTANCE_BETWEEN_ENTITIES (wizball_entity_id,own_id)
+
+					if temp_1 < 80 then
+						let found_free_space_flag = false
+					end_if
+
+				END_LOOP (found_free_space_flag = false)
+
+				let x_vel = 0
+				let y_vel = 0
+
+				let temp_1 = SPECIAL_RAND (0, 0,15)
+				let temp_2 = 36000 / 16
+				let temp_1 = temp_1 * temp_2
+
+				let temp_3 = SPECIAL_RAND (0, 0,3)
+				let temp_3 = temp_3 * 256
+
+				let stored_x_vel = temp_3 sin temp_1
+				let stored_y_vel = temp_3 cos temp_1
+
+				let behaviour_counter = 0
+
+				let firing_behaviour = BULLET_FREQUENCY_FIXED OR BULLET_TYPE_SPREAD
+
+				let firing_frequency = 120
+				let firing_initial_delay = 30
+
+				let enemy_bullet_speed_percentage = 6000
+
+			else
+				// Basic variety
+
+				let WORLD_X = RIGHT_SIDE_BASE_X
+
+				if (wave_flags & Y_INVERT) then
+					let WORLD_Y = 416 - 24
+				else
+					let WORLD_Y = 24
+				end_if
+
+				// Time to cross screen = 3s
+				// Time till first shot = 1s
+				// Time till second shot = 2s
+
+				let x_vel = -910
+				let y_vel = 0
+
+				let WORLD_COLLISION_COEF_HORIZONTAL = 0
+				let WORLD_COLLISION_COEF_VERTICAL = 0
+
+				let firing_frequency = 120
+				let firing_initial_delay = 45
+
+				let firing_behaviour = BULLET_FREQUENCY_FIXED OR BULLET_TYPE_SPREAD
+			end_if
+		break
+
+		case BONUS_WAVE_TYPE_NEW_ROTATE_SHOOTERS
+
+			LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA + OPENGL_BOOLEAN_BLEND_MULTIPLY
+			LET OPENGL_VERTEX_ALPHA = 0
+
+			let sprite = enemies_02[set][48][48][24][24]
+			let base_frame = 67
+			let frame_count = 8
+
+			let enemy_bullet_speed_percentage = 4000
+
+			let wizball_entity_id = GET_GLOBAL_FLAG (wizball_entity_id_flag)
+
+			START_LOOP
+
+				let found_free_space_flag = true
+
+				let world_x = SPECIAL_RAND (0, 64,576)
+				let world_y = SPECIAL_RAND (0, 64,352)
+
+				let temp_1 = GET_DISTANCE_BETWEEN_ENTITIES (wizball_entity_id,own_id)
+
+				if temp_1 < 80 then
+					let found_free_space_flag = false
+				end_if
+
+			END_LOOP (found_free_space_flag = false)
+
+			let WORLD_COLLISION_COEF_HORIZONTAL = 0
+			let WORLD_COLLISION_COEF_VERTICAL = 0
+
+			let firing_frequency = 16
+			let firing_initial_delay = 32
+
+			let firing_behaviour = BULLET_FREQUENCY_FIXED OR BULLET_TYPE_CLOCKWISE
+		break
+
+		case BONUS_WAVE_TYPE_UP_AND_DOWNERS
+			// Starts at middle of sine and completes (160 total wave height) 2.25 waves going upwards first (both top and bottom, not mirrored)
+			// Takes 3.25 seconds (195 frames), so that's a total angle of (2.25 * 36000) in 195 frames. 400 per frame.
+
+			if (wave_flags & Y_INVERT) then
+				let STARTING_WORLD_Y = 416 - 112
+			else
+				let STARTING_WORLD_Y = 112
+			end_if
+
+			if (wave_flags & X_INVERT) then
+				let WORLD_X = LEFT_SIDE_BASE_X
+				let x_vel = 900
+			else
+				let WORLD_X = RIGHT_SIDE_BASE_X
+				let x_vel = -900
+				LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_HORI_FLIPPED
+			end_if
+
+			let enemy_bullet_speed_percentage = 4000
+
+			let WORLD_COLLISION_COEF_HORIZONTAL = 0
+			let WORLD_COLLISION_COEF_VERTICAL = 0
+
+			let firing_behaviour = BULLET_FREQUENCY_FIXED OR BULLET_TYPE_SINGLE_DIRECTED
+
+			let firing_frequency = 75
+			let firing_initial_delay = 45
+
+			let sine_wave_counter = 0
+
+			let sprite = enemies_01[set][48][48][24][24]
+			let opengl_booleans = opengl_boolean_masked
+
+			LET BASE_FRAME = 51
+
+			let frame_count = 8
+		break
+
+	end_switch
+
+	let current_frame = base_frame
+
+	set_private_co_ords
+
+	LET WORLD_COLLISION_LAYER = PLAYER_AND_ENEMY_WORLD_COLLISION_LAYER
+
+	let firing_counter = firing_initial_delay 
+
+	LET COLLISION_SHAPE = RECTANGLE 
+
+	if enemy_type = BONUS_WAVE_TYPE_FILTH then
+		SET_COLLISION_FROM_FRAME -16
+	else
+		SET_COLLISION_FROM_FRAME -8
+	end_if
+
+	SET_WORLD_COLLISION_FROM_OBJECT
+
+// ---------------- Main Loop ---------------- 
+// This enemy sort of bounces along the roof in the main. Wooters!
+
+.main_loop
+
+start
+
+	if debugging_this_type = true then
+		start_program_trace
+	end_if
+
+	fixed_switch enemy_type
+
+		fixed_case BONUS_WAVE_TYPE_SLOW_PLANES
+			let behaviour_counter = 36000 * world_x
+			let behaviour_counter = behaviour_counter / wave_length
+
+			if (wave_flags & Y_INVERT) then
+				let world_y = STARTING_WORLD_Y - wave_height
+				let temp_1 = wave_height cos behaviour_counter
+				let world_y = world_y - temp_1
+
+				let current_frame = frame_count cos behaviour_counter
+				let current_frame = base_frame - current_frame 
+			else
+				let world_y = STARTING_WORLD_Y + wave_height
+				let temp_1 = wave_height cos behaviour_counter
+				let world_y = world_y + temp_1
+
+				let current_frame = frame_count cos behaviour_counter
+				let current_frame = base_frame - current_frame 
+			end_if
+
+			set_private_y_co_ord
+
+			let velocity_counter = velocity_counter + 360 !> 0
+
+			set_global_flag (bonus_debug_flag,x_vel)
+
+			let x_vel = 512 cos velocity_counter
+			let x_vel = x_vel + 512
+		break
+
+		fixed_case BONUS_WAVE_TYPE_REGULAR_PAINTBALL_BOUNCE
+			let deformation_angle = deformation_angle + 1000 !< 0 !> 35999
+			let deformation_amount = deformation_amount - 100 !< 0
+
+			let temp_1 = deformation_amount cos deformation_angle
+
+			let opengl_scale_x = 10000 + temp_1
+			let opengl_scale_y = 10000 - temp_1
+		break
+
+		fixed_case BONUS_WAVE_TYPE_RANDOM_ASTEROIDS
+			let current_frame = current_frame + 1
+			set_anim_frame (ANIM_LOOP, base_frame, frame_count, 4, animation_counter, false)
+
+			let animation_counter = animation_counter + 1
+
+			let opengl_angle = opengl_angle - rotation_speed
+		break
+
+		fixed_case BONUS_WAVE_TYPE_RANDOM_CIRCLES
+			let behaviour_counter = behaviour_counter + 1
+
+			if behaviour_counter = circle_acceleration_timer then
+				let x_acc = 0
+				let y_acc = 0
+			end_if
+
+			let opengl_vertex_red = 192 sin animation_counter
+			let opengl_vertex_red = opengl_vertex_red + 64
+			let opengl_vertex_green = opengl_vertex_red + 256
+
+			// Just make sure it ain't really -128...
+			if opengl_vertex_red < 0 then
+				let opengl_vertex_red = 0
+			end_if
+
+			let animation_counter = animation_counter + 750 !< 0 !> 35999
+		break
+
+		fixed_case BONUS_WAVE_TYPE_RANDOM_PAINTBALL_BOUNCE
+			let opengl_angle = opengl_angle - rotation_speed
+		break
+
+		fixed_case BONUS_WAVE_TYPE_FILTH
+			if PATH_CURRENT_PERCENTAGE < 1000000 then
+				LET PATH_CURRENT_OFFSET_X, PATH_CURRENT_OFFSET_Y, PATH_CURRENT_SECTION = GET_SPECIAL_PATH_POSITION_TOTAL_OFFSET (PATH_NUMBER, PATH_ANGLE, PATH_CURRENT_PERCENTAGE, PATH_CURRENT_SECTION)
+
+				LET PATH_CURRENT_PERCENTAGE = PATH_CURRENT_PERCENTAGE + PATH_PERCENTAGE_SPEED
+
+				if (wave_flags & Y_INVERT) then
+					LET WORLD_Y = STARTING_WORLD_Y - PATH_CURRENT_OFFSET_Y
+				else
+					LET WORLD_Y = STARTING_WORLD_Y + PATH_CURRENT_OFFSET_Y
+				end_if
+
+				if (wave_flags & X_INVERT) then
+					LET WORLD_X = STARTING_WORLD_X - PATH_CURRENT_OFFSET_X
+				else
+					LET WORLD_X = STARTING_WORLD_X + PATH_CURRENT_OFFSET_X
+				end_if
+
+				SET_PRIVATE_CO_ORDS
+			end_if
+
+			set_anim_frame (ANIM_LOOP, base_frame, frame_count, 2, animation_counter, false)
+
+			let animation_counter = animation_counter + 1
+		break
+
+		fixed_case BONUS_WAVE_TYPE_BONUS_LIFE
+			let current_frame = current_frame + 1 !< 0 !> 63
+		break
+
+		fixed_case BONUS_WAVE_TYPE_NEW_8_WAY_SHOOTERS
+			set_anim_frame (ANIM_LOOP, base_frame, frame_count, 4, animation_counter, false)
+			let animation_counter = animation_counter + 1
+
+			if (wave_flags & ALTERNATE_MODE_1) then
+				// Alternate 1 - appears, moves a bit vertically, stops, shoots, etc.
+
+				LET OPENGL_VERTEX_ALPHA = OPENGL_VERTEX_ALPHA + 15 !> 255
+
+				let behaviour_counter = behaviour_counter + 1
+				if behaviour_counter = 90 then
+					let x_vel = stored_x_vel
+					let y_vel = stored_y_vel
+				else_if behaviour_counter = 480 then
+					let stored_x_vel = x_vel
+					let stored_y_vel = y_vel
+					let x_vel = 0
+					let y_vel = 0
+					let behaviour_counter = 0
+				end_if
+
+			end_if
+		break
+
+		fixed_case BONUS_WAVE_TYPE_NEW_ROTATE_SHOOTERS
+			set_anim_frame (ANIM_LOOP, base_frame, frame_count, 4, animation_counter, false)
+			let animation_counter = animation_counter + 1
+
+			LET OPENGL_VERTEX_ALPHA = OPENGL_VERTEX_ALPHA + 15 !> 255
+		break
+
+		fixed_case BONUS_WAVE_TYPE_UP_AND_DOWNERS
+			let temp_1 = 64 sin sine_wave_counter 
+
+			let world_y = STARTING_WORLD_Y - temp_1
+
+			SET_PRIVATE_Y_CO_ORD
+
+			let sine_wave_counter = sine_wave_counter + 400
+
+			set_anim_frame (ANIM_PING_PONG, base_frame, frame_count, 2, animation_counter, false)
+
+			let animation_counter = animation_counter + 1
+		break
+
+
+		fixed_case BONUS_WAVE_TYPE_NEW_RANDOM_WAY_DRIVE_BYS
+
+		break
+
+	end_switch
+
+	gosub fire_shots
+
+	gosub check_if_off_screen_and_retire
+
+end
+
+// ---------------- Object Interaction ----------------
+
+.object_interaction_routine
+
+	// Blow 'em up real good! Unless they're an asteroid.
+
+	if enemy_type = BONUS_WAVE_TYPE_RANDOM_ASTEROIDS then
+		// If an asteroid hits a shield, it blows up to avoid depleting it like mad...
+
+		if collided_entity.entity_type & ENT_TYPE_SHIELD_ENTITY then
+			if wave_continue_mode = WAIT_UNTIL_LAST_DEAD then
+				let parent.total_alive_children = parent.total_alive_children - 1
+			end_if
+
+			call_script function_kill_normal_enemy
+		else
+			// Otherwise, if they're heading left, then reverse their direction.
+			if x_vel < 0 then
+				
+				PLAY_SOUND asteroid_scrape 255 CONST_SOUND_FREQUENCY
+
+				let x_vel = -x_vel
+				let rotation_speed = -rotation_speed
+			end_if
+		end_if
+	else
+		// Otherwise... KABOOM!
+
+		if wave_continue_mode = WAIT_UNTIL_LAST_DEAD then
+			let parent.total_alive_children = parent.total_alive_children - 1
+		end_if
+
+		if enemy_type = BONUS_WAVE_TYPE_BONUS_LIFE then
+			call_script function_gain_life
+		end_if
+
+		let temp_1 = get_global_flag (bonus_level_enemies_killed)
+		let temp_1 = temp_1 + 1
+		set_global_flag (bonus_level_enemies_killed, temp_1)
+
+		let temp_1 = wave_number_in_bonus_level / 3
+		let temp_1 = temp_1 * 10
+		let temp_1 = temp_1 + 20
+
+		let temp_2 = get_global_flag (player_score)
+		let temp_2 = temp_2 + temp_1 !> MAXIMUM_POSSIBLE_SCORE
+		set_global_flag (player_score,temp_2)
+
+		call_script function_kill_normal_enemy
+	end_if
+end
+
+// ---------------- World Interaction ----------------
+
+.world_interaction_routine
+
+	// Actually, we don't really need one. We can let the autonomous systems take care of everything I reckon.
+
+	// Well, apart from the bubbles. D'oh!
+
+	PLAY_SOUND enemy_bounce 64 CONST_SOUND_FREQUENCY
+
+	if enemy_type = BONUS_WAVE_TYPE_REGULAR_PAINTBALL_BOUNCE then
+		let deformation_angle = 0
+		let deformation_amount = 6000
+	else_if enemy_type = BONUS_WAVE_TYPE_RANDOM_PAINTBALL_BOUNCE then
+		let deformation_angle = 0
+		let deformation_amount = 6000
+	end_if
+
+end
+
+// ---------------- Termination ----------------
+
+.check_if_off_screen_and_retire
+
+	if world_x < LEFT_SIDE_BASE_X then
+		if wave_continue_mode = WAIT_UNTIL_LAST_DEAD then
+			let parent.total_alive_children = parent.total_alive_children - 1
+		end_if
+
+		kill_entity own_id
+	else_if world_x > RIGHT_SIDE_BASE_X then
+		if wave_continue_mode = WAIT_UNTIL_LAST_DEAD then
+			let parent.total_alive_children = parent.total_alive_children - 1
+		end_if
+
+		kill_entity own_id
+	end_if
+
+return
+
+// ---------------- Bullet Firing Functions ----------------
+// These functions deal with all aspects of shootin' 'n' shit.
+
+.fire_shots
+
+// This function is called by all enemies and uses the generic properties that they
+// all possess in order to either fire a spray of bullets, or to fire at the player.
+
+	if firing_behaviour & BULLET_FREQUENCY_RANDOM then
+
+		LET firing_chance = SPECIAL_RAND (0, firing_frequency)
+
+		IF firing_chance = 0 THEN
+
+			gosub fire_shot
+
+		END_IF
+
+	else_if firing_behaviour & BULLET_FREQUENCY_FIXED then
+
+		let firing_counter = firing_counter - 1 !< 0
+
+		if firing_counter = 0 then
+
+			let firing_counter = firing_frequency
+
+			gosub fire_shot
+
+		end_if
+
+	else
+
+		// Could have no type of timing behaviour if it's a special one or just doesn't fire bullets.
+
+	end_if
+
+return
+
+
+
+.fire_shot
+
+	if firing_behaviour & BULLET_TYPE_SINGLE_DIRECTED then
+		gosub fire_directed_shot
+	else_if firing_behaviour & BULLET_TYPE_SPREAD then
+		gosub fire_spread_shot
+	else_if firing_behaviour & BULLET_TYPE_CLOCKWISE then
+		gosub fire_clockwise_shot
+	else
+		STOP // Uh-oh!
+	end_if
+
+return
+
+
+
+.fire_clockwise_shot
+
+	PLAY_SOUND enemy_fire_single_bullet 255 CONST_SOUND_FREQUENCY
+
+	SPAWN_ENTITY (enemy_bullet,0,0,process_next)
+	LET LAST_CHILD.movement_angle = clockwise_bullet_angle
+	LET clockwise_bullet_angle = clockwise_bullet_angle + 2250
+	LET player_on_level_number_var = get_global_flag (player_on_level_number)
+	LET bullet_speed_modifier = 10000 / CONST_NUMBER_OF_LEVELS_MINUS_ONE
+	LET bullet_speed_modifier = bullet_speed_modifier * player_on_level_number_var
+	let bullet_speed_modifier = bullet_speed_modifier % enemy_bullet_speed_percentage
+	LET LAST_CHILD.movement_speed = LERP (MINIMUM_ENEMY_BULLET_SPEED, MAXIMUM_ENEMY_BULLET_SPEED, bullet_speed_modifier)
+
+return
+
+
+
+.fire_spread_shot
+
+	PLAY_SOUND enemy_fire_bullet_spread 255 CONST_SOUND_FREQUENCY
+
+	FOR TEMP_1 = 0 TO 35999 STEP 9000
+		SPAWN_ENTITY (enemy_bullet,0,0,process_next)
+		LET LAST_CHILD.movement_angle = TEMP_1
+		LET player_on_level_number_var = get_global_flag (player_on_level_number)
+		LET bullet_speed_modifier = 10000 / CONST_NUMBER_OF_LEVELS_MINUS_ONE
+		LET bullet_speed_modifier = bullet_speed_modifier * player_on_level_number_var
+		let bullet_speed_modifier = bullet_speed_modifier % enemy_bullet_speed_percentage
+		LET LAST_CHILD.movement_speed = LERP (MINIMUM_ENEMY_BULLET_SPEED, MAXIMUM_ENEMY_BULLET_SPEED, bullet_speed_modifier)
+	NEXT
+
+	FOR TEMP_1 = 4500 TO 35999 STEP 9000
+		SPAWN_ENTITY (enemy_bullet,0,0,process_next)
+		LET LAST_CHILD.movement_angle = TEMP_1
+		LET player_on_level_number_var = get_global_flag (player_on_level_number)
+		LET bullet_speed_modifier = 10000 / CONST_NUMBER_OF_LEVELS_MINUS_ONE
+		LET bullet_speed_modifier = bullet_speed_modifier * player_on_level_number_var
+		let bullet_speed_modifier = bullet_speed_modifier % enemy_bullet_speed_percentage
+		LET LAST_CHILD.movement_speed = LERP (MINIMUM_ENEMY_BULLET_SPEED, MAXIMUM_ENEMY_BULLET_SPEED, bullet_speed_modifier)
+		LET LAST_CHILD.movement_speed = LAST_CHILD.movement_speed % 7071
+	NEXT
+
+return
+
+
+
+.fire_directed_shot
+
+	PLAY_SOUND enemy_fire_single_bullet 255 CONST_SOUND_FREQUENCY
+
+	LET TEMP_1 = GET_GLOBAL_FLAG (wizball_entity_id_flag)
+
+	IF TEMP_1 != CONST_UNSET then
+		SPAWN_ENTITY (enemy_bullet,0,0,process_next)
+		LET LAST_CHILD.movement_angle = ANGLE_TO_ENTITY (TEMP_1)
+		LET TEMP_1 = SPECIAL_RAND (0, -ENEMY_BULLET_INNACCURACY,ENEMY_BULLET_INNACCURACY)
+		LET LAST_CHILD.movement_angle = LAST_CHILD.movement_angle + TEMP_1
+		LET player_on_level_number_var = get_global_flag (player_on_level_number)
+		LET bullet_speed_modifier = 10000 / CONST_NUMBER_OF_LEVELS_MINUS_ONE
+		LET bullet_speed_modifier = bullet_speed_modifier * player_on_level_number_var
+		let bullet_speed_modifier = bullet_speed_modifier % enemy_bullet_speed_percentage
+		LET LAST_CHILD.movement_speed = LERP (MINIMUM_ENEMY_BULLET_SPEED, MAXIMUM_ENEMY_BULLET_SPEED, bullet_speed_modifier)
+	END_IF
+
+return
+
+
+
+
+
+
+// BONUS_WAVE_TYPE_SLOW_PLANES
+// BONUS_WAVE_TYPE_REGULAR_PAINTBALL_BOUNCE
+// BONUS_WAVE_TYPE_RANDOM_ASTEROIDS
+// BONUS_WAVE_TYPE_RANDOM_CIRCLES
+// BONUS_WAVE_TYPE_RANDOM_PAINTBALL_BOUNCE
+// BONUS_WAVE_TYPE_FILTH
+// BONUS_WAVE_TYPE_BONUS_LIFE
+// BONUS_WAVE_TYPE_NEW_8_WAY_SHOOTERS
+// BONUS_WAVE_TYPE_NEW_ROTATE_SHOOTERS
+// BONUS_WAVE_TYPE_UP_AND_DOWNERS

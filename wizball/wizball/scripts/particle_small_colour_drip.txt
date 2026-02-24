@@ -1,0 +1,69 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE + ENT_TYPE_DISPOSABLE
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+#define colour_flag			passed_param_2
+#define special_bonus_flag		passed_param_3
+#define burst_angle			passed_param_4
+
+#define wobble_angle			V0
+#define wobble_size			V1
+#define base_size			V2
+#define x_wobble			V3
+#define y_wobble			V4
+
+	let Bitshift = 7
+	SET_PRIVATE_CO_ORDS
+
+	if special_bonus_flag = CONST_UNSET THEN
+		let base_frame = colour_flag + 19
+	ELSE
+		let base_frame = special_bonus_flag + 22
+	END_IF
+
+	let current_frame = base_frame 
+
+	let sprite = paintballs_and_drips[arb]
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let y_acc = 3
+
+	let opengl_scale_x = rand 14000,16000
+	let opengl_scale_y = opengl_scale_x
+
+	let opengl_angle = burst_angle
+
+	let temp_1 = rand (120,250)
+
+	let x_vel = temp_1 sin burst_angle
+	let y_vel = temp_1 cos burst_angle
+
+	let base_size = rand (15000,18000)
+	let wobble_angle = rand (0,36000)
+
+	let draw_order = PAINT_PARTICLE_DRAW_ORDER
+
+start
+
+	let wobble_size = base_size % 3500
+
+	let x_wobble = wobble_size sin wobble_angle
+	let y_wobble = wobble_size cos wobble_angle
+
+	let opengl_scale_x = base_size + x_wobble 
+	let opengl_scale_y = base_size + y_wobble 
+
+	let wobble_angle = wobble_angle + 2000 !< 0 !> 35999
+	let base_size = base_size % 9600
+
+	let x_vel = x_vel % 9800
+	let y_vel = y_vel % 9800
+
+	if opengl_scale_x < 200 then
+		kill_entity own_id
+	end_if
+
+end
+

@@ -1,0 +1,91 @@
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+	let draw_order = 5
+
+	let sprite = large_graphics[arb]
+	let base_frame = 3
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_MULTIPLY + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_scale
+
+	let world_x = 320
+	let world_y = 128
+
+	set_private_co_ords
+
+	let opengl_vertex_alpha = 0
+
+	let counter = 0
+start
+	let temp_1 = counter mod 30
+
+	if temp_1 = 0 then
+		spawn_entity ex_exolon_shadow_logo 0 0 process_next
+	end_if
+
+	let counter = counter + 1
+
+	if parent.signal & destroy_logo then
+		let signal = 1
+		// Tell the kids to pop their clogs...
+		gosub kill_logo
+	else
+		let opengl_vertex_alpha = opengl_vertex_alpha + 3
+
+		if opengl_vertex_alpha = 255 then
+			goto static_mode
+		end_if
+	end_if
+end
+
+.static_mode
+
+spawn_entity ex_dx_logo 0 0 process_next
+
+let draw_order = 5
+
+let opengl_booleans = OPENGL_BOOLEAN_MASKED + OPENGL_BOOLEAN_scale
+
+
+IF_HARDWARE_GRAPHICS then
+	IF_BLEND_MODE_AVAILABLE then
+		spawn_entity ex_exolon_logo_overlay 0 0 process_next
+	else
+		// Do a twinkle or summat here on the edge of the logo occasionally
+	end_if
+else
+
+end_if
+
+
+start
+
+	if parent.signal & destroy_logo then
+		let signal = 1
+		// Tell the kids to pop their clogs...
+		gosub kill_logo
+	end_if
+
+end
+
+.kill_logo
+
+	let opengl_booleans = opengl_boolean_blend_multiply + opengl_boolean_scale
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let signal = 1
+
+	let opengl_scale_y = opengl_scale_y % 7000 
+
+	if opengl_scale_y <= 100 then
+		kill_entity own_id
+	end_if
+
+	let opengl_vertex_alpha = opengl_vertex_alpha - 3
+
+	if opengl_vertex_alpha = 0 then
+		kill_entity own_id
+	end_if
+
+	return

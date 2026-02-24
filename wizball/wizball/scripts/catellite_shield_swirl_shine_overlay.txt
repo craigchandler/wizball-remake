@@ -1,0 +1,39 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = particle_effects[arb]
+	let base_frame = 17
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let opengl_vertex_alpha = 0
+
+	let draw_order = CATELLITE_SHIELD_DRAW_ORDER
+
+	let opengl_scale_x = 6570
+	let opengl_scale_y = opengl_scale_x 
+
+start
+
+
+	let opengl_vertex_alpha = opengl_vertex_alpha + 3 !> 255
+
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+
+	let draw_mode = parent.draw_mode
+
+	set_private_co_ords
+
+	let temp_1 = get_global_flag (cat_shield_stored_health)
+
+	if temp_1 = 0 then
+		kill_entity own_id
+	end_if
+
+end

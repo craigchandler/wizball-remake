@@ -1,0 +1,78 @@
+
+#define tick					v2
+
+#define bonus_chooser_id			v3
+
+
+let entity_type = ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+
+let draw_order = LABORATORY_MAIN_DRAW_ORDER
+
+let sprite = title_screen_and_large_bits[arb]
+let base_frame = 2
+let current_frame = base_frame
+
+let world_x = 0
+let world_y = 0
+set_private_co_ords
+
+let draw_mode = draw_mode_sprite
+let opengl_booleans = opengl_boolean_masked
+
+// Righty! As well as this background we have a few other bits we need to spawn to cover up our sins.
+
+spawn_entity static_mask_element,256,304,process_next
+let last_child.sprite = title_screen_and_large_bits[arb]
+let last_child.base_frame = 11
+let last_child.draw_order = LABORATORY_MASK_ELEMENT_DRAW_ORDER
+
+// We also need to spawn Wizball and Catellite/Nifta (depending on current loadout)
+
+let temp_1 = get_global_flag (wizball_current_loadout)
+
+if temp_1 & CATELLITE_BITFLAG then
+	spawn_entity lab_catellite,LAB_CATELLITE_START_X,LAB_CATELLITE_START_Y,process_next
+else
+	spawn_entity lab_nifta,LAB_CATELLITE_END_X,LAB_CATELLITE_END_Y,process_next
+end_if
+
+spawn_entity lab_wizball,LAB_WIZBALL_START_X,LAB_WIZBALL_START_Y,process_next
+
+spawn_entity lab_cauldron_glow,0,0,process_next
+
+spawn_entity lab_nifta_bowl,0,0,process_next
+
+spawn_entity lab_manage_permanent_upgrade_icons,0,0,process_next
+let bonus_chooser_id = last_child
+
+start
+
+	LET counter = counter + 1
+
+	if bonus_chooser_id.signal = 1 then
+		// If the bonus chooser is in it's final throws then GO GO GO!
+
+		let temp_1 = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+		ADD_EVENT_TO_QUEUE ( temp_1 , DEPLETE_CAULDRON_OF_TARGET_COLOUR_AND_UPDATE )
+
+	else
+		// Otherwise do it slowly.
+		if (counter > 90) then
+
+			LET tick = counter MOD 16
+
+			IF tick = 0 THEN
+				let temp_1 = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+				ADD_EVENT_TO_QUEUE ( temp_1 , DEPLETE_CAULDRON_OF_TARGET_COLOUR_AND_UPDATE )
+			END_IF
+		END_IF
+	end_if
+
+	if bonus_chooser_id.alive < 0 then
+		let temp_1 = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+		ADD_EVENT_TO_QUEUE ( temp_1 , LEVEL_RESET_FLAG_GO_TO_FLY_THRU )
+		KILL_ENTITY OWN_ID
+	end_if
+
+end
+

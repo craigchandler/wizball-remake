@@ -1,0 +1,20 @@
+
+	let sprite = large_graphics[arb]
+	let base_frame = 42
+	let current_frame = base_frame
+	let draw_mode = draw_mode_sprite
+
+	let draw_order = draw_order + 2
+
+	let counter = 0
+
+start
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+
+	let counter = counter + 1
+
+	let temp_1 = counter / 5
+	let temp_1 = temp_1 mod 2
+	let current_frame = base_frame + temp_1
+end

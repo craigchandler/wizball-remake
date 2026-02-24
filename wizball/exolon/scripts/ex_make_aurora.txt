@@ -1,0 +1,267 @@
+// This is called whenever you enter a new room as every room has an aurora or two. The exact combination
+// of aurora's is dependant on the level and your progress through it.
+
+#define base_scale_x		v0
+#define base_scale_y		v1
+
+#define scale_x_variation	v2
+#define scale_y_variation	v3
+
+#define shift_speed		v4
+#define biorhythm		v5
+
+#define hue			v6
+
+#define biorhythm_offset	v7
+
+	set_private_co_ords
+
+	let temp_1 = get_global_flag (current_level_flag)
+	
+	switch temp_1
+
+		case level01
+			spawn_entity (ex_aurora,0,0,process_next)
+
+			let last_child.base_scale_x = 80000
+			let last_child.base_scale_y = 30000
+
+			let hue = world_x / 88
+			let hue = hue + 0 !< 0 !> 360
+			GET_VERTEX_COLOURS_FROM_HSL hue 256 128
+
+			let last_child.opengl_vertex_alpha = 120
+			let last_child.opengl_vertex_red = opengl_vertex_red
+			let last_child.opengl_vertex_green = opengl_vertex_green
+			let last_child.opengl_vertex_blue = opengl_vertex_blue
+
+			let last_child.scale_x_variation = 25000
+			let last_child.scale_y_variation = 5000
+
+			let last_child.shift_speed = 50
+			let last_child.biorhythm_offset = 0
+
+			let last_child.base_frame = 6
+
+			spawn_entity (ex_aurora,0,0,process_next)
+
+			let last_child.base_scale_x = 70000
+			let last_child.base_scale_y = 35000
+
+			let hue = world_x / 88
+			let hue = hue + 64 !< 0 !> 360
+			GET_VERTEX_COLOURS_FROM_HSL hue 256 128
+
+			let last_child.opengl_vertex_alpha = 80
+			let last_child.opengl_vertex_red = opengl_vertex_red
+			let last_child.opengl_vertex_green = opengl_vertex_green
+			let last_child.opengl_vertex_blue = opengl_vertex_blue
+
+			let last_child.scale_x_variation = 14000
+			let last_child.scale_y_variation = 5000
+
+			let last_child.shift_speed = 70
+			let last_child.biorhythm_offset = 6000
+
+			let last_child.base_frame = 2
+		break
+
+
+
+		case level02
+			spawn_entity (ex_aurora,0,0,process_next)
+
+			let last_child.base_scale_x = 120000
+			let last_child.base_scale_y = 15000
+
+			let hue = world_x / 88
+			let hue = hue + 60 !< 0 !> 360
+			GET_VERTEX_COLOURS_FROM_HSL hue 256 128
+
+			let last_child.opengl_vertex_alpha = 120
+			let last_child.opengl_vertex_red = opengl_vertex_red
+			let last_child.opengl_vertex_green = opengl_vertex_green
+			let last_child.opengl_vertex_blue = opengl_vertex_blue
+
+			let last_child.scale_x_variation = 25000
+			let last_child.scale_y_variation = 5000
+
+			let last_child.shift_speed = 50
+			let last_child.biorhythm_offset = 0
+
+			let last_child.base_frame = 2
+
+			spawn_entity (ex_aurora,0,0,process_next)
+
+			let last_child.base_scale_x = 130000
+			let last_child.base_scale_y = 18000
+
+			let hue = world_x / 88
+			let hue = hue + 128 !< 0 !> 360
+			GET_VERTEX_COLOURS_FROM_HSL hue 256 128
+
+			let last_child.opengl_vertex_alpha = 80
+			let last_child.opengl_vertex_red = opengl_vertex_red
+			let last_child.opengl_vertex_green = opengl_vertex_green
+			let last_child.opengl_vertex_blue = opengl_vertex_blue
+
+			let last_child.scale_x_variation = 20000
+			let last_child.scale_y_variation = 5000
+
+			let last_child.shift_speed = 100
+			let last_child.biorhythm_offset = 9000
+
+			let last_child.base_frame = 0
+		break
+
+
+
+		case level03
+			spawn_entity (ex_aurora,0,0,process_next)
+
+			let last_child.base_scale_x = 120000
+			let last_child.base_scale_y = 23000
+
+			let hue = world_x / 88
+			let hue = hue + 120 !< 0 !> 360
+			GET_VERTEX_COLOURS_FROM_HSL hue 256 128
+
+			let last_child.opengl_vertex_alpha = 120
+			let last_child.opengl_vertex_red = opengl_vertex_red
+			let last_child.opengl_vertex_green = opengl_vertex_green
+			let last_child.opengl_vertex_blue = opengl_vertex_blue
+
+			let last_child.scale_x_variation = 25000
+			let last_child.scale_y_variation = 5000
+
+			let last_child.shift_speed = 50
+			let last_child.biorhythm_offset = 0
+
+			let last_child.base_frame = 4
+
+			spawn_entity (ex_aurora,0,0,process_next)
+
+			let last_child.base_scale_x = 80000
+			let last_child.base_scale_y = 20000
+
+			let hue = world_x / 88
+			let hue = hue + 240 !< 0 !> 360
+			GET_VERTEX_COLOURS_FROM_HSL hue 256 128
+
+			let last_child.opengl_vertex_alpha = 80
+			let last_child.opengl_vertex_red = opengl_vertex_red
+			let last_child.opengl_vertex_green = opengl_vertex_green
+			let last_child.opengl_vertex_blue = opengl_vertex_blue
+
+			let last_child.scale_x_variation = 20000
+			let last_child.scale_y_variation = 5000
+
+			let last_child.shift_speed = 100
+			let last_child.biorhythm_offset = 9000
+
+			let last_child.base_frame = 2
+		break
+
+
+
+		case level04
+			spawn_entity (ex_aurora,0,0,process_next)
+
+			let last_child.base_scale_x = 80000
+			let last_child.base_scale_y = 30000
+
+			let hue = world_x / 88
+			let hue = hue + 240 !< 0 !> 360
+			GET_VERTEX_COLOURS_FROM_HSL hue 256 128
+
+			let last_child.opengl_vertex_alpha = 120
+			let last_child.opengl_vertex_red = opengl_vertex_red
+			let last_child.opengl_vertex_green = opengl_vertex_green
+			let last_child.opengl_vertex_blue = opengl_vertex_blue
+
+			let last_child.scale_x_variation = 25000
+			let last_child.scale_y_variation = 5000
+
+			let last_child.shift_speed = 50
+			let last_child.biorhythm_offset = 0
+
+			let last_child.base_frame = 0
+
+			spawn_entity (ex_aurora,0,0,process_next)
+
+			let last_child.base_scale_x = 70000
+			let last_child.base_scale_y = 35000
+
+			let hue = world_x / 88
+			let hue = hue + 64 !< 0 !> 360
+			GET_VERTEX_COLOURS_FROM_HSL hue 256 128
+
+			let last_child.opengl_vertex_alpha = 80
+			let last_child.opengl_vertex_red = opengl_vertex_red
+			let last_child.opengl_vertex_green = opengl_vertex_green
+			let last_child.opengl_vertex_blue = opengl_vertex_blue
+
+			let last_child.scale_x_variation = 14000
+			let last_child.scale_y_variation = 5000
+
+			let last_child.shift_speed = 70
+			let last_child.biorhythm_offset = 6000
+
+			let last_child.base_frame = 2
+		break
+
+
+
+		case level05
+			spawn_entity (ex_aurora,0,0,process_next)
+
+			let last_child.base_scale_x = 80000
+			let last_child.base_scale_y = 30000
+
+			let hue = world_x / 88
+			let hue = hue + 20 !< 0 !> 360
+			GET_VERTEX_COLOURS_FROM_HSL hue 256 128
+
+			let last_child.opengl_vertex_alpha = 120
+			let last_child.opengl_vertex_red = opengl_vertex_red
+			let last_child.opengl_vertex_green = opengl_vertex_green
+			let last_child.opengl_vertex_blue = opengl_vertex_blue
+
+			let last_child.scale_x_variation = 25000
+			let last_child.scale_y_variation = 5000
+
+			let last_child.shift_speed = 50
+			let last_child.biorhythm_offset = 0
+
+			let last_child.base_frame = 6
+
+			spawn_entity (ex_aurora,0,0,process_next)
+
+			let last_child.base_scale_x = 70000
+			let last_child.base_scale_y = 35000
+
+			let hue = world_x / 88
+			let hue = hue + 100 !< 0 !> 360
+			GET_VERTEX_COLOURS_FROM_HSL hue 256 128
+
+			let last_child.opengl_vertex_alpha = 80
+			let last_child.opengl_vertex_red = opengl_vertex_red
+			let last_child.opengl_vertex_green = opengl_vertex_green
+			let last_child.opengl_vertex_blue = opengl_vertex_blue
+
+			let last_child.scale_x_variation = 14000
+			let last_child.scale_y_variation = 5000
+
+			let last_child.shift_speed = 70
+			let last_child.biorhythm_offset = 6000
+
+			let last_child.base_frame = 2
+		break
+
+	end_switch
+
+
+
+kill_entity own_id
+
+end

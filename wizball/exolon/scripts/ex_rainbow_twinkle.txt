@@ -1,0 +1,82 @@
+#define colour_index		v0
+
+	let Bitshift = 7
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 69
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let lifetime = 255
+
+	let y_acc = 1
+
+	let colour_index = rand 0 7
+
+	switch colour_index
+
+		case 0
+			let opengl_vertex_red = 255
+			let opengl_vertex_green = 0
+			let opengl_vertex_blue = 0
+			break
+
+		case 1
+			let opengl_vertex_red = 255
+			let opengl_vertex_green = 0
+			let opengl_vertex_blue = 255
+			break
+
+		case 2
+			let opengl_vertex_red = 128
+			let opengl_vertex_green = 64
+			let opengl_vertex_blue = 255
+			break
+
+		case 3
+			let opengl_vertex_red = 0
+			let opengl_vertex_green = 255
+			let opengl_vertex_blue = 255
+			break
+
+		case 4
+			let opengl_vertex_red = 0
+			let opengl_vertex_green = 255
+			let opengl_vertex_blue = 0
+			break
+
+		case 5
+			let opengl_vertex_red = 255
+			let opengl_vertex_green = 255
+			let opengl_vertex_blue = 0
+			break
+
+		case 6
+			let opengl_vertex_red = 255
+			let opengl_vertex_green = 128
+			let opengl_vertex_blue = 0
+			break
+
+	end_switch
+
+
+start
+	let v0 = lifetime - 100
+	if v0 < 0 then
+		let v0 = 0
+	end_if
+
+	let opengl_scale_x = rand v0 lifetime
+	let opengl_scale_x = opengl_scale_x * 75
+	let opengl_scale_y = opengl_scale_x
+
+	let lifetime = lifetime - 3
+
+	if lifetime < 50 then
+		kill_entity own_id
+	end_if
+end

@@ -1,0 +1,44 @@
+	LET ENTITY_TYPE = parent.entity_type
+	LET PARENT_LEVEL = PARENT.PARENT_LEVEL
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = particle_effects[arb]
+	let base_frame = 36
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	// So it doesn't get added by the system, but rather by it's parent/buddy.
+	let window_number = CONST_UNSET
+
+	let counter = 0
+	
+start
+
+	let opengl_vertex_red = 192 sin counter
+	let opengl_vertex_red = opengl_vertex_red + 64
+	let opengl_vertex_green = opengl_vertex_red + 256
+
+	// Just make sure it ain't really -128...
+	if opengl_vertex_red < 0 then
+		let opengl_vertex_red = 0
+	end_if
+
+	let opengl_vertex_blue = opengl_vertex_red
+
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+
+	SET_PRIVATE_CO_ORDS
+
+	let counter = counter + 750 !< 0 !> 35999
+
+	if parent.alive < 0 then
+		kill_entity own_id
+	end_if
+
+	
+end

@@ -1,0 +1,12 @@
+let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+
+let draw_order = 3
+
+start
+	SPAWN_ENTITIES_FROM_TEXT (TRUE,0,ex_toker_text, TOKER_DEDICATION_1, process_next, center_x, 320, 192, 32, 0)
+	SPAWN_ENTITIES_FROM_TEXT (TRUE,0,ex_toker_text, TOKER_DEDICATION_2, process_next, center_x, 320, 240, 32, 0)
+	SPAWN_ENTITIES_FROM_TEXT (TRUE,0,ex_toker_text, TOKER_DEDICATION_3, process_next, center_x, 320, 288, 32, 0)
+	SPAWN_ENTITIES_FROM_TEXT (TRUE,0,ex_toker_text, TOKER_DEDICATION_4, process_next, center_x, 320, 336, 32, 0)
+
+	kill_entity own_id
+end

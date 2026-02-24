@@ -1,0 +1,100 @@
+#define planet_size 		v0
+#define planet_width 		v1
+#define noise			v2
+#define total_noise		v3
+
+#define explosion_distance	v4
+#define explosion_angle		v5
+#define planet_radius		v6
+#define half_planet_radius	v7
+#define explosion_chance	v8
+
+#define x_offset		v9
+#define y_offset		v10
+
+#define planet_section 		passed_param_1
+
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+start
+
+	let Bitshift = 7
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = planet_masks[arb]
+	let current_frame = parent.current_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE_AND_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let opengl_vertex_red = 255
+	let opengl_vertex_blue = 255
+	let opengl_vertex_green = 255
+
+	let planet_radius = parent.planet_radius
+	
+start
+
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+	set_private_co_ords
+
+	let explosion_chance = explosion_chance + 3
+
+	let opengl_angle = parent.opengl_angle
+
+	if opengl_vertex_blue > 64 then
+		let opengl_vertex_blue = opengl_vertex_blue - 3
+	else
+		let opengl_vertex_blue = opengl_vertex_blue - 3
+
+		if opengl_vertex_blue < 0 then
+			let opengl_vertex_blue = 0
+		end_if
+
+		if opengl_vertex_green > 64 then
+			let opengl_vertex_green = opengl_vertex_green - 3
+		else
+			let opengl_vertex_green = opengl_vertex_green - 3
+
+			if opengl_vertex_green < 0 then
+				let opengl_vertex_green = 0
+			end_if
+
+			if opengl_vertex_red > 0 then
+				let opengl_vertex_red = opengl_vertex_red - 3
+			else
+				let lifetime = lifetime + 1
+
+				if lifetime = 200 then
+					kill_entity own_id
+				end_if
+			end_if
+		end_if		
+	end_if
+
+	gosub explosion
+end
+
+.explosion
+
+	let temp_1 = rand 0 explosion_chance
+
+	if temp_1 < 25 then
+		let explosion_distance = rand 0 planet_radius
+		let explosion_angle = rand 0 36000
+
+		let x_offset = explosion_distance cos explosion_angle
+		let y_offset = explosion_distance sin explosion_angle
+
+		spawn_entity ex_player_rocket_explosion_flame x_offset y_offset process_next
+
+		let last_child.opengl_angle = explosion_angle + 9000
+		let last_child.opengl_scale_x = rand 2000 4000
+		let last_child.opengl_scale_y = last_child.opengl_scale_x
+		let last_child.draw_order = last_child.draw_order + 2
+	end_if
+return

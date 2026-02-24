@@ -1,0 +1,84 @@
+// This shadow tracks whatever it's created by.
+
+#define target_opacity				v0
+#define target_scale				v1
+#define y_diff					v2
+#define half_max_scale				v3
+
+#define max_scale				passed_param_1
+
+#define max_opacity				128
+
+	let bitshift = 0
+	set_private_co_ords
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_SUBTRACT + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let half_max_scale = max_scale / 2
+
+	let entity_type = parent.entity_type
+
+	let draw_mode = draw_mode_sprite
+
+	let sprite = title_screen_and_large_bits[arb]
+	let current_frame = 10
+
+	let opengl_vertex_alpha = 0
+	let opengl_scale_x = half_max_scale
+	let opengl_scale_y = opengl_scale_x
+
+	let draw_order = parent.draw_order - 1
+
+start
+
+	if parent != const_unset then
+		if parent.alive >= 0 then
+
+			let world_x = parent.world_x
+
+			set_private_co_ords
+
+			let y_diff = world_y - parent.world_y
+
+			if y_diff < 256 then
+				if y_diff > 0 then
+					let y_diff = 256 - y_diff
+					let temp_1 = unlerp (0,256,y_diff)
+					let target_opacity = max_opacity % temp_1
+					let target_scale = lerp (half_max_scale, max_scale, temp_1)
+				else
+					let target_opacity = max_opacity
+					let target_scale = max_scale
+				end_if
+			else
+				let target_opacity = 0
+				let target_scale = half_max_scale
+			end_if
+
+			if opengl_vertex_alpha < target_opacity then
+				let opengl_vertex_alpha = opengl_vertex_alpha + 5 !> target_opacity
+			else
+				let opengl_vertex_alpha = opengl_vertex_alpha - 5 !< target_opacity
+			end_if
+
+			let opengl_vertex_red = opengl_vertex_alpha 
+			let opengl_vertex_green = opengl_vertex_alpha 
+			let opengl_vertex_blue = opengl_vertex_alpha 
+
+			if opengl_scale_x < target_scale then
+				let opengl_scale_x = opengl_scale_x + 500 !> target_scale
+			else
+				let opengl_scale_x = opengl_scale_x - 500 !< target_scale
+			end_if
+
+			let opengl_scale_y = opengl_scale_x
+
+		else
+			// Sever the tie so it remains at it's position.
+			let parent = const_unset
+		end_if
+	end_if
+
+end

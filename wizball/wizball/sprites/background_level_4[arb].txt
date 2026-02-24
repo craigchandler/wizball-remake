@@ -1,0 +1,5 @@
+4
+0,8,512,208,0,0	//   0 = Greyscale Start
+64,8,512,208,0,0	//   1 = Greyscale End
+0,224,512,208,0,0	//   2 = Colour Start
+64,224,512,208,0,0	//   3 = Colour End

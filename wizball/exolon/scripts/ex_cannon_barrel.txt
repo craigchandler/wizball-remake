@@ -1,0 +1,77 @@
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+// This will be used by both the large gun and the hybrid as
+// apart from it's appearance it's functionally identical.
+// It'll just read the parent's type and use that to determine the correct
+// gun frame.
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+	let upper_width = 48
+	let upper_height = 32
+	let lower_width = 64
+	let collision_shape = rectangle
+
+	let collide_type = ent_type_enemy_emplacement
+	let collide_with = ent_type_player
+
+	entity_hitline gosub nullify
+
+	let current_zone = get_global_flag (Player_zone_number)
+
+	let BOUNDARY_START_X, BOUNDARY_END_X = GET_HORIZONTAL_ZONE_EXTENTS (current_zone)
+
+	let BOUNDARY_START_X = BOUNDARY_START_X + 16
+	let BOUNDARY_END_X = BOUNDARY_END_X - 16
+
+	let FACING_DIRECTION = -1
+
+	let DIFFICULTY = get_global_flag (difficulty_level)
+	let DIFFICULTY = 100 % DIFFICULTY
+
+	let draw_order = draw_order - 1
+
+	let signal = 0
+start
+	if parent.signal = 2 then
+		kill_entity own_id
+	end_if
+
+	let CHANCE = rand DIFFICULTY 150
+
+	// So if either it's own or the parents is set it doesn't shoot.
+	let signal = signal + parent.signal
+
+	if signal = 0 then
+		if CHANCE = DIFFICULTY then
+			play_sound cannon_fire 255 22050 128
+			let v2 = 24
+			spawn_entity ex_enemy_shell 16 0 PROCESS_NEXT
+			let last_child.BOUNDARY_START_X = BOUNDARY_START_X - 32
+			let last_child.BOUNDARY_END_X = BOUNDARY_END_X + 32
+			let last_child.FACING_DIRECTION = FACING_DIRECTION
+			spawn_entity ex_muzzle_flame 0 0 PROCESS_NEXT
+			for counter = 0 to 3
+				spawn_entity ex_smoke 0 0 PROCESS_NEXT
+				let last_child.draw_order = last_child.draw_order - 1
+				let last_child.x_vel = rand -24 -40
+				let last_child.y_acc = -2
+				let last_child.y_vel = rand -10 10
+				let last_child.PASSED_PARAM_1 = 1000
+				let last_child.PASSED_PARAM_2 = 5000
+				let last_child.PASSED_PARAM_4 = 9900
+				let last_child.bitshift = 4
+				let last_child.lifetime = rand 30 50
+			next
+		end_if
+	end_if
+
+	let signal = 0
+end
+
+
+.nullify
+	let signal = 1
+	end

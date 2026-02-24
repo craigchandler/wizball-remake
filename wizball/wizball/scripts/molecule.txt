@@ -1,0 +1,218 @@
+
+	let PARENT_LEVEL = get_global_flag (player_on_level_number)
+
+	call_script function_add_enemy_to_level_count
+
+	LET ENTITY_TYPE = ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+#define wizball_entity_id		V0
+#define molecule_count 			v1
+
+#define check_result			v2
+
+#define undefined			-1
+#define result_no			0
+#define result_yes			1
+
+#define min_x				v10
+#define min_y				v11
+#define max_x				v12
+#define max_y				v13
+
+// ---------------- Bitshift And Anchor ---------------- 
+
+	LET BITSHIFT = 0
+
+	SET_PRIVATE_CO_ORDS
+
+// ---------------- Appearance Set Up ---------------- 
+
+	LET SPRITE = enemies_01[set][48][48][24][24]
+	LET BASE_FRAME = 0
+	LET CURRENT_FRAME = BASE_FRAME
+	LET FRAME_COUNT = 16
+	LET FRAME_DELAY = 2
+
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_MASKED
+
+	LET DRAW_ORDER = MOLECULE_DRAW_ORDER
+
+// ---------------- Object Collision Set Up ---------------- 
+
+	SET_COLLISION_FROM_FRAME -8
+
+	LET COLLIDE_WITH = ENT_TYPE_PLAYER + ENT_TYPE_PLAYER_BULLET
+	LET COLLIDE_WITH = COLLIDE_WITH + ENT_TYPE_CATELLITE
+
+	LET COLLIDE_TYPE = ENT_TYPE_ENEMY
+
+	ENTITY_HITLINE GOSUB object_interaction_routine
+
+	// And now we roll straight into...
+
+// ---------------- Wait Until Off Screen ----------------
+
+	wake_line choose_new_position
+
+	// When the Molecule is spawned, it doesn't want to appear if it's
+	// on-screen. This checks for that.
+
+start
+
+	gosub is_bounding_on_screen
+
+	if check_result = result_no then
+		goto set_up_and_start
+	end_if
+
+end
+
+.set_up_and_start
+
+// ---------------- Final Appearance Set Up ---------------- 
+
+	LET DRAW_MODE = DRAW_MODE_SPRITE
+
+// ---------------- Final Object Collision Set Up ---------------- 
+
+	LET COLLISION_SHAPE = RECTANGLE 
+
+// ---------------- Wait Until Off-Screen ----------------
+
+	// This, unsurprisingly, checks to see if the Molecule is off-screen.
+	// If it is, it goes into dormant mode and disappears, choosing a new
+	// place to wait.
+
+.wait_until_off_screen
+
+	LET DRAW_MODE = DRAW_MODE_SPRITE
+	LET COLLISION_SHAPE = RECTANGLE
+
+start
+
+	SET_ANIM_FRAME ANIM_LOOP BASE_FRAME FRAME_COUNT FRAME_DELAY counter FALSE
+
+	let counter = counter + 1
+
+	gosub is_bounding_on_screen
+
+	if check_result = result_no then
+		goto choose_new_position
+	end_if
+
+end
+
+// ---------------- Check To See If On-Screen ----------------
+
+	// This is where the Molecule lurks until the player gets within range
+	// again, whereupon it appears! Magic!
+
+.wait_until_on_screen
+
+//	LET DRAW_MODE = DRAW_MODE_INVISIBLE
+//	LET COLLISION_SHAPE = 0
+
+start
+
+	gosub is_bounding_on_screen
+
+	if check_result = result_yes then
+		gosub is_bounding_on_screen
+
+		goto wait_until_off_screen
+	end_if
+
+end
+
+// ---------------- Choose New Position ----------------
+
+	// This chooses a new location for the Molecule based on it's spawner's positions.
+	// It then waits until it's off screen in case the new one is on-screen.
+
+.choose_new_position
+
+	let world_x = SPECIAL_RAND (0, min_x,max_x)
+	let world_y = SPECIAL_RAND (0, min_y,max_y)
+
+	SET_PRIVATE_CO_ORDS
+
+	LET DRAW_MODE = DRAW_MODE_INVISIBLE
+	LET COLLISION_SHAPE = 0
+
+start
+
+	gosub is_bounding_on_screen
+
+	if check_result = result_no then
+		goto wait_until_on_screen
+	end_if
+
+end
+
+// ---------------- Object Interaction ----------------
+
+.object_interaction_routine
+
+	if collided_entity.COLLIDE_TYPE & ENT_TYPE_PLAYER then
+		// It's the player, let them sort it out...
+	end_if
+
+	if collided_entity.COLLIDE_TYPE & ENT_TYPE_PLAYER_BULLET then
+		// Aaaargh! Hit! In the kidleys!
+
+		PLAY_SOUND enemy_explode 255 CONST_SOUND_FREQUENCY
+
+		spawn_entity (particle_firework,0,0,process_next)
+		spawn_entity (bonus_pearl,0,0,process_next)
+
+		let temp_2 = get_global_flag (player_score)
+		let temp_2 = temp_2 + 50 !> MAXIMUM_POSSIBLE_SCORE
+		set_global_flag (player_score,temp_2)
+
+		call_script function_remove_enemy_from_level_count
+		call_script function_reset_fuzz_counter
+
+		kill_entity own_id
+	end_if
+
+end
+
+// ---------------- World Interaction ----------------
+
+.world_interaction_routine
+
+end
+
+// ---------------- Is My Bounding Box On Screen? ----------------
+
+.is_bounding_on_screen
+
+	let wizball_entity_id = get_global_flag (wizball_entity_id_flag)
+
+	if wizball_entity_id != CONST_UNSET then
+		let temp_1 = world_x - wizball_entity_id.world_x
+
+		if world_x > wizball_entity_id.world_x then
+			// We're to the right of the player, so we need to look at our left edge...
+
+			let temp_2 = min_x - wizball_entity_id.world_x
+		else_if world_x < wizball_entity_id.world_x then
+			// We're to the left of the player, so we need to look at our right edge...
+
+			let temp_2 = wizball_entity_id.world_x - max_x
+		else
+			// Deffo on screen as it's where the player is!
+			let temp_2 = 0
+		end_if
+
+		if temp_2 < HALF_SCREEN_PLUS_ENTRANCE_PHANTOM_ZONE then
+			let check_result = result_yes
+		else
+			let check_result = result_no
+		end_if
+	else
+		let check_result = undefined
+	end_if
+
+return

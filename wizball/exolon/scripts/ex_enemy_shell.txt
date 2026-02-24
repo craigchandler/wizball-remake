@@ -1,0 +1,71 @@
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 17
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let COLLISION_SHAPE = RECTANGLE
+	SET_COLLISION_FROM_FRAME
+	let lower_height = 4
+	let upper_height = 4
+	let world_collision_bitmask = 3
+
+	world_hitline gosub hitwall
+
+	let WORLD_COLLISION_BEHAVIOUR = COLLISION_RESPONSE_CALL_SCRIPT
+
+	let WORLD_COLLISION_COEF_HORIZONTAL = 100
+	let WORLD_COLLISION_COEF_VERTICAL = 0
+
+	let ENTITY_MOVEMENT_BEHAVIOUR = ENTITY_MOVEMENT_HORIZONTAL_VERTICAL
+
+	let COLLIDE_TYPE = ENT_TYPE_ENEMY_BULLET
+	let COLLIDE_WITH = ENT_TYPE_PLAYER + ENT_TYPE_PLAYER_BULLET
+
+	entity_hitline gosub hit_something
+
+	let DIFFICULTY = get_global_flag (difficulty_level)
+	let x_vel = lerp 2 6 DIFFICULTY
+
+	if FACING_DIRECTION = -1 then
+		let x_vel = x_vel * -1
+		let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_HORI_FLIPPED
+	end_if
+
+start
+	
+	if world_x < BOUNDARY_START_X then
+		kill_entity own_id
+	end_if
+
+	if world_x > BOUNDARY_END_X then
+		kill_entity own_id
+	end_if
+
+end
+
+.hit_something
+	if collided_entity.entity_type = ENT_TYPE_PLAYER then
+		let collided_entity.DAMAGE_TYPES_RECEIVED = collided_entity.DAMAGE_TYPES_RECEIVED OR COLLIDE_TYPE
+	end_if
+
+	let temp_1 = rand 16000 26000
+	play_sound small_explosion 255 temp_1 128
+
+	spawn_entity ex_player_rocket_explosion_flame 0 0 PROCESS_NEXT
+	let last_child.opengl_scale_x = rand 4000 6000
+
+	kill_entity own_id
+
+.hitwall
+	let temp_1 = rand 16000 26000
+	play_sound small_explosion 255 temp_1 128
+
+	spawn_entity ex_create_particles 0 0 PROCESS_NEXT
+	let last_child.v0 = -x_vel / 5
+	let last_child.v1 = 0
+	let last_child.v2 = 67
+
+	kill_entity own_id

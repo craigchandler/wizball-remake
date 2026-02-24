@@ -1,0 +1,66 @@
+wizball_entity_id_flag
+proxy_entity_id_flag
+menu_entity_identity_flag		// Guess. Go on. Guess.
+wizball_shield_stored_health
+cat_shield_stored_health
+catellite_entity_id_flag
+catellite_stored_health
+wx_vel
+wy_vel
+wx
+wy
+wworld_x
+wworld_y
+start_level
+wizball_starting_loadout
+wizball_current_loadout
+temp_flag
+level_starting_molecule_count
+level_starting_pearl_count
+enemy_wave_allotment_bitflag
+c64_or_spectrum_game_mode
+level_starting_phase
+enemy_wave_count_in_level
+player_on_level_number			// If a running entity notices that this value is inequal to their own parent level number, they'll head off to beddy-byes.
+enemies_shot_in_a_row			// Used to pop up bonus tokens every 10 enemies
+MAIN_GAME_CONTROLLER_ENTITY_ID		// This is the entity that watches over the whole shebang.
+reset_level_flag			// If this is set to true, it's picked up on by the main game watcher, which kills everything with gay abandon and then sets it to false.
+current_level_pearl_count
+player_warp_direction			// This is set to -1,0 or 1 depending on which direction the player should be warping in.
+wizball_collide_with
+wizball_collide_type
+player_bonus_pearl_count		// This is the number of bonus pearls the player has picked up. It's reset to 0 whenever the player karks it, or selects a new weapon.
+catellite_buffered_target_y		// This is updated by Wizball every frame, it basically outputs the previous value in the buffer before overwriting it with the new one, making sure that it's always precisely N frames old.
+player_warping_destroy_shield		// This is set by Wizball when it warps so that the left over shield bubble pops.
+particle_rareness_multiplier		// This is a value from 1 to 3 which alters how rarely particles appear. It's for particles which only appear by a random chance.
+particle_commonness_multiplier		// This is a value from 1 to 3 which alters how commonly particles appear. It's for multiple particles appearing at once.
+player_lives				// Durr...
+fuzz_counter				// This is how long until the fuzz arrive...
+freak_out_flag				// When this is set we see oddness instead of the proper background
+freak_out_counter			
+freak_out_landscape_bump_counter	// This counts down to 0 whenever it's above 0, but gives a temporary relapse from the freak-out effect.
+freak_out_manager_entity_id		// Er...
+tubetemp
+currently_on_bonus_level		// This is set so that wizball knows what to do when it "dies".
+bonus_debug_flag			// Used by bonus wave aliens to debug shit.
+current_existant_enemy_bullets		// This is used to check whether its okay to fire another bullet or not so we don't overrun the screen.
+bonus_level_starfield_slow_flag		// When this is set to 1, the starfield in bonus mode slows down...
+mutant_cat_flag				// If it's set to 1 then the cat goes bonkers.
+cauldron_colour_datatable_line_flag	// This is set so we can easily find what line to get the colour stuff from.
+randomise_seed				// This is set at the start of the game to a value and recorded here, so that it can be reset when a demo is loaded and the demo will play back the same. In theory. :P
+stay_in_hibernation_flag		// If this is true then things simply won't wake up when the level scrolls. THEY JUST WON'T!
+shared_next_bullet_alternator		// This is updated by both Wizball and Catellite every time they fire a bullet so the system knows which direction to shoot the next bullet in. Might just use it when Catellite isn't under your control.
+player_score				// This is the player's score. Blimey, eh?
+player_display_score			// This is the score counting up to the real score.
+cursor_controlled_menu			// This records if the player wants to use the player controls to control the menu.
+scrolling_message_synced_alpha		// This is so we can keep spawning letters as the scroller fades out but they all have the same alpha.
+playing_music_channel_flag		// This is the track which is reserved for the currently playing music (but not the fading track)
+playing_music_stream_flag		// This is the stream which is being played.
+display_mode_flag			// This is used by the icons on the option menu
+bonus_level_enemies_killed		// Duh!
+pause_allowed				// This is what's used to tell the pause manager whether the game is currently in a state where it should be allowed to pause.
+catellite_two_player_control_counter	// This counts down whenever a two-player catellite control isn't in use. Once it equals 0, then catellite's control reverts to player one.
+game_mode_single_player			// This is true or false depending on whether it's a one or two player game.
+record_games				// If this is true then we do something. But I can't remember what... Dammit.
+first_life_flag				// This is just used so subsequent lives appear faster.
+played_tunes_flag			// This is for the soundtest option.

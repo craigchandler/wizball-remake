@@ -1,0 +1,89 @@
+#define solid_collision_builder_x v0
+#define solid_collision_builder_y v1
+#define gun_top_debris_id v0
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 12
+
+	let COLLIDE_TYPE = ENT_TYPE_ENEMY_EMPLACEMENT
+	let COLLIDE_wITH = ENT_TYPE_PLAYER_SUPER_BULLET
+
+	let COLLISION_SHAPE = RECTANGLE
+
+	SET_COLLISION_FROM_FRAME
+
+	let solid_collision_builder_x = world_x - upper_width
+	let solid_collision_builder_y = world_y - upper_height
+
+	let solid_collision_builder_x = solid_collision_builder_x / 16
+	let solid_collision_builder_y = solid_collision_builder_y / 16
+
+	let solid_collision_builder_x = solid_collision_builder_x - 2
+
+	SET_COLLISION_BY_PARAMETERS solid_collision_builder_x solid_collision_builder_y 6 1 66
+
+//	let solid_collision_builder_y = solid_collision_builder_y + 1
+//	let solid_collision_builder_x = solid_collision_builder_x + 3
+
+//	SET_COLLISION_BY_PARAMETERS solid_collision_builder_x solid_collision_builder_y 3 1 66
+
+//	let solid_collision_builder_y = solid_collision_builder_y + 1
+//	let solid_collision_builder_x = solid_collision_builder_x - 3
+
+//	SET_COLLISION_BY_PARAMETERS solid_collision_builder_x solid_collision_builder_y 4 2 66
+
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	spawn_entity ex_gun_barrel -68 8 PROCESS_NEXT
+	let last_child.draw_order = last_child.draw_order - 1
+
+	// So that things hitting the gun barrel actually collide with the main gun.
+	
+	entity_hitline gosub destroyed
+	
+	let signal = 0
+start
+	if signal = 1 then
+		gosub destroyed
+	end_if
+end
+
+.destroyed
+	REMOVE_FROM_COLLISION_LIST
+	let collide_type = 0
+	let signal = 2
+
+	play_sound large_object_explosion 255 33000 128
+
+	spawn_entity ex_small_shaker_explosion 0 0 process_next
+	let last_child.draw_order = last_child.draw_order + 1
+
+	wait 15
+
+	spawn_entity ex_big_explosion 0 lower_height process_next
+	let last_child.PASSED_PARAM_1 = 15000
+	let last_child.draw_order = last_child.draw_order + 1
+
+	play_sound gunpod_explosion 255 22050 128
+
+	wait 10
+
+	SET_COLLISION_BY_PARAMETERS solid_collision_builder_x solid_collision_builder_y 6 1 0
+
+	spawn_entity ex_debris 0 lower_height process_next
+	let last_child.base_frame = 6
+	let parent.gun_top_debris_id = last_child
+
+	let point_value = 200
+	spawn_entity ex_display_score 0 16 PROCESS_NEXT
+	let last_child.passed_param_1 = 4
+	let last_child.passed_param_2 = 0
+
+	let signal = 3
+	kill_entity own_id

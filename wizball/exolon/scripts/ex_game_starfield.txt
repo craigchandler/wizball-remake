@@ -1,0 +1,22 @@
+#define starfield_id 999
+
+let draw_mode = draw_mode_starfield_lines
+let unique_id = starfield_id
+
+create_starfield unique_id 150 STARFIELD_STYLE_PARALLAX 640 416 -200 -10
+
+let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+let draw_order = 4
+
+start
+	update_starfield unique_id 10000 500 TRUE
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+	set_private_co_ords
+end
+
+.clog_pop
+
+destroy_starfield unique_id
+let draw_mode = draw_mode_invisible

@@ -1,0 +1,12 @@
+// This contains details of how Wiz and Cat appear in the intro...
+
+#SIZE 10
+
+// Frame, start_x, start_y, start_scale, first_target_x, first_target_y, first_target_scale, second_target_x, second_target_y, second_target_scale
+
+// Wiz's data...
+#DATA 3, 320,240,10, 300,220,8000, 80,320,4000
+
+// Cat's data...
+#DATA 4, 320,240,10, 380,300,8000, 560,320,6000
+

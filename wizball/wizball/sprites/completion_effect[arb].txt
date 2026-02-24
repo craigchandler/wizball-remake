@@ -1,0 +1,11 @@
+10
+8,8,328,200,164,100	//    0 = Large Island
+344,144,152,120,76,80	//    1 = Medium Island
+344,64,72,72,36,36	//    2 = Small Island
+424,72,64,64,32,32	//    3 = Large Rock Cluster 1
+440,32,24,24,12,12	//    4 = Medium Rock Cluster 1
+464,8,16,16,8,8		//    5 = Small Rock Cluster 1
+344,8,48,48,24,24	//    6 = Large Rock Cluster 2
+400,24,32,32,16,16	//    7 = Medium Rock Cluster 2
+440,8,16,16,8,8		//    8 = Small Rock Cluster 2
+8,216,296,192,248,96	//    9 = Rainbow

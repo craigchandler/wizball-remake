@@ -1,0 +1,34 @@
+let entity_type = ENT_TYPE_INDESTRUCTABLE // So that pausing the game doesn't affect it
+
+.main_loop
+
+start
+	IF_INPUT_KEYBOARD_HIT KEY_F8 then
+		goto dump_all
+	end_if
+
+//	IF_INPUT_KEYBOARD_HIT KEY_ESC then
+//		CLOSE_DOWN_SYSTEM
+//	end_if
+end
+
+.dump_all
+
+let temp_1 = GET_RECORD_PLAYBACK_STATUS (1)
+
+if temp_1 = STATUS_RECORDING then
+	STOP_RECORDING_INPUT 1
+	SAVE_RECORDED_INPUT 1 error_demo
+else_if temp_1 = STATUS_PLAYBACK then
+	STOP_PLAYBACK_INPUT 1
+end_if
+
+DUMP_ENTITY_LIST
+
+CLOSE_DOWN_SYSTEM
+
+kill_entity own_id
+
+
+
+

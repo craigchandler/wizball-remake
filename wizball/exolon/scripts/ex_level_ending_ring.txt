@@ -1,0 +1,44 @@
+#define base_opengl_booleans	v0
+#define sin_counter		v1
+#define deviation		v2
+
+	let Bitshift = 4
+	let y_acc = -1
+	let y_vel = 0
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = large_graphics[arb]
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let base_opengl_booleans = opengl_booleans
+
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+	let opengl_vertex_alpha = 0
+	let counter = 5000
+	let sin_counter = 0
+
+start
+
+	let temp_1 = rand 0 1
+	let temp_1 = temp_1 * OPENGL_BOOLEAN_HORI_FLIPPED
+	let opengl_booleans = base_opengl_booleans + temp_1
+
+	let opengl_vertex_alpha = opengl_vertex_alpha + 5 !> 255
+
+	if world_y < -64 then
+		kill_entity own_id
+	end_if
+
+	let counter = counter + 50 !> 10000
+
+	let sin_counter = sin_counter + 1000
+	let deviation = counter sin sin_counter
+	let deviation = deviation / 8
+
+	let opengl_scale_x = counter + deviation
+	let opengl_scale_y = counter - deviation
+end

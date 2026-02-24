@@ -1,0 +1,53 @@
+// Star generator - this is for the menu and creates the lovely spinning pulsing stars at either side.
+
+#define min_x			passed_param_1
+#define min_y			passed_param_2
+#define max_x			passed_param_3
+#define max_y			passed_param_4
+
+// This box is reflected in the centre of the screen on the x axis.
+
+#define other_min_x		v0
+#define other_max_x		v1
+
+#define offset_x		v2
+#define offset_y		v3
+
+#define screen_width		640
+
+#define star_spawn_delay	passed_param_5
+
+	let other_min_x = screen_width - max_x
+	let other_max_x = screen_width - min_x
+
+	let world_x = 0
+	let world_y = 0
+
+	set_private_co_ords
+
+	let counter = 0
+
+start
+
+	wait star_spawn_delay
+
+	let temp_1 = rand 0 1
+
+	if temp_1 = 0 then
+		// spawn in left box
+		let offset_x = rand min_x max_x
+	else
+		// spawn in right box
+		let offset_x = rand other_min_x other_max_x
+	end_if
+
+	let offset_y = rand min_y max_y
+
+	spawn_entity ex_menu_star offset_x offset_y process_next
+
+	if parent.signal & destroy_stars then
+		// The kids'll sort themselves out...
+		kill_entity own_id
+	end_if
+
+end

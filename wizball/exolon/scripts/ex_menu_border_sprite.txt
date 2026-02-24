@@ -1,0 +1,41 @@
+#define distance		v0
+#define x_offset		v1
+#define y_offset		v2
+#define rotation_angle		v3
+#define angle_offset		v4
+
+let sprite = gui_elements[set][32][32][16][16]
+let current_frame = 1
+let draw_mode = draw_mode_sprite
+
+let rotation_angle = 0
+let distance = 480
+
+let draw_order = 4
+
+let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+
+start
+	let distance = distance - 2
+	let rotation_angle = rotation_angle + 250
+
+	let temp_1 = rotation_angle + angle_offset
+
+	let x_offset = distance sin temp_1
+	let y_offset = distance cos temp_1
+
+	let world_x = 320 + x_offset
+	let world_y = 240 + y_offset
+
+	set_private_co_ords
+
+	if distance = 0 then
+		goto finished
+	end_if
+end
+
+.finished
+
+let signal = 1
+wait 2
+kill_entity own_id

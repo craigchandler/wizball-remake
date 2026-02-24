@@ -1,0 +1,54 @@
+#define magnitude			v0
+#define angular_offset			v1
+#define percentage_offset		v2
+#define angle_cycle			v3
+#define scale_offset			v4
+#define magnitude_decay_percentage 	v5
+
+let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+
+SET_PRIVATE_CO_ORDS
+let sprite = large_graphics[arb]
+
+let draw_mode = DRAW_MODE_SPRITE
+
+let draw_order = 3
+
+let opengl_booleans = OPENGL_BOOLEAN_BLEND_MULTIPLY
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+let opengl_vertex_alpha = 255
+
+let angle_cycle = -9000
+let magnitude = 10000
+
+let magnitude_decay_percentage = current_frame * 100
+let magnitude_decay_percentage = magnitude_decay_percentage + 8800
+
+let counter = 0
+
+start
+	let percentage_offset = magnitude sin angle_cycle
+
+	let angular_offset = 9000 % percentage_offset
+	let scale_offset = 10000 % percentage_offset
+
+	let angle_cycle = angle_cycle + 500
+
+	let magnitude = magnitude % magnitude_decay_percentage 
+
+	let opengl_scale_x = 10000 + scale_offset
+	let opengl_scale_y = opengl_scale_x
+
+	let opengl_angle = angular_offset
+
+	let counter = counter + 1
+	if counter > 250 then
+		let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+		if opengl_vertex_alpha = 0 then
+			kill_entity own_id
+		end_if
+	end_if
+end

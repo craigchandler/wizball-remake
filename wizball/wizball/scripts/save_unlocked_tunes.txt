@@ -1,0 +1,7 @@
+
+	RESET_SAVE_FILE
+	WRITE_FLAG_TO_SAVE_FILE played_tunes_flag
+	OUTPUT_SAVE_FILE save_file_tag
+	RESET_SAVE_FILE
+
+kill_entity own_id

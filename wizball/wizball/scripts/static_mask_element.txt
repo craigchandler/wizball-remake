@@ -1,0 +1,14 @@
+// This is wholly dependant on it's parent for information.
+
+let entity_type = parent.entity_type
+let current_frame = base_frame
+
+let bitshift = 0
+set_private_co_ords
+
+let draw_mode = draw_mode_sprite
+let opengl_booleans = opengl_boolean_masked
+
+start
+	// Does 'nowt
+end

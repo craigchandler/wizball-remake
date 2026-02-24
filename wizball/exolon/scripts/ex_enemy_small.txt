@@ -1,0 +1,267 @@
+#define base_y			v0
+#define angle			v1
+#define y_offset		v2
+#define angle			v3
+#define loop_start		v4
+#define loop_end		v5
+#define loop_size		v6
+
+#define vertical_range 		32
+
+#define enemy_appearance passed_param_1
+#define enemy_behaviour passed_param_2
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	// Setup enemy appearance...
+
+	switch enemy_appearance
+		case SMALL_ENEMY_APPEARANCE_BUBBLE
+			let point_value = 10
+			let base_frame = rand 0 2
+			let base_frame = base_frame * 4
+			let frame_count = 4
+		break
+
+		case SMALL_ENEMY_APPEARANCE_JELLYFISH
+			let point_value = 30
+			let base_frame = rand 3 5
+			let base_frame = base_frame * 4
+			let frame_count = 4
+		break
+
+		case SMALL_ENEMY_APPEARANCE_ROCKET
+			let point_value = 20
+			let base_frame = rand 6 8
+			let base_frame = base_frame * 4
+			let frame_count = 4
+		break
+
+		case SMALL_ENEMY_APPEARANCE_NIBBLER
+			let point_value = 40
+			let base_frame = 9
+			let base_frame = base_frame * 4
+			let frame_count = 4
+		break
+
+		case SMALL_ENEMY_APPEARANCE_OTHER_ROCKET
+			let point_value = 30
+			let base_frame = 12
+			let base_frame = base_frame * 4
+			let frame_count = 4
+		break
+
+		case SMALL_ENEMY_APPEARANCE_TWIN_WING_ROCKET
+			let point_value = 50
+			let base_frame = 11
+			let base_frame = base_frame * 4
+			let frame_count = 4
+		break
+
+		default
+			let frame_count = 4
+		break
+	end_switch
+
+	let Bitshift = 4
+	SET_PRIVATE_CO_ORDS
+	let sprite = enemy_sprites[set][32][32][16][16]
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let BOUNDARY_START_X = parent.BOUNDARY_START_X - 32
+	let BOUNDARY_END_X = parent.BOUNDARY_END_X + 32
+
+	let counter = rand 0 3
+
+	let lifetime = 0
+
+	let COLLISION_SHAPE = RECTANGLE
+	set_collision_from_frame
+
+	let collide_type = ent_type_enemy
+	let collide_with = ent_type_player + ent_type_player_bullet
+
+	// Setup enemy behaviour...
+
+	switch enemy_behaviour
+		case SMALL_ENEMY_BEHAVIOUR_WOBBLE
+			let x_vel = -16
+			let base_y = world_y
+			let angle = 9000
+			let point_value = point_value + 10
+		break
+
+		case SMALL_ENEMY_BEHAVIOUR_LOOP
+			let speed = rand -48 -40
+			let x_vel = speed
+			let lifetime = 0
+			let angle = 0
+			let loop_start = rand 90 120
+			let loop_size = rand 4 8
+			let loop_size = loop_size * 50
+			let temp_1 = 36000 / loop_size
+			let loop_end = loop_start + temp_1
+			let point_value = point_value + 30
+		break
+
+		case SMALL_ENEMY_BEHAVIOUR_WOBBLE_THRUST
+			let x_vel = rand -16 -24
+			let base_y = world_y
+			let lifetime = 0
+			let angle = 9000
+			let speed = 1
+			let point_value = point_value + 20
+		break
+
+		case SMALL_ENEMY_BEHAVIOUR_THRUST
+			let x_vel = -16
+			let speed = 1
+			let point_value = point_value + 10
+		break
+
+		case SMALL_ENEMY_BEHAVIOUR_UP_DOWN_THRUST
+			let x_vel = -32
+			let speed = 2
+			let point_value = point_value + 20
+		break
+
+		case SMALL_ENEMY_BEHAVIOUR_ZIG_ZAG_SQUARE_LOOP
+			let x_vel = -16
+			let speed = 1
+			let point_value = point_value + 30
+		break
+
+	end_switch
+
+	entity_hitline gosub hit_something
+
+start
+
+	// Execute enemy behaviour...
+
+	fixed_switch enemy_behaviour
+		fixed_case SMALL_ENEMY_BEHAVIOUR_WOBBLE
+			let angle = angle + 200
+			let y_offset = vertical_range sin angle
+			let world_y = base_y + y_offset
+			set_private_co_ords
+		break
+
+		fixed_case SMALL_ENEMY_BEHAVIOUR_LOOP
+			if lifetime < loop_start then
+				// Do nothin'
+			else_if lifetime < loop_end then
+				// Loop-de-loop!
+				let angle = angle + loop_size
+				let x_vel = speed cos angle
+				let y_vel = speed sin angle
+			else
+				let x_vel = speed
+				let y_vel = 0
+			end_if
+			let lifetime = lifetime + 1
+		break
+
+		fixed_case SMALL_ENEMY_BEHAVIOUR_WOBBLE_THRUST
+			if lifetime < 90 then
+				let angle = angle + 400
+				let y_offset = vertical_range sin angle
+				let world_y = base_y + y_offset
+				set_private_co_ords
+			else_if lifetime < 120 then
+				// Do nothin'
+			else_if lifetime < 150 then
+				let x_vel = x_vel - speed
+			end_if
+			let lifetime = lifetime + 1
+		break
+
+		fixed_case SMALL_ENEMY_BEHAVIOUR_THRUST
+			if lifetime < 150 then
+				// Do nothin'
+			else_if lifetime < 180 then
+				let x_vel = x_vel - speed
+			end_if
+			let lifetime = lifetime + 1
+		break
+
+		fixed_case SMALL_ENEMY_BEHAVIOUR_UP_DOWN_THRUST
+			if lifetime < 60 then
+				// Do nothin'
+			else_if lifetime < 90 then
+				let x_vel = 0
+				let y_vel = -16
+			else_if lifetime < 150 then
+				let y_vel = 16
+			else_if lifetime < 180 then
+				let y_vel = 0
+				let x_vel = -32
+			else_if lifetime < 210 then
+				let x_vel = x_vel - speed
+			end_if
+			let lifetime = lifetime + 1
+		break
+
+		fixed_case SMALL_ENEMY_BEHAVIOUR_ZIG_ZAG_SQUARE_LOOP
+			if lifetime < 30 then
+				let x_vel = -32
+				let y_vel = -32
+			else_if lifetime < 60 then
+				let x_vel = -32
+				let y_vel = 32
+			else_if lifetime < 90 then
+				let x_vel = -32
+				let y_vel = -32
+			else_if lifetime < 120 then
+				let x_vel = 0
+				let y_vel = 32
+			else_if lifetime < 210 then
+				let x_vel = -32
+				let y_vel = 0
+			else_if lifetime < 240 then
+				let x_vel = 0
+				let y_vel = -32
+			else_if lifetime < 270 then
+				let x_vel = 32
+				let y_vel = 0
+			else_if lifetime < 300 then
+				let x_vel = 0
+				let y_vel = 32
+			else_if lifetime < 330 then
+				let x_vel = -64
+				let y_vel = 0
+			end_if
+			let lifetime = lifetime + 1
+		break
+
+	end_switch
+
+	let counter = counter + 1
+	let current_frame = counter / 4
+	let current_frame = current_frame mod frame_count
+	let current_frame = current_frame + base_frame
+
+	if world_X < BOUNDARY_START_X then
+		kill_entity own_id
+	else_if world_x > BOUNDARY_END_X then
+		kill_entity own_id
+	end_if
+end
+
+.hit_something
+	let temp_1 = rand 16000 26000
+	play_sound small_explosion 255 temp_1 128
+
+	spawn_entity ex_player_rocket_explosion_flame 0 0 PROCESS_NEXT
+	let last_child.opengl_scale_x = rand 5000 8000
+	let last_child.opengl_angle = rand 0 36000
+
+	if collided_entity.script_number = ex_player_bullet then
+		spawn_entity ex_display_score 0 0 PROCESS_NEXT
+		let last_child.passed_param_1 = 0
+		let last_child.passed_param_2 = 1
+	end_if
+
+	kill_entity own_id

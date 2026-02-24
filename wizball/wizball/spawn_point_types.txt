@@ -1,0 +1,8 @@
+player
+c64_pre_level_enemy
+zx_pre_level_enemy
+c64_main_level_enemy
+zx_main_level_enemy
+masking_element
+warp_zones
+wizball_start_points

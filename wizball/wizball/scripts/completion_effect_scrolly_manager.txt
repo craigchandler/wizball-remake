@@ -1,0 +1,75 @@
+// This controls the scrolly message, spawning a letter every few frames and wrapping it at the end.
+
+#define spawn_letter_delay		v6
+#define wrapping_gap			48
+#define pre_gap				16
+
+#define completion_effect_brightness_percentage			v0
+
+#define spawn_letter_delay_counter	v1
+#define message_length			v2
+#define message_id			v3
+#define current_message_letter_index	v4
+#define base_sin_counter		v5
+
+	let world_x = 640
+	set_private_co_ords
+
+	let draw_order = 10
+
+	let message_id = COMPLETION_SCROLLY
+	let message_length = GET_TEXT_LENGTH (message_id)
+
+	set_global_flag (scrolling_message_synced_alpha,0)
+
+	let spawn_letter_delay_counter = 0
+
+	let base_sin_counter = 0
+
+	let current_message_letter_index = -pre_gap
+
+start
+
+	let completion_effect_brightness_percentage = parent.completion_effect_brightness_percentage
+
+	gosub spawn_letter
+	gosub cycle_wave
+
+end
+
+
+
+.spawn_letter
+
+	let spawn_letter_delay_counter = spawn_letter_delay_counter - 3
+
+	if spawn_letter_delay_counter < 1 then
+		// Spawn letter here!
+
+		if current_message_letter_index >= 0 then
+			SPAWN_ENTITIES_FROM_TEXT (TRUE,0,completion_effect_scrolly_text,message_id,PROCESS_NEXT,NO_CENTER,spawn_letter_delay_counter,0,0,0,current_message_letter_index,1)
+		end_if
+
+		let spawn_letter_delay_counter = GET_GRAPHIC_FRAME_WIDTH (font[arb],last_child.current_frame)
+
+		let spawn_letter_delay_counter = spawn_letter_delay_counter - 1
+
+		let current_message_letter_index = current_message_letter_index + 1
+
+		if current_message_letter_index > message_length then
+			let current_message_letter_index = -wrapping_gap
+		end_if
+		
+	end_if
+
+return
+
+
+
+
+
+.cycle_wave
+
+	let base_sin_counter = base_sin_counter - 200 !< 0 !> 35999
+
+return

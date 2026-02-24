@@ -1,0 +1,152 @@
+// These are at the corner of the black window space and create the 
+// first edge which leads from them. Subsequent edges are created by
+// the edges themselves. When a corner is created then it's passed
+// only the corner where it sits itself, but the one it needs to keep
+// an eye on, this is then passed to it's descendants.
+
+#define top_left_corner			0
+#define top_right_corner		1
+#define bottom_left_corner		2
+#define bottom_right_corner		3
+#define positive			1
+#define negative			-1
+
+#define block_size			32
+
+#define horizontal_axis			0
+#define vertical_axis			1
+
+#define parent_corner			v0
+
+#define check_corner_id			v4
+#define check_axis			v5
+
+#define check_direction			v10
+#define border_style			v11
+#define border_style_in_game		0
+#define border_style_menu		1
+
+#define x_offset			v6
+#define y_offset			v7
+
+#define spawn_new_block			v8
+
+#define opengl_boolean_adder		v9
+
+#define master_frame_counter		v14
+
+#define x_offset_from_parent		v0
+#define y_offset_from_parent		v1
+
+let sprite = gui_elements[set][32][32][16][16]
+
+if border_style = border_style_in_game then
+	let base_frame = 0
+else_if border_style = border_style_menu then
+	let base_frame = 1
+end_if
+
+let current_frame = base_frame
+
+let draw_mode = draw_mode_sprite
+
+let spawn_new_block = true
+
+start
+
+	fixed_switch parent_corner
+
+		fixed_case top_left_corner
+			let x_offset = -parent.upper_width
+			let y_offset = -parent.upper_height
+		break
+
+		fixed_case top_right_corner
+			let x_offset = parent.lower_width
+			let y_offset = -parent.upper_height
+		break
+
+		fixed_case bottom_left_corner
+			let x_offset = parent.lower_width
+			let y_offset = parent.lower_height
+		break
+
+		fixed_case bottom_right_corner
+			let x_offset = -parent.upper_width
+			let y_offset = parent.lower_height
+		break
+
+	end_switch
+
+	let world_x = parent.world_x + x_offset
+	let world_y = parent.world_y + y_offset
+	set_private_co_ords
+
+	if spawn_new_block = true then
+
+		if check_axis = horizontal_axis then
+			let temp_1 = world_x - check_corner_id.world_x
+		else
+			let temp_1 = world_y - check_corner_id.world_y
+		end_if
+
+		let temp_1 = abs temp_1
+
+		if temp_1 > block_size then
+			// Spawn a new block! Wooo!
+			spawn_entity ex_bordered_window_edge 0 0 process_last
+			// Changes to process_last so they all appeared at the same time instead of one bit having a gap in it. Maybe need a process_after_entity setting which take an entity as a value?
+
+			let last_child.check_corner_id = check_corner_id
+			let last_child.check_axis = check_axis
+			let last_child.check_direction = check_direction
+			let last_child.draw_order = last_child.draw_order - 1
+			let last_child.opengl_boolean_adder = opengl_boolean_adder
+			let last_child.check_direction = check_direction
+			let last_child.border_style = border_style
+
+			switch parent_corner
+
+				case top_left_corner
+					let last_child.x_offset_from_parent = block_size
+					let last_child.y_offset_from_parent = 0
+				break
+
+				case top_right_corner
+					let last_child.x_offset_from_parent = 0
+					let last_child.y_offset_from_parent = block_size
+				break
+
+				case bottom_left_corner
+					let last_child.x_offset_from_parent = -block_size
+					let last_child.y_offset_from_parent = 0
+				break
+
+				case bottom_right_corner
+					let last_child.x_offset_from_parent = 0
+					let last_child.y_offset_from_parent = -block_size
+				break
+
+			end_switch
+
+			let spawn_new_block = false
+		end_if
+
+	else
+		// Block spawned!
+
+		// Well, possibly - only it might have popped it's clogs due to the collapse of the box, so check it ain't dead...
+
+		if last_child.alive < 0 then
+			// If it's deaded, then reset the value that allows it to respawn it if necessary.
+
+			let spawn_new_block = true
+		else
+			// Just pass along the frame counter...
+
+			let last_child.current_frame = parent.master_frame_counter
+		end_if
+
+	end_if
+
+end

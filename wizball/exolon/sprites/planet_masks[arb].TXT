@@ -1,0 +1,22 @@
+21
+8,8,64,64,32,32		// 0 = Large planet chunk 1
+80,8,64,64,32,32	// 1 = Large planet chunk 2
+152,8,64,64,32,32	// 2 = Large planet chunk 3
+8,80,56,56,28,28	// 3 = Medium planet chunk 1
+72,80,56,56,28,28	// 4 = Medium planet chunk 2
+136,80,56,56,28,28	// 5 = Medium planet chunk 3
+8,144,48,48,24,24	// 6 = Small planet chunk 1
+64,144,48,48,24,24	// 7 = Small planet chunk 2
+120,144,48,48,24,24	// 8 = Small planet chunk 3
+32,200,16,16,8,8	// 9 = Lava chunk 1
+32,224,24,24,12,12	// 10 = Lava chunk 2
+64,200,16,16,8,8	// 11 = Brown chunk 1
+64,224,24,24,12,12	// 12 = Brown chunk 2
+96,200,16,16,8,8	// 13 = Pink chunk 1
+96,224,24,24,12,12	// 14 = Pink chunk 2
+128,200,16,16,8,8	// 15 = Red chunk 1
+128,224,24,24,12,12	// 16 = Red chunk 2
+160,200,16,16,8,8	// 17 = Green chunk 1
+160,224,24,24,12,12	// 18 = Green chunk 2
+192,200,16,16,8,8	// 19 = Blue chunk 1
+192,224,24,24,12,12	// 20 = Blue chunk 2

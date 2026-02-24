@@ -1,0 +1,38 @@
+#define rock_type passed_param_1
+#define bottom_of_map v0
+
+	let current_frame = rock_type * 3
+	let current_frame = current_frame + 73
+	let temp_1 = rand 0 2
+	let current_frame = current_frame + temp_1 
+
+	let Bitshift = 4
+	SET_PRIVATE_CO_ORDS
+
+	let y_vel = rand -80 -40
+	
+	let sprite = level_scenery_sprites[arb]
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_MASKED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_vertex_colour
+
+	let opengl_angle = rand 0 36000
+	let angular_vel = rand -500 500
+
+	let opengl_vertex_red = rand 128 256
+	let opengl_vertex_green = rand 128 256
+	let opengl_vertex_blue = rand 128 256
+
+	let y_acc = 2
+
+	let bottom_of_map = 424
+start
+	let opengl_angle = opengl_angle + angular_vel
+
+	if world_y > bottom_of_map then
+		kill_entity own_id
+	end_if
+end

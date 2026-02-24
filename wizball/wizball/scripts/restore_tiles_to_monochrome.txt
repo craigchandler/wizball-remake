@@ -1,0 +1,41 @@
+#define current_level				v0
+#define current_level_tilemap_index		v1
+
+#define label_index				v2
+
+#define first_line_number			v3
+#define end_line_number				v4
+
+#define to_tile_start				v5
+#define to_tile_end				v6
+#define from_tile_start				v7
+
+#define level_progress				v8
+
+	for current_level = 0 to CONST_NUMBER_OF_LEVELS
+
+		LET level_progress = 3
+
+		let label_index = current_level * 4
+		let label_index = label_index + level_progress
+	
+		let first_line_number = GET_ARRAY_LINE_INDEX (replacement_tiles, label_index)
+		let end_line_number = GET_ARRAY_LINE_COUNT_AFTER_INDEX (replacement_tiles, label_index)
+		let end_line_number = end_line_number + first_line_number
+
+		let current_level_tilemap_index = current_level + LEVEL_1_TILEMAP
+
+		RESET_TILEMAP_CONVERSION_TABLE (current_level_tilemap_index)
+
+		for counter = first_line_number to end_line_number
+			let to_tile_start = READ_FROM_DATATABLE (replacement_tiles, counter, 0)
+			let to_tile_end = READ_FROM_DATATABLE (replacement_tiles, counter, 1)
+			let from_tile_start = READ_FROM_DATATABLE (replacement_tiles, counter, 2)
+			ALTER_TILEMAP_CONVERSION_TABLE (current_level_tilemap_index, to_tile_start, to_tile_end, from_tile_start)
+		next
+
+		USE_TILEMAP_CONVERSION_TABLE (current_level_tilemap_index,0,1)
+
+	next
+
+	kill_entity own_id

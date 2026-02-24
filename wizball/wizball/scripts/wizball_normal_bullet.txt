@@ -1,0 +1,240 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+#define wizball_entity_id		v0
+#define shatter_base_direction		v1
+#define shatter_actual_direction	v2
+#define game_mode 			v3
+
+#define particle_count			V4
+
+#define bullet_type			v20
+
+
+// ---------------- World Collision Basic Set-Up ----------------
+
+	let UPPER_WORLD_WIDTH = 6
+	let UPPER_WORLD_HEIGHT = 4
+	let LOWER_WORLD_WIDTH = 6
+	let LOWER_WORLD_HEIGHT = 4
+
+	let WORLD_COLLISION_BEHAVIOUR = COLLISION_RESPONSE_CALL_SCRIPT + COLLISION_USE_EXTRA_TEST_POINTS
+	let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_ITERATE_MOVEMENT
+	let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_NOTICE_WHEN_INSIDE_COLLISION
+
+	let ENTITY_MOVEMENT_BEHAVIOUR = ENTITY_MOVEMENT_HORIZONTAL_VERTICAL
+
+	LET WORLD_COLLISION_LAYER = PLAYER_AND_ENEMY_WORLD_COLLISION_LAYER // We use the second layer of the world as for our collision map.
+	let world_collision_bitmask = WORLD_BITMASK_BULLET_COLLIDES
+
+	world_hitline gosub disappear_without_a_trace
+
+// ---------------- Pre-wait ----------------
+
+	gosub set_up_bullet_from_direction
+
+	wait 1
+
+// ---------------- Proper Start ----------------
+
+	let draw_mode = draw_mode_sprite
+
+	let draw_order = WIZBALL_BULLET_DRAW_ORDER
+
+	let sprite = player_bullets[arb]
+
+// ---------------- Object Collision Set Up ---------------- 
+
+	let COLLISION_SHAPE = ROTATED_RECTANGLE
+
+	SET_COLLISION_FROM_FRAME
+
+	let game_mode = get_global_flag (c64_or_spectrum_game_mode)
+
+	if game_mode = GAME_MODE_C64 then
+		let COLLIDE_WITH = ENT_TYPE_ENEMY + ENT_TYPE_PICKUP
+	else
+		let COLLIDE_WITH = ENT_TYPE_ENEMY
+		// Doesn't collide with bonuses on the Speccy. Lawks.
+	end_if
+
+	let collide_type = ent_type_player_bullet
+
+	entity_hitline gosub hit_enemy_routine
+
+// ---------------- World Collision Final Set Up ---------------- 
+
+	world_hitline gosub hit_wall_routine
+
+// ---------------- Final Set up ----------------
+
+	// None, really. Lawks.
+
+// ---------------- Main Loop ----------------
+
+let counter = 0
+
+start
+
+	// Well, I better check we haven't headed off the screen...
+
+	call_script function_normal_enemy_am_i_on_screen
+
+	if returned_value_1 = false then
+		kill_entity own_id
+	end_if
+
+//	let wizball_entity_id = get_global_flag (wizball_entity_id_flag)
+//
+//	if wizball_entity_id != const_unset then
+//		let temp_1 = wizball_entity_id.world_x
+//
+//		let temp_2 = temp_1 - 384
+//
+//		if world_x < temp_2 then
+//			kill_entity own_id
+//		end_if
+//		
+//		let temp_2 = temp_1 + 384
+//
+//		if world_x > temp_2 then
+//			kill_entity own_id
+//		end_if
+//	end_if
+//
+//	if world_y < -48 then
+//		kill_entity own_id
+//	end_if
+
+	if counter = 1 then
+		let draw_mode = draw_mode_sprite
+	end_if
+
+	let counter = counter + 1
+
+end
+
+// ---------------- Enemy Collision ----------------
+
+#define rotate_speed		v0
+
+.hit_enemy_routine
+
+	// Make some particle love, baby!
+
+	let shatter_base_direction = opengl_angle + 18000 !< 0 !> 35999
+
+	gosub make_shatter_particles
+
+	kill_entity own_id
+
+end
+
+// ---------------- World Collision ----------------
+
+.hit_wall_routine
+
+	if WORLD_HIT_AXIS = HORIZONTAL_AXIS then
+		gosub hit_side
+	else
+		gosub hit_floor_or_roof
+	end_if
+
+	gosub make_shatter_particles
+
+	kill_entity own_id
+end
+
+.hit_floor_or_roof
+
+	if WORLD_HIT_SIDE = DIRECTION_UP then
+		let shatter_base_direction = 9000
+	else
+		let shatter_base_direction = 27000
+	end_if
+
+return
+
+.hit_side
+
+	if WORLD_HIT_SIDE = DIRECTION_RIGHT then
+		let shatter_base_direction = 18000
+	else
+		let shatter_base_direction = 0
+	end_if
+
+return
+
+
+
+// ---------------- Bullet Set Up ----------------
+
+#define x_start_offset			v0
+#define y_start_offset			v1
+
+#define bullet_speed			192
+#define starting_offset			16
+
+.set_up_bullet_from_direction
+
+	if bullet_type = 1 then
+		let base_frame = 1
+	else_if bullet_type = 2 then
+		let base_frame = 3
+	else_if bullet_type = 3 then
+		let base_frame = 4
+	end_if
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_rotate
+
+	let draw_mode = draw_mode_invisible
+
+	let x_vel = bullet_speed cos opengl_angle
+	let y_vel = bullet_speed sin opengl_angle
+
+	let x_start_offset = sgn x_vel
+	let y_start_offset = sgn y_vel
+
+	let x_start_offset = x_start_offset * 8
+	let y_start_offset = y_start_offset * 8
+
+	let world_x = world_x + x_start_offset
+	let world_y = world_y + y_start_offset
+
+	let Bitshift = 4
+
+	let current_frame = base_frame
+
+	SET_PRIVATE_CO_ORDS
+
+return
+
+// ---------------- Make Shatter Particles ----------------
+
+.make_shatter_particles
+
+	let particle_count = get_global_flag (particle_commonness_multiplier)
+	let particle_count = 2 * particle_count
+
+	PLAY_SOUND wizball_or_catellite_bullet_ping 64 CONST_SOUND_FREQUENCY
+
+	for temp_1 = 1 to particle_count
+		spawn_entity (particle_bullet_shatter,0,0,process_next)
+
+		let temp_2 = rand (-6000, 6000)
+		let temp_3 = rand (128,256)
+		let shatter_actual_direction = shatter_base_direction + temp_2
+
+		let last_child.rotate_speed = temp_2 / 10
+		let last_child.base_frame = bullet_type + 10
+		let last_child.x_vel = temp_3 cos shatter_actual_direction
+		let last_child.y_vel = temp_3 sin shatter_actual_direction
+	next
+
+return
+
+// ---------------- First Frame Death ----------------
+
+.disappear_without_a_trace
+
+	kill_entity own_id

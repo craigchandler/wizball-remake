@@ -1,0 +1,1402 @@
+// This sits in the background all the time of the game and deals with the spawning of pearls, regular enemy waves, the police, etc.
+
+// How Wizball works:
+
+// When the player starts a new life, all enemies/pearls are destroyed and the
+// enemy counts are zeroed. The current level then has pearl molecules spawned
+// into it.
+
+// During normal running if the number of enemies on the current level falls to
+// to 0 then we spawn a new set of enemies. As this is a constant check we don't
+// have to worry about spawning enemies on the other levels until we enter them.
+
+// Each time an enemy is created or destroyed in a level it alters the array in this
+
+CREATE_ARRAY (LEVEL_ENEMY_COUNT_ARRAY_ID,CONST_NUMBER_OF_LEVELS)
+// This array knows how many enemies are in each level. Oh yuss.
+
+CREATE_ARRAY (LEVEL_COMPLETION_ARRAY_ID,CONST_NUMBER_OF_LEVELS)
+// This array knows how complete each level is. ie, which of its
+// colours have been filled in. It's updated by other entities
+// which also then fill in the LEVEL_ACCESS_ARRAY. This is then
+// used to spawn the player into a new level if the new one is
+// all finished.
+
+CREATE_ARRAY (LEVEL_ACCESS_ARRAY_ID,CONST_NUMBER_OF_LEVELS)
+// This array is queried when the player is travelling from one
+// level to another in order to figure out the destination level.
+// The actual position within it is random.
+
+CREATE_ARRAY (END_OF_BONUS_LEVEL_SUMMARY_ARRAY_ID,32)
+// This is used to write the text detailing your exploits in the bonus level to.
+
+CREATE_ARRAY (CAULDRON_FULLNESS_ARRAY_ID,4)
+// We have 4 slots so that the final cauldron's total contents can be stored here, too, so that all the
+// cauldron entities can read their stuff easily.
+
+CREATE_ARRAY (COMBO_CAULDRON_RGB_ARRAY_ID,3)
+// This contains the RGB values for the combination cauldron, so that when transfering levels the one on the
+// panel can smoothly fade to the new values in a funky manner while emtpying/filling itself to the new
+// level.
+
+CREATE_ARRAY (DRAINING_TRACKING_ARRAY_ID,3)
+// This array is initialised to the needed amount for the particular colour that's being drained so that we
+// can deplete the cauldrons in order nicely.
+
+SET_GLOBAL_FLAG_AS_ENTITY_ID (MAIN_GAME_CONTROLLER_ENTITY_ID)
+
+LET WINDOW_NUMBER = GAME_MAIN_WINDOW
+
+set_global_flag (player_bonus_pearl_count,0)
+
+#define current_level					v0
+#define reset_flag					v1
+#define respawn_wait_counter				v2
+#define level_progress					v3
+#define exit_loop					v4
+#define level_direction					v5
+#define paint_drop_picked_up				V6
+#define match_count					V7
+#define cauldron_fullness				V8
+#define needed_cauldron_fullness			V9
+#define contributed_amount				V10
+#define total_contributed_amount			V11
+#define currently_ignoring_full_combo_cauldron		V12
+#define warping_from_level				V13
+
+#define current_level_tilemap_index			V14
+#define first_line_number				V15
+#define end_line_number					V16
+#define to_tile_start					V17
+#define to_tile_end					V18
+#define from_tile_start					V19
+#define label_index					V20
+
+#define wave_number					V21
+#define wave_type					v22
+#define wave_wait					v23
+#define total_bonus_wave_aliens_killed			v24
+
+#define bonus_level_summary_counter			v25
+
+#define max_open_level					v26
+#define stay_in_loop					v27
+
+#define game_over_entity_id				v28
+
+#define playing_music_channel				v29
+#define music_volume					v30
+
+#define text_counter					v31
+
+#define enemy_count					v32
+#define pearl_count					v33
+#define add_points_when_zero				v34
+
+#define check_level_number				v35
+#define all_levels_complete				v36
+
+#define re_enable_pause_wait_counter			v37
+
+#define min_open_level					v38
+
+#define level_number					passed_param_1
+#define layer_number					passed_param_2
+
+// Wizball define
+#define last_movement_direction				v9
+
+	set_global_flag (pause_allowed, false)
+
+	enable_window SCORE_OVERLAY_WINDOW
+
+	call_script function_reset_fuzz_counter
+
+	spawn_entity (manage_score_and_enemy_display)
+
+	LET WORLD_X = 0
+	LET WORLD_Y = 0
+	SET_PRIVATE_CO_ORDS
+
+	for counter = 0 to CONST_NUMBER_OF_LEVELS
+		write_to_array ( 0 , own_id , LEVEL_ENEMY_COUNT_ARRAY_ID , counter )
+		write_to_array ( 0 , own_id , LEVEL_COMPLETION_ARRAY_ID , counter )
+		write_to_array ( FALSE , own_id , LEVEL_ACCESS_ARRAY_ID , counter )
+	next
+
+	for counter = 0 to 3
+		write_to_array ( TRUE , own_id , LEVEL_ACCESS_ARRAY_ID , counter )
+	next
+
+	set_global_flag (wizball_starting_loadout,DEFAULT_STARTING_WIZBALL_LOADOUT)
+	set_global_flag (wizball_current_loadout,DEFAULT_STARTING_WIZBALL_LOADOUT)
+
+	if_flag (record_games = true) then
+		let temp_1 = rand (0,16384)
+		SET_SPECIAL_RANDOM_SEED (0, temp_1)
+
+		START_RECORDING_INPUT (PLAYER_1)
+		WRITE_VARIABLE_DATA_TO_RECORDED_INPUT (PLAYER_1, RANDOMISE_SEED_LEVEL_DATA_ID, temp_1)
+	else
+		LOAD_RECORDED_INPUT (PLAYER_1, error_demo)
+		let temp_1 = READ_VARIABLE_DATA_FROM_RECORDED_INPUT (PLAYER_1, RANDOMISE_SEED_LEVEL_DATA_ID)
+		SET_SPECIAL_RANDOM_SEED (0, temp_1)
+
+		START_PLAYBACK_INPUT (PLAYER_1)
+	end_if
+
+	CREATE_EVENT_QUEUE (10)
+
+	ADD_EVENT_TO_QUEUE ( OWN_ID , LEVEL_RESET_FLAG_PLAYER_DEAD_NO_PAUSE )
+	ADD_EVENT_TO_QUEUE ( OWN_ID , LEVEL_RESET_FLAG_START_SET_UP_LEVEL_DISPLAY )
+
+	LET currently_ignoring_full_combo_cauldron = TRUE
+	gosub check_for_full_colour_complement
+	LET currently_ignoring_full_combo_cauldron = FALSE
+
+	for counter = 0 to 4
+		spawn_entity (new_cauldron,0,0,process_previous)
+		let last_child.passed_param_1 = counter
+	next
+
+	SPAWN_ENTITY (wizball_life_indicator,0,0,process_next)
+
+//	toggle_debug
+
+	let min_open_level = 0
+	let max_open_level = 2
+
+	RESET_RAND_LOG
+
+	RESET_FRAMES_SO_FAR_COUNTER
+
+	let current_level = get_global_flag ( player_on_level_number)
+
+.restart_main_loop
+
+	set_global_flag (currently_on_bonus_level,false)
+
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	let re_enable_pause_wait_counter = 10
+
+start
+
+	let re_enable_pause_wait_counter = re_enable_pause_wait_counter - 1 !< 0
+	if re_enable_pause_wait_counter = 1 then
+		set_global_flag (pause_allowed, true)
+	end_if
+
+	let reset_flag = GET_NEXT_EVENT_FROM_QUEUE
+
+//	let reset_flag = get_global_flag (reset_level_flag)
+
+	if reset_flag != CONST_UNSET then
+
+		switch reset_flag
+
+			case LEVEL_RESET_FLAG_UNSET
+				// Do nothing!
+			break
+
+			case LEVEL_RESET_FLAG_GET_READY_FOR_BONUS
+				goto bonus_level_intro
+			break
+
+			case LEVEL_RESET_FLAG_PLAYER_DEAD
+				gosub reset_due_to_life_loss
+			break
+
+			case LEVEL_RESET_FLAG_PLAYER_DEAD_NO_PAUSE
+				gosub reset_due_to_life_loss_no_pause
+			break
+			case LEVEL_RESET_FLAG_PLAYER_WARPED
+				gosub swap_levels
+			break
+
+			case LEVEL_RESET_FLAG_START_SET_UP_LEVEL_DISPLAY
+				gosub set_up_level_display
+			break
+
+			case LEVEL_CHECK_FOR_FULL_COLOUR_AFTER_LEVEL_SWAP
+				gosub check_for_full_colour_complement
+			break
+
+			case LEVEL_RESET_FLAG_CHECK_ENEMY_COUNT
+				gosub check_enemy_count_with_points
+			break
+
+			case LEVEL_RESET_FLAG_CHECK_ENEMY_COUNT_AFTER_DEATH
+				gosub check_enemy_count_no_points
+			break
+
+			case LEVEL_RESET_FLAG_STOP_FREAKOUT
+				gosub stop_freakout
+			break
+
+			case LEVEL_RESET_FLAG_DEBUG_TILE_SWAP
+				gosub bogus_tile_swap
+			break
+
+			case LEVEL_RESET_FLAG_DISABLE_PAUSE
+				set_global_flag (pause_allowed, false)
+				let re_enable_pause_wait_counter = 0
+			break
+
+		end_switch
+
+		IF reset_flag >= ADD_PAINTDROP_RED THEN
+			IF reset_flag <= ADD_PAINTDROP_BLUE THEN
+
+				LET paint_drop_picked_up = reset_flag - ADD_PAINTDROP_RED
+
+				LET TEMP_1 = READ_FROM_ARRAY (OWN_ID,CAULDRON_FULLNESS_ARRAY_ID,paint_drop_picked_up)
+				LET TEMP_1 = TEMP_1 + 1 !> MAX_CAULDRON_CAPACITY
+				WRITE_TO_ARRAY (TEMP_1,OWN_ID,CAULDRON_FULLNESS_ARRAY_ID,paint_drop_picked_up)
+
+				// Okay, we've just added something to one of the cauldrons, we'd better check if we just tipped a balance.
+
+				gosub check_for_full_colour_complement
+			END_IF
+		END_IF
+
+	end_if
+
+	let temp_1 = get_global_flag (fuzz_counter)
+	let temp_1 = temp_1 - 1 !< 0
+	set_global_flag (fuzz_counter,temp_1)
+
+	if temp_1 = 0 then
+		spawn_entity (spawn_fuzz,0,0,process_next)
+		play_sound (special_paintball_pickup_filth_raid,255,CONST_SOUND_FREQUENCY,128)
+		let last_child.passed_param_1 = 1
+		call_script function_reset_fuzz_counter
+	end_if
+
+end
+
+
+
+// This is where the wizball spins off into the unknown for the bonus level, but before the actual bonus level.
+
+.bonus_level_intro
+
+	FADE_PERSISTANT_CHANNELS
+
+	set_global_flag (pause_allowed, false)
+
+	let counter = 0
+
+	// OKay, get Wizball's ID...
+
+	spawn_entity (heading_to_laboratory_message)
+
+	let temp_1 = get_global_flag (wizball_entity_id_flag)
+
+	if temp_1 != CONST_UNSET then
+		spawn_entity (wizball_full_cauldron_disappear,0,0,process_next)
+		let last_child.world_x = temp_1.world_x
+		let last_child.world_y = temp_1.world_y
+		let last_child.current_frame = temp_1.current_frame
+		let last_child.last_movement_direction = temp_1.last_movement_direction
+		kill_entity temp_1
+	else
+		stop
+	end_if
+
+start
+
+	if last_child.alive < 0 then
+		ADD_EVENT_TO_QUEUE ( OWN_ID , LEVEL_RESET_FLAG_GO_TO_BONUS )
+	end_if
+
+	let reset_flag = GET_NEXT_EVENT_FROM_QUEUE
+
+	if reset_flag = LEVEL_RESET_FLAG_GO_TO_BONUS then
+		goto bonus_level_handler
+	end_if
+
+end
+
+
+// This is where the entity goes on it's holidays when Wizball completes a colour and its
+// services aren't needed. It'll be given a kick up the bum when it's time to come out of it.
+
+.bonus_level_handler
+
+	wait 45
+
+	gosub stop_music
+
+	wait 15
+
+	gosub start_bonus_level_music
+
+	set_global_flag (bonus_level_enemies_killed,0)
+
+	set_global_flag (currently_on_bonus_level,true)
+
+	// Empty out the queue, nothing else is of importance!
+	RESET_EVENT_QUEUE
+	// Sleep everything that needs to sleep in a level transition. That being: enemies.
+	alter_entities ( ALTERATION_SLEEP , ENTITY_TYPE & ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION )
+	
+	// Kill everything that needs to be killed in a level transistion. That being:
+	// Wizball, bullets, level masking elements, paintdrops, game window handlers.
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION )
+	set_global_flag (current_existant_enemy_bullets, 0)
+
+	// Because we don't want to set up a proper game_window_handler, we just do the essentials ourselves
+	// here and spawn summat funky for the background.
+	SET_CURRENT_COLLISION_TILEMAP (EMPTY_TILEMAP)
+	SETUP_COLLISION_SYSTEM_SIZE_BY_COLLISION_MAP (6)
+	let current_zone = get_current_zone (0,0,game_room_zone)
+	SETUP_ACTIVE_COLLISION_WINDOW_BY_ZONE (current_zone)
+	SET_WINDOW_MAP_POSITION (0, 0)
+
+	// And set up the wave spawning variables...
+	let wave_number = -1
+	let wave_wait = 50
+	let wave_type = CONST_UNSET
+
+	// And pop a reminder to start spawning shit on the queue.
+	ADD_EVENT_TO_QUEUE ( OWN_ID , LEVEL_RESET_FLAG_MOVE_TO_NEXT_BONUS_WAVE )
+
+	let total_bonus_wave_aliens_killed = 0
+
+	spawn_entity (bonus_level_plasma_cloud,0,0,process_next)
+	spawn_entity (bonus_level_plasma_cloud,640,416,process_next)
+	spawn_entity (bonus_level_starfield,0,0,process_next)
+	spawn_entity (bonus_level_nebula,0,0,process_next)
+
+	set_global_flag (bonus_level_starfield_slow_flag,0)
+
+	spawn_entity (wizball,320,208,process_next)
+
+	let bonus_level_summary_counter = 0
+
+	BLANK_WINDOW (2)
+
+	let re_enable_pause_wait_counter = 10
+
+start
+
+	let re_enable_pause_wait_counter = re_enable_pause_wait_counter - 1 !< 0
+	if re_enable_pause_wait_counter = 1 then
+		set_global_flag (pause_allowed, true)
+	end_if
+
+	let reset_flag = GET_NEXT_EVENT_FROM_QUEUE
+
+	// Okay, we could easily get a flag arrive at any time, not only when we're ready to spawn a wave.
+
+	if reset_flag = LEVEL_RESET_FLAG_MOVE_TO_NEXT_BONUS_WAVE then
+		if (wave_number >= 0) then
+			let wave_wait = READ_FROM_DATATABLE (bonus_wave_order, wave_number, 4)
+		else
+			let wave_wait = 50
+		end_if
+		let wave_number = wave_number + 1
+		let wave_type = READ_FROM_DATATABLE (bonus_wave_order, wave_number, 0)
+	else_if reset_flag = LEVEL_RESET_FLAG_GO_TO_LABORATORY then
+		goto laboratory_screen
+	else_if reset_flag = LEVEL_RESET_FLAG_WIZBALL_FINISHED then
+		let bonus_level_summary_counter = 1
+	else_if reset_flag = LEVEL_RESET_FLAG_BONUS_ENEMY_KILLED then
+		let total_bonus_wave_aliens_killed = total_bonus_wave_aliens_killed + 1
+	end_if
+
+	if bonus_level_summary_counter > 0 then
+		if bonus_level_summary_counter = 1 then
+
+			let text_counter = 0
+			reset_array (own_id, END_OF_BONUS_LEVEL_SUMMARY_ARRAY_ID)
+
+			LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, END_OF_BONUS_LEVEL_SUMMARY_ARRAY_ID , BONUS_START_TAG, text_counter, TRUE)
+			let temp_1 = get_global_flag (bonus_level_enemies_killed)
+			LET text_counter = WRITE_TEXT_NUMBER_TO_ARRAY (own_id, END_OF_BONUS_LEVEL_SUMMARY_ARRAY_ID , temp_1, text_counter, TRUE)
+			LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, END_OF_BONUS_LEVEL_SUMMARY_ARRAY_ID , BONUS_END_TAG, text_counter, TRUE)
+			LET temp_1 = temp_1 * 40
+			LET text_counter = WRITE_TEXT_NUMBER_TO_ARRAY (own_id, END_OF_BONUS_LEVEL_SUMMARY_ARRAY_ID , temp_1, text_counter, FALSE)
+
+			SPAWN_ENTITIES_FROM_TEXT_IN_ARRAY (FALSE, 0, bonus_level_summary_text, END_OF_BONUS_LEVEL_SUMMARY_ARRAY_ID, process_next, CENTER_X , 320, 208, -1, 0, font[arb])
+
+		else_if bonus_level_summary_counter = 30 then
+
+			let temp_1 = get_global_flag (bonus_level_enemies_killed)
+			let temp_1 = temp_1 * 40
+
+			let temp_2 = get_global_flag (player_score)
+			let temp_2 = temp_2 + temp_1 !> MAXIMUM_POSSIBLE_SCORE
+			set_global_flag (player_score,temp_2)
+
+		end_if
+
+		let bonus_level_summary_counter = bonus_level_summary_counter + 1
+
+		if bonus_level_summary_counter = 200 then
+			ADD_EVENT_TO_QUEUE (own_id , LEVEL_RESET_FLAG_GO_TO_LABORATORY)
+		end_if
+	end_if
+
+	let wave_wait = wave_wait - 1 !< 0
+
+	if wave_wait = 0 then
+		// Okay, there's no after-wave delay to *stop* us from spawning a new wave, but have we
+		// received the node from the last wave spawner we created to go ahead yet?
+
+		if wave_type != CONST_UNSET then
+
+			// We spawn the next wave in the list! Woo!
+
+			if wave_type = BONUS_WAVE_FINISHED then
+				goto laboratory_screen
+			else_if wave_type = BONUS_WAVE_SLOW_STARS then
+				// Slow the stars!
+				set_global_flag (bonus_level_starfield_slow_flag,1)
+				// And automatically move onto the next bit...
+				ADD_EVENT_TO_QUEUE (own_id , LEVEL_RESET_FLAG_MOVE_TO_NEXT_BONUS_WAVE)
+			else
+				// Spawn the wave spawner and pass along all the dirt...
+
+				spawn_entity bonus_wave_spawner,0,0,process_next
+				let last_child.passed_param_1 = wave_type
+				let last_child.passed_param_2 = READ_FROM_DATATABLE (bonus_wave_order, wave_number, 1)
+				let last_child.passed_param_3 = READ_FROM_DATATABLE (bonus_wave_order, wave_number, 2)
+				let last_child.passed_param_4 = READ_FROM_DATATABLE (bonus_wave_order, wave_number, 3)
+				let last_child.passed_param_5 = wave_number
+
+				let wave_type = CONST_UNSET
+			end_if
+		end_if
+	end_if
+
+end
+
+
+
+// This is the laboratory screen which is reached either after completing the bonus level,
+// or after popping your clogs on the bonus level. Like I give a shit which. ;)
+
+.laboratory_screen
+
+	FADE_PERSISTANT_CHANNELS
+
+	set_global_flag (pause_allowed, false)
+
+	// Kill off the enemies and bullets and wizball, if need-be.
+
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_BONUS_LEVEL_ENTITY )
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION )
+	set_global_flag (current_existant_enemy_bullets, 0)
+
+	wait 1
+
+	spawn_entity (laboratory_starfield,0,0,process_next)
+	spawn_entity (laboratory_nebula,0,0,process_next)
+
+	gosub swap_level_tiles
+	gosub set_up_wanted_colour_draining
+
+	gosub stop_music
+	gosub start_wizlab_music
+
+	LET currently_ignoring_full_combo_cauldron = TRUE
+
+	SPAWN_ENTITY (laboratory, 0, 0, process_previous)
+
+	let temp_2 = get_global_flag (player_score)
+	let temp_2 = temp_2 + 2000 !> MAXIMUM_POSSIBLE_SCORE
+	set_global_flag (player_score,temp_2)
+
+	BLANK_WINDOW (2)
+
+	let re_enable_pause_wait_counter = 10
+
+start
+
+	let re_enable_pause_wait_counter = re_enable_pause_wait_counter - 1 !< 0
+	if re_enable_pause_wait_counter = 1 then
+		set_global_flag (pause_allowed, true)
+	end_if
+
+	let reset_flag = GET_NEXT_EVENT_FROM_QUEUE
+
+	if reset_flag = DEPLETE_CAULDRON_OF_TARGET_COLOUR_AND_UPDATE then
+		gosub drain_wanted_colour
+	ELSE_IF reset_flag = LEVEL_RESET_FLAG_GO_TO_FLY_THRU then
+		LET currently_ignoring_full_combo_cauldron = FALSE
+		goto fly_through_sequence
+	end_if
+
+end
+
+
+
+
+
+// This checks the level of completion of the levels and sets the accessability accordingly.
+// If the player has just completed a level then there's a fly-through of it, and the player
+// is dumped onto the newly unlocked level (if any).
+
+.fly_through_sequence
+
+	FADE_PERSISTANT_CHANNELS
+
+	set_global_flag (pause_allowed, false)
+
+	BLANK_WINDOW (2)
+
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_ATTRACT_SEQUENCE_ENTITY )
+
+	wait 1
+
+	let current_level = get_global_flag (player_on_level_number)
+
+	let level_progress = read_from_array ( own_id , LEVEL_COMPLETION_ARRAY_ID , current_level )
+
+	let level_progress = level_progress + 1
+
+	write_to_array ( level_progress , own_id , LEVEL_COMPLETION_ARRAY_ID , current_level )
+
+	if level_progress = 3 then
+		gosub find_highest_accessable_level
+
+		// This is set to a really high number so that we're boosted to the highest level!
+		set_global_flag (player_warp_direction,CONST_NUMBER_OF_LEVELS)
+
+		spawn_entity (flythru, 0, 0, process_previous)
+	else
+		// This is set to 0 so we emerge on the same level.
+		set_global_flag (player_warp_direction,0)
+
+		goto exit_to_main_level
+	end_if
+
+	let re_enable_pause_wait_counter = 10
+
+start
+
+	let re_enable_pause_wait_counter = re_enable_pause_wait_counter - 1 !< 0
+	if re_enable_pause_wait_counter = 1 then
+		set_global_flag (pause_allowed, true)
+	end_if
+
+	let reset_flag = GET_NEXT_EVENT_FROM_QUEUE
+
+	if reset_flag = LEVEL_RESET_FLAG_EXIT_FLY_THRU then
+		alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_BONUS_LEVEL_ENTITY )
+		alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION )
+		goto check_for_game_completion
+	end_if
+
+end
+
+
+.check_for_game_completion
+
+	set_global_flag (pause_allowed, false)
+
+	let all_levels_complete = true	
+
+	for check_level_number = 0 to 8
+
+		let temp_1 = read_from_array ( own_id , LEVEL_COMPLETION_ARRAY_ID , check_level_number )
+
+		if temp_1 != 3 then
+			let all_levels_complete = false
+		end_if
+	next
+
+	if all_levels_complete = true then
+		goto game_completion_effect
+	end_if
+
+
+
+// This now kills any enemies on levels which are lower than the minimum open one.
+
+	let counter = 0
+
+start
+
+	if counter < min_open_level THEN
+		alter_entities ( ALTERATION_KILL , PARENT_LEVEL = counter )
+	end_if
+
+	wait 1
+
+	let counter = counter + 1
+
+	if counter > CONST_NUMBER_OF_LEVELS then
+		goto exit_to_main_level
+	end_if
+
+end
+
+// This just pops out to the main game again, as if the player just warped to a level.
+
+.exit_to_main_level
+
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_ATTRACT_SEQUENCE_ENTITY )
+
+	wait 1
+
+	gosub stop_music
+
+	gosub start_in_game_music
+
+	ADD_EVENT_TO_QUEUE ( OWN_ID , LEVEL_RESET_FLAG_PLAYER_WARPED )
+
+	goto restart_main_loop
+
+
+
+// Life Loss Sequence
+
+.reset_due_to_life_loss
+
+	FADE_PERSISTANT_CHANNELS
+
+	set_global_flag (pause_allowed, false)
+
+	// If we're in a freakout, then we emerge from it due to the death.
+
+	let temp_1 = get_global_flag (freak_out_manager_entity_id)
+
+	if temp_1 != CONST_UNSET then
+		ADD_EVENT_TO_QUEUE ( temp_1 , FREAKOUT_EVENT_EXIT )
+	end_if
+
+	// And reduce the life-counter...
+
+	let temp_1 = get_global_flag (player_lives)
+	let temp_1 = temp_1 - 1
+
+	if temp_1 > -1 then
+		set_global_flag (player_lives,temp_1)
+	else
+		// GAME OVER!
+		goto game_over_routine
+	end_if
+
+	// Wait a while and let the player enjoy their demise...
+
+	wait 180
+
+	gosub stop_music
+
+.reset_due_to_life_loss_no_pause
+
+	gosub stop_freakout
+
+	FADE_PERSISTANT_CHANNELS
+
+	set_global_flag (pause_allowed, false)
+
+	// No pearls for you!
+	set_global_flag (player_bonus_pearl_count,0)
+
+	// Reset the fuzz!
+	call_script function_reset_fuzz_counter
+
+	// Reset the values in the enemy counter array!
+	for counter = 0 to CONST_NUMBER_OF_LEVELS
+		write_to_array ( 0 , own_id , LEVEL_ENEMY_COUNT_ARRAY_ID , counter )
+	next
+
+	// Kill off everything which should die off when the level is reset. This includes:
+	// Wizball, Catellite, bullets, enemies and bonus pearls.
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_DESTROYED_IN_LEVEL_RESET )
+
+	wait 1
+
+	// Spawn a Get Ready screen!
+	disable_window SCORE_OVERLAY_WINDOW
+
+	// Zero the pearl counter...
+	set_global_flag (current_level_pearl_count, 0)
+
+	spawn_entity (get_ready_screen,0,0,process_next)
+
+	gosub start_pre_life_music
+
+	start
+		if last_child.signal = true then
+			goto continue_with_reset
+		end_if
+	end
+
+.continue_with_reset
+
+	enable_window SCORE_OVERLAY_WINDOW
+
+	gosub stop_music
+
+	blank_window (GAME_MAIN_WINDOW,2)
+
+	gosub start_in_game_music
+
+	// Spawn wizball...
+
+	spawn_entity (choose_wizball_start_position,0,0,process_first)
+	let last_child.passed_param_1 = WIZBALL_NEW_LIFE_APPEAR
+
+	start
+		// Wait in this loop until the new life animation has deployed Wizball before waking the enemies.
+
+		if_flag (wizball_entity_id_flag) != CONST_UNSET then
+			goto continue_with_level_reset
+		end_if
+	end
+
+
+
+.continue_with_level_reset
+
+	if current_level < 3 then
+		if current_level >= min_open_level then
+			// Spawn molecules... but only on the first three levels. Lawks!
+			spawn_entities_in_zone (current_zone,process_previous,c64_pre_level_enemy)
+		end_if
+	else
+		ADD_EVENT_TO_QUEUE ( own_id, LEVEL_RESET_FLAG_CHECK_ENEMY_COUNT_AFTER_DEATH )
+	end_if
+
+	goto restart_main_loop
+
+
+
+.swap_levels
+
+	FADE_PERSISTANT_CHANNELS
+
+	set_global_flag (pause_allowed, false)
+
+	// Zero the pearl counter...
+	set_global_flag (current_level_pearl_count, 0)
+
+	LET currently_ignoring_full_combo_cauldron = TRUE
+
+	// Sleep everything that needs to sleep in a level transition. That being: enemies.
+	alter_entities ( ALTERATION_SLEEP , ENTITY_TYPE & ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION )
+
+	// Kill everything that needs to be killed in a level transistion. That being:
+	// Wizball, bullets, level masking elements, paintdrops, game window handlers.
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION )
+
+	// Now, we should confirm the entity count for this level because it may be that in
+	// destroying stuff (ie. fecking pearls) we have reduced it to 0 without realizing. Lawks.
+
+	let current_level = get_global_flag (player_on_level_number)
+	
+	let temp_1 = COUNT_MATCHING_ENTITIES (PARENT_LEVEL = current_level) FALSE
+	let temp_1 = COUNT_MATCHING_ENTITIES (SCRIPT_NUMBER = generic_level_enemy) TRUE
+
+	let temp_2 = COUNT_MATCHING_ENTITIES (PARENT_LEVEL = current_level) FALSE
+	let temp_2 = COUNT_MATCHING_ENTITIES (SCRIPT_NUMBER = molecule) TRUE
+
+	let temp_3 = temp_1 + temp_2
+
+	write_to_array (temp_3, own_id, LEVEL_ENEMY_COUNT_ARRAY_ID, current_level)
+
+	let warping_from_level = current_level
+
+	// This is the direction we're moving in.
+	let level_direction = get_global_flag (player_warp_direction)
+
+	// And figure out where we're going! Wooo!
+	let current_level = current_level + level_direction !> max_open_level !< 0
+
+	set_global_flag ( player_on_level_number , current_level )
+
+	BLANK_WINDOW (2)
+
+	gosub set_up_level_display
+
+	gosub check_for_full_colour_complement
+
+	wait 1 // Allow wizball to die and his entity flag to die
+
+	// And now spawn a warp tube exit via the random position chooser (at the moment it'll just spawn wizball straight away)
+
+	spawn_entity (choose_wizball_start_position,0,0,process_first)
+	let last_child.passed_param_1 = warp_tube_exit
+
+	start
+		// Wait in this loop until the warp_tube_exit has deployed Wizball before waking the enemies.
+
+		if_flag wizball_entity_id_flag != CONST_UNSET then
+			goto continue_with_level_swap
+		end_if
+	end
+
+
+
+.continue_with_level_swap
+
+//	wait 1 // Wait another frame for Wizball to send his particulars to the right location.
+
+	// Wake up any entities in this level - if they haven't been created yet
+	// then it doesn't matter as the main loop of this function will do that
+	// the next frame.
+
+	alter_entities ( ALTERATION_WAKE , PARENT_LEVEL = current_level )
+
+	LET currently_ignoring_full_combo_cauldron = FALSE
+
+	call_script function_reset_fuzz_counter
+
+	// Look at the current level's enemy count to see if it's currently 0 because we've never visited it before.
+	gosub check_enemy_count_no_points
+
+	goto restart_main_loop
+
+
+
+.set_up_level_display
+
+	let temp_1 = current_level + LEVEL_1_TILEMAP
+
+	SET_CURRENT_COLLISION_TILEMAP (temp_1)
+	SETUP_COLLISION_SYSTEM_SIZE_BY_COLLISION_MAP (6)
+
+	let current_zone = get_current_zone (0,0,game_room_zone)
+
+	// And make some new game window handlers to replace the ones we bumped off...
+	spawn_entity (game_window_handler,0,0,process_previous)
+	let last_child.level_number = current_level
+	let last_child.layer_number = 1
+	let last_child.draw_order = FG_TILEMAP_DRAW_ORDER
+
+	spawn_entity (game_window_handler,0,0,process_previous)
+	let last_child.level_number = current_level
+	let last_child.layer_number = 0
+	let last_child.draw_order = BG_TILEMAP_DRAW_ORDER
+
+	spawn_entity (game_window_handler,0,0,process_previous)
+	let last_child.level_number = current_level
+	let last_child.layer_number = 2
+	let last_child.draw_order = SFG_TILEMAP_DRAW_ORDER
+
+	spawn_entity (background,0,0,process_previous)
+
+	spawn_entity (game_starfield,0,0,process_previous)
+	spawn_entity (freakout_starfield,0,0,process_previous)
+
+	let temp_1 = COUNT_SPAWNPOINTS_IN_ZONE (current_zone,c64_main_level_enemy)
+	let temp_1 = temp_1 / 2 // Because for each enemy there is a dummy
+
+	set_global_flag (enemy_wave_count_in_level,temp_1)
+
+	SETUP_ACTIVE_COLLISION_WINDOW_BY_ZONE (current_zone)
+
+	spawn_entities_in_zone (current_zone,process_previous,warp_zones)
+
+	return
+
+
+
+.swap_level_tiles
+
+	LET level_progress = read_from_array ( own_id , LEVEL_COMPLETION_ARRAY_ID , current_level )
+
+	let label_index = current_level * 4
+	let label_index = label_index + level_progress
+	
+	let first_line_number = GET_ARRAY_LINE_INDEX (replacement_tiles, label_index)
+	let end_line_number = GET_ARRAY_LINE_COUNT_AFTER_INDEX (replacement_tiles, label_index)
+	let end_line_number = end_line_number + first_line_number
+
+	let current_level_tilemap_index = current_level + LEVEL_1_TILEMAP
+
+	RESET_TILEMAP_CONVERSION_TABLE (current_level_tilemap_index)
+
+	for counter = first_line_number to end_line_number
+		let to_tile_start = READ_FROM_DATATABLE (replacement_tiles, counter, 0)
+		let to_tile_end = READ_FROM_DATATABLE (replacement_tiles, counter, 1)
+		let from_tile_start = READ_FROM_DATATABLE (replacement_tiles, counter, 2)
+		ALTER_TILEMAP_CONVERSION_TABLE (current_level_tilemap_index, to_tile_start, to_tile_end, from_tile_start)
+	next
+
+	USE_TILEMAP_CONVERSION_TABLE (current_level_tilemap_index,0,1)
+
+return
+
+
+
+.bogus_tile_swap
+
+	let current_level = get_global_flag (player_on_level_number)
+
+	gosub swap_level_tiles
+
+	let level_progress = read_from_array ( own_id , LEVEL_COMPLETION_ARRAY_ID , current_level )
+
+	let level_progress = level_progress + 1 !< 0 !> 3
+
+	write_to_array ( level_progress , own_id , LEVEL_COMPLETION_ARRAY_ID , current_level )
+
+return
+
+
+
+.set_up_wanted_colour_draining
+
+	LET level_progress = read_from_array ( own_id , LEVEL_COMPLETION_ARRAY_ID , current_level )
+
+	LET temp_1 = current_level * 3
+	// This is because for each level, we have 3 sets if RGB data.
+
+	let temp_1 = temp_1 + level_progress 
+	// Now temp_1 equals the line of data in the level_completion_colours datatable.
+
+	for counter = 0 to 3
+		let needed_cauldron_fullness = READ_FROM_DATATABLE (level_completion_colours,temp_1,counter)
+		WRITE_TO_ARRAY (needed_cauldron_fullness,OWN_ID,DRAINING_TRACKING_ARRAY_ID,counter)
+	next
+
+	set_global_flag (cauldron_colour_datatable_line_flag, temp_1)
+
+	return
+
+
+
+.drain_wanted_colour
+
+	let temp_1 = FALSE
+
+	for counter = 0 to 3
+
+		if temp_1 = FALSE THEN
+
+			let temp_2 = READ_FROM_ARRAY (OWN_ID,DRAINING_TRACKING_ARRAY_ID,counter)
+
+			IF temp_2 > 0 then
+				LET TEMP_3 = READ_FROM_ARRAY (OWN_ID,CAULDRON_FULLNESS_ARRAY_ID,counter)
+				LET TEMP_3 = TEMP_3 - 1
+				WRITE_TO_ARRAY (TEMP_3,OWN_ID,CAULDRON_FULLNESS_ARRAY_ID,counter)
+
+				LET TEMP_3 = READ_FROM_ARRAY (OWN_ID,DRAINING_TRACKING_ARRAY_ID,counter)
+				LET TEMP_3 = TEMP_3 - 1
+				WRITE_TO_ARRAY (TEMP_3,OWN_ID,DRAINING_TRACKING_ARRAY_ID,counter)
+
+				// And then we drain cauldron number 4, no matter what. Mwu-ha-ha-ha!
+
+				LET TEMP_3 = READ_FROM_ARRAY (OWN_ID,CAULDRON_FULLNESS_ARRAY_ID,CAULDRON_COMBINATION)
+				LET TEMP_3 = TEMP_3 - 1
+				WRITE_TO_ARRAY (TEMP_3,OWN_ID,CAULDRON_FULLNESS_ARRAY_ID,CAULDRON_COMBINATION)
+
+				LET temp_1 = TRUE
+			END_IF
+
+		END_IF
+
+//		let needed_cauldron_fullness = READ_FROM_DATATABLE (level_completion_colours,temp_1,counter)
+//		WRITE_TO_ARRAY (needed_cauldron_fullness,OWN_ID,DRAINING_TRACKING_ARRAY_ID,counter)
+
+	next
+
+	return
+
+
+
+.check_for_full_colour_complement
+
+	// This looks at the current level and it's level of completeness and then figures out if we've
+	// filled up a lovely colour yet.
+
+	LET level_progress = read_from_array ( own_id , LEVEL_COMPLETION_ARRAY_ID , current_level )
+
+	// Only do the action if we haven't already completed the level...
+
+	IF level_progress < 3 THEN
+
+		LET temp_1 = current_level * 3
+		// This is because for each level, we have 3 sets if RGB data.
+
+		let temp_1 = temp_1 + level_progress 
+		// Now temp_1 equals the line of data in the level_completion_colours datatable.
+
+		let match_count = 0
+		// This will store how many cauldrons we've matched or exceeded the needed amount in.
+
+		let total_contributed_amount = 0
+		// This will store how full the combo cauldron is. Oh yuss.
+
+		for counter = 0 to 3
+
+			let cauldron_fullness = READ_FROM_ARRAY (OWN_ID,CAULDRON_FULLNESS_ARRAY_ID,counter)
+			let needed_cauldron_fullness = READ_FROM_DATATABLE (level_completion_colours,temp_1,counter)
+
+			let contributed_amount = cauldron_fullness !> needed_cauldron_fullness
+			let total_contributed_amount = total_contributed_amount + contributed_amount
+
+			if cauldron_fullness >= needed_cauldron_fullness then
+				LET match_count = match_count + 1
+			end_if
+
+		next
+
+		WRITE_TO_ARRAY (total_contributed_amount,OWN_ID,CAULDRON_FULLNESS_ARRAY_ID,CAULDRON_COMBINATION)
+
+		IF match_count = 3 then
+			IF currently_ignoring_full_combo_cauldron = FALSE then
+				// We don't want to clog up the queue while we're in the wizlab draining the cauldrons, but we do
+				// wanna' calculate their volume.
+
+				// Oh, and filling a cauldron will stop the freakout, too!
+				gosub stop_freakout
+
+				ADD_EVENT_TO_QUEUE ( OWN_ID , LEVEL_RESET_FLAG_GET_READY_FOR_BONUS )
+			END_IF
+		END_IF
+
+	ELSE
+
+		WRITE_TO_ARRAY (0,OWN_ID,CAULDRON_FULLNESS_ARRAY_ID,CAULDRON_COMBINATION)
+
+	END_IF
+
+	gosub read_combo_cauldron_rgb_values
+
+	return
+
+
+
+.find_highest_accessable_level
+
+	let max_open_level = 0
+
+	let stay_in_loop = true
+
+	start_loop
+
+		let temp_1 = read_from_array ( own_id , LEVEL_COMPLETION_ARRAY_ID , max_open_level )
+
+		if temp_1 = 3 then
+			let max_open_level = max_open_level + 1 !> 7
+		else
+			let stay_in_loop = false
+		end_if
+
+		if (max_open_level = 7) then
+			let stay_in_loop = false
+		end_if
+
+	end_loop (stay_in_loop = true)
+
+	let max_open_level = max_open_level + 2 !> 7
+
+	let min_open_level = max_open_level - 2
+
+	return
+
+
+
+.read_combo_cauldron_rgb_values
+
+	LET level_progress = read_from_array ( own_id , LEVEL_COMPLETION_ARRAY_ID , current_level )
+
+	// Only do the action if we haven't already completed the level...
+
+	IF level_progress < 3 THEN
+
+		LET temp_1 = current_level * 3
+		let temp_1 = temp_1 + level_progress 
+
+		for counter = 0 to 3
+
+			let temp_2 = READ_FROM_DATATABLE (level_cauldron_colours,temp_1,counter)
+
+			write_to_array (temp_2,own_id,COMBO_CAULDRON_RGB_ARRAY_ID,counter)
+	
+		next
+
+	ELSE
+		// Make it grey for levels what are done.
+
+		for counter = 0 to 3
+			write_to_array (128,own_id,COMBO_CAULDRON_RGB_ARRAY_ID,counter)
+		next
+
+	END_IF
+
+	return
+
+
+
+.stop_freakout
+
+	let temp_1 = get_global_flag (freak_out_manager_entity_id)
+
+	if temp_1 != CONST_UNSET then
+		ADD_EVENT_TO_QUEUE ( temp_1 , FREAKOUT_EVENT_EXIT )
+	end_if
+
+	return
+
+
+
+.check_enemy_count_no_points
+
+	let add_points_when_zero = false
+	gosub check_enemy_count
+	return
+
+.check_enemy_count_with_points
+
+	let add_points_when_zero = true
+	gosub check_enemy_count
+	return
+
+
+
+.check_enemy_count
+
+	let enemy_count = read_from_array (own_id,LEVEL_ENEMY_COUNT_ARRAY_ID,current_level)
+
+	let pearl_count = get_global_flag (current_level_pearl_count)
+	let enemy_count = enemy_count + pearl_count
+
+	if enemy_count = 0 then
+		if current_level >= min_open_level then
+			if (add_points_when_zero = true) then
+				let temp_1 = get_global_flag (player_score)
+				let temp_1 = temp_1 + 1000 !> MAXIMUM_POSSIBLE_SCORE
+				set_global_flag (player_score,temp_1)
+			end_if
+
+			PLAY_SOUND (spawn_new_wave_sound,255,CONST_SOUND_FREQUENCY,128)
+
+			spawn_entity (create_normal_enemies,0,0,process_previous)
+		end_if
+	end_if
+
+	return
+
+
+
+// Music Routines!
+// Main Game!
+
+.start_in_game_music
+
+	let playing_music_channel = GET_GLOBAL_FLAG (playing_music_channel_flag)
+
+	if playing_music_channel = CONST_UNSET then
+		let music_volume = GET_GLOBAL_MUSIC_VOLUME
+
+		if (music_volume > 0) then
+			let playing_music_channel = PLAY_MUSIC_STREAM_GET_HANDLE (wizball_in_game,255,CONST_MUSIC_FREQUENCY,128,-1)
+			SET_GLOBAL_FLAG (playing_music_channel_flag, playing_music_channel)
+			SET_GLOBAL_FLAG (playing_music_stream_flag, wizball_in_game)
+			LET TEMP_1 = GET_GLOBAL_FLAG (played_tunes_flag)
+			LET TEMP_1 = TEMP_1 OR MAIN_GAME_TUNE_BITFLAG
+			SET_GLOBAL_FLAG (played_tunes_flag,TEMP_1)
+		end_if
+	else
+		stop
+	end_if
+
+	return
+
+
+
+.start_game_over_music
+
+	let playing_music_channel = GET_GLOBAL_FLAG (playing_music_channel_flag)
+
+	if playing_music_channel = CONST_UNSET then
+		let music_volume = GET_GLOBAL_MUSIC_VOLUME
+
+		if (music_volume > 0) then
+			let playing_music_channel = PLAY_MUSIC_STREAM_GET_HANDLE (wizball_game_over,255,CONST_MUSIC_FREQUENCY,128,0)
+			SET_GLOBAL_FLAG (playing_music_channel_flag, playing_music_channel)
+			SET_GLOBAL_FLAG (playing_music_stream_flag, wizball_game_over)
+		end_if
+	else
+		stop
+	end_if
+
+	return
+
+
+
+// Bonus Level!
+
+.start_bonus_level_music
+
+	let playing_music_channel = GET_GLOBAL_FLAG (playing_music_channel_flag)
+
+	if playing_music_channel = CONST_UNSET then
+		let music_volume = GET_GLOBAL_MUSIC_VOLUME
+
+		if (music_volume > 0) then
+			let playing_music_channel = PLAY_MUSIC_STREAM_GET_HANDLE (wizball_bonus,255,CONST_MUSIC_FREQUENCY,128,-1)
+			SET_GLOBAL_FLAG (playing_music_channel_flag, playing_music_channel)
+			SET_GLOBAL_FLAG (playing_music_stream_flag, wizball_bonus)
+			LET TEMP_1 = GET_GLOBAL_FLAG (played_tunes_flag)
+			LET TEMP_1 = TEMP_1 OR BONUS_LEVEL_TUNE_BITFLAG
+			SET_GLOBAL_FLAG (played_tunes_flag,TEMP_1)
+		end_if
+	else
+		stop
+	end_if
+
+	return
+
+
+
+// Wizlab Level!
+
+.start_wizlab_music
+
+	let playing_music_channel = GET_GLOBAL_FLAG (playing_music_channel_flag)
+
+	if playing_music_channel = CONST_UNSET then
+		let music_volume = GET_GLOBAL_MUSIC_VOLUME
+
+		if (music_volume > 0) then
+			let playing_music_channel = PLAY_MUSIC_STREAM_GET_HANDLE (wizball_laboratory,255,CONST_MUSIC_FREQUENCY,128,-1)
+			SET_GLOBAL_FLAG (playing_music_channel_flag, playing_music_channel)
+			SET_GLOBAL_FLAG (playing_music_stream_flag, wizball_laboratory)
+			LET TEMP_1 = GET_GLOBAL_FLAG (played_tunes_flag)
+			LET TEMP_1 = TEMP_1 OR WIZLAB_TUNE_BITFLAG
+			SET_GLOBAL_FLAG (played_tunes_flag,TEMP_1)
+		end_if
+	else
+		stop
+	end_if
+
+	return
+
+
+
+// Pre-Life Level!
+
+.start_pre_life_music
+
+	let playing_music_channel = GET_GLOBAL_FLAG (playing_music_channel_flag)
+
+	if playing_music_channel = CONST_UNSET then
+		let music_volume = GET_GLOBAL_MUSIC_VOLUME
+
+		if (music_volume > 0) then
+			let playing_music_channel = PLAY_MUSIC_STREAM_GET_HANDLE (wizball_pre_life,255,CONST_MUSIC_FREQUENCY,128,-1)
+			SET_GLOBAL_FLAG (playing_music_channel_flag, playing_music_channel)
+			SET_GLOBAL_FLAG (playing_music_stream_flag, wizball_pre_life)
+		end_if
+	else
+		stop
+	end_if
+
+	return
+
+
+
+.stop_music
+
+	if_flag (playing_music_channel_flag) != CONST_UNSET then
+		spawn_entity (fade_music,0,0,process_next)
+		let last_child.passed_param_1 = GET_GLOBAL_FLAG (playing_music_channel_flag)
+		let last_child.passed_param_2 = GET_GLOBAL_FLAG (playing_music_stream_flag)
+		let last_child.passed_param_3 = 15
+		let last_child.passed_param_4 = 255
+
+		SET_GLOBAL_FLAG (playing_music_channel_flag, CONST_UNSET)
+		SET_GLOBAL_FLAG (playing_music_stream_flag, CONST_UNSET)
+	end_if
+
+	return
+
+
+
+// Game Over and Shutdown Stuff
+
+.game_over_routine
+
+	wait 60
+
+	gosub stop_music
+
+	gosub start_game_over_music
+	
+	spawn_entity game_over_screen,0,0,process_next
+
+	let game_over_entity_id = last_child
+
+	start
+
+		// We'll stay here ignoring everything else
+
+		if game_over_entity_id.signal = true then
+			// Game-over has faded out...
+			goto shut_down_and_restart_menu
+		end_if
+
+	end
+
+
+
+.shut_down_and_restart_menu
+
+	gosub stop_and_save_any_recordings
+
+	disable_window SCORE_OVERLAY_WINDOW
+	disable_window GAME_MAIN_WINDOW
+	disable_window GAME_PANEL_WINDOW
+
+	// Everybody dies...
+	kill_entities (SELECT_BY_GENOCIDE)
+
+	wait 1
+
+	gosub stop_music
+
+	wait 60
+
+	spawn_entity restore_tiles_to_monochrome
+	spawn_entity menu_setup
+
+	kill_entity own_id
+
+
+
+.game_completion_effect
+
+	gosub stop_and_save_any_recordings
+
+	disable_window GAME_MAIN_WINDOW
+	disable_window GAME_PANEL_WINDOW
+
+	// Everybody dies...
+	kill_entities (SELECT_BY_GENOCIDE)
+
+	wait 1
+
+	gosub stop_music
+
+	wait 1
+
+	spawn_entity completion_effect,0,0,process_next
+
+	kill_entity own_id
+
+
+
+
+.stop_and_save_any_recordings
+
+	let temp_1 = GET_RECORD_PLAYBACK_STATUS (PLAYER_1)
+
+	if temp_1 = STATUS_RECORDING then
+		STOP_RECORDING_INPUT (PLAYER_1)
+		SAVE_RAND_LOG FALSE
+		SAVE_RECORDED_INPUT (PLAYER_1, recorded_demo_tag)
+	else_if temp_1 = STATUS_PLAYBACK then
+		SAVE_RAND_LOG TRUE
+		STOP_PLAYBACK_INPUT (PLAYER_1)
+	end_if
+
+	return

@@ -1,0 +1,17 @@
+top_score_text_tag	GRAHAM GORING 
+dummy			JOHN BLYTHE   
+dummy			RUSSELL HOY   
+dummy			TOMAZ KAC     
+dummy			NEIL WALKER   
+dummy			RICHARD JORDAN
+dummy			JEFF BRAINE   
+dummy			IGNACIO PEREZ 
+dummy			ADAM DAWES    
+dummy			ARIF MAJOTHI  
+dummy			ANDREW ZAFFMAN
+dummy			MATTHEW SMITH 
+dummy			ANDY NOBLE    
+dummy			BILL HARBISON 
+dummy			ALLAN BENTHAM 
+dummy			JOHN DOW      
+default_score_name	..............

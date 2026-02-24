@@ -1,0 +1,67 @@
+// Child defines...
+#define start_x				v0
+#define start_y				v1
+#define target_x			v2
+#define target_y			v3
+#define progress_percentage		v4
+#define sine_wobble_counter		v7
+
+// Parent defines...
+#define old_letter_number		v2
+#define current_letter_number		v3
+#define current_letter_x		v4
+#define current_letter_y		v5
+#define current_letter_width		v6
+
+// Own defines...
+#define left_bracket_entity_id		v10
+#define right_bracket_entity_id		v11
+
+	spawn_entity menu_hiscore_selector_bracket
+	let left_bracket_entity_id = last_child
+	let left_bracket_entity_id.current_frame = 94
+	let left_bracket_entity_id.sine_wobble_counter = 0
+
+	spawn_entity menu_hiscore_selector_bracket
+	let right_bracket_entity_id = last_child
+	let right_bracket_entity_id.current_frame = 95
+	let right_bracket_entity_id.sine_wobble_counter = 18000
+
+	let left_bracket_entity_id.start_x = parent.current_letter_x
+	let left_bracket_entity_id.start_y = parent.current_letter_y
+
+	let right_bracket_entity_id.start_x = parent.current_letter_x + parent.current_letter_width
+	let right_bracket_entity_id.start_y = parent.current_letter_y
+
+	start
+
+		if parent.alive < 0 then
+			// If the parent has died, there's no point in us hanging around...
+			kill_entity own_id
+		end_if
+
+		if parent.old_letter_number != parent.current_letter_number then
+			// When the user changes which button they're looking at, we reset the progress counter and whatnot.
+
+			let left_bracket_entity_id.start_x = left_bracket_entity_id.target_x
+			let left_bracket_entity_id.start_y = left_bracket_entity_id.target_y
+			let left_bracket_entity_id.progress_percentage = 0
+
+			let right_bracket_entity_id.start_x = right_bracket_entity_id.target_x
+			let right_bracket_entity_id.start_y = right_bracket_entity_id.target_y
+			let right_bracket_entity_id.progress_percentage = 0
+
+		end_if
+
+		let left_bracket_entity_id.target_x = parent.current_letter_x
+		let left_bracket_entity_id.target_y = parent.current_letter_y
+
+		let right_bracket_entity_id.target_x = parent.current_letter_x + parent.current_letter_width
+		let right_bracket_entity_id.target_y = parent.current_letter_y
+
+	end
+
+
+
+
+

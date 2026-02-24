@@ -1,0 +1,51 @@
+#define star_colour		v0
+#define star_brightness		v1
+
+// Parent defines
+#define current_speed		v5
+
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE + ENT_TYPE_DISPOSABLE
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	let bitshift = 8
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = rainbow_stars[set][32][32][16][16]
+	let base_frame = rand (0,15)
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE_AND_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let draw_order = COMPLETION_STARS_DRAW_ORDER
+
+//	let star_colour = rand 0,360
+//	let star_brightness = 160 % opengl_scale_x
+
+	let y_vel = 512 % opengl_scale_x 
+
+	let opengl_angle = rand (0,36000)
+
+start
+	let x_vel = parent.current_speed % opengl_scale_x 
+
+//	GET_VERTEX_COLOURS_FROM_HSL star_colour 256 star_brightness
+//	let star_colour = star_colour + 3 !< 0 !> 359
+
+	let opengl_scale_x = rand (2500,10000)
+	let opengl_scale_y = opengl_scale_x
+
+	let opengl_angle = opengl_angle - 100 !< 0 !> 35999
+
+	if world_y > 448 then
+		kill_entity own_id
+	end_if
+
+	if world_x < -24 then
+		let world_x = world_x + 688
+		set_private_co_ords
+	end_if
+end

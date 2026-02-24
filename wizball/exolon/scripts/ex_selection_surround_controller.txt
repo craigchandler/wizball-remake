@@ -1,0 +1,24 @@
+let bitshift = 0
+
+let world_x = 320
+let world_y = 122
+
+set_private_co_ords
+
+for counter = 0 to 4
+	spawn_entity (ex_selection_surround, 0, 0, process_previous)
+next
+
+start
+	if parent.signal & destroy_hiscore_selection_surround then
+		let signal = 1
+		goto wait_then_disappear
+	end_if
+end
+
+.wait_then_disappear
+
+wait 50
+
+kill_entity own_id
+

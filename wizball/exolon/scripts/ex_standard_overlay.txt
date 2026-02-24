@@ -1,0 +1,51 @@
+#define default_booleans v0
+#define real_parent passed_param_1
+
+let Bitshift = 0
+SET_PRIVATE_CO_ORDS
+// That sets the private scale co-ords from the passed in world scale co-ords.
+
+let opengl_booleans = real_parent.opengl_booleans and OPENGL_BOOLEAN_SCALE_AND_ROTATE
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+let opengl_booleans = opengl_booleans + passed_param_2
+
+let default_booleans = opengl_booleans
+
+let sprite = real_parent.sprite
+
+if multi_sprite = CONST_UNSET then
+	let multi_sprite = overlays[arb]
+end_if
+
+if INTERPOLATED_FRAME = CONST_UNSET then
+	let draw_mode = DRAW_MODE_MULTI_SPRITE
+else
+	let draw_mode = DRAW_MODE_MULTI_INTERP_SPRITE
+end_if
+
+let multi_opengl_booleans = OPENGL_BOOLEAN_FILTERED
+
+//let draw_order = draw_order + 1
+let signal = 0
+
+let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+start
+
+	let current_frame = real_parent.current_frame
+	let opengl_booleans = real_parent.opengl_booleans AND OPENGL_BOOLEAN_VERT_HORI_FLIPPED
+	let opengl_booleans = opengl_booleans + default_booleans 
+
+	let opengl_scale_x = real_parent.opengl_scale_x
+	let opengl_scale_y = real_parent.opengl_scale_y
+	let opengl_angle = real_parent.opengl_angle
+
+	let world_x = real_parent.world_x
+	let world_y = real_parent.world_y
+
+	set_private_co_ords
+
+	if signal = 1 then
+		kill_entity own_id
+	end_if
+end

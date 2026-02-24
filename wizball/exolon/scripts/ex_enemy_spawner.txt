@@ -1,0 +1,56 @@
+#define player_id v0
+#define stop_spawning_threshold v1
+#define next_spawn_time v3
+#define recycle_range v4
+#define enemy_appearance passed_param_1
+#define enemy_behaviour passed_param_2
+#define min_recycle passed_param_3
+#define max_recycle passed_param_4
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	let sprite = icons[set][32][32][16][16]
+	let base_frame = 0
+	// Don't actually use this graphic as it's just to show up in the map
+
+	let current_zone = GET_CURRENT_ZONE (world_x, world_y, game_room_zone)
+	let BOUNDARY_START_X, BOUNDARY_END_X = GET_HORIZONTAL_ZONE_EXTENTS (current_zone)
+
+	let world_x = BOUNDARY_END_X + 16
+	let stop_spawning_threshold = BOUNDARY_END_X - 160
+
+	let player_id = get_global_flag (Player_entity_id)
+
+	let draw_order = 5
+	let counter = 0
+
+	let recycle_range = max_recycle - min_recycle
+
+	set_private_co_ords
+
+	let next_spawn_time = rand recycle_range
+	let next_spawn_time = next_spawn_time + min_recycle
+
+	
+start
+	if player_id.world_x < stop_spawning_threshold then
+
+		let counter = counter + 1
+
+		if counter = next_spawn_time then
+			let world_y = player_id.world_y - 64
+			let temp_1 = rand -32 16
+			spawn_entity ex_enemy_small 0 temp_1 process_next
+			let last_child.enemy_appearance = enemy_appearance
+			let last_child.enemy_behaviour = enemy_behaviour
+			// So it never spawns them less than 30 frames apart.
+			// Sure, it'd be nice to use WAIT but with the stack corrupted, I can't. Bugrit.
+			let counter = 0
+			let next_spawn_time = rand recycle_range
+			let next_spawn_time = next_spawn_time + min_recycle
+		end_if
+
+	end_if
+end

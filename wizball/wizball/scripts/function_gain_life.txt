@@ -1,0 +1,7 @@
+	PLAY_SOUND special_paintball_pickup_extra_life 255 CONST_SOUND_FREQUENCY 128
+
+	let temp_1 = get_global_flag ( player_lives )
+	let temp_1 = temp_1 + 1 !> 9
+	set_global_flag ( player_lives, temp_1 )
+
+return

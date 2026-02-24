@@ -1,0 +1,140 @@
+// These don't actually *do* anything, they just toggle on and off depending on whether the
+// player owns what they represent or not.
+
+#define weapon_value_bitflag			v0
+	// This is what it's looking for in the player, if it has it then the icon doesn't show...
+
+#define hide_until_bitflag			v1
+	// If the player *doen't* have this one, don't bother drawing yourself. ie, if the player doesn't
+	// have the horizontal control, then the vertical control icon shouldn't be drawn yet. Likewise
+	// with the shield fire and reverse fire and the alternating wizball/catellite weapon thing.
+
+#define weapon_icon_number			v2
+	// Just the frame number, really.
+
+#define unused_icon_number			v3
+	// When the player has this weapon already, show this icon! If it's CONST_UNSET then go invisible.
+
+#define wizball_entity_id			v4
+	// Needs to know this!
+
+#define icon_position				v5
+	// Simply which icon it is in the line, so it can calculate it's ideal position.
+
+#define weapon_collection			v6
+	// This is the player's, or ours, depending on whether we can find a Wizball entity.
+
+#define current_brightness			v7
+#define target_brightness			v8
+
+#define current_pickup_count			v24
+
+// ---------------- Final Set Up ----------------
+
+	let current_brightness = 255
+	let target_brightness = 96
+
+	let sprite = panel_icons[arb]
+
+	let opengl_booleans = opengl_booleans + opengl_boolean_vertex_colour
+
+	let world_x = icon_position * 48 // ICON_TILE_SIZE_CONSTANT
+	let world_x = world_x + TOP_LEFT_ICON_POSITION_X_CONSTANT
+	let world_y = TOP_LEFT_ICON_POSITION_Y_CONSTANT
+
+	let draw_order = WEAPON_SELECT_PANEL_DRAW_ORDER
+
+	set_private_co_ords
+
+// ---------------- Main Loop ----------------
+
+start
+
+	let wizball_entity_id = get_global_flag (wizball_entity_id_flag)
+
+	if wizball_entity_id != CONST_UNSET then
+		let weapon_collection = wizball_entity_id.weapon_collection
+	else
+		let weapon_collection = get_global_flag (wizball_current_loadout)
+	end_if
+
+	if hide_until_bitflag != CONST_UNSET then
+
+		if weapon_collection !& hide_until_bitflag then
+			// The player doesn't have the icon upon which this one is dependant yet...
+
+			gosub do_not_show
+		else
+			// It does have the requisite icon! But is it already selected?!
+
+			if weapon_collection & weapon_value_bitflag then
+				// Has it, so don't show
+
+				gosub do_not_show
+			else
+				// Doesn't have it, so show
+
+				gosub show
+			end_if
+		end_if
+
+	else
+
+		if weapon_collection & weapon_value_bitflag then
+			// Has it, so don't show
+
+			gosub do_not_show
+		else
+			// Doesn't have it, so show
+
+			gosub show
+		end_if
+
+	end_if
+
+	if wizball_entity_id != CONST_UNSET then
+
+		let temp_1 = icon_position + 1
+
+		if wizball_entity_id.current_pickup_count = temp_1 then
+			let target_brightness = 255
+		else
+			let target_brightness = 96
+		end_if
+	end_if
+
+	if current_brightness > target_brightness then
+		let current_brightness = current_brightness - 8 !< target_brightness 
+	else_if current_brightness < target_brightness then
+		let current_brightness = current_brightness + 8 !> target_brightness 
+	end_if
+
+	let opengl_vertex_red = current_brightness 
+	let opengl_vertex_green = current_brightness 
+	let opengl_vertex_blue = current_brightness 
+
+end
+
+// ---------------- Hide Icon ----------------
+
+.do_not_show
+
+	if unused_icon_number != CONST_UNSET then
+		let draw_mode = draw_mode_sprite
+		let current_frame = unused_icon_number
+	else
+		let draw_mode = draw_mode_invisible
+	end_if
+
+return
+
+// ---------------- Show Icon ----------------
+
+.show
+
+	let draw_mode = draw_mode_sprite
+
+	let current_frame = weapon_icon_number
+
+return
+

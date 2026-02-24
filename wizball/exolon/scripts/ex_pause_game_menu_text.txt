@@ -1,0 +1,83 @@
+#define base_world_x			v0
+#define target_world_x			v1
+#define percentage			v2
+#define fade_flag			v3
+
+#define selected_option 		v10
+
+#define max_name_length			14
+
+#define letter_number			passed_param_1
+
+#define use_rotational_hiscore_entry	0
+#define use_direct_hiscore_entry	1
+
+#define hiscore_array_id		0
+
+	let Bitshift = 4
+	SET_PRIVATE_CO_ORDS
+
+	let temp_1 = passed_param_1 * 2 // letter in word doubled, ie. 0,2,4,6,etc
+	let temp_2 = -passed_param_3 + temp_1
+	let temp_2 = temp_2 + 1
+
+	// Temp_1 is now the positional offset thing.
+
+	let temp_2 = temp_2 * 8 // Quarter of a letter width... I think...
+
+	let base_world_x = world_x
+	let target_world_x = base_world_x + temp_2
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+
+	let opengl_booleans = opengl_boolean_scale + opengl_boolean_blend_multiply
+	let opengl_booleans = opengl_booleans + opengl_boolean_vertex_colour_alpha
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let sprite = game_font[set][18][18][9][9]
+
+	set_private_co_ords
+
+	let base_world_x = world_x
+
+	let fade_flag = 0
+
+	let opengl_vertex_alpha = 0
+
+start
+
+	if parent.signal = 0 then
+		if parent.selected_option = passed_param_2 then
+			// We're selected! Woot!
+			let percentage = percentage >% 10000 2000
+			let opengl_scale_x = percentage + 10000
+			let opengl_scale_y = opengl_scale_x
+			let world_x = lerp base_world_x target_world_x percentage
+			SET_PRIVATE_CO_ORDS
+		else
+			let percentage = percentage >% 0 2000
+			let opengl_scale_x = percentage + 10000
+			let opengl_scale_y = opengl_scale_x
+			let world_x = lerp base_world_x target_world_x percentage
+			SET_PRIVATE_CO_ORDS
+		end_if
+	else
+		let fade_flag = 2
+	end_if
+
+	if fade_flag = 0 then
+		let opengl_vertex_alpha = opengl_vertex_alpha + 15
+		if opengl_vertex_alpha >= 255 then
+			let opengl_vertex_alpha = 255
+			let fade_flag = 1
+		end_if
+	else_if fade_flag = 2 then
+		let opengl_vertex_alpha = opengl_vertex_alpha - 15
+		if opengl_vertex_alpha <= 0 then
+			kill_entity own_id
+		end_if
+	end_if
+
+end
+

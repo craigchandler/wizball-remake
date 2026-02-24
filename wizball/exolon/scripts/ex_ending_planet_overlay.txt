@@ -1,0 +1,41 @@
+#define spawned_mask			v0
+
+	let spawned_mask = false
+
+	let Bitshift = 0
+
+	SET_PRIVATE_CO_ORDS
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_vertex_colour_alpha
+
+	let opengl_vertex_alpha = 0
+
+	let sprite = large_graphics[arb]
+	let base_frame = 50
+	let current_frame = base_frame
+
+	let draw_mode = draw_mode_sprite
+
+	let draw_order = 10
+
+	let counter = 0
+
+start
+
+	let temp_1 = rand -4 4
+	let temp_2 = temp_1 / 2
+
+	let world_x = parent.world_x + temp_2
+	let world_y = parent.world_y + temp_1
+
+	let opengl_vertex_alpha = opengl_vertex_alpha + 1 !> 255
+
+	if opengl_vertex_alpha = 255 then
+		if spawned_mask = false then
+			let spawned_mask = true
+			spawn_entity (ex_ending_planet_white_out,168,-200,process_next)
+		end_if
+	end_if
+end
+
+

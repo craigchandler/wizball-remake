@@ -1,0 +1,28 @@
+// The game checks to find the first 0 in the lists below and then chooses a random number before it. BOOYAH!
+
+#SIZE CONSTANT:MAX_WIZBALL_START_POSITIONS
+
+	// Level 1 start positions
+#DATA 1112,1408,2200,2544
+
+	// Level 2 start positions
+#DATA 768,1728,2448,3152
+
+	// Level 3 start positions
+#DATA 832,1200,1932,2560,3072,3456
+
+	// Level 4 start positions
+#DATA 1072,1840,2432,3280
+
+	// Level 5 start positions
+#DATA 688,1280,2832
+
+	// Level 6 start positions
+#DATA 1504,1680,2848,3040
+
+	// Level 7 start positions
+#DATA 1856,2816,3008
+
+	// Level 8 start positions
+#DATA 736,1424,1952,2480,3120
+

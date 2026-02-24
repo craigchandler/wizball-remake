@@ -1,0 +1,17 @@
+16
+9,9,14,30,0,0 		//   0 = Missile Tracker start
+32,8,32,56,0,0 		//   1 = Rainbow wavy start
+64,72,32,56,0,0 	//   2 = Rainbow wavy end
+104,8,16,120,0,0 	//   3 = Orange linear
+9,113,14,14,0,0 	//   4 = White
+129,9,14,14,0,0		//   5 = Uprade mask start
+145,89,14,14,0,0	//   6 = Uprade mask end
+9,73,14,30,0,0 		//   7 = Missile Tracker end
+168,8,24,24,0,0		//   8 = Death mask top
+192,144,24,24,0,0	//   9 = Death mask bottom
+9,161,14,14,0,0		//  10 = Game over mask top
+9,225,14,14,0,0		//  11 = Game over mask bottom
+224,8,16,32,8,16	//  12 = Wavy rainbow, but smaller sampling for enemy forcefield
+224,72,16,32,8,16	//  13 = Wavy rainbow, but smaller sampling for enemy forcefield
+32,176,128,72,0,0	//  14 = Start of aurora
+96,176,128,72,0,0	//  15 = End of aurora

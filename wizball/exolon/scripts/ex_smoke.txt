@@ -1,0 +1,53 @@
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 64
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_MULTIPLY
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let v0 = lifetime
+	let opengl_angle = rand 0 36000
+
+	if PASSED_PARAM_3 = 0 then
+		let v1 = rand -500 500
+	else
+		let v1 = PASSED_PARAM_3
+	end_if
+
+	let temp_1 = rand 1000 2000
+
+	let opengl_scale_x = rand PASSED_PARAM_1 PASSED_PARAM_2
+	let opengl_scale_y = opengl_scale_x
+
+//	kill_entity own_id
+
+start
+	let opengl_scale_x = opengl_scale_x + temp_1
+	let opengl_scale_y = opengl_scale_y + temp_1
+
+	let temp_1 = temp_1 / 2
+
+	let opengl_angle = opengl_angle + v1
+
+	let v0 = v0 - 1
+
+	let temp_2 = 255 * v0
+	let temp_2 = temp_2 / lifetime
+	
+	let OPENGL_VERTEX_ALPHA = temp_2
+	let OPENGL_VERTEX_RED = temp_2
+	let OPENGL_VERTEX_GREEN = temp_2
+	let OPENGL_VERTEX_BLUE = temp_2
+
+	let x_vel = x_vel % PASSED_PARAM_4
+	let y_vel = y_vel % PASSED_PARAM_4
+
+	if v0 = 0 then
+		kill_entity own_id
+	end_if
+end

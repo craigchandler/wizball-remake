@@ -1,0 +1,206 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+// ---------------- Defines ---------------- 
+
+// General Defines
+
+	#define colour_flag				passed_param_2
+	#define special_bonus_flag			passed_param_3
+	#define burst_angle				passed_param_4
+
+	#define angular_step				V0
+	#define particle_count 				V1
+
+	#define parent_level_number			V11
+		// This is used to sleep and wake entities.
+
+// ---------------- Bitshift And Anchor ---------------- 
+
+	LET BITSHIFT = 8
+	SET_PRIVATE_CO_ORDS
+
+// ---------------- Appearance Set Up ---------------- 
+
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_MASKED + OPENGL_BOOLEAN_SCALE
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_FILTERED
+
+	LET SPRITE = paintballs_and_drips[arb]
+
+	IF special_bonus_flag = CONST_UNSET THEN
+		LET BASE_FRAME = colour_flag + 3
+	ELSE
+		LET BASE_FRAME = special_bonus_flag + 6
+	END_IF
+
+	LET CURRENT_FRAME = BASE_FRAME 
+	LET FRAME_COUNT = 1
+
+	LET DRAW_MODE = DRAW_MODE_SPRITE
+
+	LET DRAW_ORDER = PAINT_STAIN_DRAW_ORDER
+
+	LET OPENGL_SCALE_X = 10000
+	LET OPENGL_SCALE_Y = 10000
+	LET OPENGL_ANGLE = 0
+
+	PLAY_SOUND paintball_explode 255 CONST_SOUND_FREQUENCY
+
+// ---------------- Object And World Collision Set Up ---------------- 
+
+	ENTITY_HITLINE GOSUB object_interaction_routine
+	WORLD_HITLINE GOSUB world_interaction_routine
+
+	LET COLLIDE_TYPE = ENT_TYPE_PAINTDROP
+	LET COLLIDE_WITH = ENT_TYPE_CATELLITE + ENT_TYPE_PLAYER_BULLET
+
+	LET WORLD_COLLISION_BEHAVIOUR = COLLISION_RESPONSE_SIMPLE_BOUNCE_OR_DECELLERATE + COLLISION_RESPONSE_CALL_SCRIPT
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_ITERATE_MOVEMENT 
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_HORIZONTAL_WORLD_EDGE_SOLID
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_VERTICAL_WORLD_EDGE_SOLID
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_USE_EXTRA_TEST_POINTS
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + SLIDING_HORIZONTAL
+
+	LET ENTITY_MOVEMENT_BEHAVIOUR = ENTITY_MOVEMENT_HORIZONTAL_VERTICAL 
+
+	let WORLD_COLLISION_COEF_HORIZONTAL = 0
+	let WORLD_COLLISION_COEF_VERTICAL = 0
+
+	LET WORLD_COLLISION_BITMASK = WORLD_BITMASK_ONLY_BASE_COLLIDES
+	LET WORLD_COLLISION_LAYER = PLAYER_AND_ENEMY_WORLD_COLLISION_LAYER
+
+	LET COLLISION_SHAPE = RECTANGLE 
+
+	SET_COLLISION_FROM_FRAME -4
+	SET_WORLD_COLLISION_FROM_OBJECT
+
+// ---------------- Position, Speed and Acceleration Setup ----------------
+
+	LET Y_VEL = PAINTDROP_FALLING_SPEED
+
+// ---------------- Main Loop ---------------- 
+// This enemy sort of bounces along the roof in the main. Wooters!
+
+.main_loop
+
+	let counter = 0
+
+start
+
+	let counter = counter + 1000 !< 0 !> 35999
+
+	let opengl_scale_x = 1000 sin counter
+	let opengl_scale_y = 1000 cos counter
+
+	let opengl_scale_x = opengl_scale_x + 10000
+	let opengl_scale_y = opengl_scale_y + 10000
+
+	if world_y > 480 then
+		kill_entity own_id
+	end_if
+
+end
+
+// ---------------- Object Interaction ----------------
+
+.object_interaction_routine
+
+	IF collided_entity.COLLIDE_TYPE & ENT_TYPE_CATELLITE then
+
+		IF special_bonus_flag = CONST_UNSET THEN
+
+			let temp_1 = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+
+			if temp_1 != CONST_UNSET THEN
+				LET temp_2 = ADD_PAINTDROP_RED + colour_flag
+				// This now equals the right signal for the given colour.
+
+				ADD_EVENT_TO_QUEUE ( temp_1 , temp_2 )
+
+				PLAY_SOUND paintdrop_collection 255 CONST_SOUND_FREQUENCY
+			ELSE
+				STOP // WTF?!
+			END_IF
+
+		ELSE
+
+			IF_FLAG (wizball_entity_id_flag != CONST_UNSET) then
+
+				switch special_bonus_flag
+
+					case PAINTDROP_FILTH_RAID
+						PLAY_SOUND special_paintball_pickup_filth_raid 255 CONST_SOUND_FREQUENCY
+						spawn_entity (spawn_fuzz,0,0,process_next)
+						let last_child.passed_param_1 = 3
+					break
+
+					case PAINTDROP_INDESTRUCTACAT
+						PLAY_SOUND special_paintball_pickup_indestructacat 255 CONST_SOUND_FREQUENCY
+						set_global_flag (catellite_stored_health,128)
+					break
+
+					case PAINTDROP_MUTANT_CAT
+						PLAY_SOUND special_paintball_pickup_mutant_cat 255 CONST_SOUND_FREQUENCY
+						set_global_flag (mutant_cat_flag,TRUE)
+					break
+
+					case PAINTDROP_BONUS_WIZBALL
+						PLAY_SOUND special_paintball_pickup_extra_life 255 CONST_SOUND_FREQUENCY
+						call_script function_gain_life
+					break
+
+					case PAINTDROP_FREAKY_BITS
+						PLAY_SOUND special_paintball_pickup_freaky_bits 255 CONST_SOUND_FREQUENCY
+						spawn_entity (freakout_effect_manager,0,0,process_next)
+					break
+
+				end_switch
+
+			END_IF
+
+		END_IF
+
+		let particle_count = get_global_flag (particle_commonness_multiplier)
+		let particle_count = 3 * particle_count
+
+		for counter = 1 to particle_count 
+			let temp_1 = rand (-8,8)
+			let temp_2 = rand (-16,16)
+
+			spawn_entity particle_twinkle,temp_1,temp_2,process_next
+		next
+
+		kill_entity own_id
+	END_IF
+
+end
+
+// ---------------- World Interaction ----------------
+
+.world_interaction_routine
+
+	if WORLD_HIT_AXIS = VERTICAL_AXIS then
+
+		PLAY_SOUND paintdrop_splat 255 CONST_SOUND_FREQUENCY
+
+		spawn_entity (paintdrop_stain,0,12,process_next)
+		LET last_child.colour_flag = colour_flag
+		LET last_child.special_bonus_flag = special_bonus_flag
+
+		let angular_step = get_global_flag (particle_rareness_multiplier)
+		let angular_step = 2000 * angular_step
+
+		for counter = 9000 to 27000 step angular_step
+			spawn_entity (particle_small_colour_drip,0,0,process_next)
+			LET last_child.colour_flag = colour_flag
+			LET last_child.special_bonus_flag = special_bonus_flag
+			LET temp_2 = rand -800,800
+			LET last_child.burst_angle = counter + temp_2
+		next
+
+		kill_entity own_id
+
+	end_if
+
+end
+

@@ -1,0 +1,30 @@
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = enemy_virus[set][16][16][8][8]
+	let base_frame = 2
+	// Don't actually use this graphic as it's just to show up in the map
+
+start
+
+	if parent != CONST_UNSET then
+		// Spawn them in a tight pattern...
+		let v0 = 16
+		let v1 = 16
+	else
+		// Spawn them in a long thin pattern...
+		let v0 = 64
+		let v1 = 16
+	end_if
+
+	for counter = 0 to 16
+		let temp_1 = rand -v0 v0
+		let temp_2 = rand -v1 v1
+		spawn_entity ex_enemy_virus temp_1 temp_2 process_next
+		let last_child.parent = parent
+		let last_child.passed_param_1 = world_x
+		let last_child.passed_param_2 = world_y
+	next
+
+	kill_entity own_id
+
+end

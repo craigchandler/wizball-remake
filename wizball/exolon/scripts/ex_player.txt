@@ -1,0 +1,928 @@
+#define baiter_countdown_start_value 	1800
+
+#define nullify_jump			v2
+
+#define base_opengl_booleans 		v7
+#define baiter_countdown 		v8
+#define retro_control_flag 		v9
+#define lives 				v10
+#define teleport_overlay_id 		v11
+#define upgrade_overlay_id 		v12
+#define invulnerable_overlay_id 	v13
+#define teleport_destination_x 		v14
+#define teleport_destination_y 		v15
+#define status 				v16
+#define restart_point_id 		v17
+#define player_rocket_id 		v18
+#define baiter_id 			v19
+#define invulnerable_flag 		v20
+#define player_dying_counter 		v21
+#define dying_overlay_id 		v22
+#define level_index 			v23
+#define player_holdover_id 		v24
+
+#define total_loopbacks			v25
+
+#define status_normal 			0
+#define status_upgrading_start 		1
+#define status_upgrading_end 		2
+#define status_teleporting_out 		3
+#define status_teleporting_in 		4
+#define status_dead 			5
+#define status_level_end_freeze_start 	6
+#define status_level_end_freeze 	7
+
+#define player_standing_height 		57 // So they still clip the gun barrel
+#define player_crouching_height 	40
+#define jump_velocity 			-23
+
+#define standing_gun_1_position		-34
+#define crouching_gun_1_position	-24
+#define vertical_gun_gap		12
+
+#define proper_invulnerable		1
+#define temporary_invulnerable		2
+
+#define permanent_invulnerability		1000
+
+let total_loopbacks = 0
+
+let status = status_normal
+
+let Bitshift = 3
+SET_PRIVATE_CO_ORDS
+// That sets the private scale co-ords from the passed in world scale co-ords.
+
+let matriarch = own_id
+
+let frame_end_delay = 0
+
+let speed = 16
+
+let player_rocket_id = CONST_UNSET
+
+let retro_control_flag = get_global_flag (retro_control)
+
+let opengl_booleans = OPENGL_BOOLEAN_MASKED
+
+let sprite = player_basic[arb]
+let base_frame = 0
+
+let restart_point_id = const_unset
+
+let base_opengl_booleans = opengl_booleans
+
+let COLLISION_SHAPE = RECTANGLE
+SET_COLLISION_FROM_FRAME
+
+let upper_width = upper_width - 8
+let lower_width = lower_width - 8
+let UPPER_HEIGHT = player_standing_height
+SET_WORLD_COLLISION_FROM_OBJECT
+
+set_global_flag (player_nudge_counter,0) // So there are none-built at spawn time.
+
+let COLLIDE_wITH = ENT_TYPE_ENEMY + ENT_TYPE_ENEMY_BULLET
+//let COLLIDE_wITH = COLLIDE_wITH + ENT_TYPE_ENEMY_EMPLACEMENT
+
+	entity_hitline gosub interact
+//	world_hitline gosub hitwall
+
+	let WORLD_COLLISION_BEHAVIOUR = SLIDING_HORIZONTAL
+	let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_RESPONSE_SIMPLE_BOUNCE_OR_DECELLERATE
+	let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_USE_EXTRA_TEST_POINTS
+	let WORLD_COLLISION_COEF_HORIZONTAL = 100
+	let WORLD_COLLISION_COEF_VERTICAL = 0
+	let ENTITY_MOVEMENT_BEHAVIOUR = ENTITY_MOVEMENT_HORIZONTAL_VERTICAL
+	let world_collision_bitmask = 3
+
+	set_global_flag (Player_entity_id, own_id)
+
+// That's gravity
+	let y_acc = 1
+
+	let current_zone = GET_CURRENT_ZONE (world_x, world_y, game_room_zone)
+	let BOUNDARY_START_X, BOUNDARY_END_X = GET_HORIZONTAL_ZONE_EXTENTS (current_zone)
+
+	set_global_flag (Player_zone_number, current_zone)
+
+	let BOUNDARY_START_X = BOUNDARY_START_X + 16
+	let BOUNDARY_END_X = BOUNDARY_END_X - 16
+
+// and now the business section
+
+// This is whether the player is upgraded...
+	let EXTRA_ABILITIES = 0
+
+	let FACING_DIRECTION = 1
+
+	let baiter_id = const_unset
+
+	spawn_entity ex_player_restart 0 0 PROCESS_NEXT
+	let restart_point_id  = last_child
+
+	let baiter_countdown = baiter_countdown_start_value
+
+// -------------------------------- PLAYER WAITING AT START --------------------------------
+
+// Note, we skip this if the player isn't starting on the first level...
+
+if level_index != level01 then
+	goto final_setup
+end_if
+
+	set_global_flag (intro_in_progress, 1)
+
+start
+	let temp_1 = get_global_flag (player_beaming_in)
+
+	if temp_1 = 1 then
+		goto player_beam_intro
+	end_if
+end
+
+// -------------------------------- PLAYER BEAMING INTRO --------------------------------
+
+.player_beam_intro
+
+	let draw_mode = DRAW_MODE_SPRITE
+	let draw_order = 22
+	let opengl_vertex_alpha = 0
+	let opengl_vertex_red = 0
+	let opengl_vertex_green = 0
+	let opengl_vertex_blue = 0
+	let opengl_booleans = opengl_boolean_vertex_colour_alpha + opengl_boolean_blend_multiply
+
+start
+
+	if opengl_vertex_alpha < 255 then
+		let opengl_vertex_alpha = opengl_vertex_alpha + 15
+	end_if
+
+	if opengl_vertex_alpha >= 255 then
+		let opengl_vertex_red = opengl_vertex_red + 15
+		let opengl_vertex_blue = opengl_vertex_red
+		let opengl_vertex_green = opengl_vertex_red
+	end_if
+
+	if opengl_vertex_red >= 255 then
+		goto final_setup
+	end_if
+
+end
+
+.final_setup
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let COLLIDE_TYPE = ENT_TYPE_PLAYER
+	let draw_order = 7
+	gosub make_invulnerable
+	let opengl_booleans = base_opengl_booleans
+
+	// Then we set up the bullet count, etc, looking first for a player holdover data structure which might
+	// be holding onto the values for us.
+
+	let player_holdover_id = get_global_flag (player_data_holder_id)
+
+	if player_holdover_id != const_unset then
+		let GUN_1_AMMO_COUNT = player_holdover_id.GUN_1_AMMO_COUNT
+		let GUN_2_AMMO_COUNT = player_holdover_id.GUN_2_AMMO_COUNT
+		let lives = player_holdover_id.lives
+		kill_entity player_holdover_id
+		set_global_flag (player_data_holder_id, const_unset)
+	else
+		let GUN_1_AMMO_COUNT = 99
+		let GUN_2_AMMO_COUNT = 10
+		let lives = const_default_player_lives
+	end_if
+
+	let nullify_jump = 0
+
+	set_global_flag (intro_in_progress, 0)
+
+
+// -------------------------------- PLAYER WALKING --------------------------------
+
+.walking_routine
+
+// This is the offset of height to the gun so that bullets can be fired at the correct position when ducking or walking.
+	let GUN_1_POSITION_OFFSET = standing_gun_1_position
+	let GUN_2_POSITION_OFFSET = GUN_1_POSITION_OFFSET - vertical_gun_gap
+	let base_frame = 0
+	let frame_count = 10
+	let current_frame = base_frame
+	let frame_delay = 4
+
+	let UPPER_HEIGHT = player_standing_height
+	SET_WORLD_COLLISION_FROM_OBJECT
+
+// This bubble of code executes each frame that you're standing on terra-firma.
+start
+
+	let x_vel = 0
+
+	IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 DOWN then
+		goto ducking_routine
+	end_if
+
+	let v6 = world_x / 9
+	let v6 = v6 mod 10
+
+	let current_frame = 0
+
+	IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 LEFT then
+		let x_vel = -speed
+		let opengl_booleans = base_opengl_booleans OR OPENGL_BOOLEAN_HORI_FLIPPED
+		let current_frame = 9 - v6
+		let FACING_DIRECTION = -1
+	end_if
+
+	IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 RIGHT then
+		let x_vel = speed
+		let opengl_booleans = base_opengl_booleans
+		let current_frame = v6
+		let FACING_DIRECTION = 1
+	end_if
+
+	if signal > 0 then
+		let signal = signal - 1
+	end_if
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 UP then
+		let signal = 2
+	end_if
+
+	let v0 = TEST_SNAP_TO_DIRECTION DIRECTION_DOWN 15 TRUE
+
+	if v0 = 0 then
+		// We ain't standing on anything!
+		if retro_control_flag = 1 then
+			let x_vel = 0
+		end_if
+		goto airborne_routine
+	end_if
+
+	gosub shoot_routine
+	gosub check_boundary
+	gosub check_statuses
+	gosub debug_stuff
+	gosub set_lives_and_ammo_flags
+
+	if nullify_jump = 0 then
+		IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 UP then
+			let v0 V1 = COMPILE_SOLID_TILE_NUMBERS CHECK_EDGE DIRECTION_UP TRUE 1
+			let v0 V1 = COMPILE_SOLID_TILE_NUMBERS CHECK_CORNERS DIRECTION_UP FALSE 1
+
+			if v0 = 0 then
+				let y_vel = jump_velocity
+				goto airborne_routine
+			end_if
+		end_if
+	end_if
+
+	let nullify_jump = 0
+end
+
+// -------------------------------- PLAYER AIRBORNE --------------------------------
+
+.airborne_routine
+let EXTERNAL_ACCELL_X = 0
+
+let current_frame = 11
+
+start
+
+	if signal > 0 then
+		let signal = signal - 1
+	end_if
+
+	if y_vel >= 0 then
+		// ie, we only check for landing if we are moving downwards
+		// this stops us immediately exiting the jump routine or sticking when
+		// we jump up through a platform and coincide with its surface.
+
+		let v0 V1 = COMPILE_SOLID_TILE_NUMBERS CHECK_EDGE DIRECTION_DOWN TRUE 1
+		let v0 V1 = COMPILE_SOLID_TILE_NUMBERS CHECK_CORNERS DIRECTION_DOWN FALSE 1
+
+		if v0 != 0 then
+
+//			let total_loopbacks = total_loopbacks + 1
+//			set_global_flag (loopbacks,total_loopbacks)
+//			if total_loopbacks = 1000 then
+//				stop
+//			end_if
+
+			goto walking_routine
+		end_if
+
+		if y_vel > 23 then
+			if retro_control_flag = 1 then
+				let x_vel = 0
+			end_if
+		end_if
+	end_if
+
+	gosub shoot_routine
+	gosub check_boundary
+	gosub check_statuses
+	gosub debug_stuff
+	gosub set_lives_and_ammo_flags
+
+end
+
+// -------------------------------- PLAYER DUCKING --------------------------------
+
+.ducking_routine
+
+let GUN_1_POSITION_OFFSET = crouching_gun_1_position
+let GUN_2_POSITION_OFFSET = GUN_1_POSITION_OFFSET - vertical_gun_gap
+
+let UPPER_HEIGHT = player_crouching_height
+SET_WORLD_COLLISION_FROM_OBJECT
+let current_frame = 10
+
+start
+
+	IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 DOWN then
+		// nuffink
+	else
+		SET_WORLD_COLLISION_FROM_OBJECT
+		goto walking_routine
+	end_if
+
+	gosub shoot_routine
+	gosub check_statuses
+	gosub set_lives_and_ammo_flags
+end
+
+// -------------------------------- DEBUG STUFF --------------------------------
+
+.debug_stuff
+
+	let counter = get_global_flag (player_nudge_counter)
+
+	if counter > 0 then
+		let counter = counter - 1
+		set_global_flag (player_nudge_counter,counter)
+
+		let temp_1 = world_x / 640
+		if temp_1 < 24 then
+			let world_y = 0
+			let world_x = BOUNDARY_END_X + 1
+			let y_vel = 0
+			let x_vel = 0
+			set_private_co_ords
+		end_if
+	end_if
+
+
+
+return
+
+// -------------------------------- CHECK STATUSES --------------------------------
+
+.check_statuses
+
+	// As this is always called we do the baiter countdown in here, too...
+
+	if baiter_countdown = 120 then
+		play_sound baiter_warning 255 22050 128
+	end_if
+
+	if baiter_countdown > 0 then
+		let baiter_countdown = baiter_countdown - 1
+	else
+		if baiter_id = const_unset then
+			// Spawn baiter!
+			spawn_entity ex_enemy_baiter 0 -32 PROCESS_NEXT
+			let baiter_id = last_child
+			let baiter_id.BOUNDARY_START_X = BOUNDARY_START_X - 32
+			let baiter_id.BOUNDARY_END_X = BOUNDARY_END_X + 32
+		end_if
+	end_if
+
+	// Also check for coming out of invulnerability...
+
+	if invulnerable_overlay_id != const_unset then
+		if invulnerable_overlay_id.signal = 1 then
+			let invulnerable_overlay_id = const_unset
+			let invulnerable_flag = invulnerable_flag AND !proper_invulnerable
+		end_if
+	end_if
+
+	// Then actually check the other statuses...
+
+	switch status
+
+		case status_normal
+			return
+		break
+
+		case status_level_end_freeze_start
+			goto end_level_settle_player
+		end_if
+
+		case status_teleporting_out
+			let nullify_jump = 1
+			if teleport_overlay_id.signal = 1 then
+				let status = status_teleporting_in
+				let world_x = teleport_destination_x
+				let world_y = teleport_destination_y
+				set_private_co_ords
+			end_if
+		break
+
+		case status_teleporting_in
+			if teleport_overlay_id.signal = 2 then
+				let status = status_normal
+				let invulnerable_flag = invulnerable_flag AND !temporary_invulnerable
+			end_if
+		break
+
+		case status_upgrading_start
+			let nullify_jump = 1
+			if upgrade_overlay_id.signal = 1 then
+				if EXTRA_ABILITIES = 0 then
+					let EXTRA_ABILITIES = 1
+					let sprite = player_super[arb]
+				else
+					let EXTRA_ABILITIES = 0
+					let sprite = player_basic[arb]
+				end_if
+				let status = status_upgrading_end
+			end_if
+		break
+
+		case status_upgrading_end
+			if upgrade_overlay_id.signal = 2 then
+				let status = status_normal
+				let invulnerable_flag = invulnerable_flag AND !temporary_invulnerable
+			end_if
+		break
+
+	end_switch
+
+return
+
+// -------------------------------- CHECK ROOM BOUNDARY --------------------------------
+
+.check_boundary
+
+	if world_x < BOUNDARY_START_X then
+		let x = BOUNDARY_START_X << bitshift
+	end_if
+
+	if world_x > BOUNDARY_END_X then
+		let temp_1 = get_global_flag (player_zone_number)
+		let temp_1 = temp_1 + 1
+		set_global_flag (player_zone_number,temp_1)
+
+		FADE_PERSISTANT_CHANNELS
+		let temp_1 = 32 << bitshift
+		let x = x + temp_1
+		let world_x = world_x + 32
+
+		let teleport_destination_x = world_x
+		let teleport_destination_y = world_y
+
+		let current_zone = GET_CURRENT_ZONE (world_x, world_y, game_room_zone)
+		set_global_flag (Player_zone_number, current_zone)
+
+		let BOUNDARY_START_X, BOUNDARY_END_X = GET_HORIZONTAL_ZONE_EXTENTS (current_zone)
+
+		let BOUNDARY_START_X = BOUNDARY_START_X + 16
+		let BOUNDARY_END_X = BOUNDARY_END_X - 16
+
+		if restart_point_id != const_unset then
+			kill_entity restart_point_id
+		end_if
+
+		spawn_entity ex_player_restart 0 0 PROCESS_NEXT
+		let restart_point_id  = last_child
+
+		// Reset the clock on the baiter...
+		let baiter_countdown = baiter_countdown_start_value
+
+		gosub kill_baiter
+	end_if
+
+return
+
+// -------------------------------- SHOOTING --------------------------------
+
+.shoot_routine
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 FIRE_1 then
+//	IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 FIRE_1 then
+		// Create a bullet!
+
+		if GUN_1_AMMO_COUNT > 0 then
+
+			let temp_1 = FACING_DIRECTION * 32
+
+			if EXTRA_ABILITIES = 0 then
+				play_sound player_fire 255 22050 128
+
+				spawn_entity ex_player_bullet temp_1 GUN_1_POSITION_OFFSET PROCESS_NEXT
+				let last_child.base_frame = 52
+				let last_child.drop_item = 56
+				let last_child.BOUNDARY_START_X = BOUNDARY_START_X - 32
+				let last_child.BOUNDARY_END_X = BOUNDARY_END_X + 32
+				let last_child.FACING_DIRECTION = FACING_DIRECTION
+			else
+				play_sound player_fire 255 17050 128
+
+				spawn_entity ex_player_bullet temp_1 GUN_1_POSITION_OFFSET PROCESS_NEXT
+				let last_child.base_frame = 51
+				let last_child.drop_item = 58
+				let last_child.BOUNDARY_START_X = BOUNDARY_START_X - 32
+				let last_child.BOUNDARY_END_X = BOUNDARY_END_X + 32
+				let last_child.FACING_DIRECTION = FACING_DIRECTION
+				let TEMP_2 = GUN_1_POSITION_OFFSET + 10
+				spawn_entity ex_player_bullet temp_1 TEMP_2 PROCESS_NEXT
+				let last_child.base_frame = 51
+				let last_child.drop_item = 58
+				let last_child.BOUNDARY_START_X = BOUNDARY_START_X - 32
+				let last_child.BOUNDARY_END_X = BOUNDARY_END_X + 32
+				let last_child.FACING_DIRECTION = FACING_DIRECTION
+			end_if
+
+			let GUN_1_AMMO_COUNT = GUN_1_AMMO_COUNT - 1
+
+		end_if
+
+	else
+		IF_INPUT_PLAYER_CONTROL_REPEAT PLAYER_1 FIRE_1 30 1 then
+			gosub fire_rocket
+		end_if
+
+		IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 FIRE_2 then
+			gosub fire_rocket
+		end_if
+	end_if
+
+	// Just check that the rocket is still alive. In case it gets killed and re-assigned while the player
+	// is busy popping their clogs and not looking at the firing routine  it also checks against script
+	// type.
+
+	if player_rocket_id != CONST_UNSET then
+		if player_rocket_id.script_number != ex_player_rocket then
+			let player_rocket_id = CONST_UNSET
+		else_if player_rocket_id.alive <= 0 then
+			let player_rocket_id = CONST_UNSET
+		end_if
+	end_if
+
+return
+
+.fire_rocket
+
+	if player_rocket_id = CONST_UNSET then
+		if GUN_2_AMMO_COUNT > 0 then
+
+			play_sound grenade_launch 255 22050 128
+			// Fire rocket - if there isn't one in-flight already.
+
+			spawn_entity ex_player_rocket 0 GUN_2_POSITION_OFFSET PROCESS_NEXT
+			let player_rocket_id = last_child
+			let player_rocket_id.FACING_DIRECTION = FACING_DIRECTION
+			let player_rocket_id.BOUNDARY_START_X = BOUNDARY_START_X - 32
+			let player_rocket_id.BOUNDARY_END_X = BOUNDARY_END_X + 32
+
+			let GUN_2_AMMO_COUNT = GUN_2_AMMO_COUNT - 1
+		end_if
+	end_if
+
+return
+
+
+// -------------------------------- COLLISION/INTERACTION --------------------------------
+
+.interact
+
+	if collided_entity.collide_type = ENT_TYPE_PLAYER_EMPLACEMENT then
+		// It's either a teleporter or a upgrade booth
+
+		let nullify_jump = 1
+
+		// Only interact if signal > 0 (ie, jump was pressed during this frame)
+		if signal = 1 then
+
+			switch collided_entity.SCRIPT_NUMBER
+
+				case ex_teleporter
+
+					if status = status_normal then
+						let TARGET_ENTITY = collided_entity.TARGET_ENTITY
+
+						if TARGET_ENTITY != CONST_UNSET then
+							play_sound teleport_to_teleport 255 30000 128
+
+							let status = status_teleporting_out
+
+							IF_HARDWARE_GRAPHICS then
+								IF_BLEND_MODE_AVAILABLE then
+									spawn_entity ex_overlay_player_teleporting 0 0 PROCESS_NEXT
+								else
+									spawn_entity ex_ogl11_player_teleporting 0 0 PROCESS_NEXT
+									// Spawn a plainer non-magic version which lasts the same time.
+								end_if
+							else
+
+							end_if
+
+							let teleport_overlay_id = last_child
+
+							let teleport_destination_x = target_entity.world_x
+							let teleport_destination_y = target_entity.world_y + 95
+
+							REMOVE_FROM_COLLISION_LIST
+							let invulnerable_flag = invulnerable_flag OR temporary_invulnerable
+						end_if
+					end_if
+				break
+
+				case ex_power_up_pod
+					if status = status_normal then
+						let status = status_upgrading_start
+
+						IF_HARDWARE_GRAPHICS then
+							IF_BLEND_MODE_AVAILABLE then
+								spawn_entity ex_overlay_player_upgrading 0 0 PROCESS_NEXT
+							else
+								// Spawn a plainer non-magic version which lasts the same time.
+								spawn_entity ex_ogl11_player_upgrading 0 0 PROCESS_NEXT
+							end_if
+						else
+						
+						end_if
+						
+						let upgrade_overlay_id = last_child
+
+						REMOVE_FROM_COLLISION_LIST
+						let invulnerable_flag = invulnerable_flag OR temporary_invulnerable
+					end_if
+				break
+
+			end_switch
+		end_if
+
+		if collided_entity.script_number = ex_level_ending_pad then
+			let temp_1 = collided_entity.world_x - world_x
+			let temp_1 = abs temp_1
+			if temp_1 < 8 then
+				let status = status_level_end_freeze_start
+			end_if
+		end_if
+
+	else
+		// It's an enemy or summat harmful, I expect... Or a bonus, I suppose.
+
+		// Well, nothing can hurt us when we're invulnerable...
+
+		if invulnerable_flag = 0 then
+
+			if status != status_dead then
+
+				// Enemies and enemy bullets always pop yer clogs...
+
+				if collided_entity.collide_type = ent_type_enemy then
+
+					if extra_abilities = 1 then
+						if collided_entity.script_number != ex_land_mine then
+							if collided_entity.script_number != ex_upstomper then
+								goto deaded
+							end_if
+						end_if
+					else
+						goto deaded
+					end_if
+
+				end_if
+	
+				if collided_entity.collide_type = ent_type_enemy_bullet then
+					goto deaded
+				end_if
+
+				if collided_entity.script_number = ex_enemy_forcefield then
+					let y_vel = jump_velocity
+					let x_vel = -speed
+					goto airborne_routine
+				end_if
+
+
+
+			end_if
+		end_if
+	end_if
+
+end
+
+// -------------------------------- HIT WALL --------------------------------
+
+.hitwall
+// For when we hit a wall. Check if it's a bash on the head and set x_vel to 0 if it is.
+	let base_frame = 0
+	gosub walking_routine
+
+// -------------------------------- DEADED --------------------------------
+
+.deaded
+
+let temp_1 = player_die_1 // sfx
+let temp_2 = rand 0 3
+let temp_1 = temp_1 + temp_2 // random sfx now
+
+play_sound temp_1 255 22050 128
+
+gosub kill_baiter
+
+let current_frame = 12
+let y_vel = -20
+let x_vel = 0
+let status = status_dead
+let player_dying_counter = 0
+
+let lives = lives - 1
+
+
+IF_HARDWARE_GRAPHICS then
+	IF_BLEND_MODE_AVAILABLE then
+		spawn_entity ex_overlay_player_dying 0 0 PROCESS_NEXT
+	else
+		// Spawn a plainer non-magic version which lasts the same time.
+		spawn_entity ex_ogl11_player_dying 0 0 PROCESS_NEXT
+	end_if
+else
+
+end_if
+
+
+	
+let dying_overlay_id = last_child
+
+start
+
+	let player_dying_counter = player_dying_counter + 1
+
+	if dying_overlay_id.signal = 1 then
+		let draw_mode = DRAW_MODE_INVISIBLE
+	end_if
+
+	if player_dying_counter = 100 then
+		
+		if lives = -1 then
+			spawn_entity ex_game_over 0 0 process_next
+		else
+			let gun_1_ammo_count = 99
+			let gun_2_ammo_count = 10
+
+			let world_x = get_global_flag (Start_position_x)
+			let world_y = get_global_flag (Start_position_y)
+			let DAMAGE_TYPES_RECEIVED = 0
+			set_private_co_ords
+			let status = status_normal
+			gosub make_invulnerable
+
+			IF_HARDWARE_GRAPHICS then
+				IF_BLEND_MODE_AVAILABLE then
+					spawn_entity ex_overlay_player_dying 0 0 PROCESS_NEXT
+				else
+					// Spawn a plainer non-magic version which lasts the same time.
+					spawn_entity ex_ogl11_player_dying 0 0 PROCESS_NEXT
+				end_if
+			else
+
+			end_if
+
+			spawn_entity ex_overlay_player_reborn 0 0 PROCESS_NEXT
+			let UPPER_HEIGHT = player_standing_height
+			goto walking_routine
+		end_if
+	end_if
+
+	if player_dying_counter >= 500 then
+		// Will only get this far if it's game-over.
+		
+	end_if
+
+end
+
+// -------------------------------- KILL BAITER --------------------------------
+
+.kill_baiter
+
+	if baiter_id != const_unset then
+		let baiter_id.signal = 1
+		let baiter_id = const_unset
+	end_if
+
+	// Even if it ain't alive, reset the counter, man!
+	let baiter_countdown = baiter_countdown_start_value
+	
+return
+
+// -------------------------------- MAKE INVULNERABLE --------------------------------
+
+.make_invulnerable
+
+	IF_HARDWARE_GRAPHICS then
+		IF_BLEND_MODE_AVAILABLE then
+			spawn_entity ex_overlay_player_invulnerable 0 0 PROCESS_NEXT
+		else
+			// Spawn a plainer non-magic version which lasts the same time.
+			spawn_entity ex_ogl11_player_invulnerable 0 0 PROCESS_NEXT
+		end_if
+	else
+
+	end_if
+
+	let invulnerable_overlay_id = last_child
+	let invulnerable_flag = invulnerable_flag OR proper_invulnerable
+return
+
+// -------------------------------- SET FLAGS --------------------------------
+
+.set_lives_and_ammo_flags
+	set_global_flag (player_gun_ammo, gun_1_ammo_count)
+	set_global_flag (player_grenade_ammo, gun_2_ammo_count)
+	set_global_flag (player_lives, lives)
+return
+
+// -------------------------------- END LEVEL --------------------------------
+
+.end_level_settle_player
+
+gosub make_invulnerable
+let invulnerable_overlay_id.passed_param_1 = permanent_invulnerability
+
+gosub kill_baiter
+// Just in case he's around...
+
+//kill_entities SELECT_BY_SCRIPT_NUMBER ex_enemy_spawner
+// Kill off any spawner that's in the room to stop new enemies...
+
+let status = status_level_end_freeze
+
+let current_frame = 11
+
+start
+	if y_vel >= 0 then
+		// ie, we only check for landing if we are moving downwards
+		// this stops us immediately exiting the jump routine or sticking when
+		// we jump up through a platform and coincide with its surface.
+
+		let v0 v1 = COMPILE_SOLID_TILE_NUMBERS CHECK_EDGE DIRECTION_DOWN TRUE 1
+		let v0 v1 = COMPILE_SOLID_TILE_NUMBERS CHECK_CORNERS DIRECTION_DOWN FALSE 1
+
+		if v0 != 0 then
+			goto end_level_wait
+		end_if
+
+		if y_vel > 23 then
+			if retro_control_flag = 1 then
+				let x_vel = 0
+			end_if
+		end_if
+	end_if
+end
+
+.end_level_wait
+
+let x_vel = 0
+let current_frame = 0
+
+wait 180
+
+let GUN_1_AMMO_COUNT = 99
+let GUN_2_AMMO_COUNT = 10
+
+gosub set_lives_and_ammo_flags
+
+spawn_entity ex_inter_level_holdover 0 0 PROCESS_NEXT
+
+let counter = 100
+
+start
+	// Eventually it'll get killed off by another script.
+
+	// But maybe it'll be for the completion effect, so keep an eye for that flag...
+
+	let temp_1 = get_global_flag (completion_effect_kill_player)
+
+	if temp_1 = 1 then
+		if counter = 100 then
+			let y_vel = jump_velocity
+			let current_frame = 11
+		end_if
+		
+		let counter = counter - 1
+
+		if counter = 0 then
+			let temp_2 = invulnerable_overlay_id.v1
+			kill_entity invulnerable_overlay_id
+			kill_entity temp_2
+			kill_entity own_id
+		end_if
+	end_if
+end

@@ -1,0 +1,94 @@
+#define start_angle 			passed_param_1
+#define signal_angle 			passed_param_2
+#define end_angle 			passed_param_3
+#define angle_speed 			passed_param_4
+#define rotate_axis 			PASSED_PARAM_5
+#define signal_pause_length 		PASSED_PARAM_6
+#define lives 				v10
+
+#define END_LEVEL_SIGNAL 9999
+
+// Set it's type as one of the indestructables
+
+	let entity_type = ENT_TYPE_INDESTRUCTABLE
+
+// Store id of this entity where the player can find it.
+
+	set_global_flag (player_data_holder_id, own_id)
+
+// Spawn the rolling number bars and all that mcguffery.
+
+	spawn_entity ex_inter_level_section 0 0 PROCESS_NEXT
+
+// So we don't lose the co-ordinate data
+
+	set_private_co_ords
+
+// And back up the player's stats.
+
+	let GUN_1_AMMO_COUNT = parent.GUN_1_AMMO_COUNT
+	let GUN_2_AMMO_COUNT = parent.GUN_2_AMMO_COUNT
+	let lives = parent.lives
+
+start
+	// Now we just loop and wait until we're told to go one...
+	if last_child.signal = END_LEVEL_SIGNAL then
+		let temp_1 = get_global_flag (level_number_flag)
+//		if temp_1 < 0 then
+		if temp_1 < 4 then
+			goto fade_out_level
+		else
+			goto complete_game
+		end_if
+	end_if
+end
+
+.fade_out_level
+
+	spawn_entity ex_screen_flipper 0 0 process_next
+	let last_child.start_angle = 0
+	let last_child.signal_angle = 27000
+	let last_child.end_angle = 36000
+	let last_child.angle_speed = 200
+	let last_child.signal_pause_length = 5
+
+	start
+		if last_child.signal = 1 then
+			goto start_next_level
+		end_if
+	end
+
+.start_next_level
+
+	fade_persistant_channels
+
+// Increase level number...
+
+	let temp_1 = get_global_flag (level_number_flag)
+	let temp_1 = temp_1 + 1
+	set_global_flag (level_number_flag , temp_1)
+
+// Destroy everything else so we're the only kid in the playground
+
+//	kill_entities SELECT_BY_WINDOW WINDOW_NUMBER
+	kill_entities SELECT_BY_DIFFERING_ENTITY_TYPE ENT_TYPE_INDESTRUCTABLE
+
+	wait 1
+
+// Spawn the next level
+
+	spawn_entity ex_launch_level 0 0 PROCESS_NEXT
+
+start
+	// Just cycles in this loop until the player pops their
+	// details from this entity and squishes it.
+end
+
+.complete_game
+
+	wait 100
+
+	spawn_entity (ex_completion_effect_precursor,0,0,process_next)
+	
+	kill_entity own_id
+end

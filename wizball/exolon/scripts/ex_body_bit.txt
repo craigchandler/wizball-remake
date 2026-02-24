@@ -1,0 +1,37 @@
+
+#define rotation_speed		v1
+
+	if passed_param_1 = 0 then
+		let draw_order = draw_order + 2
+		let x_acc = -4
+		let current_frame = 31
+		let x_vel = 16
+		let y_vel = -16
+	else
+		let draw_order = draw_order + 3
+		let x_acc = -4
+		let current_frame = 44
+		let x_vel = 48
+		let y_vel = -48
+	end_if
+
+	let Bitshift = 6
+
+	let opengl_angle = 0
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = LARGE_GRAPHICS[arb]
+
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+
+	let rotation_speed = rand -400 -500
+
+start
+
+	let opengl_angle = opengl_angle + rotation_speed
+
+	if world_x < -32 then
+		kill_entity own_id
+	end_if
+end

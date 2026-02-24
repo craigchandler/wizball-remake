@@ -1,0 +1,21 @@
+SET_RANDOM_SEED 0
+
+spawn_entity (ex_launch_level, 0, 0, PROCESS_FIRST)
+spawn_entity (ex_score_manager, 0, 0, PROCESS_NEXT)
+////	spawn_entity (ex_debug_handler,0,0,PROCESS_FIRST)
+spawn_entity (ex_special_debug_handler,0,0,PROCESS_FIRST)
+//set_global_flag (level_number_flag,0)
+
+set_global_flag (scoreboard_destruct,0)
+
+set_global_flag (player_target_score, 0)
+set_global_flag (player_score, 0)
+
+// Set up the ammo, lives flags to their defaults.
+
+set_global_flag (player_gun_ammo, 99)
+set_global_flag (player_grenade_ammo, 10)
+set_global_flag (player_lives, const_default_player_lives)
+
+
+kill_entity own_id

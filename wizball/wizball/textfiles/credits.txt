@@ -1,0 +1,27 @@
+credit_start_tag	ORIGINAL DESIGN
+dummy_tag		JON HARE & CHRIS YATES
+
+dummy_tag		ORIGINAL PROGRAMMING
+dummy_tag		CHRIS YATES
+
+dummy_tag		ORIGINAL GRAPHICS
+dummy_tag		JON HARE
+
+dummy_tag		ORIGINAL MUSIC
+dummy_tag		MARTIN GALWAY
+
+dummy_tag		REMAKE PROGRAMMING
+dummy_tag		GRAHAM GORING
+
+dummy_tag		REMAKE GRAPHICS
+dummy_tag		TREVOR STOREY
+
+dummy_tag		REMAKE MUSIC
+dummy_tag		INFAMOUS
+
+dummy_tag		MAC CONVERSION
+dummy_tag		PETER HULL
+
+credit_end_tag		LINUX CONVERSION
+dummy_tag		SCOTT WIGHTMAN
+

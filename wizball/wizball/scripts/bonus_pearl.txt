@@ -1,0 +1,165 @@
+
+	let PARENT_LEVEL = get_global_flag (player_on_level_number)
+
+	call_script function_add_pearl_to_level_count
+
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+// ---------------- Defines ---------------- 
+
+#DEFINE twinkle_counter		V0
+#DEFINE	wizball_entity_id 	V1
+#DEFINE	game_mode		V2
+#DEFINE	particle_count		V3
+
+// ---------------- Bitshift And Anchor ---------------- 
+
+	let twinkle_counter = 0 // temp
+	LET BITSHIFT = 0
+	SET_PRIVATE_CO_ORDS
+
+// ---------------- Appearance Set Up ---------------- 
+
+	LET SPRITE = pickup[arb]
+	LET BASE_FRAME = 0
+	LET CURRENT_FRAME = BASE_FRAME 
+//	LET FRAME_COUNT = 0
+//	LET FRAME_DELAY = 0
+
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_MASKED + OPENGL_BOOLEAN_FILTERED
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_SCALE_AND_ROTATE
+		// OPENGL_BOOLEAN_MASKED OPENGL_BOOLEAN_BLEND_ADD OPENGL_BOOLEAN_BLEND_MULTIPLY OPENGL_BOOLEAN_SCALE OPENGL_BOOLEAN_ROTATE OPENGL_BOOLEAN_SCALE_AND_ROTATE OPENGL_BOOLEAN_VERTEX_COLOUR OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA OPENGL_BOOLEAN_FILTERED OPENGL_BOOLEAN_VERT_FLIPPED OPENGL_BOOLEAN_HORI_FLIPPED OPENGL_BOOLEAN_VERT_HORI_FLIPPED OPENGL_BOOLEAN_ROTATE_CLOCKWISE OPENGL_BOOLEAN_ROTATE_ANTICLOCKWISE OPENGL_BOOLEAN_VERTEX_SECONDARY_COLOUR OPENGL_BOOLEAN_SECONDARY_SCALE OPENGL_BOOLEAN_SECONDARY_ROTATE OPENGL_BOOLEAN_BLEND_SUBTRACT
+
+	LET DRAW_MODE = DRAW_MODE_SPRITE
+		// DRAW_MODE_INVISIBLE DRAW_MODE_TILEMAP DRAW_MODE_SPRITE DRAW_MODE_MULTI_SPRITE DRAW_MODE_INTERP_SPRITE DRAW_MODE_MULTI_INTERP_SPRITE DRAW_MODE_TILEMAP_LINE DRAW_MODE_STARFIELD DRAW_MODE_SOLID_RECTANGLE DRAW_MODE_STARFIELD_LINES DRAW_MODE_STARFIELD_COLOUR DRAW_MODE_STARFIELD_COLOUR_LINES DRAW_MODE_SPRITE_EXTRA_TRANSFORMS DRAW_MODE_TEXT DRAW_MODE_DOUBLE_MASKED_SPRITE DRAW_MODE_DOUBLE_MASKED_INTERP_SPRITE
+
+	LET DRAW_ORDER = MOLECULE_DRAW_ORDER
+
+// ---------------- Object Collision Set Up ---------------- 
+
+	LET COLLISION_SHAPE = CIRCLE
+		// POINT CIRCLE RECTANGLE ROTATED_RECTANGLE
+
+	SET_COLLISION_FROM_FRAME
+
+	LET RADIUS = 24
+
+	let game_mode = get_global_flag (c64_or_spectrum_game_mode)
+
+	if game_mode = GAME_MODE_C64 then
+		LET COLLIDE_WITH = ENT_TYPE_PLAYER + ENT_TYPE_PLAYER_BULLET 
+	else
+		LET COLLIDE_WITH = ENT_TYPE_PLAYER
+		// Doesn't collide with bullets on the Speccy. Lawks.
+	end_if
+
+	LET COLLIDE_WITH = ENT_TYPE_PLAYER + ENT_TYPE_PLAYER_BULLET 
+	LET COLLIDE_TYPE = ENT_TYPE_PICKUP 
+		// ENT_TYPE_PLAYER ENT_TYPE_PLAYER_HELD_BONUS ENT_TYPE_PLAYER_BULLET ENT_TYPE_ENEMY ENT_TYPE_ENEMY_BULLET ENT_TYPE_BOSS ENT_TYPE_PICKUP ENT_TYPE_ITEM ENT_TYPE_SMALL ENT_TYPE_MEDIUM ENT_TYPE_LARGE ENT_TYPE_GIGANTIC ENT_TYPE_MANAGER_ROUTINE ENT_TYPE_ENEMY_EMPLACEMENT ENT_TYPE_ENEMY_SPAWNER ENT_TYPE_PLAYER_EMPLACEMENT ENT_TYPE_PLAYER_SPAWNER ENT_TYPE_PLAYER_SUPER_BULLET ENT_TYPE_DISPOSABLE ENT_TYPE_SLEEPABLE ENT_TYPE_INDESTRUCTABLE
+
+	ENTITY_HITLINE GOSUB object_interaction_routine
+
+// ---------------- World Collision Set Up ---------------- 
+
+	// None
+
+// ---------------- Final Set up ----------------
+
+	let twinkle_counter = rand (25,30)
+
+	let temp_1 = get_global_flag (currently_on_bonus_level)
+
+	if temp_1 = false then
+
+		let temp_2 = get_global_flag (level_starting_phase)
+
+		if temp_2 = TRUE then
+			let temp_3 = get_global_flag (level_starting_pearl_count)
+			let temp_3 = temp_3 + 1
+			set_global_flag (level_starting_pearl_count,temp_3)
+		end_if
+
+	else
+
+		let x_vel = -1
+
+	end_if
+
+// ---------------- Main Loop ---------------- 
+
+start
+
+	let counter = counter + 250 !< 0 !> 35999
+	let opengl_angle = 1000 sin counter
+
+	let temp_1 = 250 sin counter
+	let temp_2 = 250 cos counter
+
+	let opengl_scale_x = 10000 + temp_1
+	let opengl_scale_y = 10000 + temp_2
+
+	let twinkle_counter = twinkle_counter - 1
+
+	if twinkle_counter = 0 then
+		let temp_2 = rand (-24,24)
+		let temp_3 = rand (-24,24)
+
+		spawn_entity particle_twinkle,temp_2,temp_3,process_next
+		let twinkle_counter = rand (25,30)
+	end_if
+
+	// Retire the pearl if the player wanders away from it...
+
+	let wizball_entity_id = get_global_flag (wizball_entity_id_flag)
+
+	if wizball_entity_id != CONST_UNSET then
+		let temp_1 = world_x - wizball_entity_id.world_x
+		let temp_1 = abs temp_1
+		if temp_1 >= 344 then
+			gosub remove_from_counter_if_applicable
+			kill_entity own_id
+		end_if
+	else
+		// Maybe they died?! Woah... I expect I'll get killed off soon, too.
+	end_if
+
+end
+
+// ---------------- Object Interaction ----------------
+
+.object_interaction_routine
+
+	if collided_entity.COLLIDE_TYPE & ENT_TYPE_PLAYER then
+
+		let particle_count = get_global_flag (particle_commonness_multiplier)
+		let particle_count = 5 * particle_count
+
+		for temp_1 = 1 to particle_count
+			let temp_2 = rand (-24,24)
+			let temp_3 = rand (-24,24)
+
+			spawn_entity particle_twinkle,temp_2,temp_3,process_next
+		next
+
+		gosub remove_from_counter_if_applicable
+
+		let temp_2 = get_global_flag (player_score)
+		let temp_2 = temp_2 + 100 !> MAXIMUM_POSSIBLE_SCORE
+		set_global_flag (player_score,temp_2)
+
+		kill_entity own_id
+	end_if
+
+end
+
+// ---------------- World Interaction ----------------
+
+
+//
+
+.remove_from_counter_if_applicable
+
+	call_script function_remove_pearl_from_level_count
+
+return

@@ -1,0 +1,108 @@
+#define planet_section 		passed_param_1
+#define main_movement_angle	passed_param_2
+#define angle_offset		passed_param_3
+
+#define planet_size 		v0
+#define planet_width 		v1
+#define angle_speed		v2
+#define movement_speed		v3
+
+#define explosion_distance 	v4
+#define explosion_angle 	v5
+
+#define planet_radius		v6
+#define half_planet_radius	v7
+
+#define x_offset		v9
+#define y_offset		v10
+
+#define expire			v11
+
+#define planet_type		v29
+
+#define generation		v5
+#define sub_child		v7
+
+#define start_speed		500
+
+	let planet_radius = parent.planet_width % 4500
+	let half_planet_radius = planet_radius / 2
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let opengl_booleans = OPENGL_BOOLEAN_SCALE_AND_ROTATE + opengl_boolean_masked
+
+	let bitshift = 8
+
+	set_private_co_ords
+
+	let sprite = planet_masks[arb]
+	let multi_sprite = level_scenery_sprites[arb]
+
+	let secondary_frame = parent.current_frame
+
+	let current_frame = 2 - parent.planet_size
+	let current_frame = current_frame * 3
+	let current_frame = current_frame + planet_section
+
+	let multi_opengl_booleans = OPENGL_BOOLEAN_FILTERED
+
+	let draw_mode = DRAW_MODE_MULTI_SPRITE
+
+	let x_vel = start_speed cos main_movement_angle
+	let y_vel = start_speed sin main_movement_angle
+
+	let lifetime = 30
+
+	let angle_speed = rand -20 20
+
+	let draw_order = 3
+
+	let expire = rand -500 -300
+
+	spawn_entity ex_planet_shatter_section_overlay 0 0 process_next
+
+start
+
+	let opengl_angle = opengl_angle + angle_speed
+
+	let lifetime = lifetime - 1
+
+	if lifetime > 0 then
+		let x_vel = x_vel % 9000
+		let y_vel = y_vel % 9000
+	else_if lifetime = expire then
+		goto end_of_the_road
+	end_if
+
+end
+
+.end_of_the_road
+
+	let temp_1 = rand 5 8
+
+	let x_offset = half_planet_radius cos main_movement_angle
+	let y_offset = half_planet_radius sin main_movement_angle
+
+	spawn_entity ex_blinder x_offset y_offset process_next
+	let last_child.draw_order = draw_order + 1
+
+	for counter = 0 to temp_1
+
+		let explosion_distance = rand 8 half_planet_radius
+		let explosion_angle = rand -4000 4000
+		let explosion_angle = explosion_angle + main_movement_angle
+		let explosion_angle = explosion_angle + opengl_angle
+		let x_offset = explosion_distance cos explosion_angle
+		let y_offset = explosion_distance sin explosion_angle
+
+		spawn_entity ex_planet_shatter_asteroid x_offset y_offset process_next
+
+		let last_child.main_movement_angle = explosion_angle
+		let last_child.generation = rand 0 2
+		let last_child.sub_child = false
+
+	next
+
+	kill_entity own_id

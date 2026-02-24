@@ -1,0 +1,24 @@
+
+	kill_entities (SELECT_BY_GENOCIDE)
+
+	wait 1
+
+	spawn_entity (save_config)
+	spawn_entity (save_unlocked_tunes)
+
+	SAVE_HISCORE_TABLE (MAIN_HISCORE_TABLE,HISCORE_FILENAME_TAG)
+
+	destroy_starfield MAIN_GAME_STARFIELD_ID
+	destroy_starfield FREAKOUT_STARFIELD_ID
+	destroy_starfield BONUS_LEVEL_STARFIELD_ID
+	destroy_starfield BONUS_LEVEL_STARFIELD_OTHER_ID
+	destroy_starfield TUNNEL_STARFIELD_ID
+	destroy_starfield GET_READY_STARFIELD_ID
+	destroy_starfield LABORATORY_STARFIELD_ID
+
+	wait 2
+
+	CLOSE_DOWN_SYSTEM
+
+end
+

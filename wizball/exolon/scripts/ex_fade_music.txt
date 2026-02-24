@@ -1,0 +1,27 @@
+#define music_channel		passed_param_1
+#define music_stream		passed_param_2
+#define music_fade_speed	passed_param_3
+#define music_volume		passed_param_4
+#define music_flag		passed_param_5
+
+let entity_type = ENT_TYPE_INDESTRUCTABLE
+
+start
+
+	if music_channel != CONST_UNSET then
+		let music_volume = music_volume - music_fade_speed !< 0
+		ADJUST_MUSIC_STREAM music_channel music_volume CONST_TITLE_MUSIC_FREQUENCY 128
+		if music_volume = 0 then
+			stop_music_stream (music_stream)
+			if music_flag != CONST_UNSET then
+				set_global_flag (music_flag,CONST_UNSET)
+			end_if
+			goto time_to_die_mr_bond
+		end_if
+	end_if
+
+end
+
+.time_to_die_mr_bond
+
+kill_entity own_id

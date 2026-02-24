@@ -1,0 +1,39 @@
+#define interpolation_speed				v0
+
+	let entity_type = ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_scale
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_INTERPOLATED
+	if parent.script_number != lab_cauldron_rainbow_ray then
+		spawn_entity lab_cauldron_rainbow_ray,0,0,process_next
+		let interpolation_speed = 180
+	else
+		let interpolation_speed = 100
+	end_if
+
+	let sprite = title_screen_and_large_bits[arb]
+
+	let base_frame = 12
+	let current_frame = base_frame
+	let interpolated_frame = base_frame + 1
+
+	let draw_mode = DRAW_MODE_SPRITE
+	let draw_order = LABORATORY_CAULDRON_GLOW_DRAW_ORDER
+
+	let opengl_scale_y = 100
+
+	set_private_co_ords
+
+start
+
+	if parent.script_number = lab_cauldron_rainbow_ray then
+		let opengl_scale_y = parent.opengl_scale_y
+	else
+		let opengl_scale_y = opengl_scale_y >% 12000 1000
+	end_if
+
+	let opengl_scale_x = rand (5000,7000)
+
+	let INTERPOLATION_Y_PERCENTAGE = INTERPOLATION_Y_PERCENTAGE + interpolation_speed !< 0 !> 10000
+
+end

@@ -1,0 +1,111 @@
+// This is our intro. How jolly exciting, eh?
+
+// Menu Defines
+
+#define playing_music_channel		v3
+
+#define sound_volume			v4
+#define music_volume			v5
+
+	let world_x = 0
+	let world_y = 0
+	set_private_co_ords
+
+	let draw_mode = draw_mode_sprite
+	let sprite = title_screen_and_large_bits[arb]
+	let base_frame = 3
+	let current_frame = base_frame
+
+	let draw_order = MENU_TITLE_SCREEN_DRAW_ORDER
+
+	let opengl_booleans = opengl_boolean_blend_multiply + opengl_boolean_vertex_colour_alpha
+
+	let signal = signal OR SLEEP_CREDITS
+	let signal = signal OR SLEEP_LOGO
+	let signal = signal OR SLEEP_SCROLLY
+	let signal = signal OR WAKE_TUNNEL_LIGHT
+
+	let sound_volume = GET_GLOBAL_SOUND_VOLUME
+	let music_volume = GET_GLOBAL_MUSIC_VOLUME
+
+	let playing_music_channel = GET_GLOBAL_FLAG (playing_music_channel_flag)
+
+	// Each of the menus has a wait 5 at the start to allow everything from the previous one to do it's thing. Except this one because it's the firstest!
+
+	if (playing_music_channel = CONST_UNSET) then
+		if (music_volume > 0) then
+			let playing_music_channel = PLAY_MUSIC_STREAM_GET_HANDLE (WIZBALL_TITLE,255,CONST_MUSIC_FREQUENCY,128,-1)
+			SET_GLOBAL_FLAG (playing_music_channel_flag, playing_music_channel)
+			SET_GLOBAL_FLAG (playing_music_stream_flag, WIZBALL_TITLE)
+			LET TEMP_1 = GET_GLOBAL_FLAG (played_tunes_flag)
+			LET TEMP_1 = TEMP_1 OR MAIN_MENU_TUNE_BITFLAG
+			SET_GLOBAL_FLAG (played_tunes_flag,TEMP_1)
+		end_if
+	end_if
+
+	SET_GLOBAL_FLAG_AS_ENTITY_ID (menu_entity_identity_flag)
+
+	// This variable isn't used to kill this thing, though. Just as a reminder, really.
+	let ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	WAIT 60
+
+start
+
+	let opengl_vertex_alpha = opengl_vertex_alpha - 5 !< 0
+
+	if opengl_vertex_alpha = 0 then
+		goto next_bit_marker
+	end_if
+
+end
+
+.next_bit_marker
+
+	let draw_mode = DRAW_MODE_INVISIBLE
+
+	let counter = 0
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE,0,menu_hiscore_text, GAME_TITLE_TAG, process_next, center_x, 320, 112, 0, 0, font[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE,0,menu_hiscore_text, INTRO_TITLE_1, process_next, center_x, 320, 288, 0, 0, font[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE,0,menu_hiscore_text, INTRO_TITLE_2, process_next, center_x, 320, 312, 0, 0, font[arb])
+
+	SPAWN_ENTITY (menu_intro_sensible_software_logo,320,384,process_next)
+
+start
+
+	IF_INPUT_KEYBOARD_HIT key_any then
+		goto skip_intro
+	END_IF
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,FIRE_1) then
+		goto skip_intro
+	END_IF
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_2,FIRE_1) then
+		goto skip_intro
+	END_IF
+
+	let counter = counter + 1
+
+	if (counter = 320) then
+		goto skip_intro
+	end_if
+
+end
+
+
+
+.skip_intro
+
+	spawn_entity menu_intro_logos,0,0,process_next
+
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_SPECIFIC_MENU_ENTITY )
+
+	let signal = signal OR DESTROY_INTRO_OBJECTS
+	let signal = signal OR DESTROY_HISCORE_TEXT
+
+	kill_entity own_id
+
+	end
+

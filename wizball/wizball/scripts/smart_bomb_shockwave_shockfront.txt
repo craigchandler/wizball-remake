@@ -1,0 +1,55 @@
+#define top_or_bottom_position			passed_param_1
+#define left_or_right_position			passed_param_2
+
+#define y_offset				V0
+#define x_offset				V1
+
+#define top_position				0
+#define bottom_position				1
+#define left_position				0
+#define right_position				1
+
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = particle_effects[arb]
+	let base_frame = 28
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+
+	let opengl_vertex_alpha = 0
+
+	let draw_order = CATELLITE_SHIELD_DRAW_ORDER
+
+	IF top_or_bottom_position = bottom_position THEN
+		let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERT_FLIPPED
+	END_IF
+
+	IF left_or_right_position = left_position THEN
+		let x_offset = 4
+		let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_HORI_FLIPPED
+	ELSE
+		let x_offset = -4
+	END_IF
+start
+
+	IF top_or_bottom_position = top_position THEN
+		let y_offset = -208 % parent.opengl_scale_y
+		let y_offset = y_offset - 31
+	ELSE
+		let y_offset = 208 % parent.opengl_scale_y
+		let y_offset = y_offset + 31
+	END_IF
+
+	LET world_x = parent.world_x + x_offset
+	LET world_y = parent.world_y + y_offset
+
+	set_private_co_ords
+
+	if parent.alive < alive then
+		kill_entity own_id
+	end_if
+
+end

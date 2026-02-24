@@ -1,0 +1,65 @@
+#define bounce_progress				v0
+
+#define offset_x				v1
+#define offset_y				v2
+#define spray_angle				v3
+
+#define wizard_hand_from_offset_x		-37
+#define wizard_hand_from_offset_y		-53
+
+	LET ENTITY_TYPE = ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+	LET DRAW_ORDER = LABORATORY_WIZ_AND_CAT_DRAW_ORDER
+
+	let sprite = wiz_and_nifta[arb]
+	let draw_mode = draw_mode_sprite
+
+	let opengl_booleans = opengl_boolean_masked + opengl_boolean_scale
+	let opengl_booleans = opengl_booleans + opengl_boolean_filtered
+
+	let base_frame = 0
+	let frame_count = 8
+
+	let world_x = LAB_WIZBALL_END_X
+	let world_y = LAB_WIZBALL_END_Y + 8
+
+	set_private_co_ords
+
+	let counter = 0
+
+start
+
+	let counter = counter + 1
+
+	set_anim_frame (ANIM_LOOP, base_frame, frame_count, 8, counter, false)
+
+	if counter <= 6 then
+		let bounce_progress = unlerp (0,6,counter)
+
+		let bounce_progress = bounce_progress curve_percentage CURVE_PERCENTAGE_FISO
+		let opengl_scale_y = lerp (3000,15000,bounce_progress)
+		let opengl_scale_x = lerp (7500,5000,bounce_progress)
+
+	else_if counter <= 18 then
+		let bounce_progress = unlerp (6,18,counter)
+
+		let bounce_progress = bounce_progress curve_percentage CURVE_PERCENTAGE_SISO
+		let opengl_scale_y = lerp (15000,10000,bounce_progress)
+		let opengl_scale_x = lerp (5000,10000,bounce_progress)
+	else
+		let opengl_scale_y = 10000
+		let opengl_scale_x = 10000
+	end_if
+
+	let temp_1 = counter mod 6
+
+	if temp_1 = 0 then
+		let offset_x = wizard_hand_from_offset_x % opengl_scale_x
+		let offset_y = wizard_hand_from_offset_y % opengl_scale_y
+
+		spawn_entity magic_poof_twinkle,offset_x,offset_y,process_next
+		let spray_angle = rand (19000,22000)
+		let last_child.x_vel = 256 cos spray_angle 
+		let last_child.y_vel = 256 sin spray_angle
+	end_if
+
+end

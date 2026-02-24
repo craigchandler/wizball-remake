@@ -1,0 +1,85 @@
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 4
+
+	let COLLIDE_TYPE = ENT_TYPE_ENEMY_EMPLACEMENT
+	let COLLIDE_wITH = ENT_TYPE_PLAYER_SUPER_BULLET
+
+	let COLLISION_SHAPE = RECTANGLE
+
+	SET_COLLISION_FROM_FRAME
+
+	let v0 = world_x - upper_width
+	let v1 = world_y - upper_height
+
+	let v0 = v0 / 16
+	let v1 = v1 / 16
+
+	let v0 = v0 + 1
+
+	SET_COLLISION_BY_PARAMETERS v0 v1 2 5 66
+
+	let v1 = v1 + 1
+	let v0 = v0 - 3
+
+	SET_COLLISION_BY_PARAMETERS v0 v1 6 1 66
+
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	spawn_entity ex_gun_barrel -68 24 PROCESS_NEXT
+	let last_child.draw_order = last_child.draw_order - 1
+
+	// So that things hitting the gun barrel actually collide with the main gun.
+	
+	entity_hitline gosub destroyed
+	
+	let signal = 0
+start
+
+	if signal = 1 then
+		gosub destroyed
+	end_if
+
+end
+
+.destroyed
+	REMOVE_FROM_COLLISION_LIST
+	let collide_type = 0
+	let signal = 2
+
+	play_sound large_object_explosion 255 33000 128
+
+	spawn_entity ex_small_shaker_explosion 0 0 process_next
+	let last_child.draw_order = last_child.draw_order + 1
+
+	wait 15
+
+	spawn_entity ex_big_explosion 0 lower_height process_next
+	let last_child.PASSED_PARAM_1 = 15000
+	let last_child.draw_order = last_child.draw_order + 1
+
+	play_sound gunpod_explosion 255 22050 128
+
+	wait 10
+
+	let upper_width = upper_width + 24
+	SET_COLLISION_BY_SIZE 0
+	let upper_width = upper_width - 24
+
+	spawn_entity ex_debris 0 lower_height process_next
+	let last_child.base_frame = 4
+
+	let signal = 3
+
+	let point_value = 200
+	spawn_entity ex_display_score 0 32 PROCESS_NEXT
+	let last_child.passed_param_1 = 4
+	let last_child.passed_param_2 = 0
+
+	kill_entity own_id

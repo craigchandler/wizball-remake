@@ -1,0 +1,384 @@
+#define control_device_number			v0
+#define current_position_in_name_array		v1
+
+#define old_letter_number			v2
+#define current_letter_number			v3
+#define current_letter_x			v4
+#define current_letter_y			v5
+#define current_letter_width			v6
+#define current_letter_entity_id		v7
+
+#define add_letter_to_name			v8
+
+#define current_name_width			v9
+#define current_name_base_position		v10
+#define target_name_base_position		v11
+
+#define max_letter				v15
+#define delete_symbol				v16
+#define return_symbol				v17
+
+#define hiscore_entry_type			v20
+
+#define spawn_instruction_text_counter		v30
+
+#define sound_volume				v40
+#define music_volume				v41
+#define playing_music_channel			v42
+
+#define added_letter				v43
+
+#define removed_letter_width			v44
+
+#define pending_hiscore				v45
+
+#define dull_light_counter			v46
+
+#define hiscore_array_id			0
+#define defined_control_name_array		1
+
+#define use_direct_hiscore_entry		0
+#define use_joypad_hiscore_entry		1
+
+#define instruction_phrase_delay		15
+
+#define space_char				32
+
+	let ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let signal = signal OR WAKE_LOGO
+	let signal = signal OR SLEEP_CREDITS
+	let signal = signal OR SLEEP_SCROLLY
+	let signal = signal OR SLEEP_WIZ_AND_CAT
+
+	let sound_volume = GET_GLOBAL_SOUND_VOLUME
+	let music_volume = GET_GLOBAL_MUSIC_VOLUME
+
+	let playing_music_channel = GET_GLOBAL_FLAG (playing_music_channel_flag)
+
+	if (playing_music_channel = CONST_UNSET) then
+		if (music_volume > 0) then
+			let playing_music_channel = PLAY_MUSIC_STREAM_GET_HANDLE (WIZBALL_HI_SCORE,255,CONST_MUSIC_FREQUENCY,128,-1)
+			SET_GLOBAL_FLAG (playing_music_channel_flag, playing_music_channel)
+			SET_GLOBAL_FLAG (playing_music_stream_flag, WIZBALL_HI_SCORE)
+			LET TEMP_1 = GET_GLOBAL_FLAG (played_tunes_flag)
+			LET TEMP_1 = TEMP_1 OR HISCORE_TUNE_BITFLAG
+			SET_GLOBAL_FLAG (played_tunes_flag,TEMP_1)
+		end_if
+	end_if
+
+	SET_GLOBAL_FLAG_AS_ENTITY_ID (menu_entity_identity_flag)
+
+	create_array (hiscore_array_id, HISCORE_MAX_NAME_LENGTH)
+
+	let control_device_number = GET_CONTROL_DEVICE 0 LEFT
+
+	if control_device_number = CONTROL_DEVICE_KEYBOARD then
+		// We're on the keyboard for control, so we'll assume the player wants to type.
+		let hiscore_entry_type = use_direct_hiscore_entry
+		let signal = signal OR SLEEP_JOYPAD_HISCORE_INPUT_ITEMS
+	else
+		// We're on a joypad or summat, so we'll assume the player wants to use the pad.
+		let hiscore_entry_type = use_joypad_hiscore_entry
+		let signal = signal AND !SLEEP_JOYPAD_HISCORE_INPUT_ITEMS
+	end_if
+
+	wait 30
+
+	// Spawn the selection surrounding thing.
+	// Do this before the letters as they'll be snuck in before this.
+	spawn_entity menu_hiscore_selector
+
+	// Spawn the letters...
+	SPAWN_ENTITIES_FROM_TEXT (TRUE,0, menu_hiscore_letter, HISCORE_LETTERS_STRING, process_next, center_x, 320, 240, 0, 0)
+
+	// Figure out a few bits and bobs...
+	let max_letter = GET_TEXT_LENGTH HISCORE_LETTERS_STRING
+	let max_letter = max_letter + 1
+
+	// These are so when we hit fire we know if we're on a special button...
+	let delete_symbol = max_letter - 2
+	let return_symbol = max_letter - 1
+
+	// Because the name is empty...
+	let current_position_in_name_array = 0
+
+	// So we can see when we've changed the selected letter, so that the cursor knows to set it's current
+	// position as it's base one and select a new target position and reset it's progress.
+
+	let current_letter_number = 0
+
+	// This means our instructions will appear...
+	let spawn_instruction_text_counter = -40
+
+	let add_letter_to_name = false
+	let removed_letter_width = 0
+
+	let dull_light_counter = 30
+
+start
+
+	let dull_light_counter = dull_light_counter - 1 !< -1
+
+	if dull_light_counter = 0 then
+		let signal = signal OR SLEEP_TUNNEL_LIGHT
+	end_if
+
+	let target_name_base_position = current_name_width / 2
+	let target_name_base_position = HISCORE_ENTRY_START_X - target_name_base_position
+
+	let current_name_base_position = current_name_base_position >% target_name_base_position 1000
+
+	let old_letter_number = current_letter_number
+
+	if removed_letter_width != 0 then
+		let temp_1 = removed_letter_width - 1
+		let current_name_width = current_name_width - temp_1 
+
+		let removed_letter_width = 0
+	end_if
+
+	if add_letter_to_name = true then
+		// This will have been set last frame, and so the letter will have
+		// informed us by now of it's entity id.
+		if current_position_in_name_array < HISCORE_MAX_NAME_LENGTH then
+			PLAY_SOUND menu_select 255 CONST_SOUND_FREQUENCY 128
+
+			write_to_array (added_letter, own_id, hiscore_array_id, current_position_in_name_array)
+
+			spawn_entity menu_hiscore_name_letter
+			// This is so it knows where to get it's details from...
+			let last_child.current_letter_entity_id = current_letter_entity_id
+
+			// This is so the letter can look at it's parent and figure out
+			// whether it should pop it's own clogs.
+			let last_child.current_position_in_name_array = current_position_in_name_array
+
+			// Give it the name the width before adding its own width...
+			let last_child.current_name_width = current_name_width
+
+			// And increase the width of the whole word...
+			let temp_1 = current_letter_width - 1
+			let current_name_width = current_name_width + temp_1 
+
+			let current_position_in_name_array = current_position_in_name_array + 1
+		end_if
+
+		let add_letter_to_name = false
+	end_if
+
+	if hiscore_entry_type = use_joypad_hiscore_entry then
+
+		let temp_1 = GET_KEYBOARD_HIT
+
+		if temp_1 != const_unset then
+
+			let hiscore_entry_type = use_direct_hiscore_entry
+
+			let spawn_instruction_text_counter = 0
+
+			let signal = signal OR SLEEP_JOYPAD_HISCORE_INPUT_ITEMS
+
+			if current_letter_number >= 40 then
+				// So the cursor isn't left hanging over nothing...
+				let current_letter_number = 0
+			end_if
+		end_if
+
+		IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,UP) then
+			PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
+			let current_letter_number = current_letter_number - 10 !< 0 !> 49
+			gosub bodge_to_correct_button
+		END_IF
+
+		IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,DOWN) then
+			PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
+			let current_letter_number = current_letter_number + 10 !< 0 !> 49
+			gosub bodge_to_correct_button
+		END_IF
+
+		IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,LEFT) then
+			PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
+
+			let temp_1 = current_letter_number mod 10
+
+			if current_letter_number < 40 then
+
+				if temp_1 = 0 then
+					let current_letter_number = current_letter_number + 9
+				else
+					let current_letter_number = current_letter_number - 1
+				end_if
+			else
+				if temp_1 = 0 then
+					let current_letter_number = current_letter_number + 1
+				else
+					let current_letter_number = current_letter_number - 1
+				end_if
+			end_if
+		END_IF
+
+		IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,RIGHT) then
+			PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
+
+			let temp_1 = current_letter_number mod 10
+
+			if current_letter_number < 40 then
+
+				if temp_1 = 9 then
+					let current_letter_number = current_letter_number - 9
+				else
+					let current_letter_number = current_letter_number + 1
+				end_if
+			else
+				if temp_1 = 1 then
+					let current_letter_number = current_letter_number - 1
+				else
+					let current_letter_number = current_letter_number + 1
+				end_if
+			end_if
+		END_IF
+
+		IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,FIRE_1) then
+
+			if current_letter_number = return_symbol then
+				goto end_of_hiscore_entry
+			else_if current_letter_number = delete_symbol then
+				if current_position_in_name_array > 0 then
+					PLAY_SOUND menu_select_bad 255 CONST_SOUND_FREQUENCY 128
+					let current_position_in_name_array = current_position_in_name_array - 1
+				end_if
+			else
+				// By the time the next frame rolls around we'll know which one it is for sure.
+				let add_letter_to_name = true
+				let added_letter = READ_TEXT_LETTER (HISCORE_LETTERS_STRING,current_letter_number)
+			end_if
+		END_IF
+
+	end_if
+
+	if hiscore_entry_type = use_direct_hiscore_entry then
+
+		// Check for joypad usage to turn on the Delete/Finish buttons...
+
+		let temp_1 = GET_ANY_PLAYER_JOYPAD_HIT (PLAYER_1)
+
+		if temp_1 > TRUE then
+			let hiscore_entry_type = use_joypad_hiscore_entry
+
+			let spawn_instruction_text_counter = 0
+
+			let signal = signal AND !SLEEP_JOYPAD_HISCORE_INPUT_ITEMS
+		end_if
+
+		let temp_1 = GET_KEYBOARD_HIT
+
+		if temp_1 != const_unset then
+			// Get the ascii value for the pressed button...
+			let added_letter = GET_ASCII_FOR_SCANCODE temp_1
+
+			// Then we look through the string we used to make the numbers...
+			for counter = 0 to delete_symbol
+				// Get a letter from the hiscore string...
+				let temp_3 = READ_TEXT_LETTER (HISCORE_LETTERS_STRING,counter)
+				// Compare it to the ascii value of the scancode, and if it matches...
+				if added_letter = temp_3 then
+					let current_letter_number = counter
+					let add_letter_to_name = true
+				end_if
+			next
+
+		end_if
+
+		if current_position_in_name_array > 0 then
+			if temp_1 = KEY_BACKSPACE then
+				let current_position_in_name_array = current_position_in_name_array - 1
+			end_if
+		end_if
+
+		if temp_1 = KEY_ENTER then
+			// ENter name
+			goto end_of_hiscore_entry
+		end_if
+
+	end_if
+
+	gosub increase_spawn_instruction_text_counter
+
+end
+
+
+
+// This makes sure the correct one of the Delete/Finish buttons are selected.
+
+.bodge_to_correct_button
+
+	if current_letter_number > 40 then
+		if current_letter_number < 45 then
+			let current_letter_number = 40
+		else
+			let current_letter_number = 41
+		end_if
+	end_if
+
+	return
+
+
+
+// This makes sure the right instructional message is displayed on screen...
+
+.increase_spawn_instruction_text_counter
+
+	if spawn_instruction_text_counter = 0 then
+
+		let signal = signal OR DESTROY_HISCORE_INSTRUCTION_TEXT
+
+	else_if spawn_instruction_text_counter = instruction_phrase_delay then
+
+		let signal = signal AND !DESTROY_HISCORE_INSTRUCTION_TEXT
+
+		// Spawn the instructional text...
+		if hiscore_entry_type = use_direct_hiscore_entry then
+			SPAWN_ENTITIES_FROM_TEXT (FALSE,0, menu_hiscore_instruction_text, HISCORE_ENTRY_1A, process_next, center_x, 320, HISCORE_INSTRUCTION_BASE_Y_LINE_2, 0, 0, font[arb])
+		else
+			SPAWN_ENTITIES_FROM_TEXT (FALSE,0, menu_hiscore_instruction_text, HISCORE_ENTRY_2A, process_next, center_x, 320, HISCORE_INSTRUCTION_BASE_Y_LINE_1, 0, 0, font[arb])
+			SPAWN_ENTITIES_FROM_TEXT (FALSE,0, menu_hiscore_instruction_text, HISCORE_ENTRY_2B, process_next, center_x, 320, HISCORE_INSTRUCTION_BASE_Y_LINE_2, 0, 0, font[arb])
+		end_if
+
+	end_if
+
+	let spawn_instruction_text_counter = spawn_instruction_text_counter + 1 !> 999
+
+	return
+
+
+
+.end_of_hiscore_entry
+
+	PLAY_SOUND menu_select 255 CONST_SOUND_FREQUENCY 128
+
+	START_LOOP current_position_in_name_array < HISCORE_MAX_NAME_LENGTH
+		write_to_array space_char own_id hiscore_array_id current_position_in_name_array
+		let current_position_in_name_array = current_position_in_name_array + 1
+	END_LOOP
+
+	let pending_hiscore = get_global_flag (player_score)
+
+	// Don't care about return value, tbh.
+	let temp_1 = ADD_SCORE_TO_HISCORE_TABLE MAIN_HISCORE_TABLE pending_hiscore hiscore_array_id current_position_in_name_array
+
+	set_global_flag (player_score,0) // so we don't come straight back here...
+
+	PLAY_SOUND menu_select 255 CONST_SOUND_FREQUENCY 128
+
+	spawn_entity menu_hiscore_reading,0,0,process_next
+
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_SPECIFIC_MENU_ENTITY )
+
+	let signal = signal OR DESTROY_OPTION_TEXT
+	let signal = signal OR DESTROY_HISCORE_INSTRUCTION_TEXT
+	let signal = signal OR DESTROY_HISCORE_TEXT
+
+	kill_entity own_id
+
+	end

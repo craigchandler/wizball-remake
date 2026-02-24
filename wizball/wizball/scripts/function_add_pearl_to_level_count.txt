@@ -1,0 +1,10 @@
+#define pearl_count			v0
+#define main_game_handler_id		v1
+
+	let pearl_count = get_global_flag (current_level_pearl_count)
+	let pearl_count = pearl_count + 1
+
+	set_global_flag (current_level_pearl_count, pearl_count)
+
+return
+

@@ -1,0 +1,51 @@
+#define start_x		240
+#define start_y		544
+#define start_angle	0
+
+#define end_x		600
+#define end_y		16
+#define end_angle	-40500
+
+#define progress	v0
+
+let progress = 0
+
+	let opengl_booleans = opengl_booleans + opengl_boolean_scale
+	let opengl_booleans = opengl_booleans + opengl_boolean_rotate
+
+	let Bitshift = 8
+	SET_PRIVATE_CO_ORDS
+	let sprite = large_graphics[arb]
+	let base_frame = 48
+	let current_frame = base_frame
+
+	let draw_mode = draw_mode_sprite
+
+	let draw_order = 40
+
+start
+
+	let world_x = lerp start_x end_x progress
+	let world_y = lerp start_y end_y progress
+	let opengl_scale_x = lerp 10000 0 progress
+	let opengl_scale_y = opengl_scale_x
+	let opengl_angle = lerp start_angle end_angle progress
+
+	let progress = progress >% 10000 100
+
+	let temp_1 = rand -8 8
+	let temp_2 = rand -8 8
+
+	spawn_entity (ex_smoke,temp_1,temp_2,process_next)
+	let last_child.passed_param_1 = opengl_scale_x
+	let last_child.passed_param_2 = opengl_scale_x % 15000
+	let last_child.lifetime = 100
+
+	if progress > 9800 then
+		spawn_entity (ex_player_rocket_explosion,0,0,process_next)
+		let last_child.opengl_scale_x = 5000
+		kill_entity own_id
+	end_if
+end
+
+

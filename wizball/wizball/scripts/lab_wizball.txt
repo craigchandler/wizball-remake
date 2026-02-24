@@ -1,0 +1,48 @@
+#define progress_percentage			v0
+#define poof_size				passed_param_1
+#define count_down_to_change			v40
+
+	LET ENTITY_TYPE = ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+	LET DRAW_ORDER = LABORATORY_WIZ_AND_CAT_DRAW_ORDER
+
+	let draw_mode = draw_mode_sprite
+
+	let opengl_booleans = OPENGL_BOOLEAN_MASKED
+
+	let sprite = wizball[set][48][48][24][24]
+	let base_frame = 0
+
+	let progress_percentage = 0
+	let count_down_to_change = 0
+
+	spawn_entity lab_shadow,0,0,process_next
+	let last_child.passed_param_1 = 8000
+	let last_child.world_y = LAB_WIZBALL_END_Y + 16
+
+start
+	let temp_1 = progress_percentage curve_percentage CURVE_PERCENTAGE_SISO
+	let world_x = lerp (LAB_WIZBALL_START_X,LAB_WIZBALL_END_X,temp_1)
+
+	let temp_1 = progress_percentage curve_percentage CURVE_PERCENTAGE_FISO
+	let world_y = lerp (LAB_WIZBALL_START_Y,LAB_WIZBALL_END_Y,temp_1)
+
+	set_private_co_ords
+
+	let progress_percentage = progress_percentage + 100 !> 10000
+
+	if progress_percentage = 10000 then
+		let count_down_to_change = count_down_to_change + 1 !> 25
+		if count_down_to_change = 25 then
+			PLAY_SOUND wizball_or_catellite_lab_pop 255 CONST_SOUND_FREQUENCY
+
+			spawn_entity magic_poof,0,0,process_next
+			let last_child.poof_size = 20000
+			spawn_entity lab_wizard,0,0,process_next
+			kill_entity own_id
+		end_if
+	end_if
+
+	let current_frame = world_x / 2
+	let current_frame = current_frame mod 64
+	let current_frame = current_frame + base_frame
+end

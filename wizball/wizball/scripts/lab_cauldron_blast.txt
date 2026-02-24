@@ -1,0 +1,30 @@
+// This entity is positioned at the end of the rainbow ray, so we read it's
+// scale and use that to calculate where we should be.
+
+#define rainbow_ray_height			320
+
+	let entity_type = ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+
+	let draw_order = LABORATORY_CAULDRON_GLOW_DRAW_ORDER
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_scale
+	let opengl_booleans = opengl_booleans + opengl_boolean_rotate
+	let opengl_booleans = opengl_booleans + opengl_boolean_filtered
+
+	let opengl_scale_x = 40000
+	let opengl_scale_y = opengl_scale_x
+
+	let draw_mode = draw_mode_sprite
+
+	let sprite = particle_effects[arb]
+	let current_frame = 35
+
+start
+	let opengl_angle = opengl_angle + 1000 !< 0 !> 35999
+
+	let temp_1 = rainbow_ray_height % passed_param_1.opengl_scale_y
+	let world_y = passed_param_1.world_y - temp_1
+	let world_x = passed_param_1.world_x
+
+	set_private_co_ords
+end

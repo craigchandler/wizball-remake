@@ -1,0 +1,20 @@
+credit_start_tag	ORIGINAL PROGRAMMING
+dummy_tag		RAFAELLE CECCO
+
+dummy_tag		ORIGINAL GRAPHICS
+dummy_tag		HUGH BINNS
+
+dummy_tag		ORIGINAL MUSIC
+dummy_tag		J DAVE RODGERS
+
+dummy_tag		REMAKE PROGRAMMING
+dummy_tag		GRAHAM GORING
+
+dummy_tag		REMAKE GRAPHICS
+dummy_tag		JOHN BLYTHE
+
+dummy_tag		REMAKE MUSIC
+dummy_tag		INFAMOUS
+
+credit_end_tag		MAC CONVERSION
+dummy_tag		PETER HULL

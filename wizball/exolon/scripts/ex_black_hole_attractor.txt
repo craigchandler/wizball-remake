@@ -1,0 +1,59 @@
+#define angle_offset		v0
+#define offset_x		v1
+#define offset_y		v2
+
+#define base_world_x		v3
+#define base_world_y		v4
+
+#define progress		v5
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+	let base_world_x = world_x
+	let base_world_y = world_y
+
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 91
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR
+
+	let opengl_vertex_red = rand (64,255)
+	let opengl_vertex_green = rand (64,255)
+	let opengl_vertex_blue = rand (128,255)
+
+	let counter = 500
+
+	let draw_order = 15
+
+	let angle_offset = rand 0 9000
+
+	let progress = 10000
+
+start
+	let opengl_scale_x = 7000 sin counter
+	let opengl_scale_y = opengl_scale_x 
+
+	let opengl_angle = counter + angle_offset
+
+	let counter = counter + 250
+
+	let temp_1 = offset_x % progress
+	let world_x = base_world_x + temp_1
+
+	let temp_1 = offset_y % progress
+	let world_y = base_world_y + temp_1
+
+	let progress = progress % 9800
+
+	if counter = 18000 then
+		kill_entity own_id
+	end_if
+end

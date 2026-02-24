@@ -1,0 +1,145 @@
+#define rotation_speed			V0
+#define hit_this_frame			V1
+#define wizball_entity_id 		v2
+#define collapsing_percentage		v3
+#define biased_collapsing_percentage	v4
+#define max_volume			v5
+
+#define bubble_loop_sound_effect_channel		v10
+#define bubble_loop_sound_effect_volume			v11
+
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_SHIELD_ENTITY
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = particle_effects[arb]
+	let base_frame = 16
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let opengl_vertex_alpha = 0
+
+	let draw_order = WIZBALL_SHIELD_DRAW_ORDER
+
+	IF PARENT.SCRIPT_NUMBER = wizball_shield_bubble_layer then
+		let opengl_angle = 18000
+		let rotation_speed = 200
+		let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERT_FLIPPED
+
+		spawn_entity (wizball_shield_bubble_shine_overlay,0,0,process_next)
+	ELSE
+		spawn_entity (wizball_shield_bubble_layer,0,0,process_next)
+		let rotation_speed = -100
+
+		LET COLLIDE_TYPE = ENT_TYPE_PLAYER_BULLET
+		let COLLIDE_WITH = ENT_TYPE_ENEMY + ENT_TYPE_ENEMY_BULLET
+
+		ENTITY_HITLINE GOSUB object_interaction_routine
+
+		LET COLLISION_SHAPE = CIRCLE
+		LET RADIUS = 36
+
+		let bubble_loop_sound_effect_volume = 15
+
+		let bubble_loop_sound_effect_channel = play_looped_sound (wizball_bubble_shield_loop, bubble_loop_sound_effect_volume, CONST_SOUND_FREQUENCY)
+		ADD_TO_PERSISTANT_CHANNELS (bubble_loop_sound_effect_channel)
+
+	END_IF
+
+	let collapsing_percentage = 10000
+
+start
+
+	IF PARENT.SCRIPT_NUMBER != wizball_shield_bubble_layer then
+		let max_volume = get_global_flag (wizball_shield_stored_health)
+		let max_volume = max_volume !> 64
+
+		let bubble_loop_sound_effect_volume = bubble_loop_sound_effect_volume + 15 !> max_volume
+		ADJUST_SOUND (bubble_loop_sound_effect_channel, bubble_loop_sound_effect_volume, CONST_SOUND_FREQUENCY)
+	END_IF
+
+	let hit_this_frame = false
+
+	let opengl_vertex_alpha = opengl_vertex_alpha + 1 !> 96
+
+	let opengl_angle = opengl_angle + rotation_speed !< 0 !> 35999
+
+
+
+	let wizball_entity_id = get_global_flag (wizball_entity_id_flag)
+
+	if wizball_entity_id = const_unset then
+		let wizball_entity_id = get_global_flag (proxy_entity_id_flag)
+	end_if
+
+	if wizball_entity_id != const_unset then
+		let world_x = wizball_entity_id.world_x
+		let world_y = wizball_entity_id.world_y
+	end_if
+
+	if wizball_entity_id.script_number = wizball_full_cauldron_disappear then
+		if wizball_entity_id.signal = true then
+			let collapsing_percentage = collapsing_percentage - 200 !< 100
+			let biased_collapsing_percentage = collapsing_percentage CURVE_PERCENTAGE CURVE_PERCENTAGE_SISO
+			let opengl_scale_x = biased_collapsing_percentage
+			let opengl_scale_y = opengl_scale_x 
+		end_if
+	end_if
+
+	set_private_co_ords
+
+	let temp_1 = get_global_flag (wizball_shield_stored_health)
+
+	if temp_1 < SHIELD_DEPLETION_WARNING_THRESHOLD then
+		let temp_2 = temp_1 mod 2
+		if temp_2 = 0 then
+			let draw_mode = draw_mode_invisible
+		else
+			let draw_mode = draw_mode_sprite
+		end_if
+
+		if temp_1 = 0 then
+			IF PARENT.SCRIPT_NUMBER != wizball_shield_bubble_layer then
+				REMOVE_FROM_PERSISTANT_CHANNELS (bubble_loop_sound_effect_channel)
+				ADD_TO_FADER_CHANNELS (bubble_loop_sound_effect_channel)
+			end_if
+
+			kill_entity own_id
+		end_if
+	end_if
+
+	let temp_1 = get_global_flag (player_warping_destroy_shield)
+	if temp_1 = TRUE then
+		IF PARENT.SCRIPT_NUMBER != wizball_shield_bubble_layer then
+			REMOVE_FROM_PERSISTANT_CHANNELS (bubble_loop_sound_effect_channel)
+			ADD_TO_FADER_CHANNELS (bubble_loop_sound_effect_channel)
+		end_if
+
+		kill_entity own_id
+	end_if
+
+end
+
+.object_interaction_routine
+
+	if collided_entity.COLLIDE_TYPE & COLLIDE_WITH THEN
+		if hit_this_frame = false then
+			// Better deplete the shields...
+
+			PLAY_SOUND wizball_or_catellite_shield_impact 255 CONST_SOUND_FREQUENCY
+
+			let temp_1 = get_global_flag (wizball_shield_stored_health)
+			let temp_1 = temp_1 - SHIELD_HIT_PENALTY !< 0
+			set_global_flag (wizball_shield_stored_health,temp_1)
+
+			let hit_this_frame = true
+		end_if
+	END_IF
+
+end

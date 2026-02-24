@@ -1,0 +1,41 @@
+	let Bitshift = 0
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let lifetime = 0
+
+	if FACING_DIRECTION = -1 then
+		let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_HORI_FLIPPED
+	end_if
+
+	let draw_order = draw_order + 1
+
+	let signal = 0
+
+	if parent.extra_abilities = 0 then
+		let base_frame = 70
+		let current_frame = base_frame
+	else
+		let base_frame = 71
+		let current_frame = base_frame
+	end_if
+
+	let lifetime = 50
+
+start
+	let opengl_vertex_alpha = lifetime * 5
+
+	let opengl_scale_x = opengl_scale_x >% 30000 1000
+	let opengl_scale_y = opengl_scale_y >% 100 1000
+
+	let lifetime = lifetime - 1
+
+	if lifetime = 0 then
+		kill_entity own_id
+	end_if
+end

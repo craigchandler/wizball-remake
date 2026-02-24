@@ -1,0 +1,364 @@
+// This is our main menu. How jolly exciting, eh?
+
+#define page_number			v0
+#define text_y_position			v1
+
+#define small_line_gap_size		14
+#define medium_line_gap_size		40
+#define large_line_gap_size		56
+#define header_line_gap_size		32
+
+	let world_x = 0
+	let world_y = 0
+
+	set_private_co_ords
+
+	// Each of the menus has a wait 5 at the start to allow everything from the previous one to do it's thing.
+	wait 5
+
+	SET_GLOBAL_FLAG_AS_ENTITY_ID (menu_entity_identity_flag)
+
+	// This variable isn't used to kill this thing, though. Just as a reminder, really.
+	let ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let signal = signal OR SLEEP_CREDITS
+	let signal = signal OR SLEEP_LOGO
+	let signal = signal OR SLEEP_TUNNEL_LIGHT
+	let signal = signal OR SLEEP_WIZ_AND_CAT
+
+	let page_number = 0
+
+	gosub next_phase
+
+
+
+.main_loop_start
+
+start
+
+	IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_1,FIRE_1) then
+		goto next_phase
+	END_IF
+
+	IF_INPUT_KEYBOARD_HIT key_any then
+		goto next_phase
+	END_IF
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,FIRE_1) then
+		goto next_phase
+	END_IF
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_2,FIRE_1) then
+		goto next_phase
+	END_IF
+end
+
+
+
+.next_phase
+
+	if page_number < 3 then
+		PLAY_SOUND menu_select 255 CONST_SOUND_FREQUENCY 128
+	else
+		PLAY_SOUND menu_select_back 255 CONST_SOUND_FREQUENCY 128
+	end_if
+
+	let signal = signal OR DESTROY_OPTION_TEXT
+
+	wait 30
+
+	let signal = signal AND !DESTROY_OPTION_TEXT
+
+	switch page_number
+		case 0
+			gosub set_up_page_1
+		break
+
+		case 1
+			gosub set_up_page_2
+		break
+
+		case 2
+			gosub set_up_page_3
+		break
+
+		case 3
+			gosub main_menu
+		break
+	end_switch
+
+	let page_number = page_number + 1
+
+	goto main_loop_start
+
+
+
+.set_up_page_1
+
+	let text_y_position = 24
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_large_wiztip_text, WIZTIPS_1_HEADER, process_next, center_x, 320, text_y_position, 0, 0, font[arb])
+	let text_y_position = text_y_position + header_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_1_TITLE, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+	let text_y_position = text_y_position + small_line_gap_size
+	let text_y_position = text_y_position + small_line_gap_size
+	let text_y_position = text_y_position + small_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_1_1, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,260,text_y_position,process_next
+	let last_child.sprite = enemies_01[set][48][48][24][24]
+	let last_child.base_frame = 0
+	let last_child.frame_count = 16
+	let last_child.frame_delay = 2
+	let last_child.passed_param_1 = ANIM_LOOP
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,326,text_y_position,process_next
+	let last_child.sprite = enemies_01[set][48][48][24][24]
+	let last_child.base_frame = 75
+	let last_child.frame_count = 8
+	let last_child.frame_delay = 2
+	let last_child.passed_param_1 = ANIM_PING_PONG
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,392,text_y_position,process_next
+	let last_child.sprite = enemies_01[set][48][48][24][24]
+	let last_child.base_frame = 51
+	let last_child.frame_count = 8
+	let last_child.frame_delay = 2
+	let last_child.passed_param_1 = ANIM_PING_PONG
+
+	let text_y_position = text_y_position + large_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_1_2, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,285,text_y_position,process_next
+	let last_child.sprite = pickup[arb]
+	let last_child.base_frame = 0
+	let last_child.frame_count = 1
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,433,text_y_position,process_next
+	let last_child.sprite = panel_icons[arb]
+	let last_child.base_frame = 11
+	let last_child.frame_count = 10
+	let last_child.frame_delay = 60
+	let last_child.passed_param_1 = ANIM_LOOP
+
+	let text_y_position = text_y_position + medium_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_1_3, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+
+	let text_y_position = text_y_position + medium_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_1_4, process_next, no_center, 120, text_y_position, 0, 0, font_small[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_1_5, process_next, no_center, 300, text_y_position, 0, 0, font_small[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_1_6, process_next, no_center, 480, text_y_position, 0, 0, font_small[arb])
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,90,text_y_position,process_next
+	let last_child.sprite = panel_icons[arb]
+	let last_child.base_frame = 11
+	let last_child.frame_count = 1
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,270,text_y_position,process_next
+	let last_child.sprite = panel_icons[arb]
+	let last_child.base_frame = 12
+	let last_child.frame_count = 1
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,450,text_y_position,process_next
+	let last_child.sprite = panel_icons[arb]
+	let last_child.base_frame = 13
+	let last_child.frame_count = 1
+
+	let text_y_position = text_y_position + large_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_1_7, process_next, no_center, 120, text_y_position, 0, 0, font_small[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_1_8, process_next, no_center, 300, text_y_position, 0, 0, font_small[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_1_9, process_next, no_center, 480, text_y_position, 0, 0, font_small[arb])
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,90,text_y_position,process_next
+	let last_child.sprite = panel_icons[arb]
+	let last_child.base_frame = 14
+	let last_child.frame_count = 1
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,270,text_y_position,process_next
+	let last_child.sprite = panel_icons[arb]
+	let last_child.base_frame = 15
+	let last_child.frame_count = 1
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,450,text_y_position,process_next
+	let last_child.sprite = panel_icons[arb]
+	let last_child.base_frame = 16
+	let last_child.frame_count = 1
+
+	let text_y_position = text_y_position + large_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_1_10, process_next, no_center, 120, text_y_position, 0, 0, font_small[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_1_11, process_next, no_center, 300, text_y_position, 0, 0, font_small[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_1_12, process_next, no_center, 480, text_y_position, 0, 0, font_small[arb])
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,90,text_y_position,process_next
+	let last_child.sprite = panel_icons[arb]
+	let last_child.base_frame = 17
+	let last_child.frame_count = 1
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,270,text_y_position,process_next
+	let last_child.sprite = panel_icons[arb]
+	let last_child.base_frame = 18
+	let last_child.frame_count = 1
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,450,text_y_position,process_next
+	let last_child.sprite = panel_icons[arb]
+	let last_child.base_frame = 19
+	let last_child.frame_count = 1
+
+	let text_y_position = text_y_position + large_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_1_14, process_next, no_center, 300, text_y_position, 0, 0, font_small[arb])
+
+	SPAWN_ENTITY menu_wiztip_basic_sprite,270,text_y_position,process_next
+	let last_child.sprite = panel_icons[arb]
+	let last_child.base_frame = 20
+	let last_child.frame_count = 1
+
+	return
+
+
+
+.set_up_page_2
+
+	let text_y_position = 24
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_large_wiztip_text, WIZTIPS_2_HEADER, process_next, center_x, 320, text_y_position, 0, 0, font[arb])
+	let text_y_position = text_y_position + header_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_2_TITLE, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+	let text_y_position = text_y_position + small_line_gap_size
+	let text_y_position = text_y_position + small_line_gap_size
+	let text_y_position = text_y_position + small_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_2_1, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+	let text_y_position = text_y_position + small_line_gap_size
+	let text_y_position = text_y_position + small_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_2_2, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+	let text_y_position = text_y_position + medium_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_2_3, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+
+	SPAWN_ENTITY menu_wiztip_wobble_sprite,185,text_y_position,process_next
+	let last_child.base_frame = 0
+	let last_child.frame_count = 3
+	let last_child.frame_delay = 60
+	let last_child.passed_param_1 = ANIM_LOOP
+
+	SPAWN_ENTITY menu_wiztip_wobble_sprite,361,text_y_position,process_next
+	let last_child.base_frame = 3
+	let last_child.frame_count = 8
+	let last_child.frame_delay = 60
+	let last_child.passed_param_1 = ANIM_LOOP
+
+	let text_y_position = text_y_position + medium_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_2_4, process_next, no_center, 130, text_y_position, 0, 0, font_small[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_2_5, process_next, no_center, 360, text_y_position, 0, 0, font_small[arb])
+
+	SPAWN_ENTITY menu_wiztip_wobble_sprite,110,text_y_position,process_next
+	let last_child.base_frame = 3
+	let last_child.frame_count = 1
+
+	SPAWN_ENTITY menu_wiztip_wobble_sprite,340,text_y_position,process_next
+	let last_child.base_frame = 4
+	let last_child.frame_count = 1
+
+	let text_y_position = text_y_position + medium_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_2_6, process_next, no_center, 130, text_y_position, 0, 0, font_small[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_2_7, process_next, no_center, 360, text_y_position, 0, 0, font_small[arb])
+
+	SPAWN_ENTITY menu_wiztip_wobble_sprite,110,text_y_position,process_next
+	let last_child.base_frame = 5
+	let last_child.frame_count = 1
+
+	SPAWN_ENTITY menu_wiztip_wobble_sprite,340,text_y_position,process_next
+	let last_child.base_frame = 6
+	let last_child.frame_count = 1
+
+	let text_y_position = text_y_position + medium_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_2_8, process_next, no_center, 130, text_y_position, 0, 0, font_small[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_2_9, process_next, no_center, 360, text_y_position, 0, 0, font_small[arb])
+
+	SPAWN_ENTITY menu_wiztip_wobble_sprite,110,text_y_position,process_next
+	let last_child.base_frame = 7
+	let last_child.frame_count = 1
+
+	SPAWN_ENTITY menu_wiztip_wobble_sprite,340,text_y_position,process_next
+	let last_child.base_frame = 8
+	let last_child.frame_count = 1
+
+	let text_y_position = text_y_position + medium_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_2_10, process_next, no_center, 130, text_y_position, 0, 0, font_small[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_2_11, process_next, no_center, 360, text_y_position, 0, 0, font_small[arb])
+
+	SPAWN_ENTITY menu_wiztip_wobble_sprite,110,text_y_position,process_next
+	let last_child.base_frame = 9
+	let last_child.frame_count = 1
+
+	SPAWN_ENTITY menu_wiztip_wobble_sprite,340,text_y_position,process_next
+	let last_child.base_frame = 10
+	let last_child.frame_count = 1
+
+	return
+
+
+
+.set_up_page_3
+
+	let text_y_position = 24
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_large_wiztip_text, WIZTIPS_3_HEADER, process_next, center_x, 320, text_y_position, 0, 0, font[arb])
+	let text_y_position = text_y_position + header_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_3_TITLE, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+	let text_y_position = text_y_position + small_line_gap_size
+	let text_y_position = text_y_position + small_line_gap_size
+	let text_y_position = text_y_position + small_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_3_1, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+	let text_y_position = text_y_position + small_line_gap_size
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_3_2, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+	let text_y_position = text_y_position + large_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_3_3, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+	let text_y_position = text_y_position + small_line_gap_size
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_3_4, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+	let text_y_position = text_y_position + large_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_3_5, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+	let text_y_position = text_y_position + small_line_gap_size
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_3_6, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+	let text_y_position = text_y_position + large_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_3_7, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+	let text_y_position = text_y_position + small_line_gap_size
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_3_8, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+	let text_y_position = text_y_position + small_line_gap_size
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_3_9, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+	let text_y_position = text_y_position + large_line_gap_size
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_small_wiztip_text, WIZTIPS_3_10, process_next, center_x, 320, text_y_position, 0, 0, font_small[arb])
+
+	return
+
+
+
+.main_menu
+
+	spawn_entity menu_main,0,0,process_next
+
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_SPECIFIC_MENU_ENTITY )
+
+	kill_entity own_id
+
+	end

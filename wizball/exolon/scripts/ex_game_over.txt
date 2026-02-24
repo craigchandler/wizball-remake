@@ -1,0 +1,130 @@
+// Figures out it's position from the player's position.
+
+#define screen_width		640
+#define half_screen_width	320
+
+#define pre_pause_length	passed_param_1
+
+let draw_order = 1
+
+let world_y = 208
+let world_x = half_screen_width
+set_private_co_ords
+
+kill_entities SELECT_BY_SCRIPT_NUMBER ex_pause_game_handler
+
+let entity_type = ENT_TYPE_INDESTRUCTABLE
+
+// Starts out invisible until the multitexture has washed over it.
+
+spawn_entity (ex_shrink_window,0,0,process_next)
+let last_child.pre_pause_length = 60
+let last_child.window_number = GAME_MAIN_WINDOW
+
+spawn_entity (ex_shrink_window,0,0,process_next)
+let last_child.pre_pause_length = 60
+let last_child.window_number = GAME_PANEL_WINDOW
+
+let window_number = FLOATING_OVERLAY_WINDOW
+enable_window FLOATING_OVERLAY_WINDOW
+
+SET_WINDOW_MAP_POSITION (0, 0)
+
+let draw_mode = draw_mode_invisible
+
+let sprite = gameover[arb]
+let current_frame = 0
+let counter = 0
+
+spawn_entity (ex_fade_in_game_music,0,0,process_next)
+
+IF_HARDWARE_GRAPHICS then
+	IF_BLEND_MODE_AVAILABLE then
+		spawn_entity ex_game_over_overlay 0 0 process_next
+	else
+		// Fade it in instead...
+		let opengl_booleans = opengl_boolean_blend_multiply + opengl_boolean_vertex_colour_alpha 
+		let opengl_vertex_alpha = 0
+		let draw_mode = draw_mode_sprite
+	end_if
+else
+
+end_if
+	
+
+
+start
+	IF_HARDWARE_GRAPHICS then
+		IF_BLEND_MODE_AVAILABLE then
+			if last_child.signal = 1 then
+				let draw_mode = draw_mode_sprite
+			end_if
+		else
+			let opengl_vertex_alpha = opengl_vertex_alpha + 5 !> 255
+		end_if
+	end_if
+
+	if counter = 0 then
+		let temp_1 = GET_RECORD_PLAYBACK_STATUS 1
+
+		if temp_1 = STATUS_RECORDING then
+			STOP_RECORDING_INPUT 1
+			SAVE_RECORDED_INPUT 1 game_demo
+		else_if temp_1 = STATUS_PLAYBACK then
+			STOP_PLAYBACK_INPUT 1
+		else
+			// Do nowt!
+		end_if
+	else_if counter = 240 then
+		goto end_it_all
+	end_if
+
+	let counter = counter + 1
+end
+
+.end_it_all
+
+disable_window GAME_MAIN_WINDOW
+disable_window GAME_PANEL_WINDOW
+
+wait 1
+
+LET WINDOW_NUMBER = GAME_MAIN_WINDOW
+SET_WINDOW_POSITION_AND_SIZE (0, 0, 640, 416)
+SET_WINDOW_MAP_POSITION (0, 0)
+
+LET WINDOW_NUMBER = GAME_PANEL_WINDOW
+SET_WINDOW_POSITION_AND_SIZE (0, 416, 640, 64)
+SET_WINDOW_MAP_POSITION (0, 0)
+
+let window_number = FLOATING_OVERLAY_WINDOW
+
+FADE_PERSISTANT_CHANNELS
+
+kill_entities SELECT_BY_DIFFERING_ENTITY_TYPE ENT_TYPE_INDESTRUCTABLE
+
+wait 1
+
+set_global_flag (scoreboard_destruct,1)
+spawn_entity (ex_reboot_menu,0,0,PROCESS_NEXT)
+
+let opengl_booleans = opengl_boolean_blend_multiply + opengl_boolean_vertex_colour_alpha 
+let opengl_vertex_alpha = 255
+
+start
+	if opengl_vertex_alpha > 0 then
+		let opengl_vertex_alpha = opengl_vertex_alpha - 5
+	else
+		goto its_all_over
+	end_if
+end
+
+.its_all_over
+
+disable_window FLOATING_OVERLAY_WINDOW
+
+kill_entity own_id
+
+// Now there's just me in my window... I am so lonely...
+
+

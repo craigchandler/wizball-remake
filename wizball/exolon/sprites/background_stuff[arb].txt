@@ -1,0 +1,14 @@
+12
+8,8,48,32,24,16 	//   0 = Small ship
+80,8,96,64,48,32 	//   1 = Big ship
+8,48,64,64,32,32	//   2 = Large planet mask
+80,80,56,56,28,28	//   3 = Medium planet mask
+144,80,48,48,24,24	//   4 = Small planet mask
+8,120,64,64,32,32	//   5 = Shockwave
+80,144,96,96,48,48	//   6 = Half-surround
+8,192,40,40,0,0		//   7 = Lava planet texture
+200,8,40,40,0,0		//   8 = Brown planet texture
+200,56,40,40,0,0	//   9 = Pink planet texture
+200,104,40,40,0,0	//   10 = Red planet texture
+200,152,40,40,0,0	//   11 = Green planet texture
+200,200,40,40,0,0	//   12 = Blue planet texture

@@ -1,0 +1,51 @@
+	let Bitshift = 0
+
+	SET_PRIVATE_CO_ORDS
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_scale
+	let opengl_booleans = opengl_booleans + opengl_boolean_filtered
+	let opengl_booleans = opengl_booleans + opengl_boolean_vertex_colour_alpha
+
+	let sprite = large_graphics[arb]
+	let base_frame = 51
+	let current_frame = base_frame
+
+	let draw_mode = draw_mode_sprite
+	let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+	let draw_order = 250
+
+start
+
+	let opengl_scale_x = opengl_scale_x >% 105000 600
+	let opengl_scale_y = opengl_scale_x
+
+	if opengl_scale_x > 100000 then
+		goto end_bit
+	end_if
+
+end
+
+.end_bit
+
+enable_window (FLOATING_OVERLAY_WINDOW)
+
+wait 1
+
+let window_number = FLOATING_OVERLAY_WINDOW
+let draw_order = 1
+
+kill_entities (SELECT_BY_GENOCIDE)
+
+wait 100
+
+spawn_entity ex_reboot_menu 0 0 process_next
+
+start
+	let opengl_vertex_alpha = opengl_vertex_alpha - 5
+
+	if opengl_vertex_alpha = 0 then
+		disable_window (FLOATING_OVERLAY_WINDOW)
+		kill_entity own_id
+	end_if
+end

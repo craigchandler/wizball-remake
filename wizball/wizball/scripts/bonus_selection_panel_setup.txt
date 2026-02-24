@@ -1,0 +1,128 @@
+// These don't actually *do* anything, they just toggle on and off depending on whether the
+// player owns what they represent or not.
+
+#define weapon_value_bitflag			v0
+	// This is what it's looking for in the player, if it has it then the icon doesn't show...
+
+#define hide_until_bitflag			v1
+	// If the player *doen't* have this one, don't bother drawing yourself. ie, if the player doesn't
+	// have the horizontal control, then the vertical control icon shouldn't be drawn yet. Likewise
+	// with the shield fire and reverse fire and the alternating wizball/catellite weapon thing.
+
+#define weapon_icon_number			v2
+	// Just the frame number, really.
+
+#define unused_icon_number			v3
+	// When the player has this weapon already, show this icon! If it's CONST_UNSET then go invisible.
+
+#define wizball_entity_id			v4
+	// Needs to know this!
+
+#define icon_position				v5
+	// Simply which icon it is in the line, so it can calculate it's ideal position.
+
+#define weapon_collection			v6
+	// This is the player's
+
+// ---------------- Single Execution ----------------
+
+	let world_x = 0
+	let world_y = 0
+
+	set_private_co_ords
+
+// This script just creates aaaaaall the little panels. Bless.
+
+	let window_number = GAME_PANEL_WINDOW
+
+// Horizontal Control
+
+	spawn_entity (bonus_selection_panel,0,0,process_next)
+	let last_child.weapon_value_bitflag = LATERAL_CONTROL_BITFLAG
+	let last_child.hide_until_bitflag = CONST_UNSET
+	let last_child.weapon_icon_number = 0
+	let last_child.unused_icon_number = CONST_UNSET
+	let last_child.icon_position = 0
+
+// Vertical Control
+
+	spawn_entity (bonus_selection_panel,0,0,process_next)
+	let last_child.weapon_value_bitflag = VERTICAL_CONTROL_BITFLAG
+	let last_child.hide_until_bitflag = LATERAL_CONTROL_BITFLAG
+	let last_child.weapon_icon_number = 1
+	let last_child.unused_icon_number = 10
+	let last_child.icon_position = 0
+
+// Shield Fire
+
+	spawn_entity (bonus_selection_panel,0,0,process_next)
+	let last_child.weapon_value_bitflag = SHIELD_FIRE_BITFLAG
+	let last_child.hide_until_bitflag = CONST_UNSET
+	let last_child.weapon_icon_number = 2
+	let last_child.unused_icon_number = CONST_UNSET
+	let last_child.icon_position = 1
+
+// Rear Fire
+
+	spawn_entity (bonus_selection_panel,0,0,process_next)
+	let last_child.weapon_value_bitflag = REAR_FIRE_BITFLAG
+	let last_child.hide_until_bitflag = SHIELD_FIRE_BITFLAG
+	let last_child.weapon_icon_number = 3
+	let last_child.unused_icon_number = 10
+	let last_child.icon_position = 1
+
+// Catellite
+
+	spawn_entity (bonus_selection_panel,0,0,process_next)
+	let last_child.weapon_value_bitflag = CATELLITE_BITFLAG
+	let last_child.hide_until_bitflag = CONST_UNSET
+	let last_child.weapon_icon_number = 4
+	let last_child.unused_icon_number = 10
+	let last_child.icon_position = 2
+
+// Double Fire
+
+	spawn_entity (bonus_selection_panel,0,0,process_next)
+	let last_child.weapon_value_bitflag = DOUBLE_FIRE_BITFLAG
+	let last_child.hide_until_bitflag = CONST_UNSET
+	let last_child.weapon_icon_number = 5
+	let last_child.unused_icon_number = 10
+	let last_child.icon_position = 3
+
+// Wizball Spread Fire
+
+	spawn_entity (bonus_selection_panel,0,0,process_next)
+	let last_child.weapon_value_bitflag = WIZ_SPREAD_FIRE_BITFLAG
+	let last_child.hide_until_bitflag = CONST_UNSET
+	let last_child.weapon_icon_number = 6
+	let last_child.unused_icon_number = CONST_UNSET
+	let last_child.icon_position = 4
+
+// Catellite Spread Fire
+
+	spawn_entity (bonus_selection_panel,0,0,process_next)
+	let last_child.weapon_value_bitflag = CAT_SPREAD_FIRE_BITFLAG
+	let last_child.hide_until_bitflag = WIZ_SPREAD_FIRE_BITFLAG
+	let last_child.weapon_icon_number = 7
+	let last_child.unused_icon_number = 10
+	let last_child.icon_position = 4
+
+// Smart Bomb
+
+	spawn_entity (bonus_selection_panel,0,0,process_next)
+	let last_child.weapon_value_bitflag = SMART_BOMB_BITFLAG
+	let last_child.hide_until_bitflag = CONST_UNSET
+	let last_child.weapon_icon_number = 8
+	let last_child.unused_icon_number = 10
+	let last_child.icon_position = 5
+
+// Invulnerability
+
+	spawn_entity (bonus_selection_panel,0,0,process_next)
+	let last_child.weapon_value_bitflag = INVULNERABILITY_BITFLAG
+	let last_child.hide_until_bitflag = CONST_UNSET
+	let last_child.weapon_icon_number = 9
+	let last_child.unused_icon_number = 9
+	let last_child.icon_position = 6
+
+kill_entity own_id

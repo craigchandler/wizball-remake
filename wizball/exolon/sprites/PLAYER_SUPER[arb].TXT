@@ -1,0 +1,14 @@
+13
+0,0,48,64,24,63 	//   0 = Walking Frame 0
+48,0,48,64,24,63 	//   1 = Walking Frame 1
+96,0,48,64,24,63 	//   2 = Walking Frame 2
+144,0,48,64,24,63 	//   3 = Walking Frame 3
+192,0,48,64,24,63 	//   4 = Walking Frame 4
+0,64,48,64,24,63 	//   5 = Walking Frame 5
+48,64,48,64,24,63 	//   6 = Walking Frame 6
+96,64,48,64,24,63 	//   7 = Walking Frame 7
+144,64,48,64,24,63 	//   8 = Walking Frame 8
+192,64,48,64,24,63 	//   9 = Walking Frame 9
+0,136,48,56,24,55 	//  10 = Ducking
+48,128,48,64,24,63 	//  11 = Jumping
+96,128,48,64,24,63 	//  12 = Dying

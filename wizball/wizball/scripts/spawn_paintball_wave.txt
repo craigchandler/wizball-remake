@@ -1,0 +1,254 @@
+// Private defines
+
+	#define wave_position			v0
+
+	#define wave_x_spread			v1
+	#define wave_y_spread			v2
+
+	#define wave_size			v3
+
+	#define x_deviation			v4
+	#define y_deviation			v5
+
+	#define child_velocity			v6
+	#define child_height			V7
+
+	#define box_start_x			V10
+	#define box_start_y			V11
+	#define box_end_x			V12
+	#define box_end_y			V13
+
+	#define allowed_positions		V14
+
+	#define wave_sub_type			V15
+
+	#define firing_frequency		V16
+
+	#define level_number			V17
+
+	#define box_width			V18
+	#define total_wave_width		V19
+
+	#define special_bonus_chance		V20
+	#define special_bonus_position		V21
+
+	#define special_bonus_type_selector	v22
+	#define special_bonus_type		v23
+
+	#define WAVE_SUB_TYPE_UNIFORM		1
+		// All the entities get their own speed/height
+	#define WAVE_SUB_TYPE_RANDOM		2
+		// All the entities get the same speed/height
+
+// Child defines
+
+	#define top_or_bottom_flag				passed_param_1
+	#define paint_bubble_colour_flag			passed_param_2
+	#define paint_bubble_special_bonus_flag			passed_param_3
+	#define passed_in_min_horizontal_speed			passed_param_4
+	#define passed_in_max_horizontal_speed			passed_param_5
+	#define passed_in_min_height				passed_param_6
+	#define passed_in_max_height				passed_param_7
+	#define passed_in_firing_behaviour			passed_param_8
+	#define passed_in_firing_frequency			passed_param_9
+	#define passed_in_firing_initial_delay			passed_param_10
+	#define enemy_behaviour_type				passed_param_11
+	#define passed_in_gravity				passed_param_12
+	#define passed_in_min_vertical_speed			passed_param_13
+	#define passed_in_max_vertical_speed			passed_param_14
+	#define passed_in_enemy_bullet_speed_percentage		passed_param_15
+
+	#define VERTICAL_BOUNCE_FLOOR			1
+	#define VERTICAL_BOUNCE_ROOF			2
+	#define VERTICAL_POSITION_TOP			3
+	#define VERTICAL_POSITION_MIDDLE		4
+	#define VERTICAL_POSITION_BOTTOM		5
+
+	#define STARTING_X_VEL				V4
+
+	#define BULLET_TYPE_SINGLE_DIRECTED		1
+	#define BULLET_TYPE_SPREAD			2
+	#define BULLET_FREQUENCY_RANDOM			4
+	#define BULLET_FREQUENCY_FIXED			8
+
+	let temp_1 = MIN_WAVE_SIZE * MIN_WAVE_SIZE
+	let temp_2 = MAX_WAVE_SIZE * MAX_WAVE_SIZE
+
+	let wave_size = SPECIAL_RAND (0, temp_1,temp_2)
+	let wave_size = sqr wave_size
+
+	let wave_x_spread = SPECIAL_RAND (0, 16,32) // This is how far apart each enemy is horizontally
+	let wave_y_spread = SPECIAL_RAND (0, 0,0) // This is how far apart each enemy is vertically
+
+	let x_deviation = -wave_size * wave_x_spread
+	let x_deviation = x_deviation / 2
+
+	let y_deviation = -wave_size * wave_y_spread
+	let y_deviation = y_deviation / 2
+
+	let box_width = box_end_x - box_start_x
+	let box_width = abs (box_width)
+
+	start_loop
+		let total_wave_width = wave_x_spread * wave_size
+
+		if (total_wave_width > box_width) then
+			let wave_x_spread = wave_x_spread - 1
+		end_if
+	end_loop (total_wave_width > box_width)
+
+
+
+
+	let temp_1 = allowed_positions AND POSITION_7_TMB_VALID_BITFLAG
+
+	switch (temp_1)
+
+		case 0
+			STOP // WTF?! Again?!
+		break
+
+		case POSITION_1_T_VALID_BITFLAG
+			let top_or_bottom_flag = VERTICAL_BOUNCE_ROOF
+		break
+
+		case POSITION_2_M_VALID_BITFLAG
+			let top_or_bottom_flag = VERTICAL_POSITION_MIDDLE
+		break
+
+		case POSITION_3_TM_VALID_BITFLAG
+			let top_or_bottom_flag = SPECIAL_RAND_CHOICE (0,VERTICAL_BOUNCE_ROOF,VERTICAL_POSITION_MIDDLE)
+		break
+
+		case POSITION_4_B_VALID_BITFLAG
+			let top_or_bottom_flag = VERTICAL_BOUNCE_FLOOR
+		break
+
+		case POSITION_5_TB_VALID_BITFLAG
+			let top_or_bottom_flag = SPECIAL_RAND (0, VERTICAL_BOUNCE_FLOOR,VERTICAL_BOUNCE_ROOF)
+		break
+
+		case POSITION_6_MB_VALID_BITFLAG
+			let top_or_bottom_flag = SPECIAL_RAND_CHOICE (0,VERTICAL_BOUNCE_FLOOR,VERTICAL_POSITION_MIDDLE)
+		break
+
+		case POSITION_7_TMB_VALID_BITFLAG
+			let top_or_bottom_flag = SPECIAL_RAND_CHOICE (0,VERTICAL_BOUNCE_FLOOR,VERTICAL_BOUNCE_ROOF,VERTICAL_POSITION_MIDDLE)
+		break
+
+	end_switch
+
+
+
+	let wave_sub_type = WAVE_SUB_TYPE_UNIFORM
+
+	let child_velocity = SPECIAL_RAND (0, PAINT_BUBBLE_MIN_HORIZONTAL_SPEED,PAINT_BUBBLE_MAX_HORIZONTAL_SPEED)
+	let child_height = PAINT_BUBBLE_START_DISTANCE
+
+	let paint_bubble_colour_flag = get_global_flag (player_on_level_number)
+	let paint_bubble_colour_flag = paint_bubble_colour_flag mod 3
+
+	let level_number = get_global_flag (player_on_level_number)
+
+	let special_bonus_chance = SPECIAL_RAND (0, 0,5)
+	// Are we gonna' have a bonus? Woo!
+
+	if special_bonus_chance = 0 then
+		let special_bonus_position = SPECIAL_RAND (0, 1,wave_size)
+		let special_bonus_position = special_bonus_position - 1
+	else
+		let special_bonus_position = CONST_UNSET
+	end_if
+
+	if level_number >= 3 then
+
+		let temp_1 = SPECIAL_RAND (0, 0,8)
+
+		if temp_1 < level_number then
+			let passed_in_firing_behaviour = BULLET_TYPE_SINGLE_DIRECTED or BULLET_FREQUENCY_RANDOM
+		else
+			let passed_in_firing_behaviour = 0
+		end_if
+	else
+		let passed_in_firing_behaviour = 0
+	end_if
+
+
+	let level_number = GET_GLOBAL_FLAG (player_on_level_number)
+
+	let firing_frequency = level_number * 35
+	let firing_frequency = 300 - firing_frequency
+
+	let passed_in_gravity = SPECIAL_RAND (0, PAINT_BUBBLE_MIN_GRAVITY,PAINT_BUBBLE_MAX_GRAVITY)
+
+	for counter = 0 to wave_size
+		spawn_entity (generic_level_enemy,x_deviation,y_deviation,process_next)
+
+		let last_child.top_or_bottom_flag = top_or_bottom_flag
+
+		if wave_sub_type = WAVE_SUB_TYPE_UNIFORM then
+			let last_child.passed_in_min_horizontal_speed = child_velocity
+			let last_child.passed_in_max_horizontal_speed = child_velocity
+
+			if top_or_bottom_flag != VERTICAL_POSITION_MIDDLE then
+				let last_child.passed_in_min_height = PAINT_BUBBLE_START_DISTANCE
+				let last_child.passed_in_max_height = PAINT_BUBBLE_START_DISTANCE
+			else
+				let temp_1 = LEVEL_HEIGHT / 2
+				let last_child.passed_in_min_height = temp_1 - PAINT_BUBBLE_MIDDLE_DEVIATION
+				let last_child.passed_in_max_height = temp_1 + PAINT_BUBBLE_MIDDLE_DEVIATION
+			end_if
+		else
+			stop
+			// Not Applicable
+		end_if
+
+		if counter = special_bonus_position then
+			let special_bonus_type_selector = SPECIAL_RAND (0, 0,9)
+
+			if (special_bonus_type_selector = 0) then
+				let special_bonus_type = PAINTDROP_BONUS_WIZBALL
+			else_if (special_bonus_type_selector = 1) then
+				let special_bonus_type = PAINTDROP_INDESTRUCTACAT
+			else_if (special_bonus_type_selector < 5) then
+				let special_bonus_type = PAINTDROP_FILTH_RAID
+			else_if (special_bonus_type_selector < 7) then
+				let special_bonus_type = PAINTDROP_MUTANT_CAT
+			else
+				let special_bonus_type = PAINTDROP_FREAKY_BITS
+			end_if
+
+			let last_child.paint_bubble_special_bonus_flag = special_bonus_type
+		else
+			let last_child.paint_bubble_special_bonus_flag = const_unset
+		end_if
+
+		let last_child.passed_in_min_vertical_speed = 0
+		let last_child.passed_in_max_vertical_speed = 0
+
+		let last_child.opengl_booleans = opengl_boolean_masked + opengl_boolean_filtered
+		let last_child.opengl_booleans = last_child.opengl_booleans + opengl_boolean_scale
+
+		let last_child.paint_bubble_colour_flag = paint_bubble_colour_flag
+
+		LET last_child.SPRITE = paintballs_and_drips[arb]
+		LET last_child.BASE_FRAME = paint_bubble_colour_flag
+
+		let x_deviation = x_deviation + wave_x_spread 
+		let y_deviation = y_deviation + wave_y_spread
+
+		let last_child.draw_order = PAINT_BUBBLE_DRAW_ORDER
+
+		let last_child.passed_in_firing_behaviour = passed_in_firing_behaviour
+
+		let last_child.passed_in_enemy_bullet_speed_percentage = 10000
+		let last_child.passed_in_firing_frequency = firing_frequency
+		let last_child.passed_in_firing_initial_delay = firing_frequency % 20000
+
+		let last_child.enemy_behaviour_type = ENEMY_TYPE_PAINT_BUBBLES
+		let last_child.passed_in_gravity = passed_in_gravity
+	next
+
+	kill_entity own_id
+
+end

@@ -1,0 +1,93 @@
+#define top_or_bottom_position			passed_param_1
+#define left_or_right_position			passed_param_2
+
+#define wave_rotation_speed			V0
+#define wave_height				V1
+#define particle_count				V2
+
+#define top_position				0
+#define bottom_position				1
+#define left_position				0
+#define right_position				1
+
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	let world_y = 208
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = title_screen_and_large_bits[arb]
+	let base_frame = 4
+	let current_frame = base_frame
+	let interpolated_frame = base_frame + 1
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_INTERPOLATED
+
+	IF x_vel < 0 THEN
+		let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_HORI_FLIPPED
+	END_IF
+
+	let draw_order = EXPLOSION_DRAW_ORDER
+
+	let COLLISION_SHAPE = RECTANGLE
+
+	SET_COLLISION_FROM_FRAME
+
+	let COLLIDE_WITH = ENT_TYPE_ENEMY
+	let COLLIDE_TYPE = ENT_TYPE_PLAYER_BULLET
+
+	let opengl_scale_y = 100
+
+	if x_vel < 0 then
+		spawn_entity (smart_bomb_shockwave_shockfront,0,0,process_next)
+		let last_child.top_or_bottom_position = bottom_position
+		let last_child.left_or_right_position = left_position
+
+		spawn_entity (smart_bomb_shockwave_shockfront,0,0,process_next)
+		let last_child.top_or_bottom_position = top_position
+		let last_child.left_or_right_position = left_position
+	else
+		spawn_entity (smart_bomb_shockwave_shockfront,0,0,process_next)
+		let last_child.top_or_bottom_position = bottom_position
+		let last_child.left_or_right_position = right_position
+
+		spawn_entity (smart_bomb_shockwave_shockfront,0,0,process_next)
+		let last_child.top_or_bottom_position = top_position
+		let last_child.left_or_right_position = right_position
+	end_if
+
+	let wave_rotation_speed = x_vel * 24
+
+start
+
+	let wave_height = 208 % opengl_scale_y
+
+	let particle_count = get_global_flag (particle_commonness_multiplier)
+
+	for counter = 1 to particle_count
+		let temp_1 = rand (-wave_height,wave_height)
+		let temp_2 = rand (0,x_vel)
+		spawn_entity (particle_spiral_twinkle,temp_2,temp_1,process_next)
+	next
+
+	let opengl_scale_y = opengl_scale_y >% 10000 2000
+
+	let temp_1,temp_2 = GET_WINDOW_MAP_POSITION
+	let temp_2 = temp_1 + 672
+	let temp_1 = temp_1 - 32
+
+	if x_vel < 0 then
+		if world_x < temp_1 then
+			kill_entity own_id
+		end_if
+	else
+		if world_x > temp_2 then
+			kill_entity own_id
+		end_if
+	end_if
+
+	let INTERPOLATION_Y_PERCENTAGE = INTERPOLATION_Y_PERCENTAGE + wave_rotation_speed !< 0 !> 10000
+
+end

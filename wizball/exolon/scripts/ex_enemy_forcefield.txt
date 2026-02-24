@@ -1,0 +1,147 @@
+// This is the big tall vertical sucker which demands to be shot with numerous bullets.
+
+#define target_scale_x				v0
+#define sound_channel				v8
+#define sound_frequency				v10
+#define sound_volume				v11
+
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = overlays[arb]
+
+	let base_frame = 12
+	let current_frame = 12
+	let interpolated_frame = 13
+
+	let draw_mode = DRAW_MODE_INTERP_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let opengl_scale_y = 100000
+	let opengl_scale_x = 10000
+	let target_scale_x = 10000
+	
+	let draw_order = 5
+
+	let lifetime = 20
+
+	let COLLISION_SHAPE = RECTANGLE
+	set_collision_from_frame_with_scale
+
+	let collide_type = ENT_TYPE_ENEMY_EMPLACEMENT
+	let collide_with = ent_type_player + ent_type_player_bullet
+
+	entity_hitline gosub hit_something
+
+	let sound_frequency = 22050
+	let sound_volume = 128
+
+	let sound_channel = play_looped_sound (forcefield_loop, sound_volume, sound_frequency, 128)
+	add_to_persistant_channels sound_channel
+
+
+
+start
+
+	if lifetime < 0 then
+		goto pop_clogs
+	end_if
+
+	let INTERPOLATION_Y_PERCENTAGE = INTERPOLATION_Y_PERCENTAGE + 125
+
+	if INTERPOLATION_Y_PERCENTAGE > 10000 then
+		let INTERPOLATION_Y_PERCENTAGE = INTERPOLATION_Y_PERCENTAGE - 10000
+	end_if
+
+	let opengl_scale_x = opengl_scale_x >% target_scale_x 1000
+
+	set_collision_from_frame_with_scale
+
+	gosub return_sound_to_normal
+
+end
+
+
+.return_sound_to_normal
+
+// After each deviation of the sound this returns it to normal
+
+	let sound_frequency = sound_frequency >% 22050 1000
+	let sound_volume = sound_volume >% 128 1000
+
+	adjust_sound sound_channel sound_volume sound_frequency 128
+
+return
+
+.hit_something
+
+	if collided_entity.collide_type = ENT_TYPE_PLAYER_BULLET then
+
+		// Decrease health...
+
+		let sound_frequency = 33000
+		let sound_volume = 255
+
+		let opengl_scale_x = opengl_scale_x / 2
+
+		if opengl_scale_x < 1000 then
+			let opengl_scale_x = 1000
+		end_if
+
+		let target_scale_x = target_scale_x - 200
+
+		let lifetime = lifetime - 1
+
+	else
+
+		let temp_1 = target_scale_x % 10100
+
+		if opengl_scale_x <= temp_1 then
+
+			let sound_frequency = 10000
+			let sound_volume = 255
+			let opengl_scale_x = opengl_scale_x * 2
+
+		end_if
+
+	end_if
+
+end
+
+.pop_clogs
+
+let collide_type = 0
+let collide_with = 0
+
+start
+
+	let opengl_scale_y = opengl_scale_y % 9000
+
+	let INTERPOLATION_Y_PERCENTAGE = INTERPOLATION_Y_PERCENTAGE + 125
+
+	if INTERPOLATION_Y_PERCENTAGE > 10000 then
+		let INTERPOLATION_Y_PERCENTAGE = INTERPOLATION_Y_PERCENTAGE - 10000
+	end_if
+
+	let sound_frequency = sound_frequency >% 44100 500
+	let sound_volume = sound_volume >% 255 500
+
+	adjust_sound sound_channel sound_volume sound_frequency 128
+
+	if opengl_scale_y < 800 then
+		spawn_entity ex_blip 0 0 process_next
+		remove_from_persistant_channels sound_channel
+		STOP_SOUND sound_channel
+		kill_entity own_id
+	end_if
+
+end
+
+
+

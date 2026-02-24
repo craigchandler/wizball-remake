@@ -1,0 +1,60 @@
+#define angle_from_parent		v0
+#define offset_x			v1
+#define offset_y			v2
+#define half_max_bubble_size		v3
+#define bubble_life_speed		v4
+
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	let bitshift = 8
+
+	let sprite = particle_effects[arb]
+
+	let base_frame = rand (30,32)
+	let current_frame = base_frame 
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let draw_order = CATELLITE_SHIELD_DRAW_ORDER
+
+	let angle_from_parent = rand (0,36000)
+
+	let offset_x = 12 sin angle_from_parent 
+	let offset_y = 12 cos angle_from_parent
+
+	let world_x = world_x + offset_x 
+	let world_y = world_y + offset_y 
+
+	SET_PRIVATE_CO_ORDS
+
+	let x_vel = 256 sin angle_from_parent 
+	let y_vel = 256 cos angle_from_parent 
+
+	let y_acc = -16
+
+	let counter = 0
+
+	let half_max_bubble_size = rand (3000,5000)
+	let bubble_life_speed = rand (600,1200)
+start
+
+	let opengl_scale_x = half_max_bubble_size sin counter
+	let opengl_scale_x = opengl_scale_x + half_max_bubble_size
+
+	if opengl_scale_x < 100 then
+		let opengl_scale_x = 100
+	end_if
+
+	let opengl_scale_y = opengl_scale_x
+
+	let counter = counter + bubble_life_speed
+
+	if counter >= 27000 then
+		kill_entity own_id
+	end_if
+
+end

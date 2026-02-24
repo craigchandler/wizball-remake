@@ -1,0 +1,19 @@
+#define rotate_speed		v0
+
+	PLAY_SOUND enemy_explode 255 CONST_SOUND_FREQUENCY
+
+	for temp_1 = 0 to 12
+		spawn_entity (particle_alien_explode,0,0,process_next)
+
+		let temp_2 = rand (0, 36000)
+		let temp_3 = rand (256,512)
+
+		let last_child.rotate_speed = temp_2 / 10
+		let last_child.base_frame = rand (11,12)
+		let last_child.x_vel = temp_3 cos temp_2
+		let last_child.y_vel = temp_3 sin temp_2
+	next
+
+	spawn_entity (particle_blinder,0,0,process_next)
+
+	kill_entity OWN_ID

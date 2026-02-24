@@ -1,0 +1,166 @@
+// Private defines
+
+	#define wave_position			v0
+
+	#define wave_x_spread			v1
+	#define wave_y_spread			v2
+
+	#define wave_size			v3
+
+	#define x_deviation			v4
+	#define y_deviation			v5
+
+	#define child_velocity			v6
+	#define child_height			V7
+
+	#define box_start_x			V10
+	#define box_start_y			V11
+	#define box_end_x			V12
+	#define box_end_y			V13
+
+	#define allowed_positions		V14
+
+	#define wave_sub_type			V15
+
+	#define firing_frequency		V16
+
+	#define player_on_level_number_var	V17
+
+	#define box_width			V18
+	#define total_wave_width		V19
+
+	#define WAVE_SUB_TYPE_UNIFORM		1
+		// All the entities get their own speed/height
+	#define WAVE_SUB_TYPE_RANDOM		2
+		// All the entities get the same speed/height
+
+// Child defines
+
+	#define top_or_bottom_flag				passed_param_1
+	#define paint_bubble_colour_flag			passed_param_2
+	#define paint_bubble_special_bonus_flag			passed_param_3
+	#define passed_in_min_horizontal_speed			passed_param_4
+	#define passed_in_max_horizontal_speed			passed_param_5
+	#define passed_in_min_height				passed_param_6
+	#define passed_in_max_height				passed_param_7
+	#define passed_in_firing_behaviour			passed_param_8
+	#define passed_in_firing_frequency			passed_param_9
+	#define passed_in_firing_initial_delay			passed_param_10
+	#define enemy_behaviour_type				passed_param_11
+	#define passed_in_gravity				passed_param_12
+	#define passed_in_min_vertical_speed			passed_param_13
+	#define passed_in_max_vertical_speed			passed_param_14
+	#define passed_in_enemy_bullet_speed_percentage		passed_param_15
+
+	#define VERTICAL_BOUNCE_FLOOR			1
+	#define VERTICAL_BOUNCE_ROOF			2
+	#define VERTICAL_POSITION_TOP			3
+	#define VERTICAL_POSITION_MIDDLE		4
+	#define VERTICAL_POSITION_BOTTOM		5
+
+	#define STARTING_X_VEL				V4
+
+	#define BULLET_TYPE_SINGLE_DIRECTED		1
+	#define BULLET_TYPE_SPREAD			2
+	#define BULLET_FREQUENCY_RANDOM			4
+	#define BULLET_FREQUENCY_FIXED			8
+
+	let temp_1 = MIN_WAVE_SIZE * MIN_WAVE_SIZE
+	let temp_2 = MAX_WAVE_SIZE * MAX_WAVE_SIZE
+
+	let wave_size = SPECIAL_RAND (0, temp_1,temp_2)
+	let wave_size = sqr wave_size
+
+	let wave_x_spread = SPECIAL_RAND (0, 16,48 // This is how far apart each enemy is horizontally
+	let wave_y_spread = SPECIAL_RAND (0, 0,0 // This is how far apart each enemy is vertically
+
+	let x_deviation = -wave_size * wave_x_spread
+	let x_deviation = x_deviation / 2
+
+	let y_deviation = -wave_size * wave_y_spread
+	let y_deviation = y_deviation / 2
+
+	let box_width = box_end_x - box_start_x
+	let box_width = abs (box_width)
+
+	start_loop
+		let total_wave_width = wave_x_spread * wave_size
+
+		if (total_wave_width > box_width) then
+			let wave_x_spread = wave_x_spread - 1
+		end_if
+	end_loop (total_wave_width > box_width)
+
+	let temp_1 = allowed_positions AND POSITION_5_TB_VALID_BITFLAG
+
+	if temp_1 = POSITION_5_TB_VALID_BITFLAG then
+		let top_or_bottom_flag = SPECIAL_RAND (0, VERTICAL_BOUNCE_FLOOR,VERTICAL_BOUNCE_ROOF)
+	else_if temp_1 = POSITION_4_B_VALID_BITFLAG then
+		let top_or_bottom_flag = VERTICAL_BOUNCE_FLOOR
+	else_if temp_1 = POSITION_1_T_VALID_BITFLAG then
+		let top_or_bottom_flag = VERTICAL_BOUNCE_ROOF
+	else
+		STOP // Then wtf did this get spawned you twat?!
+	end_if
+
+	let wave_sub_type = SPECIAL_RAND (0, WAVE_SUB_TYPE_UNIFORM,WAVE_SUB_TYPE_RANDOM)
+
+	let child_velocity = SPECIAL_RAND (0, BOBBLE_HAT_MIN_HORIZONTAL_SPEED,BOBBLE_HAT_MAX_HORIZONTAL_SPEED)
+	let child_height = SPECIAL_RAND (0, BOBBLE_HAT_START_DISTANCE,BOBBLE_HAT_START_DISTANCE)
+
+	// Yellow & Green ones fire 8 ways
+
+
+
+
+	let player_on_level_number_var = GET_GLOBAL_FLAG (player_on_level_number)
+
+	let firing_frequency = player_on_level_number_var * 5
+	let firing_frequency = 120 - firing_frequency
+
+	for counter = 1 to wave_size
+		spawn_entity (generic_level_enemy,x_deviation,y_deviation,process_next)
+
+		let last_child.top_or_bottom_flag = top_or_bottom_flag
+
+		if wave_sub_type = WAVE_SUB_TYPE_UNIFORM then
+			let last_child.passed_in_min_horizontal_speed = child_velocity
+			let last_child.passed_in_max_horizontal_speed = child_velocity
+
+			let last_child.passed_in_min_height = child_height
+			let last_child.passed_in_max_height = child_height
+
+		else
+			let last_child.passed_in_min_horizontal_speed = BOBBLE_HAT_MIN_HORIZONTAL_SPEED
+			let last_child.passed_in_max_horizontal_speed = BOBBLE_HAT_MAX_HORIZONTAL_SPEED
+
+			let last_child.passed_in_min_height = BOBBLE_HAT_START_DISTANCE
+			let last_child.passed_in_max_height = BOBBLE_HAT_START_DISTANCE
+		end_if
+
+		let last_child.passed_in_enemy_bullet_speed_percentage = 10000
+		let last_child.draw_order = NORMAL_ENEMY_DRAW_ORDER
+
+		let last_child.passed_in_min_vertical_speed = 0
+		let last_child.passed_in_max_vertical_speed = 0
+
+		LET last_child.SPRITE = enemies_02[set][48][48][24][24]
+		LET last_child.BASE_FRAME = 75
+		LET last_child.FRAME_COUNT = 8
+		let temp_1 = wave_sub_type - WAVE_SUB_TYPE_UNIFORM
+		let temp_1 = temp_1 * last_child.FRAME_COUNT
+		LET last_child.BASE_FRAME = last_child.BASE_FRAME + temp_1
+
+		let x_deviation = x_deviation + wave_x_spread 
+		let y_deviation = y_deviation + wave_y_spread
+
+		let last_child.passed_in_firing_behaviour = BULLET_TYPE_SPREAD or BULLET_FREQUENCY_FIXED
+		let last_child.passed_in_firing_frequency = firing_frequency
+		let last_child.passed_in_firing_initial_delay = BOBBLE_HAT_INITIAL_FIRING_DELAY
+		let last_child.enemy_behaviour_type = ENEMY_TYPE_BOBBLE_HATS
+		let last_child.passed_in_gravity = BOBBLE_HAT_GRAVITY
+	next
+
+	kill_entity own_id
+
+end

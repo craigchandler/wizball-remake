@@ -1,0 +1,14 @@
+Hiscore Upload Code List
+------------------------
+
+This contains a chronological list of all the hiscores you've ever achieved,
+so the newest ones will always be at the bottom.
+
+To use a code, simply copy everything between the []'s from the appropriate
+line and then paste it into the box on our webpage (http://retrospec.sgn.net/).
+
+Hi-score 4350 scored on Tue Dec 27 22:29:39 2005 = [qfr66enp+Qc0]
+Hi-score 18845 scored on Wed Dec 28 11:29:20 2005 = [Hg4OHR0dVMmA]
+Hi-score 27365 scored on Wed Dec 28 11:40:37 2005 = [EKWltra23DmQ]
+Hi-score 39825 scored on Wed Dec 28 11:50:10 2005 = [EuDg8@PzaPms]
+Hi-score 71635 scored on Wed Dec 28 11:54:44 2005 = [FBAQAwMCFcZ@]

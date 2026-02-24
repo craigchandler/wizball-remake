@@ -1,0 +1,124 @@
+#define half_display_width	320
+#define display_width		640
+#define display_height		416
+
+#define wiz_id				v0
+#define left_of_window			v1
+#define map_width			v2
+#define map_width_minus_window		v3
+#define interpolation_speed		V4
+#define freakout_flag			v5
+#define colour_divider			v6
+#define global_colour_percentage	v7
+#define effect_level			v8
+
+#define controller_id			v9
+#define level_number			v10
+#define progress			v11
+
+#define freakout_flag 			V12
+#define freak_out_bump_counter 		V13
+#define freak_out_effect_counter 	V14
+
+// Possible parent define...
+#define map_position			v2
+
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_BONUS_LEVEL_ENTITY
+
+	let opengl_booleans = opengl_boolean_masked + opengl_boolean_scale
+	let opengl_booleans = opengl_booleans + opengl_boolean_vertex_colour
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_INTERPOLATED
+
+	let level_number = get_global_flag (player_on_level_number)
+	let sprite = level_number + background_level_1[arb]
+
+	let draw_mode = DRAW_MODE_SPRITE
+	let draw_order = BACKGROUND_DRAW_ORDER
+
+	let opengl_scale_x = 12600
+	let opengl_scale_y = 12500
+
+	let map_width = get_tilemap_width (true)
+	let map_width_minus_window = map_width - display_width
+
+	let world_y = 0
+	set_private_co_ords
+
+start
+
+	// Actually need to do a colour progress check here.
+	let controller_id = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+	if controller_id != CONST_UNSET then
+		let progress = read_from_array (controller_id,LEVEL_COMPLETION_ARRAY_ID,level_number)
+		if progress > 1 then
+			let base_frame = 2
+		else
+			let base_frame = 0
+		end_if
+
+		let current_frame = base_frame
+		let interpolated_frame = base_frame + 1
+	else
+		// Nothing. Nothing at all...
+	end_if
+
+	let freakout_flag = get_global_flag (freak_out_flag)
+
+	if freakout_flag = TRUE then
+		let freak_out_effect_counter = get_global_flag (freak_out_counter)
+
+		if freak_out_effect_counter < FREAKOUT_HALF_EFFECT_LEVEL then
+			let draw_mode = DRAW_MODE_SPRITE
+			let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+			let opengl_vertex_red = freak_out_effect_counter * 255
+			let opengl_vertex_red = opengl_vertex_red / FREAKOUT_HALF_EFFECT_LEVEL
+			let opengl_vertex_red = 255 - opengl_vertex_red
+			let opengl_vertex_green = opengl_vertex_red 
+			let opengl_vertex_blue = opengl_vertex_red 
+		else
+			let draw_mode = DRAW_MODE_INVISIBLE
+			let draw_override = DRAW_OVERRIDE_NONE
+		end_if
+
+	else
+		let opengl_vertex_red = 255
+		let opengl_vertex_green = 255
+		let opengl_vertex_blue = 255
+		let draw_mode = DRAW_MODE_SPRITE
+		let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+	end_if
+
+	let wiz_id = get_global_flag (wizball_entity_id_flag)
+
+	if wiz_id = const_unset then
+		let wiz_id = get_global_flag (proxy_entity_id_flag)
+	end_if
+
+	if wiz_id != const_unset then
+		let left_of_window = wiz_id.world_x - half_display_width
+
+		if left_of_window < 0 then
+			let left_of_window = 0
+		else_if left_of_window > map_width_minus_window then
+			let left_of_window = map_width_minus_window
+		end_if
+
+		let world_x = left_of_window 
+		let world_y = 0
+
+		let INTERPOLATION_X_PERCENTAGE = left_of_window * 10000
+		let INTERPOLATION_X_PERCENTAGE = INTERPOLATION_X_PERCENTAGE / map_width_minus_window
+
+		set_private_co_ords
+	else
+		if parent.script_number = flythru then
+			// We're in the "well done" sequence! Woo!
+			let left_of_window = parent.map_position
+			let INTERPOLATION_X_PERCENTAGE = left_of_window * 10000
+			let INTERPOLATION_X_PERCENTAGE = INTERPOLATION_X_PERCENTAGE / map_width_minus_window
+		end_if
+	end_if
+
+end

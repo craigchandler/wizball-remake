@@ -1,0 +1,31 @@
+	let Bitshift = 4
+	let x_vel = x_vel << bitshift
+	let y_vel = y_vel << bitshift
+
+	let base_frame = 10
+	let current_frame = base_frame
+
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = explosions[arb]
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+
+	let opengl_angle = rand 0 36000
+	let v0 = 0
+start
+	let opengl_scale_x = opengl_scale_x % 10200
+	let opengl_scale_y = opengl_scale_x
+
+	let v0 = v0 + 1
+	let current_frame = v0 / 3
+	let current_frame = current_frame + base_frame
+
+	if v0 = 29 then
+		kill_entity own_id
+	end_if
+end

@@ -1,0 +1,139 @@
+// This entity is placed throughout the level where you want strings of enemies to appear.
+
+// When it runs it creates a weighted random sequence of enemies (well, more like it see's what's left and creates one of them)
+
+	let sprite = editor_icons[set][32][32][16][16]
+	let base_frame = 1
+
+#define enemy_wave_type_bitflag		v0
+#define this_wave_type			v1
+#define game_mode			v2
+#define enemy_wave_number		v3
+
+#define box_start_x			V10
+#define box_start_y			V11
+#define box_end_x			V12
+#define box_end_y			V13
+
+#define allowed_positions		V14
+
+#define bubble_wave			0
+#define regular_wave			1
+
+	let bitshift = 0
+	set_private_co_ords
+
+start
+
+	// Figure out size of box that we can spawn into...
+
+	let allowed_positions = passed_param_1
+
+	IF allowed_positions = 0 THEN
+		// If you ain't bothered to set the property then assume all are valid.
+		// That'll save some work.
+		LET allowed_positions = POSITION_7_TMB_VALID_BITFLAG
+	END_IF
+
+	if first_child != CONST_UNSET then
+		// The child must ALWAYS be below-right of this entity.
+		let box_start_x = world_x
+		let box_start_y = world_y
+		let box_end_x = first_child.world_x
+		let box_end_y = first_child.world_y
+		kill_entity first_child
+	else
+		STOP // Because they should all have a dummy child entity.
+	end_if
+
+	let enemy_wave_type_bitflag = get_global_flag (enemy_wave_allotment_bitflag)
+
+	let this_wave_type = enemy_wave_type_bitflag and 1
+	// Get our wave type...
+
+	let enemy_wave_type_bitflag = enemy_wave_type_bitflag / 2
+	// Shunt the data along...
+
+	set_global_flag (enemy_wave_allotment_bitflag,enemy_wave_type_bitflag)
+	// And plonk it back for the next one...
+
+
+	if this_wave_type = bubble_wave then
+
+		let temp_1 = SPECIAL_RAND (0, 0,12)
+
+		if temp_1 = 0 then
+
+			// Replaces a paintball wave as it's a bonussy wave, really.
+			spawn_entity (spawn_molecule_bonus_wave,0,0,process_next)
+
+		else
+
+			spawn_entity (spawn_paintball_wave,0,0,process_next)
+
+		end_if
+
+	else
+
+		LET temp_1 = READ_FROM_DATATABLE (enemy_queue_sizes,0,allowed_positions)
+
+		IF temp_1 = 0 THEN
+			STOP // GAH!
+		END_IF
+
+		let temp_2 = SPECIAL_RAND (0, 1,TEMP_1) // This is the entry within the queue...
+
+		let enemy_wave_number = READ_FROM_DATATABLE (enemy_queues,allowed_positions,temp_2)
+//		let enemy_wave_number = ENEMY_TYPE_planes
+
+		switch enemy_wave_number
+
+			case ENEMY_TYPE_hollow_diamonds
+				spawn_entity (spawn_hollow_diamond_wave,0,0,process_next)
+			break
+
+			case ENEMY_TYPE_crabby_bouncers
+				spawn_entity (spawn_crabby_bouncer_wave,0,0,process_next)
+			break
+
+			case ENEMY_TYPE_molecule_bouncers
+				spawn_entity (spawn_molecule_bouncer_wave,0,0,process_next)
+			break
+
+			case ENEMY_TYPE_hollow_circles
+				spawn_entity (spawn_hollow_circle_wave,0,0,process_next)
+			break
+
+			case ENEMY_TYPE_solid_diamonds
+				let temp_1 = SPECIAL_RAND_CHOICE (0,spawn_solid_diamond_wave, spawn_solid_diamond_wave_deviant_type)
+				spawn_entity (temp_1,0,0,process_next)
+//				spawn_entity (spawn_solid_diamond_wave_deviant_type,0,0,process_next)
+			break
+
+			case ENEMY_TYPE_bobble_hats
+				spawn_entity (spawn_bobble_hat_wave,0,0,process_next)
+			break
+
+			case ENEMY_TYPE_planes
+				spawn_entity (spawn_plane_wave,0,0,process_next)
+			break
+
+			case ENEMY_TYPE_UP_AND_DOWNERS
+				spawn_entity (spawn_up_and_downer_wave,0,0,process_next)
+			break
+
+		end_switch
+
+	end_if
+
+	if (last_child != CONST_UNSET) then
+		let last_child.box_start_x = box_start_x
+		let last_child.box_start_y = box_start_y
+		let last_child.box_end_x = box_end_x
+		let last_child.box_end_y = box_end_y
+		let last_child.allowed_positions = allowed_positions
+	end_if
+
+	kill_entity own_id
+
+end

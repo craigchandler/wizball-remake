@@ -1,0 +1,56 @@
+#define base_scale_x		v0
+#define base_scale_y		v1
+
+#define scale_x_variation	v2
+#define scale_y_variation	v3
+
+#define shift_speed		v4
+#define biorhythm		v5
+
+#define biorhythm_offset	v7
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let draw_order = 8
+
+	let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+//	let current_zone = GET_CURRENT_ZONE (world_x, world_y, game_room_zone)
+	let current_zone = get_global_flag (Player_zone_number)
+	let BOUNDARY_START_X, BOUNDARY_END_X = GET_HORIZONTAL_ZONE_EXTENTS (current_zone)
+
+	let sprite = auroras[arb]
+	let current_frame = base_frame
+	let INTERPOLATED_FRAME = base_frame + 1
+
+	let world_x = BOUNDARY_START_X - 8
+	let world_y = BOUNDARY_START_Y - 8
+
+	SET_PRIVATE_CO_ORDS
+
+	let draw_mode = DRAW_MODE_INTERP_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let opengl_scale_x = base_scale_x
+	let opengl_scale_y = base_scale_y
+	
+start
+	let biorhythm = get_global_flag (global_biorhythm)
+	let biorhythm = biorhythm + biorhythm_offset !< 0 !> 36000
+
+	let temp_1 = scale_x_variation sin biorhythm
+	let opengl_scale_x = base_scale_x + temp_1
+
+	let temp_1 = scale_y_variation cos biorhythm
+	let opengl_scale_y = base_scale_y + temp_1
+
+	let shift_speed = 10 sin biorhythm
+	let shift_speed = shift_speed + 5
+
+	let INTERPOLATION_X_PERCENTAGE = INTERPOLATION_X_PERCENTAGE + shift_speed !< 0 !> 10000
+end

@@ -1,0 +1,62 @@
+// This is a letter from the scrolly message. It appears off the right of the screen and then scrolls left and disappears.
+// Exciting stuff.
+
+#define completion_effect_brightness_percentage			v0
+
+#define SCROLLY_MESSAGE_LETTER_VELOCITY		-768
+
+#define y_offset				v0
+
+#define base_sin_counter			v5
+
+	let base_sin_counter = 0
+
+	let draw_order = MENU_TEXT_DRAW_ORDER
+
+	// We have it as a permanent entity type because
+	let entity_type = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_vertex_colour_alpha
+
+	let entity_type = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let sprite = font[arb]
+
+	let bitshift = 8
+	let x_vel = SCROLLY_MESSAGE_LETTER_VELOCITY
+
+start
+
+	let temp_1 = base_sin_counter + parent.base_sin_counter
+	let y_offset = 16 sin temp_1
+
+	let world_y = 64 + y_offset
+
+	set_private_co_ords
+
+	let temp_1 = world_x + 10
+	let temp_1 = UNLERP (0,640,temp_1) !> 10000 !< 0
+	let temp_1 = temp_1 % 36000
+	let temp_1 = -128 cos temp_1
+	let temp_1 = temp_1 + 128
+
+	let opengl_vertex_alpha = temp_1 % parent.completion_effect_brightness_percentage
+
+	gosub death_check
+
+	let base_sin_counter = base_sin_counter - 300 !< 0 !> 35999
+
+end
+
+
+
+.death_check
+
+	if world_x < -40 then
+		kill_entity own_id
+	end_if
+
+return
+

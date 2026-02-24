@@ -1,0 +1,8 @@
+for counter = 0 to 54
+	spawn_entity ex_infamous_logo_slice,0,0,process_next
+	let last_child.passed_param_1 = counter
+next
+
+kill_entity own_id
+
+end

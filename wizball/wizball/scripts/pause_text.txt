@@ -1,0 +1,58 @@
+// This is the text used for the options. It simply fades in and out when it sees the signal from it's parent. Really fast.
+
+#define pause_status			v0
+#define focussed_option			v1
+#define target_alpha			v2
+
+#define option_number			passed_param_2
+
+	let draw_order = 1
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_vertex_colour_alpha
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let sprite = font[arb]
+
+	let opengl_vertex_alpha = 0
+
+	set_private_co_ords
+
+	let draw_mode = draw_mode_sprite
+
+start
+
+	if option_number > CONST_UNSET then
+		if parent.focussed_option = option_number then
+			let target_alpha = 255
+		else
+			let target_alpha = 80
+		end_if
+	else
+		let target_alpha = 255
+	end_if
+
+	if opengl_vertex_alpha < target_alpha then
+		let opengl_vertex_alpha = opengl_vertex_alpha + 15 !> target_alpha
+	else
+		let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< target_alpha
+	end_if
+
+	if parent.pause_status = FALSE then
+		goto final_phase
+	end_if
+
+end
+
+.final_phase
+
+start
+
+	let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+
+	if opengl_vertex_alpha = 0 then
+		kill_entity own_id
+	end_if
+
+end
+

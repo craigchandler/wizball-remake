@@ -1,0 +1,5 @@
+1) Completion effect which isn't utterly arse.
+2) Add planets and guff to existing levels - actually, some kind of randomised thing to do that would be acers, using the room number as a seed. Save a LOT of work! Just plonk auto-generators into the screens and let the randomise do the rest (ie, stick the auto-gens in suitable locations which are free of cruft)
+3) Save hiscores, hiscore mangling and uploading crapola.
+4) Walking and jumping and landing sfx.
+

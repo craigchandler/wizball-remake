@@ -1,0 +1,116 @@
+#define flame_id 			v9
+#define flame_size_min 			v0
+#define flame_size_max 			v1
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+
+	let Bitshift = 4
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 60
+	let current_frame = base_frame
+	let frame_count = 4
+	let draw_mode = DRAW_MODE_SPRITE
+	let COLLISION_SHAPE = RECTANGLE
+
+	let world_collision_bitmask = 1
+	world_hitline gosub hitwall
+	entity_hitline gosub hitenemy
+
+	let WORLD_COLLISION_BEHAVIOUR = COLLISION_RESPONSE_SIMPLE_BOUNCE_OR_DECELLERATE
+	let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_RESPONSE_CALL_SCRIPT
+
+	let WORLD_COLLISION_COEF_HORIZONTAL = 100
+	let WORLD_COLLISION_COEF_VERTICAL = 0
+
+	let ENTITY_MOVEMENT_BEHAVIOUR = ENTITY_MOVEMENT_HORIZONTAL_VERTICAL
+
+	let COLLIDE_TYPE = ENT_TYPE_PLAYER_SUPER_BULLET
+//	let COLLIDE_wITH = ENT_TYPE_ENEMY_EMPLACEMENT
+
+	let opengl_booleans = OPENGL_BOOLEAN_MASKED + OPENGL_BOOLEAN_ROTATE
+
+	if FACING_DIRECTION = 1 then
+		let x_vel = 16
+	else
+		let x_vel = -16
+	end_if
+
+	let speed = facing_direction * 4
+
+	let y_vel = -32
+
+	spawn_entity ex_player_rocket_flame 0 0 PROCESS_NEXT
+	let flame_id = last_child
+
+	let flame_id.flame_size_min = 2000
+	let flame_id.flame_size_max = 4000
+
+	let v0 = 0
+
+	let v1 = 1
+
+	let v8 = 0
+start
+
+	let v8 = v8 + 1
+	let current_frame = v8 / 3
+	let current_frame = current_frame mod frame_count
+	let current_frame = base_frame + current_frame
+
+	if world_x < BOUNDARY_START_X then
+		set_global_flag (Rocket_in_flight, 0)
+		kill_entity own_id
+	end_if
+
+	if world_x > BOUNDARY_END_X then
+		set_global_flag (Rocket_in_flight, 0)
+		kill_entity own_id
+	end_if
+
+	let v0 = v0 + 1
+
+	if v1 = 1 then
+		let temp_2 = x_vel / -2
+		let temp_2 = rand temp_2 -x_vel
+		let temp_3 = y_vel / -2
+		let temp_3 = rand temp_3 -x_vel
+		spawn_entity ex_smoke 0 0 PROCESS_NEXT
+		let last_child.draw_order = last_child.draw_order - 1
+		LET last_child.x_vel = temp_2
+		let last_child.y_vel = temp_3
+		let last_child.PASSED_PARAM_1 = 100
+		let last_child.PASSED_PARAM_2 = 6000
+		let last_child.bitshift = bitshift
+		let last_child.lifetime = 30
+	end_if
+
+	let v1 = v1 * -1
+
+	if v0 > 8 then
+		if v0 < 40 then
+			let y_vel = y_vel + 1
+		else_if v0 < 52 then
+			let flame_id.flame_size_min = flame_id.flame_size_min + 600
+			let flame_id.flame_size_max = flame_id.flame_size_max + 600
+			let x_vel = x_vel + speed
+		else_if y_vel < 24 then
+			let y_vel = y_vel + 4
+		end_if
+	end_if
+
+	let opengl_angle = atan2 x_vel y_vel
+	let flame_id.opengl_angle = opengl_angle
+end
+
+.hitenemy
+	spawn_entity ex_player_rocket_explosion 0 0 PROCESS_NEXT
+	kill_entity own_id
+	// No need to kill the flame, it'll do that itself.
+
+.hitwall
+	play_sound player_grenade_explosion 255 22050 128
+	spawn_entity ex_player_rocket_explosion 0 0 PROCESS_NEXT
+	kill_entity own_id
+	// No need to kill the flame, it'll do that itself.

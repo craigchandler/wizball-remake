@@ -1,0 +1,79 @@
+#define deviation		v0
+#define actual_deviation	v1
+#define x_offset		v2
+#define y_offset		v3
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+	let draw_order = 6
+
+	let sprite = large_graphics[arb]
+	let base_frame = 6
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_vertex_alpha = 0
+
+	let opengl_booleans = opengl_booleans + opengl_boolean_scale
+
+	IF_HARDWARE_GRAPHICS then
+		IF_BLEND_MODE_AVAILABLE then
+			spawn_entity ex_dx_logo_overlay 0 0 process_next
+		else
+			// Do a twinkle or summat here on the edge of the logo occasionally
+		end_if
+	else
+
+	end_if
+
+	let counter = 0
+	let deviation = 64
+	
+start
+	let actual_deviation = deviation / 8
+
+	let x_offset = rand -actual_deviation actual_deviation
+	let y_offset = rand -actual_deviation actual_deviation
+
+	let world_x = 500 + x_offset
+	let world_y = 160 + y_offset
+
+	set_private_co_ords
+
+	let deviation = deviation - 1
+
+	if deviation = 0 then
+		goto static_mode
+	end_if
+
+	if parent.signal = 1 then
+		gosub kill_logo
+	end_if
+end
+
+.static_mode
+
+start
+
+	if parent.signal = 1 then
+		gosub kill_logo
+	end_if
+
+end
+
+
+
+
+.kill_logo
+
+	let opengl_booleans = opengl_boolean_masked + opengl_boolean_scale
+	let signal = 1
+
+	let opengl_scale_y = opengl_scale_y % 9000
+
+	if opengl_scale_y <= 100 then
+		kill_entity own_id
+	end_if
+
+	return

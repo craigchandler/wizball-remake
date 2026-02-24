@@ -1,0 +1,92 @@
+#define iterations v0
+#define overlay_id v1
+#define max_iterations		passed_param_1
+
+let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+spawn_entity ex_standard_overlay 0 0 PROCESS_NEXT
+let last_child.secondary_frame = 1
+let last_child.INTERPOLATED_FRAME = 2
+let last_child.passed_param_1 = parent
+let last_child.passed_param_2 = opengl_boolean_blend_multiply
+
+let overlay_id = last_child
+
+let iterations = 0
+let counter = 27000
+
+if max_iterations = 0 then
+	let max_iterations = 4
+end_if
+
+.fade_in
+start
+	let overlay_id.opengl_vertex_alpha = 128 sin counter
+	let overlay_id.opengl_vertex_alpha = overlay_id.opengl_vertex_alpha + 128
+
+	gosub roll_texture
+
+	let counter = counter + 250
+	if counter > 36000 then
+		gosub regular_pulse
+	end_if
+end
+
+
+
+.regular_pulse
+start
+	let overlay_id.opengl_vertex_alpha = 32 sin counter
+	let overlay_id.opengl_vertex_alpha = overlay_id.opengl_vertex_alpha + 128
+
+	gosub roll_texture
+
+	let counter = counter + 1000
+	if counter > 36000 then
+		let counter = counter - 36000
+		if max_iterations < 10 then
+			let iterations = iterations + 1
+		end_if
+	end_if
+
+	if iterations = max_iterations then
+		if counter > 18000 then
+			gosub fade_out
+		end_if
+	end_if
+
+end
+
+
+
+.fade_out
+start
+	let overlay_id.opengl_vertex_alpha = 128 sin counter
+	let overlay_id.opengl_vertex_alpha = overlay_id.opengl_vertex_alpha + 128
+
+	gosub roll_texture
+
+	let counter = counter + 250
+	if counter > 27000 then
+		let last_child.signal = 1
+		let signal = 1
+		kill_entity own_id
+	end_if
+end
+
+
+
+.roll_texture
+
+	let overlay_id.INTERPOLATION_X_PERCENTAGE = overlay_id.INTERPOLATION_X_PERCENTAGE + 100
+	let overlay_id.INTERPOLATION_Y_PERCENTAGE = overlay_id.INTERPOLATION_Y_PERCENTAGE + 100
+
+	if overlay_id.INTERPOLATION_Y_PERCENTAGE > 10000 then
+		let overlay_id.INTERPOLATION_Y_PERCENTAGE = overlay_id.INTERPOLATION_Y_PERCENTAGE - 10000
+	end_if
+
+	if overlay_id.INTERPOLATION_X_PERCENTAGE > 10000 then
+		let overlay_id.INTERPOLATION_X_PERCENTAGE = overlay_id.INTERPOLATION_X_PERCENTAGE - 10000
+	end_if
+
+return

@@ -1,0 +1,33 @@
+#define screen_width		640
+#define half_screen_width	320
+
+#define window_screen_x		v0
+#define window_screen_y		v1
+#define window_width		v2
+#define window_height		v3
+#define window_map_x		v4
+#define window_map_y		v5
+
+let window_screen_x, window_screen_y, window_width, window_height = GET_WINDOW_POSITION_AND_SIZE
+let window_map_x, window_map_y = GET_WINDOW_MAP_POSITION
+
+#define pre_pause_length	passed_param_1
+
+wait pre_pause_length
+
+start
+	if window_height < 480 then
+		let window_height = window_height + 4
+
+		SET_WINDOW_POSITION_AND_SIZE (window_screen_x, window_screen_y, window_width, window_height)
+
+		SET_WINDOW_MAP_POSITION (window_map_x, window_map_y)
+
+		let window_screen_y = window_screen_y - 2
+
+		let window_map_x = window_map_x
+		let window_map_y = window_map_y - 2
+	else
+		kill_entity own_id
+	end_if
+end

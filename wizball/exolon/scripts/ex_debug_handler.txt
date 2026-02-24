@@ -1,0 +1,100 @@
+// This is spawned by the launch_game function and exists PERMANENTLY (ideally,
+// it'll get it's clogs popped by the genocide entity kills occasionally but it
+// can be relaunched at that point).
+
+// All it does it trap the debug keypresses and act on them, toggling the entity
+// list, pausing the rest of the game or frame-advancing the game. Possibly summat
+// else, too...
+
+#define pause_status		v0
+
+let pause_status = FALSE
+
+let entity_type = ENT_TYPE_INDESTRUCTABLE // So that pausing the game doesn't affect it
+
+.main_loop
+
+start
+	IF_INPUT_KEYBOARD_HIT KEY_F1 then
+		gosub nudge_player
+	end_if
+
+	IF_INPUT_KEYBOARD_HIT KEY_F2 then
+		TOGGLE_DEBUG
+	end_if
+
+	IF_INPUT_KEYBOARD_HIT KEY_F3 then
+		gosub toggle_pause
+	end_if
+
+	IF_INPUT_KEYBOARD_HIT KEY_F4 then
+		goto frame_advance
+	end_if
+
+	IF_INPUT_KEYBOARD_HIT KEY_F9 then
+		gosub increase_start_level
+	end_if
+
+	IF_INPUT_KEYBOARD_HIT KEY_F10 then
+		gosub end_of_level
+	end_if
+
+end
+
+.frame_advance
+
+wake_entities (SELECT_BY_GENOCIDE)
+
+wait 1
+
+sleep_entities (SELECT_BY_GENOCIDE)
+
+let pause_status = TRUE
+
+goto main_loop
+
+.toggle_pause
+
+if pause_status = TRUE then
+	let pause_status = FALSE
+	wake_entities (SELECT_BY_GENOCIDE)
+else
+	let pause_status = TRUE
+	sleep_entities (SELECT_BY_GENOCIDE)
+end_if
+
+return
+
+.nudge_player
+
+let counter = get_global_flag (player_nudge_counter)
+
+let counter = counter + 1
+
+set_global_flag (player_nudge_counter,counter)
+
+return
+
+.end_of_level
+
+let counter = get_global_flag (player_nudge_counter)
+
+let counter = counter + 25
+
+set_global_flag (player_nudge_counter,counter)
+
+return
+
+.increase_start_level
+
+let counter = get_global_flag (start_level_adder)
+
+let_value_loop counter = 0 to 5 step 1
+
+set_global_flag (start_level_adder,counter)
+
+return
+
+
+
+

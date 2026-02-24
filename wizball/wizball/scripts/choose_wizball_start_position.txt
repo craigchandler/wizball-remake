@@ -1,0 +1,31 @@
+#define level_number			V0
+#define chosen_position_index		V1
+#define spawned_script			passed_param_1
+
+	// This script is called when spawning the player after they lose a life, or when spawning a warp tube.
+
+	LET level_number = get_global_flag (player_on_level_number)
+	LET counter = -1
+
+	start_loop
+
+		let counter = counter + 1
+		let WORLD_X = READ_FROM_DATATABLE (level_start_positions,level_number,counter)
+
+	end_loop WORLD_X != CONST_UNSET
+
+	LET counter = counter - 1
+
+	IF counter < 0 THEN
+		STOP // WTF?!
+	END_IF
+
+	LET chosen_position_index = SPECIAL_RAND (0, counter)
+
+	LET WORLD_X = READ_FROM_DATATABLE (level_start_positions,level_number,chosen_position_index)
+	LET WORLD_Y = WIZBALL_START_Y
+	SET_PRIVATE_CO_ORDS
+
+	SPAWN_ENTITY (spawned_script,0,0,process_next)
+
+	kill_entity own_id

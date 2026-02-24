@@ -1,0 +1,1199 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	// Okay, to calculate the various gubbins based on a desired maximum pixel speed and a desired maximum rotation speed for Wizball...
+
+	// Probably simplest for left/right to alter something that equates DIRECTLY to the x_vel (but isn't actually it unless you have the first powerup).
+
+	#define two_pi_percent				62831 // 2 * PI * 10000
+
+	#define corner_number				passed_param_1
+	#define targeted_enemy_id			passed_param_2
+
+	// Movement behaviours
+	#define basic_bounce_movement			0
+	#define controlled_bounce_movement		1
+	#define full_controlled_movement		2
+
+	#define WIZBALL_PREVIOUS_Y_POS_BUFFER_ID	999 // This is the id of the array within the wizball which stores his movement, so that catellite can read it.
+
+	#define wizball_radius				24
+
+	#define x_vel_to_frame_speed_divider		128
+
+	#define wizball_frame_count			64
+
+//	#define startup_mode				passed_param_1
+//	// This defines what state Wizball appears in, in the level.
+//
+///	#define startup_mode_brand_new			0
+//	// This is used when the level has been reset due to Wizball popping his clogs. It gives him the default weapon loadout and sets this over the current one.
+//
+//	#define startup_mode_warped			1
+//	// This is used for when he's warped to another level or returning from filling in a colour. 
+
+	#define movement_style				v0 // This is the control mode for Wizball
+	#define spin_angle				v1 // This is the current angle which Wizball is being drawn at, it's kept within a particular range
+	#define top_spin_angle				v2 // This is the top value of spin_angle, it's equivalent to the circumference of Wizball
+	#define ideal_x_vel				v3 // This is the horizontal speed which x_vel is changed to upon impact.
+	#define top_private_vel				v4 // This is the maximum value for the above.
+	#define spin_angle_to_frame_divider		v5 // This is the amount of spin_angle per frame of Wizball's animation
+
+	#define weapon_collection			v6
+	#define flip_vertical_firing_side		v7
+	#define next_flip_vertical_firing_side		v8
+
+	#define last_movement_direction			v9
+
+	#define flip_horizontal_firing_side		v10
+
+	#define firing_direction			v12
+
+	#define firing_rate				v13
+
+	#define upper_shield_entity_id			v14
+	#define lower_shield_entity_id			v15
+	#define fire_held_down				v16
+
+	#define catellite_entity_id			v17
+
+	#define fire_delay_counter			v18
+
+	#define bullet_type				v20
+
+	#define wobble_reset_countdown			v21
+	#define wobble_counter				v22
+	#define wobble_next_direction			v23
+
+	#define next_wobble_either			0
+	#define next_wobble_left			1
+	#define next_wobble_right			2
+
+	#define current_pickup_count			v24
+	#define max_pickup_count			7
+
+	#define game_mode				v25
+
+	#define allow_movement				v26
+
+	#define y_position_frame_pointer		v27
+
+	#define getting_sucked_into_a_hole_flag		V28
+	#define warp_tube_id				V29
+	#define warp_effect_counter			V30
+	#define warp_start_world_x			V31
+	#define warp_start_world_y			V32
+	#define warp_spin_speed				V33
+
+	#define particle_count 				V34
+
+	#define cat_mutant_state			v35
+
+	#define wizball_alive_time			v36
+
+	let game_mode = get_global_flag (c64_or_spectrum_game_mode)
+
+	if game_mode = GAME_MODE_C64 then
+	else
+	end_if
+
+	let upper_shield_entity_id = CONST_UNSET
+	let lower_shield_entity_id = CONST_UNSET
+	let catellite_entity_id = CONST_UNSET
+
+	let Bitshift = 8
+
+	let temp_1 = wizball_radius << bitshift // This is the radius of Wizball in private scale terms.
+	let top_spin_angle = temp_1 % two_pi_percent // This is the circumference of Wizball in private scale terms.
+	let spin_angle_to_frame_divider = top_spin_angle / wizball_frame_count
+
+	let top_private_vel = WIZBALL_MAX_PIXEL_X_VEL << Bitshift
+
+	let y_position_frame_pointer = 0
+
+	let draw_order = WIZBALL_DRAW_ORDER
+
+	SET_PRIVATE_CO_ORDS // That sets the private scale co-ords from the passed in world scale co-ords.
+
+	SET_GLOBAL_FLAG_AS_ENTITY_ID  (wizball_entity_id_flag) // So the other scripts know who's the daddy.
+
+	// let matriarch = own_id // Er, this really doesn't matter I expect.
+
+	let draw_mode = draw_mode_sprite
+
+	let opengl_booleans = OPENGL_BOOLEAN_MASKED
+
+	let sprite = wizball[set][48][48][24][24]
+	let base_frame = 0
+
+	let spin_angle = 0
+
+	let x_vel = 0
+	let ideal_x_vel = 0
+
+	let getting_sucked_into_a_hole_flag = FALSE
+
+// ---------------- Object Collision Set Up ---------------- 
+
+	let COLLISION_SHAPE = CIRCLE
+
+	LET RADIUS = 16
+
+	SET_COLLISION_FROM_FRAME
+
+	SET_WORLD_COLLISION_FROM_OBJECT
+
+	let UPPER_WORLD_WIDTH = UPPER_WORLD_WIDTH - 8
+	let UPPER_WORLD_HEIGHT = UPPER_WORLD_HEIGHT - 8
+	let LOWER_WORLD_WIDTH = LOWER_WORLD_WIDTH - 8
+	let LOWER_WORLD_HEIGHT = LOWER_WORLD_HEIGHT - 8
+
+	let COLLIDE_WITH = ENT_TYPE_ENEMY + ENT_TYPE_ENEMY_BULLET
+	let COLLIDE_WITH = COLLIDE_WITH + ENT_TYPE_WARP_ZONE
+	let COLLIDE_WITH = COLLIDE_WITH + ENT_TYPE_PICKUP 
+	let collide_type = ent_type_player
+
+	entity_hitline gosub interaction_routine
+
+// ---------------- World Collision Set Up ----------------
+
+	let WORLD_COLLISION_BEHAVIOUR = SLIDING_HORIZONTAL + COLLISION_RESPONSE_CALL_SCRIPT
+	let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_RESPONSE_SIMPLE_BOUNCE_OR_DECELLERATE
+	let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_USE_EXTRA_TEST_POINTS
+	let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_ITERATE_MOVEMENT // Because we have sharp points in the world, Wizball needs to iterate his movement.
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_HORIZONTAL_WORLD_EDGE_SOLID
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_VERTICAL_WORLD_EDGE_SOLID
+
+	let WORLD_COLLISION_COEF_HORIZONTAL = -100
+	let WORLD_COLLISION_COEF_VERTICAL = -100
+	let ENTITY_MOVEMENT_BEHAVIOUR = ENTITY_MOVEMENT_HORIZONTAL_VERTICAL
+	let world_collision_bitmask = WORLD_BITMASK_PLAYER_COLLIDES
+	LET WORLD_COLLISION_LAYER = PLAYER_AND_ENEMY_WORLD_COLLISION_LAYER // We use the second layer of the world as for our collision map.
+
+	world_hitline gosub hitwall_routine
+
+// ---------------- Final Set up ----------------
+
+	if parent.script_number = wizball_new_life_appear then
+		let weapon_collection = get_global_flag (wizball_starting_loadout)
+		set_global_flag (wizball_current_loadout , weapon_collection)
+	else_if parent.script_number = warp_tube_exit_wizball then
+		let weapon_collection = get_global_flag (wizball_current_loadout)
+	else_if parent.script_number = main_game_controller then
+		let temp_1 = get_global_flag (currently_on_bonus_level)
+
+		if temp_1 = true then
+			let weapon_collection = get_global_flag (wizball_current_loadout)
+		else
+			stop
+		end_if
+	else
+		stop
+	end_if
+
+	gosub pre_equip_wizball
+
+	let last_movement_direction = 1
+
+	let flip_vertical_firing_side = 0
+	set_global_flag (shared_next_bullet_alternator,1)
+
+	let fire_delay_counter = 0
+
+	let current_pickup_count = get_global_flag (player_bonus_pearl_count)
+
+	create_array (WIZBALL_PREVIOUS_Y_POS_BUFFER_ID , WIZBALL_PREVIOUS_Y_POS_BUFFER_SIZE)
+	reset_array (OWN_ID,WIZBALL_PREVIOUS_Y_POS_BUFFER_ID,WORLD_Y)
+
+	let wizball_alive_time = 0
+
+// ---------------- Main Loop ----------------
+
+start
+
+	let temp_1 = READ_FROM_ARRAY (OWN_ID , WIZBALL_PREVIOUS_Y_POS_BUFFER_ID , y_position_frame_pointer)
+	set_global_flag (catellite_buffered_target_y,temp_1)
+	WRITE_TO_ARRAY (WORLD_Y , OWN_ID , WIZBALL_PREVIOUS_Y_POS_BUFFER_ID , y_position_frame_pointer )
+	let y_position_frame_pointer = y_position_frame_pointer + 1 (!= WIZBALL_PREVIOUS_Y_POS_BUFFER_SIZE ? 0)
+
+	if x_vel != 0 then
+		let last_movement_direction = sgn x_vel
+	end_if
+
+	if getting_sucked_into_a_hole_flag = FALSE then
+
+		gosub movement_routine
+
+		gosub firing_routine
+
+		gosub check_shield_existance
+
+		// So it doesn't kill it when it's only just spawned a wizball and the cat ain't had a chance to run yet.
+		if wizball_alive_time > 0 then
+			gosub check_catellite_existance
+		end_if
+
+		gosub update_wobble
+
+		gosub update_shield_counter
+
+		gosub cheats
+
+	else
+
+		gosub do_warp_out
+
+	end_if
+
+	IF_DEBUG_MODE then
+		gosub debug_stuff
+	END_IF
+
+	let wizball_alive_time = wizball_alive_time + 1
+
+end
+
+
+// ---------------- Check Catellite Existance ----------------
+
+.check_catellite_existance
+
+	let temp_1 = GET_GLOBAL_FLAG (catellite_entity_id_flag)
+
+	if temp_1 = CONST_UNSET then
+		let weapon_collection = weapon_collection and !CATELLITE_BITFLAG
+	end_if
+
+return
+
+// ---------------- Warping Out ----------------
+
+.do_warp_out
+
+	let x_vel = 0
+	let y_vel = 0
+
+	IF warp_effect_counter < 30 THEN
+
+		let temp_1 = 10000 / 30
+		let temp_1 = temp_1 * warp_effect_counter
+		let temp_1 = temp_1 curve_percentage CURVE_PERCENTAGE_SISO
+		let world_x = LERP (warp_start_world_x,warp_tube_id.world_x,temp_1)
+		let world_y = LERP (warp_start_world_y,warp_tube_id.world_y,temp_1)
+
+		set_private_co_ords
+
+	ELSE_IF warp_effect_counter = 50 THEN
+
+		spawn_entity (particle_blinder,0,0,process_next)
+
+	ELSE_IF warp_effect_counter = 52 THEN
+
+		LET draw_mode = draw_mode_invisible
+
+		set_global_flag (player_warping_destroy_shield,TRUE)
+
+		let particle_count = get_global_flag (particle_commonness_multiplier)
+		let particle_count = 10 * particle_count
+
+		for counter = 1 to particle_count
+			let temp_1 = rand (-24,24)
+			let temp_2 = rand (-24,24)
+			spawn_entity (particle_twinkle,temp_1,temp_2,process_next)
+		next
+
+	ELSE_IF warp_effect_counter = 120 THEN
+
+		set_global_flag (player_warping_destroy_shield,FALSE)
+
+		IF warp_tube_id.script_number = warp_zone_down THEN
+			set_global_flag (player_warp_direction,-1)
+		ELSE_IF warp_tube_id.script_number = warp_zone_up THEN
+			set_global_flag (player_warp_direction,1)
+		ELSE
+			STOP // WTF!?
+		END_IF
+
+		let temp_1 = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+		ADD_EVENT_TO_QUEUE ( temp_1 , LEVEL_RESET_FLAG_PLAYER_WARPED )
+
+	END_IF
+
+	let warp_spin_speed = warp_effect_counter / 6
+
+	let current_frame = current_frame + warp_spin_speed !< 0 !> 63
+
+	let warp_effect_counter = warp_effect_counter + 1
+
+return
+
+// ---------------- Check Shield Existance ----------------
+
+.check_shield_existance
+
+	if upper_shield_entity_id != CONST_UNSET then
+		if upper_shield_entity_id.alive <= 0 then
+			let upper_shield_entity_id = CONST_UNSET
+		end_if
+	end_if
+
+	if lower_shield_entity_id != CONST_UNSET then
+		if lower_shield_entity_id.alive <= 0 then
+			let lower_shield_entity_id = CONST_UNSET
+		end_if
+	end_if
+
+return
+
+// ---------------- Cheats ----------------
+
+.cheats
+
+//	IF_INPUT_KEYBOARD_HIT KEY_F7 then
+//		spawn_entity (smart_bomb_shockwave,0,0,process_next)
+//		let last_child.x_vel = -8
+//		spawn_entity (smart_bomb_shockwave,0,0,process_next)
+//		let last_child.x_vel = 8
+//	end_if
+
+return
+
+// ---------------- Movement ----------------
+
+.movement_routine
+
+	if movement_style = full_controlled_movement then
+		if x_vel < 0 then
+			let last_movement_direction = -1
+		else_if x_vel > 0 then
+			let last_movement_direction = 1
+		end_if
+	else
+		if ideal_x_vel < 0 then
+			let last_movement_direction = -1
+		else_if ideal_x_vel > 0 then
+			let last_movement_direction = 1
+		end_if
+	end_if
+
+	// Simpler to assume one option...
+	let allow_movement = true
+
+	IF weapon_collection & CATELLITE_BITFLAG then
+		// If we're in one player...
+		IF_FLAG (game_mode_single_player = TRUE) then
+			let cat_mutant_state = get_global_flag (mutant_cat_flag)
+
+			// Cat ain't mad...
+			if cat_mutant_state = 0 then
+				IF_INPUT_PLAYER_CONTROL_REPEAT (PLAYER_1,FIRE_1,catellite_control_threshold,1) then
+					let allow_movement = false
+				END_IF
+			end_if
+		END_IF
+	end_if
+
+	switch movement_style
+
+		case basic_bounce_movement
+
+			let spin_angle = spin_angle + ideal_x_vel !< 0 !> top_spin_angle
+			let current_frame = spin_angle / spin_angle_to_frame_divider !< 0 !> 63
+
+			if allow_movement = true then
+
+				IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 RIGHT then
+					let ideal_x_vel = ideal_x_vel + WIZBALL_X_RESPONSIVENESS !> top_private_vel
+				END_IF
+
+				IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 LEFT then
+					let ideal_x_vel = ideal_x_vel - WIZBALL_X_RESPONSIVENESS !< -top_private_vel
+				END_IF
+
+			end_if
+
+		break
+
+		case controlled_bounce_movement
+
+			let spin_angle = spin_angle + ideal_x_vel !< 0 !> top_spin_angle
+			let current_frame = spin_angle / spin_angle_to_frame_divider !< 0 !> 63
+
+			if allow_movement = true then
+
+				IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 RIGHT then
+					let ideal_x_vel = ideal_x_vel + WIZBALL_X_RESPONSIVENESS !> top_private_vel
+				END_IF
+
+				IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 LEFT then
+					let ideal_x_vel = ideal_x_vel - WIZBALL_X_RESPONSIVENESS !< -top_private_vel
+				END_IF
+
+				let x_vel = ideal_x_vel
+
+			end_if
+
+		break
+
+		case full_controlled_movement
+
+			let spin_angle = spin_angle + x_vel !< 0 !> top_spin_angle
+			let current_frame = spin_angle / spin_angle_to_frame_divider !< 0 !> 63
+
+			if allow_movement = true then
+
+				IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 RIGHT then
+					let x_vel = x_vel + WIZBALL_X_RESPONSIVENESS !> top_private_vel
+				else
+					IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 LEFT then
+						let x_vel = x_vel
+					else
+						if x_vel > 0 then
+							let x_vel = x_vel - WIZBALL_X_DAMPING !< 0
+						end_if
+					end_if
+				END_IF
+
+				IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 LEFT then
+					let x_vel = x_vel - WIZBALL_X_RESPONSIVENESS !< -top_private_vel
+				else
+					IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 RIGHT then
+						let x_vel = x_vel
+					else
+						if x_vel < 0 then
+							let x_vel = x_vel + WIZBALL_X_DAMPING !> 0
+						end_if
+					end_if
+				END_IF
+
+				IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 DOWN then
+					let y_vel = y_vel + WIZBALL_Y_RESPONSIVENESS !> top_private_vel
+				else
+					if y_vel > 0 then
+						let y_vel = y_vel - WIZBALL_Y_DAMPING !< 0
+					end_if
+				END_IF
+
+				IF_INPUT_PLAYER_CONTROL_DOWN PLAYER_1 UP then
+					let y_vel = y_vel - WIZBALL_Y_RESPONSIVENESS !< -top_private_vel
+				else
+					if y_vel < 0 then
+						let y_vel = y_vel + WIZBALL_Y_DAMPING !> 0
+					end_if
+				END_IF
+
+			else
+
+				if x_vel < 0 then
+					let x_vel = x_vel + WIZBALL_X_DAMPING !> 0
+				else_if x_vel > 0 then
+					let x_vel = x_vel - WIZBALL_X_DAMPING !< 0
+				end_if
+
+				if y_vel < 0 then
+					let y_vel = y_vel + WIZBALL_Y_DAMPING !> 0
+				else_if y_vel > 0 then
+					let y_vel = y_vel - WIZBALL_Y_DAMPING !< 0
+				end_if
+
+			end_if
+
+		break
+
+	end_switch
+
+
+return
+
+// ---------------- Firing Routine ----------------
+
+#define SPREAD_FIRE_FIRING_RATE			10
+#define NORMAL_FIRE_FIRING_RATE			20
+#define DOUBLE_FIRE_FIRING_RATE			10
+
+#define ALL_WEAPONS				1023
+
+.firing_routine
+
+//	IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_1,FIRE_1) then
+//
+//	else
+//		let flip_horizontal_firing_side = 1
+//	end_if
+// THIS WAS WRONG! TURNS OUT IT DOES REMEMBER! HOW SHITE IS THAT?
+
+	let firing_direction = last_movement_direction
+
+// -------- Wizball Normal and Double Fire --------
+
+	IF weapon_collection & DOUBLE_FIRE_BITFLAG then
+		let firing_rate = DOUBLE_FIRE_FIRING_RATE
+		let bullet_type = 2
+	else
+		let firing_rate = NORMAL_FIRE_FIRING_RATE
+		let bullet_type = 1
+	end_if
+
+	if fire_delay_counter = 0 then
+
+		IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,FIRE_1) then
+
+			gosub wizball_normal_fire
+			gosub wizball_spread_fire
+			let fire_delay_counter = firing_rate
+
+		else
+
+			IF weapon_collection & CATELLITE_BITFLAG then
+
+				// If we're in one player...
+				IF_FLAG (game_mode_single_player = TRUE) then
+
+					IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_1,FIRE_1) then
+
+						gosub wizball_normal_fire
+						gosub wizball_spread_fire
+						let fire_delay_counter = firing_rate
+
+					end_if
+
+				END_IF
+
+			end_if
+
+		end_if
+
+	else
+
+		let fire_delay_counter = fire_delay_counter - 1 !< 0
+
+	end_if
+
+// -------- Shield Fire --------
+
+	IF weapon_collection & SHIELD_FIRE_BITFLAG then
+
+		// Doesn't matter if the player's in the deadzone here on the C64, the shield fire always works.
+
+		IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_1,FIRE_1) then
+
+			let fire_held_down = 1
+
+			if upper_shield_entity_id = CONST_UNSET then
+				if lower_shield_entity_id = CONST_UNSET then
+
+					spawn_entity wizball_alternate_shield_bullet_core,0,15,process_next
+					let lower_shield_entity_id = last_child
+
+					spawn_entity wizball_alternate_shield_bullet_core,0,-15,process_next
+					let upper_shield_entity_id = last_child
+
+				end_if
+			end_if
+
+		else
+
+			let fire_held_down = 0
+
+		end_if
+
+	end_if
+
+// -------- Smart Bomb --------
+
+
+
+// -------- Finishing Up --------
+
+	let flip_vertical_firing_side = next_flip_vertical_firing_side
+
+return
+
+// -------- Wizball Horizontal Fire --------
+
+.wizball_normal_fire
+
+	if weapon_collection & REAR_FIRE_BITFLAG then
+		let firing_direction = get_global_flag (shared_next_bullet_alternator)
+		set_global_flag (shared_next_bullet_alternator, -firing_direction)
+	end_if
+
+	spawn_entity (wizball_normal_bullet,0,0,process_next)
+
+	if firing_direction = -1 then
+		let last_child.opengl_angle = 18000
+	else
+		let last_child.opengl_angle = 0
+	end_if
+
+	if bullet_type = 1 then
+		PLAY_SOUND wizball_or_cat_fire_normal 96 CONST_SOUND_FREQUENCY
+	else
+		PLAY_SOUND wizball_or_cat_fire_blazers 96 CONST_SOUND_FREQUENCY
+	end_if
+
+	let last_child.bullet_type = bullet_type
+
+return
+
+
+
+// -------- Wizball Spread Fire --------
+
+.wizball_spread_fire
+
+	IF weapon_collection & WIZ_SPREAD_FIRE_BITFLAG then
+
+		PLAY_SOUND wizball_or_cat_fire_three_way 96 CONST_SOUND_FREQUENCY
+
+		if flip_vertical_firing_side = 0 then
+			for temp_1 = 4500 to 13500 step 4500
+				spawn_entity (wizball_normal_bullet,0,0,process_next)
+				let last_child.opengl_angle = temp_1
+				let last_child.bullet_type = 3
+			next
+		else
+			for temp_1 = 22500 to 31500 step 4500
+				spawn_entity (wizball_normal_bullet,0,0,process_next)
+				let last_child.opengl_angle = temp_1
+				let last_child.bullet_type = 3
+			next
+		end_if
+
+		let next_flip_vertical_firing_side = 1 - flip_vertical_firing_side
+
+	end_if
+
+return
+
+// ---------------- Collision Interaction ----------------
+
+.interaction_routine
+
+	if collided_entity.script_number = bonus_pearl then
+		PLAY_SOUND bonus_pearl_pickup 128 CONST_SOUND_FREQUENCY
+		let current_pickup_count = get_global_flag (player_bonus_pearl_count)
+		let current_pickup_count = current_pickup_count + 1 !> 7 ? 1
+		set_global_flag (player_bonus_pearl_count,current_pickup_count)
+	end_if
+
+	if getting_sucked_into_a_hole_flag = FALSE then
+
+		if collided_entity.COLLIDE_TYPE = ENT_TYPE_WARP_ZONE THEN
+			PLAY_SOUND wizball_warp_spin_up 255 CONST_SOUND_FREQUENCY
+
+			let warp_tube_id = collided_entity
+			LET getting_sucked_into_a_hole_flag = TRUE
+			LET warp_effect_counter = 0
+			LET warp_start_world_x = world_x
+			LET warp_start_world_y = world_y
+			let x_vel = 0
+			let y_vel = 0
+			let warp_spin_speed = 0
+
+			let temp_1 = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+			ADD_EVENT_TO_QUEUE ( temp_1 , LEVEL_RESET_FLAG_DISABLE_PAUSE )
+		end_if
+
+		if collided_entity.collide_type & ENT_TYPE_ENEMY_OR_ENEMY_BULLET then
+			let temp_1 = get_global_flag (currently_on_bonus_level)
+
+			if temp_1 = true then
+				// Don't die, just tell the main_game_controller to carry on.
+				let temp_2 = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+
+				if temp_2 != CONST_UNSET then
+					ADD_EVENT_TO_QUEUE ( temp_2 , LEVEL_RESET_FLAG_WIZBALL_FINISHED )
+
+					PLAY_SOUND wizball_explode_bonus_level 255 CONST_SOUND_FREQUENCY 128
+
+					SPAWN_ENTITY (particle_wizball_explode,0,0,process_next)
+					kill_entity own_id
+				else
+					stop
+				end_if
+			else
+				// Erk! I'm dead!
+
+				let temp_2 = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+
+				if temp_2 != CONST_UNSET then
+					ADD_EVENT_TO_QUEUE ( temp_2 , LEVEL_RESET_FLAG_PLAYER_DEAD )
+
+					PLAY_SOUND wizball_explode 255 CONST_SOUND_FREQUENCY 128
+
+					SPAWN_ENTITY (particle_wizball_explode,0,0,process_next)
+					kill_entity own_id
+				else
+					stop
+				end_if
+
+			end_if
+		end_if
+
+	end_if
+
+end
+
+// ---------------- World Collision Interaction ----------------
+
+.hitwall_routine
+
+	if WORLD_HIT_AXIS = HORIZONTAL_AXIS then
+		gosub hit_side
+	else
+		gosub hit_floor_or_roof
+	end_if
+
+end
+
+.hit_floor_or_roof
+
+	let temp_1 = ABS (y_vel)
+	let temp_2 = UNLERP (0, top_private_vel, temp_1)
+	let temp_1 = 96 % temp_2 !> 96
+
+	PLAY_SOUND wizball_bounce temp_1 CONST_SOUND_FREQUENCY
+
+	if movement_style != full_controlled_movement then
+
+		let x_vel = ideal_x_vel
+
+		let temp_1 = sgn y_vel // This is the direction we'll be moving off in, but how fast? HOW FAST?!
+
+		// Use the old s = (a * t * t) / 2 formula to find "t".
+		// t = sqrt ( (2 * s) / a)
+
+		let temp_2 = WIZBALL_START_Y << bitshift
+		let temp_2 = y - temp_2 // temp_2 now equals "s" in the formula. ie, the distance travelled.
+		let temp_2 = temp_2 * 2
+		let temp_2 = temp_2 / y_acc
+		let temp_2 = sqr temp_2 // Okay, now we have "t"
+
+		// So we use the old velocity = accelleration * time
+
+		let y_vel = y_acc * temp_2
+		let y_vel = y_vel * temp_1
+
+	else
+
+		// Just let it bounce... But top up the speed to at least a certain level so we don't get "grinding"
+
+		let temp_1 = abs y_vel
+
+		if temp_1 < WIZBALL_MINIMUM_VERTICAL_BOUNCE_SPEED then
+			let temp_1 = sgn (y_vel)
+			let y_vel = temp_1 * WIZBALL_MINIMUM_VERTICAL_BOUNCE_SPEED 
+		end_if
+
+	end_if
+
+//	let temp_1 = get_global_flag (freak_out_manager_entity_id)
+//	if temp_1 != CONST_UNSET then
+//		ADD_EVENT_TO_QUEUE ( temp_1 , FREAKOUT_EVENT_SMALL_BUMP )
+//	end_if
+
+return
+
+.hit_side
+	// This is called after the main program itself has bounced the value of x_vel.
+
+	let temp_1 = ABS (x_vel)
+	let temp_2 = UNLERP (0, top_private_vel, temp_1)
+	let temp_1 = 96 % temp_2 !> 96
+
+	PLAY_SOUND wizball_bounce temp_1 CONST_SOUND_FREQUENCY
+
+	if movement_style = basic_bounce_movement then
+
+		let temp_1 = ideal_x_vel * x_vel
+
+		if temp_1 < 0 then // The two velocities were opposite signs, so we need to fully reflect the x velocity.
+			let x_vel = -ideal_x_vel
+			let ideal_x_vel = x_vel
+		else // The player was spinning Wizball in the direction in readiness for the hit, so we can just use the new ideal velocity.
+			let x_vel = ideal_x_vel
+		end_if
+
+
+	else
+
+		let temp_1 = abs x_vel
+
+		if temp_1 < WIZBALL_MINIMUM_HORIZONTAL_BOUNCE_SPEED then
+			let temp_1 = sgn (x_vel)
+			let x_vel = temp_1 * WIZBALL_MINIMUM_HORIZONTAL_BOUNCE_SPEED
+		end_if
+
+		let ideal_x_vel = x_vel
+
+	end_if
+
+	let temp_1 = get_global_flag (freak_out_manager_entity_id)
+	if temp_1 != CONST_UNSET then
+		ADD_EVENT_TO_QUEUE ( temp_1 , FREAKOUT_EVENT_LARGE_BUMP )
+	end_if
+
+return
+
+// ---------------- Update Wobble Status ----------------
+
+.update_wobble
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,FIRE_2) then
+		gosub select_icon
+		let wobble_reset_countdown = 0
+	END_IF
+
+	if allow_movement = true then
+
+		IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,LEFT) then
+
+			if wobble_next_direction = next_wobble_either then
+				let wobble_next_direction = next_wobble_right
+				let wobble_counter = wobble_counter + 1
+				let wobble_reset_countdown = WIZBALL_WOBBLE_DELAY
+			else_if wobble_next_direction = next_wobble_left then
+				let wobble_next_direction = next_wobble_right
+				let wobble_counter = wobble_counter + 1
+				let wobble_reset_countdown = WIZBALL_WOBBLE_DELAY
+			else
+				let wobble_counter = 0
+				let wobble_reset_countdown = 0
+			end_if
+
+		end_if
+
+		IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,RIGHT) then
+
+			if wobble_next_direction = next_wobble_either then
+				let wobble_next_direction = next_wobble_left
+				let wobble_counter = wobble_counter + 1
+				let wobble_reset_countdown = WIZBALL_WOBBLE_DELAY
+			else_if wobble_next_direction = next_wobble_right then
+				let wobble_next_direction = next_wobble_left
+				let wobble_counter = wobble_counter + 1
+				let wobble_reset_countdown = WIZBALL_WOBBLE_DELAY
+			else
+				let wobble_counter = 0
+				let wobble_reset_countdown = 0
+			end_if
+
+		end_if
+
+		if wobble_counter = WIZBALL_BONUS_SELECTION_WOBBLE_THRESHOLD then
+			gosub select_icon
+			let wobble_reset_countdown = 0
+			// Falls through to next bit to reset counters...
+		end_if
+
+	end_if
+
+	let wobble_reset_countdown = wobble_reset_countdown - 1 !< 0
+
+	if wobble_reset_countdown = 0 then
+		let wobble_counter = 0
+		let wobble_next_direction = next_wobble_either
+	end_if
+
+return
+
+
+// ---------------- Pre-equip Wizball ----------------
+
+.pre_equip_wizball
+
+	gosub set_up_movement
+
+	if weapon_collection & INVULNERABILITY_BITFLAG then
+
+		if parent.script_number = wizball_new_life_appear then
+			// It's a new life! Woo! so we're toppin gup the shield for sure!
+
+			spawn_entity (wizball_shield_bubble_layer, 0, 0, process_next)
+			set_global_flag (wizball_shield_stored_health, SHIELD_STARTING_ENERGY)
+
+			// Check we have a catellite before spawning a shield for him...
+
+			IF weapon_collection & CATELLITE_BITFLAG then
+				spawn_entity (catellite_shield_swirl_layer, 0, 0, process_next)
+				set_global_flag (cat_shield_stored_health, SHIELD_STARTING_ENERGY)
+
+				let weapon_collection = weapon_collection OR CATELLITE_INVULNERABILITY_BITFLAG
+				set_global_flag (wizball_current_loadout , weapon_collection)
+			END_IF
+
+		else
+			spawn_entity (wizball_shield_bubble_layer, 0, 0, process_next)
+
+			// Check we have a catellite before spawning a shield for him...
+
+			IF weapon_collection & CATELLITE_BITFLAG then
+				// Check he should have a shield (as his bitflag is independant of the player's)
+
+				if weapon_collection & CATELLITE_INVULNERABILITY_BITFLAG then
+					spawn_entity (catellite_shield_swirl_layer, 0, 0, process_next)
+				end_if
+			END_IF
+		end_if
+
+	end_if
+
+	// Spawn Catellite afterwards (but before) so catellite shield doesn't bork out.
+	if weapon_collection & CATELLITE_BITFLAG then
+		if_flag (game_mode_single_player = TRUE) then
+			spawn_entity (catellite,0,0,process_next)
+		else
+			spawn_entity (catellite_two_player,0,0,process_next)
+		end_if
+
+		if parent.script_number = wizball_new_life_appear then
+			set_global_flag (catellite_stored_health,CATELLITE_STARTING_ENERGY)
+
+			// Reset the mutant flag so he isn't born mad.
+			set_global_flag (mutant_cat_flag,0)
+		end_if
+
+	end_if
+
+	// Hmm, not much to do at all. Cripes.
+
+return
+
+// ---------------- Icon Selection ----------------
+
+.select_icon
+
+	let temp_1 = false
+
+	switch current_pickup_count
+
+		case 1 // Horizontal and Vertical Control - wooters!
+			
+			if weapon_collection !& LATERAL_CONTROL_BITFLAG then
+				let weapon_collection = weapon_collection or LATERAL_CONTROL_BITFLAG
+				gosub set_up_movement
+				let temp_1 = true
+			else_if weapon_collection !& VERTICAL_CONTROL_BITFLAG then
+				let weapon_collection = weapon_collection or VERTICAL_CONTROL_BITFLAG
+				gosub set_up_movement
+				let temp_1 = true
+			end_if
+
+		break
+
+		case 2 // Shield and Reverse Fire
+
+			if weapon_collection !& SHIELD_FIRE_BITFLAG then
+				let weapon_collection = weapon_collection or SHIELD_FIRE_BITFLAG
+				let temp_1 = true
+			else_if weapon_collection !& REAR_FIRE_BITFLAG then
+				let weapon_collection = weapon_collection or REAR_FIRE_BITFLAG
+				let temp_1 = true
+			end_if
+
+		break
+
+		case 3 // Catellites
+
+			if weapon_collection !& CATELLITE_BITFLAG then
+
+				// Just about spawned a Catellite, spawn a shield which he'll be immediately processed before.
+				if weapon_collection & INVULNERABILITY_BITFLAG then
+					spawn_entity (catellite_shield_swirl_layer, 0, 0, process_next)
+				end_if
+
+				let weapon_collection = weapon_collection or CATELLITE_BITFLAG
+				let temp_1 = true
+
+				if_flag (game_mode_single_player = TRUE) then
+					spawn_entity (catellite,0,0,process_next)
+				else
+					spawn_entity (catellite_two_player,0,0,process_next)
+				end_if
+
+				set_global_flag (catellite_stored_health,CATELLITE_STARTING_ENERGY)
+
+				// Reset the mutant flag so he isn't born mad.
+				set_global_flag (mutant_cat_flag,0)
+
+			end_if
+
+		break
+
+		case 4 // Double Fire
+
+			if weapon_collection !& DOUBLE_FIRE_BITFLAG then
+				let weapon_collection = weapon_collection or DOUBLE_FIRE_BITFLAG
+				let temp_1 = true
+			end_if
+
+		break
+
+		case 5 // Spray
+
+			if weapon_collection !& WIZ_SPREAD_FIRE_BITFLAG then
+				let weapon_collection = weapon_collection or WIZ_SPREAD_FIRE_BITFLAG
+				let weapon_collection = weapon_collection AND !CAT_SPREAD_FIRE_BITFLAG
+			else
+				let weapon_collection = weapon_collection or CAT_SPREAD_FIRE_BITFLAG
+				let weapon_collection = weapon_collection AND !WIZ_SPREAD_FIRE_BITFLAG
+			end_if
+
+			let temp_1 = true
+
+		break
+
+		case 6 // Smart Bomb
+
+			PLAY_SOUND smart_bomb 255 CONST_SOUND_FREQUENCY 128
+
+			spawn_entity (smart_bomb_shockwave,0,0,process_next)
+			let last_child.x_vel = -8
+			spawn_entity (smart_bomb_shockwave,0,0,process_next)
+			let last_child.x_vel = 8
+
+			let temp_1 = true
+
+		break
+
+		case 7 // Invulnerability!
+
+			if weapon_collection !& INVULNERABILITY_BITFLAG then
+				// Okay, Wizball doesn't have shield on...
+
+				let weapon_collection = weapon_collection or INVULNERABILITY_BITFLAG
+				spawn_entity (wizball_shield_bubble_layer, 0, 0, process_next)
+				set_global_flag (wizball_shield_stored_health, SHIELD_STARTING_ENERGY)
+
+				IF weapon_collection & CATELLITE_BITFLAG then
+					if weapon_collection !& CATELLITE_INVULNERABILITY_BITFLAG then
+						// Catellite doesn't have a shield. Aw... Give him a shield and update the weapon collection so it knows.
+						let weapon_collection = weapon_collection or CATELLITE_INVULNERABILITY_BITFLAG
+						set_global_flag (wizball_current_loadout , weapon_collection)
+
+						spawn_entity (catellite_shield_swirl_layer, 0, 0, process_next)
+						set_global_flag (cat_shield_stored_health, SHIELD_STARTING_ENERGY)
+					else
+						// Catellite does have a shield! Woo!
+						set_global_flag (cat_shield_stored_health, SHIELD_STARTING_ENERGY)
+					end_if
+				END_IF
+
+			else
+				// If wizzy has a shield, then we just top up it's energy...
+
+				set_global_flag (wizball_shield_stored_health, SHIELD_STARTING_ENERGY)
+
+				IF weapon_collection & CATELLITE_BITFLAG then
+					if weapon_collection !& CATELLITE_INVULNERABILITY_BITFLAG then
+						// Catellite doesn't have a shield. Aw... Give him a shield and update the weapon collection so it knows.
+						let weapon_collection = weapon_collection or CATELLITE_INVULNERABILITY_BITFLAG
+						set_global_flag (wizball_current_loadout , weapon_collection)
+
+						spawn_entity (catellite_shield_swirl_layer, 0, 0, process_next)
+						set_global_flag (cat_shield_stored_health, SHIELD_STARTING_ENERGY)
+					else
+						// Catellite does have a shield! Woo!
+						set_global_flag (cat_shield_stored_health, SHIELD_STARTING_ENERGY)
+					end_if
+				END_IF
+			end_if
+
+			let temp_1 = true
+		break
+
+	end_switch
+
+	if temp_1 = true then
+		let current_pickup_count = 0
+		PLAY_SOUND bonus_selection 255 CONST_SOUND_FREQUENCY
+		set_global_flag (player_bonus_pearl_count,current_pickup_count)
+	end_if
+
+	set_global_flag (wizball_current_loadout , weapon_collection)
+
+return
+
+// ---------------- Update Shield Counter ----------------
+
+.update_shield_counter
+
+	let temp_1 = get_global_flag (wizball_shield_stored_health)
+	let temp_1 = temp_1 - 1 !< 0
+	set_global_flag (wizball_shield_stored_health,temp_1)
+
+	if temp_1 = 0 then
+		let weapon_collection = weapon_collection AND !INVULNERABILITY_BITFLAG
+	end_if
+
+	let temp_1 = get_global_flag (cat_shield_stored_health)
+	let temp_1 = temp_1 - 1 !< 0
+	set_global_flag (cat_shield_stored_health,temp_1)
+
+	if temp_1 = 0 then
+		let weapon_collection = weapon_collection AND !CATELLITE_INVULNERABILITY_BITFLAG
+	end_if
+
+return
+
+// ---------------- Movement Set-up ----------------
+
+.set_up_movement
+
+	if weapon_collection & LATERAL_CONTROL_BITFLAG then
+		if weapon_collection & VERTICAL_CONTROL_BITFLAG then
+			let movement_style = full_controlled_movement
+		else
+			let movement_style = controlled_bounce_movement
+		end_if
+	else
+		let movement_style = basic_bounce_movement
+	end_if
+
+	if movement_style != full_controlled_movement then
+		let y_acc = WIZBALL_GRAVITY_STRENGTH
+	else
+		let y_acc = 0
+	end_if
+
+return
+
+// ---------------- Player Demise ----------------
+
+.player_deaded
+
+set_global_flag (player_bonus_pearl_count,0)
+
+set_global_flag (wizball_entity_id_flag,CONST_UNSET) // So they all stop looking at me... STOP LOOKING AT ME!
+
+// ---------------- Debug Stuff ----------------
+
+.debug_stuff
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1, DEBUG_8) then
+		gosub add_bonus_pearl
+	END_IF
+
+//	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1, DEBUG_9) then
+//		gosub select_icon
+//	END_IF
+//
+//	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1, DEBUG_10) then
+//		spawn_entity (freakout_effect_manager,0,0,process_next)
+//	END_IF
+
+	return
+
+.add_bonus_pearl
+
+	let current_pickup_count = get_global_flag (player_bonus_pearl_count)
+	let current_pickup_count = current_pickup_count + 1 !> 7 ? 1
+	set_global_flag (player_bonus_pearl_count,current_pickup_count)
+
+	return
+
+
+
+
+

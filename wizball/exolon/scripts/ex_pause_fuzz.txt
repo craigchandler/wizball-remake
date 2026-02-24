@@ -1,0 +1,51 @@
+#define FADE_IN			0
+#define STABLE			1
+#define FADE_OUT		2
+
+#define FADE_IN_SPEED		15
+#define FADE_OUT_SPEED		15
+#define MAX_ALPHA		128
+
+#define behaviour		v0
+
+	let behaviour = FADE_IN
+
+	let base_frame = 0
+	let current_frame = base_frame
+	let interpolated_frame = 1
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = PAUSE_FUZZ[ARB]
+
+	let draw_mode = DRAW_MODE_INTERP_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_MULTIPLY + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let opengl_vertex_alpha = 0
+
+	let draw_order = 0
+	
+start
+
+	let INTERPOLATION_X_PERCENTAGE = rand (0,10000)
+	let INTERPOLATION_Y_PERCENTAGE = rand (0,10000)
+
+	if behaviour = FADE_IN then
+		let opengl_vertex_alpha = opengl_vertex_alpha + FADE_IN_SPEED !> MAX_ALPHA
+		if opengl_vertex_alpha = MAX_ALPHA then
+			let behaviour = STABLE
+		end_if
+	else_if behaviour = FADE_OUT then
+		let opengl_vertex_alpha = opengl_vertex_alpha - FADE_OUT_SPEED !< 0
+		if opengl_vertex_alpha = 0 then
+			kill_entity own_id
+		end_if
+	end_if
+
+	if parent.signal = 1 then
+		if behaviour = STABLE then
+			let behaviour = FADE_OUT
+		end_if
+	end_if
+
+end

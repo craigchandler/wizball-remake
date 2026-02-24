@@ -1,0 +1,85 @@
+// Start the music, baby!
+
+#define music_volume			v16
+
+let music_volume = GET_GLOBAL_MUSIC_VOLUME
+
+if music_volume > 0 then
+	let temp_1 = PLAY_MUSIC_STREAM_GET_HANDLE (ingame,255,CONST_IN_GAME_MUSIC_FREQUENCY,128,-1)
+	set_global_flag (in_game_tune_channel,temp_1)
+else
+	set_global_flag (in_game_tune_channel,CONST_UNSET)
+end_if
+
+// a flag will hold the level we want to go to...
+
+#define level_index v23
+#define first_level v1
+#define player_id v0
+#define level_number v2
+#define highest_level v3
+
+let world_x = 0
+let world_y = 0
+
+SET_PRIVATE_CO_ORDS
+
+set_global_flag (Rocket_in_flight, 0)
+
+// First of all see if we've managed to get to a level we've never reached before.
+
+let highest_level = get_global_flag (highest_level_reached)
+
+let level_number = get_global_flag (level_number_flag)
+
+if level_number > highest_level then
+	set_global_flag (highest_level_reached, level_number)
+end_if
+
+let first_level = level01
+let level_index = level_number + first_level
+
+// Set the level_flag_plus_one up for the in-game display
+
+let temp_1 = level_number * 25
+set_global_flag (player_zone_number, temp_1)
+
+let draw_order = 7
+
+SET_CURRENT_COLLISION_TILEMAP level_index
+set_global_flag (current_level_flag,level_index)
+SETUP_COLLISION_SYSTEM_SIZE_BY_COLLISION_MAP 6
+
+let window_number = GAME_MAIN_WINDOW
+
+enable_window GAME_MAIN_WINDOW
+
+// Just in case we somehow managed to exit during the end of level flipper
+set_window_scale window_number 10000 10000 0 0
+SET_WINDOW_VERTEX_COLOUR 0 0 0
+DISABLE_WINDOW_VERTEX_COLOUR
+
+spawn_entity ex_game_window_handler_flipscreen 0 0 PROCESS_LAST
+
+let current_zone = GET_CURRENT_ZONE world_x world_y game_room_zone
+
+SPAWN_ENTITIES_IN_ZONE current_zone PROCESS_FIRST player
+
+set_global_flag (player_entity_id , last_child)
+
+let player_id = last_child
+
+let player_id.level_index = level_index
+
+wait 1
+
+set_global_flag (Start_position_x, player_id.world_x)
+set_global_flag (Start_position_y, player_id.world_y)
+
+let draw_order = 7
+spawn_entity ex_game_starfield 0 0 PROCESS_NEXT
+let last_child.parent = player_id
+
+spawn_entity ex_pause_game_handler,0,0,process_last
+
+kill_entity own_id

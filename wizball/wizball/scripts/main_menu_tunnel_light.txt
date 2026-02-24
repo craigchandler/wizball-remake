@@ -1,0 +1,67 @@
+#define pulse_counter		v0
+#define pulse_counter_speed	v1
+#define spin_speed		v2
+
+#define target_vertex_alpha	v3
+
+#define current_menu_entity_id	v4
+
+	LET ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let world_x = 320
+	let world_y = 240
+
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = title_screen_and_large_bits[arb]
+	let base_frame = 23
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let draw_order = MENU_BACKGROUND_GLOW_DRAW_ORDER
+
+	let spin_speed = rand (150,250)
+	let spin_speed = rand_sign (spin_speed)
+	let pulse_counter_speed = rand (150,250)
+
+	let opengl_angle = rand (0,35999)
+	let pulse_counter = rand (0,35999)
+
+	let opengl_vertex_alpha = 128
+	let opengl_vertex_red = 128
+	let opengl_vertex_green = 192
+	let opengl_vertex_blue = 256
+
+	let target_vertex_alpha = 128
+
+start
+
+	let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+	if current_menu_entity_id != CONST_UNSET then
+		if current_menu_entity_id.signal & SLEEP_TUNNEL_LIGHT then
+			let target_vertex_alpha = 64
+		else_if current_menu_entity_id.signal & WAKE_TUNNEL_LIGHT then
+			let target_vertex_alpha = 128
+		end_if
+	end_if
+
+	if opengl_vertex_alpha < target_vertex_alpha then
+		let opengl_vertex_alpha = opengl_vertex_alpha + 5 !> target_vertex_alpha
+	else_if opengl_vertex_alpha > target_vertex_alpha then
+		let opengl_vertex_alpha = opengl_vertex_alpha - 5 !< target_vertex_alpha
+	end_if
+
+	let opengl_angle = opengl_angle + spin_speed
+
+	let temp_1 = 2000 sin pulse_counter
+	let pulse_counter = pulse_counter + pulse_counter_speed !< 0 !> 36000
+
+	let opengl_scale_x = 10000 + temp_1
+	let opengl_scale_y = opengl_scale_x 
+end

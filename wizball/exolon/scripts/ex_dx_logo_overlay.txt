@@ -1,0 +1,53 @@
+#define overlay_id	v0
+
+spawn_entity ex_standard_overlay 0 0 PROCESS_NEXT
+let last_child.secondary_frame = 4
+let last_child.INTERPOLATED_FRAME = 4
+let last_child.passed_param_1 = parent
+let last_child.passed_param_2 = OPENGL_BOOLEAN_BLEND_add
+let overlay_id = last_child
+
+let signal = 0
+
+let overlay_id.INTERPOLATION_X_PERCENTAGE = 0
+let overlay_id.INTERPOLATION_Y_PERCENTAGE = 0
+
+let counter = 0
+
+start
+	if overlay_id.opengl_vertex_alpha > 0 then
+		let overlay_id.opengl_vertex_alpha = overlay_id.opengl_vertex_alpha - 5
+	else
+		goto next_phase
+	end_if
+
+	if parent.signal = 1 then
+		goto kill_overlay
+	end_if
+end
+
+.next_phase
+
+let counter = 18000
+
+start
+	let overlay_id.opengl_vertex_alpha = 50 cos counter
+	let overlay_id.opengl_vertex_alpha = overlay_id.opengl_vertex_alpha + 50
+
+	let counter = counter + 100
+
+	if parent.signal = 1 then
+		goto kill_overlay
+	end_if
+end
+
+.kill_overlay
+
+start
+	let overlay_id.opengl_vertex_alpha = overlay_id.opengl_vertex_alpha - 5 !< 0
+
+	if overlay_id.opengl_vertex_alpha = 0 then
+		let overlay_id.signal = 1
+		kill_entity own_id
+	end_if
+end

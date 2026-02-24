@@ -1,0 +1,149 @@
+#define message_ended		v39
+
+#define progress		v30
+#define progress_speed		v31
+#define scroller_id		v32
+#define c2_ship_id		v33
+#define planet_id		v34
+
+#define death_countdown		v35
+
+#define spawned_planet		v0
+
+#define draw_order_cycle	v1
+
+#define effect_stage		passed_param_1
+#define ending_scroller		1
+
+//toggle_debug
+
+kill_entities select_by_genocide
+
+set_global_flag (player_data_holder_id,CONST_UNSET) // Because it doesn't exist now and so it stops the next play-through forking up.
+
+let draw_order = 0
+
+fade_persistant_channels
+
+disable_window GAME_MAIN_WINDOW
+disable_window GAME_PANEL_WINDOW
+
+wait 1
+
+LET WINDOW_NUMBER = GAME_MAIN_WINDOW
+SET_WINDOW_POSITION_AND_SIZE (0, 0, 640, 416)
+SET_WINDOW_MAP_POSITION (0, 0)
+
+LET WINDOW_NUMBER = GAME_PANEL_WINDOW
+SET_WINDOW_POSITION_AND_SIZE (0, 416, 640, 64)
+SET_WINDOW_MAP_POSITION (0, 0)
+
+let window_number = MENU_WINDOW
+enable_window MENU_WINDOW
+
+SET_WINDOW_POSITION_AND_SIZE (0, 0, 640, 480)
+SET_WINDOW_MAP_POSITION (0, 0)
+
+let world_x = 0
+let world_y = 0
+
+set_private_co_ords
+
+wait 1
+
+spawn_entity (ex_completion_nebula,0,0,process_next)
+spawn_entity (ex_completion_starfield,0,0,process_next)
+
+let progress_speed = 1
+let progress = 0
+
+let counter = 0
+
+let draw_order_cycle = 20
+
+let spawned_planet = false
+
+start
+	let progress = progress + progress_speed
+
+	let counter = counter + 1
+
+	if counter < 200 then
+		let progress_speed = progress_speed + 1
+	end_if
+
+	if counter = 60 then
+		spawn_entity (ex_big_c2_ship,0,480,process_next)
+		let c2_ship_id = last_child
+		let c2_ship_id.effect_stage = ending_scroller
+		spawn_entity (ex_completion_scrolly_message,0,0,process_next)
+		let scroller_id = last_child
+	end_if
+
+	if message_ended = 0 then
+		let message_ended = scroller_id.message_ended
+	else
+		let c2_ship_id.message_ended = message_ended
+
+		let death_countdown = death_countdown + 1
+
+		if death_countdown = 1130 then
+			spawn_entity (ex_the_end,0,0,process_next)
+		end_if
+
+		if death_countdown > 1600 then
+			let planet_id.signal = 1
+			goto final_section
+		end_if
+
+		if spawned_planet = false then
+			let spawned_planet = true
+			spawn_entity (ex_ending_planet,0,0,process_next)
+			let planet_id = last_child
+			let death_countdown = 0
+			// Also use this opportunity to fade the music out...
+			spawn_entity (ex_fade_completion_music,0,0,process_next)
+		end_if
+
+		if c2_ship_id.counter > 700 then
+			let temp_1 = c2_ship_id.counter mod 5
+			if temp_1 = 0 then
+				let progress_speed = progress_speed - 1 !< 50
+			end_if
+		end_if
+	end_if
+
+	let temp_1 = rand 0 5000
+
+	if temp_1 < progress_speed then
+		let temp_1 = rand -128,608
+		spawn_entity (ex_completion_asteroid,672,temp_1,process_next)
+		let last_child.draw_order = draw_order_cycle
+		let draw_order_cycle = draw_order_cycle + 1 !> 35 ? 20
+	end_if
+
+	let temp_1 = rand 0 5000
+
+	if temp_1 < progress_speed then
+		let temp_1 = rand 0,640
+		let temp_2 = rand 0,480
+		spawn_entity (ex_explode_firework,temp_1,temp_2,process_next)
+	end_if
+
+
+
+
+
+end
+
+
+
+.final_section
+
+let counter = 0
+
+start
+
+	
+
+end

@@ -1,0 +1,1057 @@
+// This script will house the menu functions. Eventually...
+
+#define currently_selected		passed_param_1
+#define suspend_selector		passed_param_2
+#define first_option_y			v0
+#define option_gap_y			v1
+#define max_option			v2
+#define target_y			v3
+
+#define surround_id			v0
+#define pending_hiscore			v1
+
+#define inner_window_half_width		v2
+#define inner_window_half_height	v3
+
+#define credit_counter			v4
+#define current_credit_title		v5
+#define current_credit_name		v6
+
+#define redefining_control_number	v7
+#define redefining_control_index	v8
+#define redefining_phase		v9
+
+#define control_device_number		v10
+#define control_device_button_or_stick	v11
+#define control_device_port		v12
+#define control_device_axis		v13
+
+#define text_counter			v14
+
+#define sound_volume			v15
+#define music_volume			v16
+
+#define sound_volume_bar_id		v17
+#define music_volume_bar_id		v18
+
+#define angular_offset			v0
+#define base_angle			v19
+#define base_distance			v20
+#define angle_gap			v21
+#define horizontal_ratio		v22
+#define selected_letter			v23
+#define current_hiscore_letter_frame	v24
+#define hiscore_entry_type		v25
+#define max_letter			v26
+#define hiscore_key_hit			v27
+
+#define current_position_in_name_array	v28
+
+#define target_base_angle		v29
+#define angle_difference		v30
+
+#define delete_symbol			v31
+#define return_symbol			v32
+
+#define window_colour_depth_status	v33
+
+#define colour_status_option_text_id	v34
+
+#define selector_id			v35
+
+#define max_level			v36
+
+#define level_select_active		v37
+
+#define current_start_level		v38
+#define current_level_entity		v39
+
+#define title_music_channel		v40
+
+#define volume_fader			v41
+#define volume_fade_speed		v42
+#define variable_exit_label		v43
+
+#define hiscore_music_channel		v44
+
+#define space_char			32
+
+#define max_name_length			14
+#define max_control_name_length		50
+
+#define use_rotational_hiscore_entry	0
+#define use_direct_hiscore_entry	1
+
+#define draw_name			0
+#define waiting_for_input		1
+#define draw_input			2
+#define pause_for_a_while		3
+
+#define skip_border_inflate		passed_param_1
+
+#define instant_version			passed_param_1
+#define collapse			passed_param_2
+
+#define rotation_speed			passed_param_1
+#define size				passed_param_2
+
+#define message_id			passed_param_1
+
+#define credit_speed				180
+#define credit_appearance_length		120
+
+#define pre_credit_delay			-120
+
+#define hiscore_array_id			0
+#define defined_control_name_array		1
+
+#define min_x					passed_param_1
+#define min_y					passed_param_2
+#define max_x					passed_param_3
+#define max_y					passed_param_4
+#define star_spawn_delay			passed_param_5
+
+let sound_volume = GET_GLOBAL_SOUND_VOLUME
+let music_volume = GET_GLOBAL_MUSIC_VOLUME
+
+let pending_hiscore = get_global_flag (player_score)
+
+let temp_1 = GET_HISCORE (main_hiscore_table, LOWEST_SCORE)
+
+if pending_hiscore > temp_1 then
+	if music_volume > 0 then
+		let hiscore_music_channel = PLAY_MUSIC_STREAM_GET_HANDLE (hiscore,255,CONST_HISCORE_MUSIC_FREQUENCY,128,-1)
+	else
+		let hiscore_music_channel = CONST_UNSET
+	end_if
+
+	add_retrospec_hiscore (main_hiscore_table,pending_hiscore)
+
+	set_global_flag (hiscore_tune_channel,hiscore_music_channel)
+else
+	if music_volume > 0 then
+		let title_music_channel = PLAY_MUSIC_STREAM_GET_HANDLE (title,255,CONST_TITLE_MUSIC_FREQUENCY,128,-1)
+	else
+		let title_music_channel = CONST_UNSET
+	end_if
+end_if
+
+spawn_entity ex_main_menu_selector,0,0,process_next
+let selector_id = last_child
+
+let credit_counter = pre_credit_delay
+let current_credit_title = credit_start_tag
+
+create_array hiscore_array_id max_name_length
+create_array defined_control_name_array max_control_name_length
+
+let draw_order = 10
+
+spawn_entity (ex_main_menu_surround, 0, 0, process_next)
+
+let surround_id = last_child
+
+let counter = 0
+
+let signal = business_as_usual
+
+if skip_border_inflate = 1 then
+	let last_child.instant_version = 1
+	goto start_menu_without_pause
+end_if
+
+//toggle_debug
+
+wait 30
+
+.start_menu
+
+let signal = business_as_usual
+
+wait 30
+
+.start_menu_without_pause
+
+let pending_hiscore = get_global_flag (player_score)
+
+let temp_1 = GET_HISCORE (main_hiscore_table, LOWEST_SCORE)
+
+if pending_hiscore > temp_1 then
+	// The last player scored a hiscore! WOOOOOO!
+	goto enter_hiscore
+end_if
+
+let window_colour_depth_status = get_global_flag (next_window_colour_depth_status)
+
+let max_level = get_global_flag (highest_level_reached)
+let current_start_level = max_level
+
+let current_start_level = get_global_flag (start_level_store)
+
+if current_start_level = CONST_UNSET then
+	let current_start_level = max_level
+end_if
+
+
+if max_level > 0 then
+	let level_select_active = true
+else
+	let level_select_active = false
+end_if
+
+gosub set_main_menu_selector_data
+
+start
+	let counter = counter + 1
+
+	gosub cycle_credits
+
+	if counter = 1 then
+		spawn_entity ex_menu_vortex 0 0 process_next
+		let last_child.rotation_speed = 100
+		let last_child.size = 10000
+	else_if counter = 20 then
+		spawn_entity ex_menu_vortex 0 0 process_next
+		let last_child.rotation_speed = 100
+		let last_child.size = 8000
+
+		gosub draw_main_menu_options
+		
+		spawn_entity (ex_star_generator, 0, 0, process_next)
+		let last_child.min_x = 48
+		let last_child.min_y = 208
+		let last_child.max_x = 144
+		let last_child.max_y = 384
+		let last_child.star_spawn_delay = 2
+	else_if counter = 40 then
+		spawn_entity (ex_menu_vortex, 0, 0, process_next)
+		let last_child.rotation_speed = 100
+		let last_child.size = 6000
+		spawn_entity (ex_menu_scrolly_message, 0, 0, process_next)
+		let temp_1 = get_global_flag (start_level_adder)
+		if temp_1 = 0 then
+			let last_child.message_id = MENU_SCROLLY_1
+		else
+			let last_child.message_id = MENU_SCROLLY_2
+		end_if
+		spawn_entity (ex_exolon_logo, 0, 0, process_next)
+	end_if
+
+	if counter > 40 then
+		let selector_id.suspend_selector = 0
+
+		// Now we check for menu button presses. Woot! WOOT DAMMIT!
+
+		IF_INPUT_KEYBOARD_HIT key_1 then
+			goto start_game
+		end_if
+
+		IF_INPUT_KEYBOARD_HIT key_2 then
+			goto select_options
+		end_if
+
+		IF_INPUT_KEYBOARD_HIT key_3 then
+			goto show_hiscores
+		end_if
+
+		IF_INPUT_KEYBOARD_HIT key_4 then
+			goto quit_game
+		end_if
+
+		if level_select_active = true then
+			IF_INPUT_KEYBOARD_HIT key_5 then
+				gosub cycle_start_level
+			end_if
+		end_if
+
+		IF_INPUT_KEYBOARD_HIT key_esc then
+			goto quit_game
+		end_if
+
+		if selector_id.signal = 1 then
+			switch selector_id.currently_selected
+
+				case 0
+					goto start_game
+				break
+
+				case 1
+					goto select_options
+				break
+
+				case 2
+					goto show_hiscores
+				break
+
+				case 3
+					goto quit_game
+				break
+
+				case 4
+					if level_select_active = true then
+						gosub cycle_start_level
+					else
+						stop
+					end_if
+				break
+
+			end_switch
+		end_if
+
+	end_if
+
+end
+
+.cycle_start_level
+
+	let current_start_level = current_start_level + 1 !> max_level ? 0
+
+	let temp_1 = current_start_level + 1
+	OVERWRITE_ENTITIES_FROM_NUMBER false,current_level_entity,temp_1,1,false
+
+	return
+
+
+
+.start_game
+	PLAY_SOUND menu_select 255 24000 128
+
+	let selector_id.suspend_selector = 1
+
+	let signal = destroy_everything_in_window
+
+	spawn_entity (ex_fade_music,0,0,process_next)
+	let last_child.passed_param_1 = title_music_channel
+	let last_child.passed_param_2 = title
+	let last_child.passed_param_3 = 5
+	let last_child.passed_param_4 = 255
+
+	wait 30
+
+	let signal = destroy_window_and_other_elements
+
+	wait 30
+
+	disable_window MENU_WINDOW
+
+	DESTROY_ALL_STARFIELDS
+
+	kill_entities SELECT_BY_GENOCIDE
+
+	wait 1
+
+	set_global_flag (start_level_store, current_start_level)
+
+	set_global_flag (game_level_started_on_for_error_demo, current_start_level)
+
+	set_global_flag (level_number_flag, current_start_level)
+
+	START_RECORDING_INPUT (1)
+//	toggle_debug
+//	LOAD_RECORDED_INPUT (1, game_demo)
+//	START_PLAYBACK_INPUT (1)
+
+	RESET_ENTITIES ex_launch_play
+
+	kill_entity own_id
+
+
+
+.show_hiscores
+	PLAY_SOUND menu_select 255 22000 128
+
+	let selector_id.suspend_selector = 1
+
+	let signal = destroy_everything_in_window
+
+	wait 60
+
+	let signal = business_as_usual
+
+	spawn_entity (ex_star_generator, 0, 0, process_next)
+	let last_child.min_x = 48
+	let last_child.min_y = 64
+	let last_child.max_x = 96
+	let last_child.max_y = 416
+	let last_child.star_spawn_delay = 1
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_hiscore_text, HISCORE_TABLE, process_next, center_x, 320, 48, 16, 0)
+	SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_hiscore_text, PRESS_ANY_KEY, process_next, center_x, 320, 416, 16, 0)
+
+	wait 30
+
+	let counter = 0
+
+	start
+
+		let temp_1 = counter mod 10
+
+		if temp_1 = 0 then
+			let temp_2 = counter / 10
+			if temp_2 < 16 then
+				let temp_3 = temp_2 * 18
+				let temp_3 = temp_3 + 96
+				SPAWN_ENTITIES_FROM_HISCORE (FALSE,0,ex_menu_hiscore_text, process_next, center_x, MAIN_HISCORE_TABLE, temp_2, TRUE, TRUE, 4, 320, temp_3, 16, 0)
+			end_if
+		end_if		
+
+		let counter = counter + 1
+
+		IF_INPUT_KEYBOARD_HIT key_any then
+			goto hide_hiscores
+		end_if
+
+		IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 FIRE_1 then
+			goto hide_hiscores
+		end_if
+
+	end
+
+.hide_hiscores
+
+	let signal = destroy_everything_in_window
+
+	wait 30
+
+	let signal = business_as_usual
+
+	let counter = 0
+
+	goto start_menu
+
+.quit_game
+
+	spawn_entity (ex_fade_music,0,0,process_next)
+	let last_child.passed_param_1 = title_music_channel
+	let last_child.passed_param_2 = title
+	let last_child.passed_param_3 = 2
+	let last_child.passed_param_4 = 255
+
+	let temp_1 = player_die_1 // sfx
+	let temp_2 = rand 0 3
+	let temp_1 = temp_1 + temp_2 // random sfx now
+
+	play_sound temp_1 255 22050 128
+
+	let selector_id.suspend_selector = 1
+
+	let signal = destroy_everything_in_window
+
+	wait 30
+
+	let signal = destroy_window_and_other_elements
+
+	wait 30	
+
+	let surround_id.collapse = 1
+
+	wait 150
+
+	SAVE_HISCORE_TABLE (MAIN_HISCORE_TABLE,hiscore_file_tag)
+	spawn_entity (ex_save_config, 0, 0, PROCESS_NEXT)
+	spawn_entity (ex_save_game, 0, 0, PROCESS_NEXT)
+
+	wait 2
+
+	CLOSE_DOWN_SYSTEM
+
+	end
+
+// ---------------- OPTIONS ----------------
+
+.select_options
+	PLAY_SOUND menu_select 255 23000 128
+
+	let selector_id.first_option_y = 212
+	let selector_id.currently_selected = 0
+	let selector_id.option_gap_y = 24
+	let selector_id.max_option = 4
+	let selector_id.suspend_selector = 1
+
+	let signal = destroy_main_text
+
+	wait 30
+
+	let signal = business_as_usual
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, sub_option_1, process_next, center_x, 320, 204, 16, 0)
+	SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, sub_option_2, process_next, center_x, 320, 228, 16, 0)
+	SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, sub_option_3, process_next, center_x, 320, 252, 16, 0)
+	SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, sub_option_4, process_next, center_x, 320, 276, 16, 0)
+	SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, sub_option_5, process_next, center_x, 320, 300, 16, 0)
+
+	// Remember the last child's ID so that when we spawn the next load of text
+	// we can find the first child in it.
+	let colour_status_option_text_id = last_child
+
+	let temp_1 = window_colour_depth_status + GFX_OPTION_1 // Should now point at the right graphics text
+
+	SPAWN_ENTITIES_FROM_TEXT (TRUE,0,ex_menu_text, temp_1, process_next, center_x, 384, 276, 16, 0)
+
+	let colour_status_option_text_id = colour_status_option_text_id.next_sibling
+	// Should now point at first letter in just spawned text. I hope...
+
+	SPAWN_ENTITY (ex_menu_vu_bar, 440, 228, process_next)
+	let music_volume_bar_id = last_child
+
+	SPAWN_ENTITY (ex_menu_vu_bar, 440, 252, process_next)
+	let sound_volume_bar_id = last_child
+
+	let counter = 0
+
+	start
+
+		let temp_1 = sound_volume / 1250
+		let sound_volume_bar_id.current_frame = temp_1 + 92
+
+		let temp_1 = music_volume / 1250
+		let music_volume_bar_id.current_frame = temp_1 + 92
+
+		let counter = counter + 1
+
+		gosub cycle_credits
+
+		if counter > 40 then
+
+			let selector_id.suspend_selector = 0
+
+			// Now we check for menu button presses. Woot! WOOT DAMMIT!
+
+			IF_INPUT_KEYBOARD_HIT key_1 then
+				goto define_keys
+			end_if
+
+			IF_INPUT_KEYBOARD_HIT key_2 then
+				gosub alter_music_volume
+			end_if
+
+			IF_INPUT_KEYBOARD_HIT key_3 then
+				gosub alter_sfx_volume
+			end_if
+
+			IF_INPUT_KEYBOARD_HIT key_4 then
+				gosub alter_gfx_status
+			end_if
+
+			IF_INPUT_KEYBOARD_HIT key_5 then
+				goto back_to_main_menu
+			end_if
+
+			IF_INPUT_KEYBOARD_HIT key_esc then
+				goto back_to_main_menu
+			end_if
+
+			if selector_id.signal = 1 then
+				switch selector_id.currently_selected
+
+					case 0
+						goto define_keys
+					break
+
+					case 1
+						gosub alter_music_volume
+					break
+
+					case 2
+						gosub alter_sfx_volume
+					break
+
+					case 3
+						gosub alter_gfx_status
+					break
+
+					case 4
+						goto back_to_main_menu
+					break
+
+				end_switch
+			end_if
+
+		end_if
+
+		set_global_flag (next_window_colour_depth_status, window_colour_depth_status)
+
+	end
+
+.back_to_main_menu
+
+	if title_music_channel != CONST_UNSET then
+		if music_volume = 0 then
+			stop_music_stream (title)
+			let title_music_channel = CONST_UNSET
+		end_if
+	end_if
+
+	PLAY_SOUND menu_select 255 20000 128
+
+	let selector_id.suspend_selector = 1
+
+	let signal = destroy_main_text
+
+	wait 30
+
+	let signal = business_as_usual
+
+	let counter = 101 // So that it doesn't respawn all the menu gubbins
+
+	gosub draw_main_menu_options
+
+	goto start_menu
+
+.define_keys
+
+	PLAY_SOUND menu_select 255 24000 128
+
+	let selector_id.suspend_selector = 1
+
+	let signal = signal OR destroy_main_text
+
+	wait 30
+
+	let signal = signal AND !destroy_main_text
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_hiscore_text, DEFINE_KEYS, process_next, center_x, 320, 216, 16, 0)
+
+	let redefining_control_number = 0
+	let redefining_control_index = 0
+	let redefining_phase = draw_name
+
+	wait 60
+
+	start
+
+		switch redefining_phase
+
+			case draw_name
+				let signal = signal AND !destroy_defined_key_text
+				let temp_1 = control_1
+				let temp_1 = temp_1 + redefining_control_number
+
+				SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_defined_key_text, temp_1, process_next, center_x, 320, 264, 16, 0)
+
+				let redefining_control_index = redefining_control_number
+
+				if redefining_control_index > 3 then
+					let redefining_control_index = redefining_control_index + 1
+					// as we don't use the JUMP define, we skip over it.
+				end_if
+
+				let redefining_phase = waiting_for_input
+			break
+
+			case waiting_for_input
+				let temp_1 = DEFINE_PLAYER_CONTROL_FROM_KEYPRESS 0 redefining_control_index
+
+				if temp_1 = TRUE then
+					// We got a control hit! Woot!
+					let redefining_phase = draw_input
+				end_if
+			break
+
+			case draw_input
+				PLAY_SOUND define_key 255 24000 128
+				gosub draw_control_name
+				let redefining_phase = pause_for_a_while
+				let counter = 0
+			break
+
+			case pause_for_a_while
+				let counter = counter + 1
+
+				if counter = 80 then
+					let signal = signal OR destroy_defined_key_text
+				else_if counter = 110 then
+					let redefining_control_number = redefining_control_number + 1
+					let redefining_phase = draw_name
+				end_if
+			break
+
+		end_switch
+
+		if redefining_control_number = 6 then
+			// The jig's up!
+			goto wait_then_goto_options
+		end_if
+
+		gosub cycle_credits
+
+	end
+
+.wait_then_goto_options
+
+wait 1
+let selector_id.suspend_selector = 2
+goto select_options
+
+.draw_control_name
+
+	let text_counter = 0
+	reset_array own_id 0
+
+	// Have this as a separate bit for clarity so the switch above don't get to bloaty.
+
+	let control_device_number = GET_CONTROL_DEVICE 0 redefining_control_index
+
+	if control_device_number = CONTROL_DEVICE_KEYBOARD then
+
+		let control_device_button_or_stick = GET_CONTROL_BUTTON 0 redefining_control_index
+
+		LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , KEYBOARD_TAG, text_counter, FALSE)
+		let temp_2 = FIRST_KEYBOARD_KEY_TAG
+		let temp_2 = temp_2 + control_device_button_or_stick
+		LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , temp_2, text_counter, FALSE)
+
+	else_if control_device_number = CONTROL_DEVICE_JOYPAD then
+
+		let control_device_port = GET_CONTROL_PORT 0 redefining_control_index
+		let control_device_button_or_stick = GET_CONTROL_BUTTON 0 redefining_control_index
+		let temp_1 = JOYPAD_TAG + control_device_port
+		let temp_2 = BUTTON_1_TAG + control_device_button_or_stick
+		LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , temp_1, text_counter, FALSE)
+		LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , temp_2, text_counter, FALSE)
+
+	else_if control_device_number = CONTROL_DEVICE_MOUSE_BUTTONS then
+
+		// Summat here...
+
+	else // It's CONTROL_DEVICE_JOYSTICK_POS or CONTROL_DEVICE_JOYSTICK_NEG
+
+		let control_device_port = GET_CONTROL_PORT 0 redefining_control_index
+		let control_device_button_or_stick = GET_CONTROL_STICK 0 redefining_control_index
+		let control_device_axis = GET_CONTROL_AXIS 0 redefining_control_index
+
+		let temp_1 = JOYPAD_TAG + control_device_port
+		let temp_2 = STICK_1_TAG + control_device_button_or_stick
+		let temp_3 = AXIS_1_TAG + control_device_axis
+
+		LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , temp_1, text_counter, FALSE)
+		LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , temp_2, text_counter, FALSE)
+		LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , temp_3, text_counter, FALSE)
+
+		if control_device_number = CONTROL_DEVICE_JOYSTICK_POS then
+			LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , AXIS_POSITIVE_TAG, text_counter, FALSE)
+		else
+			LET text_counter = WRITE_TEXT_TO_ARRAY (own_id, defined_control_name_array , AXIS_NEGATIVE_TAG, text_counter, FALSE)
+		end_if
+
+	end_if
+
+	SPAWN_ENTITIES_FROM_TEXT_IN_ARRAY (FALSE,0,ex_defined_key_text, defined_control_name_array, process_next, center_x, 320, 288, 16, 0)
+
+	return
+
+.alter_music_volume
+
+//	PLAY_SOUND menu_select 255 23000 128
+
+	let music_volume = music_volume + 1250
+
+	if music_volume > 10000 then
+		let music_volume = 0
+	end_if
+
+	SET_GLOBAL_MUSIC_VOLUME music_volume
+
+	if title_music_channel != const_unset then
+		ADJUST_MUSIC_STREAM title_music_channel 255 CONST_TITLE_MUSIC_FREQUENCY 128
+	else
+		let title_music_channel = PLAY_MUSIC_STREAM_GET_HANDLE (title,255,CONST_TITLE_MUSIC_FREQUENCY,128,-1)
+	end_if
+
+	return
+
+.alter_sfx_volume
+
+	let sound_volume = sound_volume + 1250
+
+	if sound_volume > 10000 then
+		let sound_volume = 0
+	end_if
+
+	SET_GLOBAL_SOUND_VOLUME sound_volume
+
+	PLAY_SOUND menu_select 255 22000 128
+
+	return
+
+.alter_gfx_status
+
+	PLAY_SOUND menu_select 255 21000 128
+
+	let window_colour_depth_status = window_colour_depth_status + 1
+
+	if window_colour_depth_status = 4 then
+		let window_colour_depth_status = 0
+	end_if
+
+	let temp_1 = window_colour_depth_status + GFX_OPTION_1 // Should now point at the right graphics text
+
+	OVERWRITE_ENTITIES_FROM_TEXT (FALSE, colour_status_option_text_id, temp_1)
+
+	return
+
+.draw_main_menu_options
+
+	if level_select_active = false then
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, option_1, process_next, center_x, 320, 216, 16, 0)
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, option_2, process_next, center_x, 320, 240, 16, 0)
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, option_3, process_next, center_x, 320, 264, 16, 0)
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, option_4, process_next, center_x, 320, 288, 16, 0)
+	else
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, option_1, process_next, center_x, 320, 204, 16, 0)
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, option_2, process_next, center_x, 320, 228, 16, 0)
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, option_3, process_next, center_x, 320, 252, 16, 0)
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, option_4, process_next, center_x, 320, 276, 16, 0)
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, option_5, process_next, center_x, 320, 300, 16, 0)
+
+		let temp_1 = current_start_level + OPTION_PLANET_1
+
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_text, temp_1, process_next, center_x, 464, 300, 16, 0)
+		let current_level_entity = last_child
+	end_if
+
+	return
+
+.set_main_menu_selector_data
+
+	if level_select_active = false then
+		let selector_id.currently_selected = 0
+		let selector_id.first_option_y = 224
+		let selector_id.option_gap_y = 24
+		let selector_id.max_option = 3
+	else
+		let selector_id.currently_selected = 0
+		let selector_id.first_option_y = 212
+		let selector_id.option_gap_y = 24
+		let selector_id.max_option = 4
+	end_if
+
+	return
+
+// ---------------- SUPPORT FUNCTIONS ----------------
+
+.cycle_credits
+
+	let credit_counter = credit_counter + 1
+
+	if credit_counter = 0 then
+		let signal = signal AND !destroy_credit
+		let current_credit_name = current_credit_title + 1
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_credit_text, current_credit_title, process_next, center_x, 320, 336, 16, 0)
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_menu_credit_text, current_credit_name, process_next, center_x, 320, 360, 16, 0)
+	else_if credit_counter = credit_appearance_length then
+		let signal = signal OR destroy_credit
+	else_if credit_counter = credit_speed then
+		let credit_counter = -1
+		let current_credit_title = current_credit_title + 2
+		if current_credit_title > credit_end_tag then
+			let current_credit_title = credit_start_tag
+		end_if
+	end_if
+
+	return
+
+// ---------------- HISCORE ENTRY FUNCTIONS ----------------
+
+.enter_hiscore
+
+	let selector_id.suspend_selector = 1
+
+	let signal = business_as_usual
+
+	// This is where you enter a nice new hiscore using a pretty pretty ring system. Aw.
+
+	let base_distance = 0
+	let base_angle = 0
+	let horizontal_ratio = 2000
+
+	let current_position_in_name_array = 0
+
+	let control_device_number = GET_CONTROL_DEVICE 0 LEFT
+
+	if control_device_number = CONTROL_DEVICE_KEYBOARD then
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_defined_key_text, HISCORE_ENTRY_1A, process_next, center_x, 320, 64, 16, 0)
+		let hiscore_entry_type = use_direct_hiscore_entry
+		let max_letter = GET_TEXT_LENGTH HISCORE_LETTERS_DIRECT
+		let max_letter = max_letter + 1
+		let angle_gap = 36000 / max_letter
+		SPAWN_ENTITIES_FROM_TEXT (TRUE,0, ex_hiscore_entry_text, HISCORE_LETTERS_DIRECT, process_next, center_x, 320, 240, 0, 0)
+	else
+		spawn_entity (ex_selection_surround_controller,0,0,process_next)
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0, ex_defined_key_text, HISCORE_ENTRY_2A, process_next, center_x, 320, 56, 16, 0)
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,ex_defined_key_text, HISCORE_ENTRY_2B, process_next, center_x, 320, 72, 16, 0)
+		let hiscore_entry_type = use_rotational_hiscore_entry
+		let max_letter = GET_TEXT_LENGTH HISCORE_LETTERS_INDIRECT
+		let max_letter = max_letter + 1
+		let angle_gap = 36000 / max_letter
+		SPAWN_ENTITIES_FROM_TEXT (TRUE,0, ex_hiscore_entry_text, HISCORE_LETTERS_INDIRECT, process_next, center_x, 320, 240, 0, 0)
+		// Spawn the selection cursor overlay thingy.
+	end_if
+
+	spawn_entity (ex_menu_hiscore_vortex, 0, 0, process_next)
+	let last_child.rotation_speed = 100
+	let last_child.size = 12000
+
+	spawn_entity (ex_menu_hiscore_vortex, 0, 0, process_next)
+	let last_child.rotation_speed = 150
+	let last_child.size = 7000
+
+	spawn_entity (ex_menu_hiscore_vortex, 0, 0, process_next)
+	let last_child.rotation_speed = 200
+	let last_child.size = 4000
+
+	let delete_symbol = max_letter - 2
+	let return_symbol = max_letter - 1
+
+	start
+
+		let base_distance = base_distance >% 128 1000
+
+		if base_distance > 112 then
+			let horizontal_ratio = horizontal_ratio >% 21000 1000
+		end_if
+
+		if hiscore_entry_type = use_rotational_hiscore_entry then
+
+			// Regular keyboard stuff
+
+			let temp_3 = GET_KEYBOARD_HIT
+
+			if temp_3 != const_unset then
+				let hiscore_entry_type = use_direct_hiscore_entry
+				let signal = destroy_hiscore_selection_surround
+			end_if
+
+			IF_INPUT_PLAYER_CONTROL_REPEAT PLAYER_1 RIGHT 10 10 then
+				let selected_letter = selected_letter - 1
+
+				if selected_letter < 0 then
+					let selected_letter = max_letter - 1
+				end_if
+			end_if
+
+			IF_INPUT_PLAYER_CONTROL_REPEAT PLAYER_1 LEFT 10 10 then
+				let selected_letter = selected_letter + 1
+
+				if selected_letter = max_letter then
+					let selected_letter = 0
+				end_if
+			end_if
+
+			IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 FIRE_1 then
+				// Check if it's summat special like the doodad or wotsit. ;)
+				if selected_letter = delete_symbol then
+					let current_position_in_name_array = current_position_in_name_array - 1
+				else_if selected_letter = return_symbol then
+					let signal = destroy_hiscore_selection_surround
+					goto end_of_hiscore_entry
+				else
+					let hiscore_key_hit = 1
+				end_if
+			else
+				let hiscore_key_hit = 0
+			end_if
+
+			let target_base_angle = angle_gap * selected_letter
+
+			let target_base_angle = 36000 - target_base_angle
+
+			let angle_difference = target_base_angle - base_angle
+
+			let temp_1 = abs angle_difference
+
+			if temp_1 > 18000 then
+				// It's the long way around!
+				//stop
+				let temp_1 = 36000 - temp_1
+				let temp_2 = sgn angle_difference
+				let temp_1 = temp_1 * temp_2
+				let temp_1 = temp_1 * -1
+			else
+				let temp_1 = angle_difference
+			end_if
+
+			let temp_1 = temp_1 % 2000
+
+			let base_angle = base_angle + temp_1
+
+		else
+
+			let base_angle = base_angle + 50
+			let base_angle = base_angle mod 36000
+
+			if signal = business_as_usual then
+				let temp_1 = GET_KEYBOARD_HIT
+			else
+				let signal = business_as_usual 
+				let temp_1 = temp_3
+			end_if
+
+			if temp_1 != const_unset then
+				let hiscore_key_hit = 1
+
+				let temp_2 = GET_ASCII_FOR_SCANCODE temp_1
+
+				let selected_letter = temp_2 - 32
+			else
+				let hiscore_key_hit = 0
+
+				let selected_letter = const_unset
+			end_if
+
+			if current_position_in_name_array > 0 then
+				if temp_1 = KEY_BACKSPACE then
+					let current_position_in_name_array = current_position_in_name_array - 1
+				end_if
+			end_if
+
+			if temp_1 = KEY_ENTER then
+				// ENter name
+				goto end_of_hiscore_entry
+			end_if
+
+		end_if
+
+	end
+
+.end_of_hiscore_entry
+
+wait 1
+
+spawn_entity (ex_fade_hiscore_music,0,0,process_next)
+
+// Make sure the name is long enough...
+
+START_LOOP current_position_in_name_array < max_name_length
+	write_to_array space_char own_id hiscore_array_id current_position_in_name_array
+	let current_position_in_name_array = current_position_in_name_array + 1
+END_LOOP
+
+let temp_2 = ADD_SCORE_TO_HISCORE_TABLE MAIN_HISCORE_TABLE pending_hiscore hiscore_array_id current_position_in_name_array
+
+let signal = destroy_defined_key_text + destroy_hiscore_entry_text
+let signal = signal + destroy_logo
+
+let counter = 50
+
+set_global_flag (player_score,0) // so we don't come straight back here...
+
+start
+	let base_angle = base_angle + counter
+	let base_angle = base_angle mod 36000
+
+	let counter = counter - 1
+
+	if counter = 0 then
+		let selector_id.suspend_selector = 2
+
+		if music_volume > 0 then
+			let title_music_channel = PLAY_MUSIC_STREAM_GET_HANDLE (title,255,CONST_TITLE_MUSIC_FREQUENCY,128,-1)
+		else
+			let title_music_channel = CONST_UNSET
+		end_if
+
+		goto start_menu
+	end_if
+end
+

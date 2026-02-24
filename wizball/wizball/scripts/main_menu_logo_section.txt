@@ -1,0 +1,17 @@
+// All the interesting stuff is set by the parent
+
+#define matriarch_alpha			v0
+
+	let draw_mode = draw_mode_sprite
+	let sprite = title_screen_elements[arb]
+
+	let entity_type = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+start
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+
+	let opengl_vertex_alpha = matriarch.opengl_vertex_alpha
+
+	set_private_co_ords
+end

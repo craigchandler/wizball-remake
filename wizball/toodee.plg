@@ -1,0 +1,66 @@
+<html>
+<body>
+<pre>
+<h1>Build Log</h1>
+<h3>
+--------------------Configuration: toodee - Win32 Release--------------------
+</h3>
+<h3>Command Lines</h3>
+Creating temporary file "C:\DOCUME~1\GRAHAM~1\LOCALS~1\Temp\RSP145.tmp" with contents
+[
+/nologo /MD /W3 /GX /Ob2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "RELEASE_MODE" /FR"Release/" /Fp"Release/toodee.pch" /YX /Fo"Release/" /Fd"Release/" /FD /c 
+"N:\Retrengine\toodee\tilesets.cpp"
+]
+Creating command line "cl.exe @C:\DOCUME~1\GRAHAM~1\LOCALS~1\Temp\RSP145.tmp" 
+Creating temporary file "C:\DOCUME~1\GRAHAM~1\LOCALS~1\Temp\RSP146.tmp" with contents
+[
+kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib agl.lib alleg.lib user32.lib gdi32.lib opengl32.lib glu32.lib fmodvc.lib /nologo /subsystem:windows /incremental:no /pdb:"Release/toodee.pdb" /machine:I386 /out:"Release/toodee.exe" 
+.\Release\ai_nodes.obj
+.\Release\ai_zones.obj
+.\Release\arrays.obj
+.\Release\control.obj
+.\Release\events.obj
+.\Release\file_stuff.obj
+.\Release\font_routines.obj
+.\Release\FORTIFY.OBJ
+.\Release\funkyfont.obj
+.\Release\game.obj
+.\Release\global_param_list.obj
+.\Release\graphics.obj
+.\Release\helpertag.obj
+.\Release\hiscores.obj
+.\Release\main.obj
+.\Release\math_stuff.obj
+.\Release\new_editor.obj
+.\Release\object_collision.obj
+.\Release\output.obj
+.\Release\parser.obj
+.\Release\particles.obj
+.\Release\paths.obj
+.\Release\report.obj
+.\Release\roomzones.obj
+.\Release\scripting.obj
+.\Release\simple_gui.obj
+.\Release\sound.obj
+.\Release\spawn_points.obj
+.\Release\string_stuff.obj
+.\Release\textfiles.obj
+.\Release\tilegroup.obj
+.\Release\tilemaps.obj
+.\Release\tilesets.obj
+.\Release\vector_collision.obj
+.\Release\world_collision.obj
+]
+Creating command line "link.exe @C:\DOCUME~1\GRAHAM~1\LOCALS~1\Temp\RSP146.tmp"
+<h3>Output Window</h3>
+Compiling...
+tilesets.cpp
+Linking...
+
+
+
+<h3>Results</h3>
+toodee.exe - 0 error(s), 0 warning(s)
+</pre>
+</body>
+</html>

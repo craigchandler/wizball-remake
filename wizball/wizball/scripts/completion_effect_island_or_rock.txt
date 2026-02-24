@@ -1,0 +1,54 @@
+#define completion_effect_brightness_percentage			v0
+
+#define wobble_counter			passed_param_1
+#define wobble_size_x			passed_param_2
+#define wobble_size_y			passed_param_3
+#define scale_wobble_size		passed_param_4
+#define colour_counter			passed_param_5
+
+#define base_x				v0
+#define base_y				v1
+
+#define x_offset			v2
+#define y_offset			v3
+
+#define scale_offset			v4
+
+	let sprite = completion_effect[arb]
+	let current_frame = base_frame
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_MULTIPLY + OPENGL_BOOLEAN_VERTEX_COLOUR
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let base_x = world_x
+	let base_y = world_y
+
+	let draw_order = 5
+
+start
+
+	let colour_counter = colour_counter + 2 !< 0 !> 359
+
+	let temp_1 = 128 % parent.completion_effect_brightness_percentage
+	GET_VERTEX_COLOURS_FROM_HSL colour_counter 256 temp_1
+
+	let x_offset = wobble_size_x sin wobble_counter
+	let y_offset = wobble_size_y cos wobble_counter
+
+	let world_x = base_x + x_offset
+	let world_y = base_y + y_offset
+
+	set_private_co_ords
+
+	let scale_offset = scale_wobble_size cos wobble_counter
+
+	let opengl_scale_x = 10000 + scale_offset
+	let opengl_scale_y = opengl_scale_x
+
+	let wobble_counter = wobble_counter + 200 !< 0 !> 35999
+
+end
+

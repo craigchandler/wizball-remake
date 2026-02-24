@@ -1,0 +1,46 @@
+#define planet_type		v0
+#define planet_size		v1
+
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR
+
+	let Bitshift = 8
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 43
+
+	let draw_order = 40
+
+	let planet_type = rand (0,5)
+
+	let current_frame = base_frame + planet_type
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let planet_size = rand (2500,10000)
+
+	let draw_order = draw_order % planet_size // So smaller and slower = further away
+
+	let world_x = 640 + 64
+	let world_y = rand (0,480)
+
+	let opengl_scale_x = planet_size
+	let opengl_scale_y = planet_size
+
+	set_private_co_ords
+
+	let x_vel = -1024 % planet_size
+
+	let opengl_vertex_red = rand (128,255)
+	let opengl_vertex_green = rand (128,255)
+	let opengl_vertex_blue = rand (128,255)
+
+	let opengl_vertex_red = opengl_vertex_red % planet_size
+	let opengl_vertex_green = opengl_vertex_green % planet_size
+	let opengl_vertex_blue = opengl_vertex_blue % planet_size
+
+start
+	if world_x < -64 then
+		kill_entity own_id
+	end_if
+end

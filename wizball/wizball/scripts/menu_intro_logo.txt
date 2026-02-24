@@ -1,0 +1,144 @@
+#define number_in_sequence		passed_param_1
+
+#define target_x			v0
+#define target_y			v1
+
+#define progress_percentage		v2
+#define biased_progress_percentage	v3
+
+#define rotation_angle			v4
+
+#define pause_length			v5
+
+#define start_position_angle		v6
+#define end_position_angle		v7
+
+#define current_angle			v8
+
+#define percentage_adder		v9
+
+#define fading_out			v10
+
+#define current_menu_entity_id		v11
+
+	let world_x = INTRO_LOGO_START_X
+	let world_y = INTRO_LOGO_START_Y
+
+	set_private_co_ords
+
+	LET pause_length = number_in_sequence * INTRO_LOGO_PAUSE_GAP
+	LET pause_length = pause_length + 30
+
+	LET ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	start
+		let pause_length = pause_length - 1 !< 0
+
+		if pause_length = 0 then
+			goto start_for_proper
+		end_if
+
+		let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+		if current_menu_entity_id != CONST_UNSET then
+			if current_menu_entity_id.signal & DESTROY_INTRO_OBJECTS then
+				kill_entity own_id
+			end_if
+		end_if
+	end
+
+.start_for_proper
+
+// Okay, and now we begin properly...
+
+	LET temp_1 = INTRO_LOGO_END_POSITION_ANGLE_RANGE - INTRO_LOGO_START_POSITION_ANGLE_RANGE
+
+	let temp_2 = INTRO_LOGO_COUNT - 1
+	let temp_1 = temp_1 / temp_2
+
+	let end_position_angle = temp_1 * number_in_sequence
+	let end_position_angle = end_position_angle + INTRO_LOGO_START_POSITION_ANGLE_RANGE
+
+	let start_position_angle = end_position_angle - INTRO_LOGO_POSITION_DEVIATION_ANGLE
+
+	let sprite = intro_logos[arb]
+
+	let base_frame = number_in_sequence
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let opengl_vertex_alpha = 255
+
+	let draw_order = MENU_INTRO_LOGO_DRAW_ORDER
+
+	let percentage_adder = 0
+	let counter = 0
+	let fading_out = false
+
+start
+	// Okay, distance first...
+
+	let biased_progress_percentage = progress_percentage CURVE_PERCENTAGE CURVE_PERCENTAGE_SISO
+
+	let biased_progress_percentage = biased_progress_percentage + percentage_adder 
+
+	let current_angle = lerp (start_position_angle, end_position_angle, biased_progress_percentage)
+
+	let target_x = INTRO_LOGO_POSITION_X_DISTANCE % biased_progress_percentage
+	let target_x = target_x cos current_angle
+
+	let target_y = INTRO_LOGO_POSITION_Y_DISTANCE % biased_progress_percentage
+	let target_y = target_y sin current_angle
+
+	let world_x = INTRO_LOGO_START_X + target_x 
+	let world_y = INTRO_LOGO_START_Y + target_y
+
+	SET_PRIVATE_CO_ORDS
+
+	let opengl_scale_x = lerp (100,10000,biased_progress_percentage)
+	let opengl_scale_y = opengl_scale_x
+
+	let opengl_angle = lerp (-9000, 0, biased_progress_percentage)
+
+	if progress_percentage = 10000 then
+		let counter = counter + 1
+		if counter = INTRO_LOGO_STATIC_PAUSE_LENGTH then
+			if percentage_adder = 0 then
+				let percentage_adder = 10000
+				let counter = 0
+				let progress_percentage = 0
+			else
+				let fading_out = true
+			end_if
+		end_if
+	end_if
+
+	let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+	if current_menu_entity_id != CONST_UNSET then
+		if current_menu_entity_id.signal & DESTROY_INTRO_OBJECTS then
+			let fading_out = true
+		end_if
+	end_if
+
+	if fading_out = true then
+		let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+	else_if percentage_adder = 10000 then
+		let opengl_vertex_alpha = opengl_vertex_alpha - 5 !< 0
+	end_if
+
+	if opengl_vertex_alpha = 0 then
+		kill_entity own_id
+	end_if
+
+	let progress_percentage = progress_percentage + 100 !> 10000
+end
+
+
+
+

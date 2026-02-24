@@ -1,0 +1,26 @@
+25
+8,8,640,64,0,0		//   0 = Panel
+656,8,232,56,0,0	//   1 = Panel Cauldron Bottom Maskout.
+8,80,640,416,0,0	//   2 = Laboratory
+8,504,640,480,0,0	//   3 = Loading Screen
+656,80,56,416,28,208	//   4 = Smartbomb Shockwave Start
+656,144,56,416,28,208	//   5 = Smartbomb Shockwave End
+656,600,232,128,0,64	//   6 = Main Nebula Start
+784,600,232,128,0,64	//   7 = Main Nebula End
+656,736,232,128,0,64	//   8 = Shadow Nebula Start
+784,736,232,128,0,64	//   9 = Shadow Nebula End
+792,872,64,32,32,16	//  10 = Wiz/Cat/Nifta shadow
+656,872,128,48,0,0	//  11 = Cauldron Mask Overlay
+720,80,176,320,88,320	//  12 = Rainbow Ray Start Frame
+720,276,176,320,88,320	//  13 = Rainbow Ray End Frame
+712,928,48,48,24,24	//  14 = New Cauldron Back Layer
+825,928,46,48,23,24	//  15 = Liquid Layer Start
+873,928,46,48,23,24	//  16 = Liquid Layer End
+927,927,50,50,25,25	//  17 = Liquid Negator Overlay
+767,927,50,50,25,25	//  18 = Basic Bottle Additive
+655,928,50,64,25,32	//  19 = New Cauldron Mask
+863,871,50,50,25,25	//  20 = White shine overlay
+952,872,32,16,0,0	//  21 = Vu Bar Empty
+920,872,32,16,0,0	//  22 = Vu Bar Full
+904,80,64,128,32,64	//  23 = Tunnel Light Point
+904,216,96,96,48,48	//  24 = Tunnel Fake Back

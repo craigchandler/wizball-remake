@@ -1,0 +1,15 @@
+#define music_channel		passed_param_1
+#define music_stream		passed_param_2
+#define music_fade_speed	passed_param_3
+#define music_volume		passed_param_4
+#define music_flag		passed_param_5
+
+spawn_entity (ex_fade_music,0,0,process_next)
+
+let last_child.music_channel = get_global_flag (hiscore_tune_channel)
+let last_child.music_stream = hiscore
+let last_child.music_fade_speed = 5
+let last_child.music_volume = 255
+let last_child.music_flag = hiscore_tune_channel
+
+kill_entity own_id

@@ -1,0 +1,36 @@
+// This is a data store, the first two numbers tell the program how many lines of data there are and how many elements on each line there are.
+// The data is all eventually numerical, but you can use constants, text tags, sprite names and basically anything from the global parameter list.
+// If data is numerical then a plain number will do, however if it's from a list then you need to use LIST_NAME:VALUE_NAME for it.
+
+// Comments will be ignored and can be on lines on their own or at the ends of data lines for ease of reference. The formatting of the data is
+// not important, although conforming to the given dimensions is probably a good idea for readability.
+
+// As data tables themselves are indexed and added to the GPL, you can obviously use names of other data tables inside a data table. This would
+// be useful, for instance, if you wanted to make a table of conversations in an RPG with one data table containing a list of all the data tables
+// that had the actual conversation data in them.
+
+// First of all you must specify how many arguments there should be on each line of data with the "#SIZE n" tag.
+
+// Note that you can also place .tags throughout the file. These are limited to names of 128 chars in size and should not be replicated within
+// or between data table files. Well, you can, but it'll only return the first one's value by name.
+
+// Each line of data should contain the correct number of arguments. Extra arguments will be ignored and missing arguments will be valued at UNSET (-1).
+
+// Arguments will be delineated by spaces, tabs or commas.
+
+#SIZE 3
+
+.First_conversation
+
+#DATA 1, 2, 3
+#DATA 1, 2, CONSTANT:CONST_UNSET
+
+.Second_conversation
+
+#DATA TEXT:OPTION_4, 2, 3
+#DATA 1, DATATABLE_INDEX:Second_conversation, 3
+#DATA 1, 2, 3
+
+.End_of_file
+
+// This last tag is just there so we can find the length of "second_conversation"

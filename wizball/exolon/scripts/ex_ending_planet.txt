@@ -1,0 +1,48 @@
+#define spawned_mask			v0
+
+	let spawned_mask = false
+
+	let Bitshift = 10
+
+	let world_x = 640
+	let world_y = 0
+
+	SET_PRIVATE_CO_ORDS
+
+	let x_vel = -256
+
+
+
+	let sprite = large_graphics[arb]
+	let base_frame = 40
+	let current_frame = base_frame
+
+	let draw_mode = draw_mode_sprite
+
+	let draw_order = 9
+
+	let counter = 0
+
+start
+
+	let counter = counter + 1
+
+	if counter = 650 then
+		let x_acc = 1
+	end_if
+
+	if x_vel >= 0 then
+		let x_vel = 0
+		let x_acc = 0
+	end_if
+
+	if signal = 1 then
+		if spawned_mask = false then
+			spawn_entity (ex_ending_planet_overlay,0,0,process_next)
+			let spawned_mask = true
+		end_if
+	end_if
+
+end
+
+

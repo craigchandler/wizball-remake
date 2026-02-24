@@ -1,0 +1,85 @@
+#define current_menu_entity_id		v0
+#define wobble_counter			v1
+
+	LET ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+// ---------------- Bitshift And Anchor ---------------- 
+
+	LET BITSHIFT = 0
+
+	SET_PRIVATE_CO_ORDS
+
+// ---------------- Appearance Set Up ---------------- 
+
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_BLEND_MULTIPLY + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_SCALE
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_FILTERED
+
+	LET SPRITE = paintballs_and_drips[arb]
+
+	LET DRAW_ORDER = MENU_TEXT_DRAW_ORDER
+
+	LET DRAW_MODE = DRAW_MODE_SPRITE
+
+	LET CURRENT_FRAME = BASE_FRAME
+
+	let counter = 0
+
+start
+
+	gosub wobble_routine
+	gosub animation_routine
+
+	let opengl_vertex_alpha = opengl_vertex_alpha + 15 !> 255
+
+	let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+	if current_menu_entity_id != CONST_UNSET then
+		if current_menu_entity_id.signal & DESTROY_OPTION_TEXT then
+			goto final_phase
+		end_if
+	end_if
+
+end
+
+
+
+.final_phase
+
+start
+
+	gosub wobble_routine
+	gosub animation_routine
+
+	let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+
+	if opengl_vertex_alpha = 0 then
+		kill_entity own_id
+	end_if
+
+end
+
+
+
+.wobble_routine
+
+	let opengl_scale_x = 1000 cos wobble_counter
+	let opengl_scale_y = 1000 sin wobble_counter
+
+	let opengl_scale_x = opengl_scale_x + 10000
+	let opengl_scale_y = opengl_scale_y + 10000
+
+	let wobble_counter = wobble_counter + 800 !< 0 !> 35999
+
+	return
+
+
+
+.animation_routine
+
+	if FRAME_COUNT > 1 THEN
+		SET_ANIM_FRAME PASSED_PARAM_1 BASE_FRAME FRAME_COUNT FRAME_DELAY counter FALSE
+		let counter = counter + 1
+	end_if
+
+	return

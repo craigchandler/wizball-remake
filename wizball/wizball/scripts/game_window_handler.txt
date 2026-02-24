@@ -1,0 +1,133 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_BONUS_LEVEL_ENTITY
+
+#define half_display_width	320
+#define display_width		640
+#define display_height		416
+
+#define wiz_id			v0
+#define left_of_window		v1
+#define map_width		v2
+#define map_width_minus_window	v3
+
+#define freakout_flag			v4
+#define freak_out_bump_counter		v5
+#define freak_out_effect_counter	v6
+
+#define level_number			passed_param_1
+#define layer_number			passed_param_2
+
+// Possible Parent Defines
+#define map_position			v2
+
+	let draw_mode = DRAW_MODE_TILEMAP
+	let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+	if layer_number = 2 then
+		let opengl_booleans = opengl_boolean_masked + opengl_boolean_blend_subtract
+		let opengl_booleans = opengl_booleans + opengl_boolean_vertex_colour
+	else
+		let opengl_booleans = opengl_boolean_masked + opengl_boolean_vertex_colour
+	end_if
+
+	let map_width = get_tilemap_width (TRUE)
+	let map_width_minus_window = map_width - display_width
+	
+	set_private_co_ords
+
+	let tilemap_number = level_number + LEVEL_1_TILEMAP
+
+	let tilemap_layer = layer_number
+
+	let sprite = GET_SPRITE_FOR_TILEMAP (tilemap_number)
+
+start
+
+	if layer_number = 2 then
+		let freakout_flag = get_global_flag (freak_out_flag)
+
+		if freakout_flag = TRUE then
+			let freak_out_bump_counter = get_global_flag (freak_out_landscape_bump_counter)
+
+			if freak_out_bump_counter > 0 then
+				let draw_mode = DRAW_MODE_TILEMAP
+				let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+				let opengl_vertex_red = freak_out_bump_counter * 15 !> 255
+				let opengl_vertex_green = opengl_vertex_red 
+				let opengl_vertex_blue = opengl_vertex_red 
+
+			else
+				let draw_mode = DRAW_MODE_INVISIBLE
+				let draw_override = DRAW_OVERRIDE_NONE
+			end_if
+		else
+			let draw_mode = DRAW_MODE_INVISIBLE
+			let draw_override = DRAW_OVERRIDE_NONE
+		end_if
+	else
+		let freakout_flag = get_global_flag (freak_out_flag)
+
+		if freakout_flag = TRUE then
+			let freak_out_effect_counter = get_global_flag (freak_out_counter)
+
+			if freak_out_effect_counter < FREAKOUT_HALF_EFFECT_LEVEL then
+				let draw_mode = DRAW_MODE_TILEMAP
+				let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+				
+				let opengl_vertex_red = freak_out_effect_counter * 255
+				let opengl_vertex_red = opengl_vertex_red / FREAKOUT_HALF_EFFECT_LEVEL
+				let opengl_vertex_red = 255 - opengl_vertex_red
+				let opengl_vertex_green = opengl_vertex_red 
+				let opengl_vertex_blue = opengl_vertex_red 
+			else
+				let draw_mode = DRAW_MODE_INVISIBLE
+				let draw_override = DRAW_OVERRIDE_NONE
+			end_if
+
+		else
+			let opengl_vertex_red = 255
+			let opengl_vertex_green = 255
+			let opengl_vertex_blue = 255
+			let draw_mode = DRAW_MODE_TILEMAP
+			let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+		end_if
+	end_if
+
+	let wiz_id = get_global_flag (wizball_entity_id_flag)
+
+	if wiz_id = const_unset then
+		// This proxy flag is for when there isn't a Wizball around and we want the camera to follow something else.
+		let wiz_id = get_global_flag (proxy_entity_id_flag)
+	end_if
+
+	if wiz_id != const_unset then
+
+		let left_of_window = wiz_id.world_x - half_display_width
+
+		if left_of_window < 0 then
+			let left_of_window = 0
+		else_if left_of_window > map_width_minus_window then
+			let left_of_window = map_width_minus_window
+		end_if
+
+		// Set window position so that it displays stuff in the correct position
+		SET_WINDOW_MAP_POSITION (left_of_window, 0)
+
+		// Make sure we're drawing the right part of the tilemap
+		let tilemap_position_x = left_of_window
+		let tilemap_position_y = 0 // So you can't see the top line of solid tiles only used to keep Wizball inside the map
+
+		SETUP_ACTIVE_COLLISION_WINDOW left_of_window 0 display_width display_height
+
+	else
+		
+		// Okay, there's no wizball! Either he's just "between lives" or we're going the "well done" sequence.
+
+		if parent.script_number = flythru then
+			// We're in the "well done" sequence! Woo!
+			SET_WINDOW_MAP_POSITION (0, 0)
+			let tilemap_position_x = parent.map_position
+		end_if
+	end_if
+
+end

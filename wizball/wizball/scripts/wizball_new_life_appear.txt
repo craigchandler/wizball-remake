@@ -1,0 +1,87 @@
+#define destination_world_x			v0
+#define destination_world_y			v1
+
+#define start_world_x				v2
+#define start_world_y				v3
+
+#define transition_length			v5
+#define transition_progress_unit		v6
+
+#define percentage_progress			v7
+#define biased_progress				v8
+
+#define appearance_start_frame			64
+#define appearance_end_frame			93
+
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	let destination_world_x = world_x
+	let destination_world_y = world_y
+
+	let start_world_x = destination_world_x
+
+	if_flag (first_life_flag = true) then
+		set_global_flag (first_life_flag, false)
+		let frame_delay = 2
+		let start_world_y = destination_world_y + 240
+	else
+		let frame_delay = 1
+		let start_world_y = destination_world_y + 120
+	end_if
+
+	let draw_order = WIZBALL_DRAW_ORDER
+
+	SET_GLOBAL_FLAG_AS_ENTITY_ID  (proxy_entity_id_flag)
+
+	let draw_mode = draw_mode_sprite
+
+	let opengl_booleans = OPENGL_BOOLEAN_MASKED
+
+	let sprite = wizball[set][48][48][24][24]
+	let base_frame = appearance_start_frame
+	let current_frame = base_frame
+	let counter = 0
+
+	let transition_length = appearance_end_frame - appearance_start_frame
+	let transition_length = transition_length * frame_delay
+
+	let transition_progress_unit = 10000 / transition_length
+
+	let percentage_progress = 0
+
+	let opengl_booleans = opengl_boolean_masked + opengl_boolean_rotate
+	let opengl_booleans = opengl_booleans + opengl_boolean_filtered
+
+	set_private_co_ords
+
+	PLAY_SOUND (wizball_new_life_appear_sound, 255, CONST_SOUND_FREQUENCY, 128)
+
+start
+	let biased_progress = percentage_progress CURVE_PERCENTAGE CURVE_PERCENTAGE_FISO
+
+	let world_x = LERP (start_world_x,destination_world_x,biased_progress)
+	let world_y = LERP (start_world_y,destination_world_y,biased_progress)
+	let opengl_angle = LERP (-18000,0,biased_progress)
+
+	set_private_co_ords
+
+	let percentage_progress = percentage_progress + transition_progress_unit !> 10000
+
+	let counter = counter + 1
+	let temp_1 = counter mod frame_delay
+
+	if temp_1 = 0 then
+		let current_frame = current_frame + 1
+
+		if current_frame > appearance_end_frame then
+			goto spawn_real_wizball
+		end_if
+	end_if
+
+end
+
+.spawn_real_wizball
+
+	SPAWN_ENTITY (WIZBALL,0,0,process_next)
+
+	kill_entity own_id

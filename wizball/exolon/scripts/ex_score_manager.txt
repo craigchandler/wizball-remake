@@ -1,0 +1,99 @@
+#define target_score 		v0
+#define current_score 		v1
+#define difference		v2
+#define difference_adder	v3
+#define digit_number passed_param_1
+#define stat_flag		v2
+#define time_to_go		v4
+
+// Break off the family connection so this is self-contained
+
+	kill_family_linkage
+
+// This first spawns the panel sections...
+
+	enable_window GAME_PANEL_WINDOW
+	let window_number = GAME_PANEL_WINDOW
+
+	let world_x = 0
+	let world_y = 0
+	set_private_co_ords
+
+	spawn_entity ex_score_display_section 0 0 PROCESS_NEXT
+
+// Then it spawns the digits for the player's score...
+
+	for counter = 0 to 7
+		let temp_1 = counter * 16
+		let temp_1 = temp_1 + 78
+		spawn_entity ex_score_panel_score_digit temp_1 41 process_next
+		let last_child.digit_number = 6 - counter
+		let last_child.stat_flag = player_score
+	next
+
+// Then it spawns the digits for the player's bullet-count, rockets, lives and the zone number...
+
+	for counter = 0 to 2
+		let temp_1 = counter * 16
+		let temp_1 = temp_1 + 395
+		spawn_entity ex_score_panel_score_digit temp_1 52 process_next
+		let last_child.digit_number = 1 - counter
+		let last_child.stat_flag = player_gun_ammo
+	next
+
+	for counter = 0 to 2
+		let temp_1 = counter * 16
+		let temp_1 = temp_1 + 466
+		spawn_entity ex_score_panel_score_digit temp_1 52 process_next
+		let last_child.digit_number = 1 - counter
+		let last_child.stat_flag = player_grenade_ammo
+	next
+
+	spawn_entity ex_score_panel_score_digit 277 27 process_next
+	let last_child.digit_number = 0
+	let last_child.stat_flag = player_lives
+
+	for counter = 0 to 3
+		let temp_1 = counter * 16
+		let temp_1 = temp_1 + 529
+		spawn_entity ex_score_panel_score_digit temp_1 52 process_next
+		let last_child.digit_number = 2 - counter
+		let last_child.stat_flag = player_zone_number
+	next
+
+// So it won't be killed in the end of level cull
+	let entity_type = ENT_TYPE_INDESTRUCTABLE
+
+start
+//	RESET_WATCH_LIST
+
+	let target_score = get_global_flag (player_target_score)
+	let current_score = get_global_flag (player_score)
+
+//	ADD_ENTRY_TO_WATCH_LIST target_score
+//	ADD_ENTRY_TO_WATCH_LIST current_score
+
+	let difference = target_score - current_score
+	let difference_adder = difference / 10
+
+//	ADD_ENTRY_TO_WATCH_LIST difference
+//	ADD_ENTRY_TO_WATCH_LIST difference_adder
+
+	if difference > 10 then
+		let current_score = current_score + difference_adder
+	else_if difference >= 1 then
+		let current_score = current_score + 1
+	end_if
+
+//	ADD_ENTRY_TO_WATCH_LIST current_score
+
+	set_global_flag (player_score, current_score)
+
+	wait 2
+
+	let time_to_go = get_global_flag (scoreboard_destruct)
+
+	if time_to_go = 1 then
+		kill_entities SELECT_BY_FAMILY
+	end_if
+end

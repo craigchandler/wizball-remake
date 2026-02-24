@@ -1,0 +1,33 @@
+#define overlay_id v0
+
+spawn_entity ex_standard_overlay 0 0 PROCESS_NEXT
+let last_child.secondary_frame = 8
+let last_child.INTERPOLATED_FRAME = 9
+let last_child.passed_param_1 = parent
+let last_child.passed_param_2 = OPENGL_BOOLEAN_BLEND_add
+let overlay_id = last_child
+
+let counter = 0
+let signal = 0
+
+let overlay_id.INTERPOLATION_Y_PERCENTAGE = 10000
+
+let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+start
+	let counter = counter + 1
+
+	let overlay_id.INTERPOLATION_Y_PERCENTAGE = overlay_id.INTERPOLATION_Y_PERCENTAGE - 100
+	let overlay_id.INTERPOLATION_X_PERCENTAGE = overlay_id.INTERPOLATION_X_PERCENTAGE + 833
+	let overlay_id.INTERPOLATION_X_PERCENTAGE = overlay_id.INTERPOLATION_X_PERCENTAGE mod 10000
+
+	if counter = 50 then
+		let signal = 1
+	end_if
+
+	if counter = 100 then
+		let overlay_id.signal = 1
+		let signal = 2
+		kill_entity own_id
+	end_if
+end

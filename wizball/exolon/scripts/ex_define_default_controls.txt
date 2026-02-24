@@ -1,0 +1,14 @@
+define_key player_1 UP KEY_UP
+define_key player_1 DOWN KEY_DOWN
+define_key player_1 LEFT KEY_LEFT
+define_key player_1 RIGHT KEY_RIGHT
+define_key player_1 JUMP KEY_UP
+define_key player_1 FIRE_1 KEY_Z
+define_key player_1 FIRE_2 KEY_X
+define_key player_1 PAUSE KEY_ESC
+define_key player_1 DEBUG_1 KEY_F1
+define_key player_1 DEBUG_2 KEY_F2
+define_key player_1 DEBUG_3 KEY_F3
+define_key player_1 DEBUG_4 KEY_F4
+
+kill_entity own_id

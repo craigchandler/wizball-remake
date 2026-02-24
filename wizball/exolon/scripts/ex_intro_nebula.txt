@@ -1,0 +1,30 @@
+let Bitshift = 0
+SET_PRIVATE_CO_ORDS
+let sprite = nebula_background[arb]
+let current_frame = 1
+let interpolated_frame = 2
+let draw_mode = DRAW_MODE_INTERP_SPRITE
+let OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_FILTERED
+let OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_SCALE
+
+let OPENGL_SCALE_X = 50000
+let OPENGL_SCALE_Y = 40000
+
+let world_x = 0 // parent.world_x
+let world_y = 0 // parent.world_y
+
+set_private_co_ords
+
+let counter = 0
+
+let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+start
+	let INTERPOLATION_X_PERCENTAGE = 5000 sin counter
+	let INTERPOLATION_X_PERCENTAGE = INTERPOLATION_X_PERCENTAGE + 5000
+	let INTERPOLATION_Y_PERCENTAGE = 2500 cos counter
+	let INTERPOLATION_Y_PERCENTAGE = INTERPOLATION_Y_PERCENTAGE + 5000
+
+	let counter = counter + 10
+end
+

@@ -1,0 +1,56 @@
+
+#define lightning_x_offset v1
+#define lightning_y_offset v2
+#define lightning_angle v3
+#define overlay_id v4
+
+let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+spawn_entity ex_standard_overlay 0 0 PROCESS_NEXT
+let last_child.secondary_frame = 5
+let last_child.INTERPOLATED_FRAME = 6
+let last_child.passed_param_1 = parent
+let last_child.passed_param_2 = OPENGL_BOOLEAN_BLEND_add
+let overlay_id = last_child
+
+let counter = 0
+let signal = 0
+
+start
+	let counter = counter + 1
+
+	let overlay_id.INTERPOLATION_X_PERCENTAGE = rand 0 10000
+	let overlay_id.INTERPOLATION_Y_PERCENTAGE = overlay_id.INTERPOLATION_Y_PERCENTAGE + 100
+
+	if counter > 30 then
+		if counter < 70 then
+			let temp_1 = counter mod 4
+
+			if temp_1 = 0 then
+				let world_x = parent.world_x
+				let world_y = parent.world_y - 32
+
+				set_private_co_ords
+
+				let lightning_x_offset = rand -12 12
+				let lightning_y_offset = rand -24 0
+
+				spawn_entity ex_earthed_lightning lightning_x_offset lightning_y_offset PROCESS_NEXT
+				let lightning_angle = rand 12000 16000
+				let lightning_angle = rand_sign lightning_angle
+				let last_child.opengl_angle = lightning_angle
+				let last_child.passed_param_1 = 6
+			end_if
+		end_if
+	end_if
+
+	if counter = 50 then
+		let signal = 1
+	end_if
+
+	if counter = 100 then
+		let overlay_id.signal = 1
+		let signal = 2
+		kill_entity own_id
+	end_if
+end

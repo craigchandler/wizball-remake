@@ -1,0 +1,48 @@
+#define message_length		v0
+#define letter_frame_gap	8
+#define message_id		passed_param_1
+#define colour_cycle		v1
+
+	let message_length = GET_TEXT_LENGTH (message_id)
+	let counter = 0
+	let lifetime = 0
+	let colour_cycle = 256
+	
+
+.start_loop
+
+start
+
+	let colour_cycle = colour_cycle - 1
+	if colour_cycle = 0 then
+		let colour_cycle = 256
+	end_if
+
+	let temp_1 = colour_cycle mod letter_frame_gap
+
+	if temp_1 = 0 then
+
+		if parent.signal & destroy_scrolly_message then
+			let signal = parent.signal // So the kids croak, too
+			kill_entity own_id
+		end_if
+
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,EX_menu_SCROLLY_TEXT,message_id,PROCESS_NEXT,NO_CENTER,592,412,0,0,counter,1)
+
+		let counter = counter + 1
+
+		if counter = message_length then
+			goto reset_message
+		end_if
+
+	end_if
+
+end
+
+.reset_message
+
+	let counter = 0
+
+	wait 120
+
+	goto start_loop

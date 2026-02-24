@@ -1,0 +1,84 @@
+#define wobble_angle v1
+#define wobble_percentage v2
+#define plasma_wake_spawn_offset v0
+
+	let Bitshift = 0
+	let world_x = BOUNDARY_END_X
+	SET_PRIVATE_CO_ORDS
+	let sprite = enemy_sprites[set][32][32][16][16]
+	let base_frame = 40
+	let frame_count = 4
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let COLLISION_SHAPE = RECTANGLE
+	SET_COLLISION_FROM_FRAME
+
+	let COLLIDE_TYPE = ENT_TYPE_ENEMY_BULLET
+	let COLLIDE_WITH = ENT_TYPE_PLAYER
+
+	let x_vel = 3
+
+	let FACING_DIRECTION = -1
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_MULTIPLY
+
+	if FACING_DIRECTION = -1 then
+		let x_vel = x_vel * -1
+		let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_HORI_FLIPPED
+		let plasma_wake_spawn_offset = 8
+	else
+		let plasma_wake_spawn_offset = -8
+	end_if
+
+	let draw_order = 3
+	let counter = 0
+
+start
+	if world_x < BOUNDARY_START_X then
+		let world_x = BOUNDARY_END_X
+		let world_y = parent.world_y - 32
+		set_private_co_ords
+	end_if
+
+	if world_x > BOUNDARY_END_X then
+		let world_x = BOUNDARY_START_X
+		let world_y = parent.world_y - 32
+		set_private_co_ords
+	end_if
+
+	if signal = 1 then
+		let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+		let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+		let wobble_angle = 0
+		let wobble_percentage = 0
+		let COLLIDE_TYPE = 0
+		let signal = 2
+	end_if
+
+	let counter = counter + 1
+	let temp_1 = counter mod 5
+
+	if temp_1 = 0 then
+		spawn_entity ex_plasma_wake plasma_wake_spawn_offset 0 PROCESS_NEXT
+		let last_child.opengl_vertex_alpha = opengl_vertex_alpha
+	end_if
+
+	if signal = 2 then
+		let wobble_angle = wobble_angle + 2000
+		let wobble_percentage = wobble_percentage + 100
+		let opengl_scale_x = wobble_percentage cos wobble_angle
+		let opengl_scale_x = opengl_scale_x + 10000
+		let opengl_scale_y = wobble_percentage sin wobble_angle
+		let opengl_scale_y = opengl_scale_y + 10000
+
+		let opengl_vertex_alpha = opengl_vertex_alpha - 3
+		let opengl_vertex_red = opengl_vertex_alpha
+		let opengl_vertex_green = opengl_vertex_alpha
+		let opengl_vertex_blue = opengl_vertex_alpha
+
+		if opengl_vertex_alpha <= 0 then
+			kill_entity own_id
+		end_if
+	end_if
+end
+

@@ -1,0 +1,33 @@
+let counter = get_global_flag (enemies_shot_in_a_row)
+
+let counter = counter + 1
+
+if counter = ENEMIES_KILLED_PER_BONUS_ICON then
+	let counter = 0
+
+	// Spawn bonus coin!
+	spawn_entity (bonus_pearl,0,0,process_next)
+end_if
+
+let temp_1 = get_global_flag (currently_on_bonus_level)
+
+if temp_1 = true then
+	let temp_1 = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+	ADD_EVENT_TO_QUEUE ( temp_1 , LEVEL_RESET_FLAG_BONUS_ENEMY_KILLED )
+else
+	call_script function_remove_enemy_from_level_count
+end_if
+
+set_global_flag (enemies_shot_in_a_row,counter)
+
+spawn_entity (explode_alien, 0, 0, process_next)
+
+kill_entity own_id
+
+
+
+
+
+
+
+

@@ -1,0 +1,39 @@
+#define behaviour		passed_param_1
+#define decellerating		1
+
+#define effect_stage		passed_param_1
+#define pick_up_player			0
+#define ending_scroller			1
+
+#define music_volume			v16
+
+set_private_co_ords
+
+
+spawn_entity ex_c2_ship_flyover,0,0,process_next
+let last_child.passed_param_1 = decellerating
+let last_child.world_y = 32
+
+let music_volume = GET_GLOBAL_MUSIC_VOLUME
+
+if music_volume > 0 then
+	let temp_1 = PLAY_MUSIC_STREAM_GET_HANDLE (completion,255,CONST_COMPLETION_MUSIC_FREQUENCY,128,-1)
+	set_global_flag (completion_tune_channel,temp_1)
+else
+	set_global_flag (completion_tune_channel,CONST_UNSET)
+end_if
+
+wait 160
+
+spawn_entity ex_big_c2_ship,0,0,process_next
+let last_child.effect_stage = pick_up_player
+
+let counter = 0
+
+start
+	let counter = counter + 1
+
+	if counter = 400 then
+		spawn_entity ex_completion_effect,0,0,process_next
+	end_if
+end

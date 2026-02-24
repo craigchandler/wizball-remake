@@ -1,0 +1,35 @@
+#define starfield_id 999
+
+#define star_x_vel	v0
+#define star_y_vel	v1
+#define star_speed	v2
+#define star_angle	v3
+
+#define progress_speed		v31
+
+let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_vertex_colour_alpha
+
+let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+let draw_mode = draw_mode_starfield_colour_lines
+let unique_id = starfield_id
+
+create_starfield unique_id 1000 STARFIELD_STYLE_PARALLAX 640 480 -5 -200
+SET_STARFIELD_COLOUR starfield_id SLOW_STARS 0 0 128
+SET_STARFIELD_COLOUR starfield_id MEDIUM_STARS 32 96 192
+SET_STARFIELD_COLOUR starfield_id FAST_STARS 192 255 255
+GENERATE_STAR_COLOURS starfield_id
+
+let draw_order = 10
+let world_x = parent.world_x
+let world_y = parent.world_y
+set_private_co_ords
+
+start
+	let star_x_vel = parent.progress_speed * 250
+
+	let opengl_vertex_alpha = 255 - parent.progress_speed
+
+	update_starfield unique_id star_x_vel 100 TRUE
+end
+

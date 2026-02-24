@@ -1,0 +1,39 @@
+LET ENTITY_TYPE = ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+LET DRAW_ORDER = LABORATORY_WIZ_AND_CAT_DRAW_ORDER
+
+#define landed_paintdrops			v1
+#define pitch_increase_frequency		v13
+
+#define spawned_twinkle_y			336
+
+	let entity_type = ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+
+	let draw_mode = draw_mode_sprite
+
+	let opengl_booleans = OPENGL_BOOLEAN_MASKED
+
+	let sprite = paintballs_and_drips[arb]
+	let current_frame = base_frame
+
+	let bitshift = 3
+	set_private_co_ords
+
+	let draw_order = LABORATORY_PAINTDROP_DRAW_ORDER
+
+	let y_vel = rand (56,72)
+start
+	if world_y >= 316 then
+		let parent.landed_paintdrops = parent.landed_paintdrops + 1
+		// Spawn twinkles!
+		
+		PLAY_SOUND paintdrop_splash 255 pitch_increase_frequency
+
+		for counter = 0 to 2
+			spawn_entity lab_cauldron_twinkle
+			let last_child.y_vel = rand (-192,-320)
+			let last_child.x_vel = rand (-128,128)
+		next
+
+		kill_entity own_id
+	end_if
+end

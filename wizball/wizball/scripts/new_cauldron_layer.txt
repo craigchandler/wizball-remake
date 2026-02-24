@@ -1,0 +1,26 @@
+#define INHERIT_COLOUR			passed_param_1
+#define DRAW_ORDER_OFFSET		passed_param_2
+#define SPECIAL_OPENGL_BOOLEAN		passed_param_3
+
+	let bitshift = 0
+	set_private_co_ords
+
+	let opengl_booleans = SPECIAL_OPENGL_BOOLEAN
+
+	if INHERIT_COLOUR = true then
+		let opengl_booleans = opengl_booleans + opengl_boolean_vertex_colour
+	end_if
+	
+	let sprite = title_screen_and_large_bits[arb]
+
+	let draw_mode = draw_mode_sprite
+
+	let draw_order = parent.draw_order + DRAW_ORDER_OFFSET
+
+start
+	if INHERIT_COLOUR = true then
+		let opengl_vertex_red = parent.opengl_vertex_red 
+		let opengl_vertex_green = parent.opengl_vertex_green 
+		let opengl_vertex_blue = parent.opengl_vertex_blue 
+	end_if
+end

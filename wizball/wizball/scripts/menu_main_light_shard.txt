@@ -1,0 +1,64 @@
+// This spawns the different elements of the logo and makes
+// sure they all hang together.
+
+#define rotation_speed			v0
+
+#define pulse_counter			v1
+#define pulse_counter_speed		v2
+
+#define base_scale_x			v3
+#define base_scale_y			v4
+
+	let draw_mode = DRAW_MODE_SPRITE
+	let sprite = title_screen_elements[arb]
+
+	let opengl_booleans = COMPOUND_BITFLAG (opengl_boolean_blend_add, opengl_boolean_vertex_colour_alpha, opengl_boolean_scale, opengl_boolean_rotate, opengl_boolean_filtered, OPENGL_BOOLEAN_SECONDARY_SCALE)
+	let current_frame = 5
+	let draw_order = MENU_LOGO_LIGHT_SHARD_DRAW_ORDER
+
+	let entity_type = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	// First Run
+
+	let pulse_counter = -9000
+
+.repeat_point
+
+	let pulse_counter_speed = rand (500,1500)
+
+	let rotation_speed = rand (50,150)
+	let rotation_speed = rand_sign (rotation_speed)
+
+	let OPENGL_SECONDARY_SCALE_X = 15000
+	let OPENGL_SECONDARY_SCALE_Y = 7500
+
+	let opengl_scale_x = rand (7500,25000)
+	let opengl_scale_y = rand (10000,12500)
+
+	let opengl_angle = rand (0,36000)
+start
+	let opengl_angle = opengl_angle + rotation_speed
+
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+
+	let temp_1 = 5000 sin pulse_counter
+	let temp_1 = temp_1 + 5000
+
+	let opengl_vertex_alpha = matriarch.opengl_vertex_alpha % temp_1
+
+	let pulse_counter = pulse_counter + pulse_counter_speed
+
+	if pulse_counter >= 27000 then
+		let pulse_counter = -9000
+		goto repeat_point
+	end_if
+
+	if opengl_vertex_alpha = 0 then
+		let draw_mode = draw_mode_invisible
+	else
+		let draw_mode = draw_mode_sprite
+	end_if
+
+	set_private_co_ords
+end

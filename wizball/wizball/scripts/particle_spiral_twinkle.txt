@@ -1,0 +1,48 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE + ENT_TYPE_DISPOSABLE
+	LET ENTITY_TYPE = ENTITY_TYPE + ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	let Bitshift = 7
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = particle_effects[arb]
+	let base_frame = 15
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+
+	let lifetime = rand (200,255)
+
+	let draw_order = EXPLOSION_DRAW_ORDER
+
+	let y_acc = 2
+
+	let x_vel = rand (-64,64)
+	let y_vel = rand (-64,32)
+	
+start
+	let opengl_angle = opengl_angle + 500
+
+	let x_vel = x_vel % 9900
+	let y_vel = y_vel % 9900
+
+	let v0 = lifetime - 100
+	if v0 < 10 then
+		let v0 = 10 // Any smaller than this and we could easily frig the drawing up.
+	end_if
+
+	let opengl_scale_x = rand v0 lifetime
+
+	let opengl_scale_x = opengl_scale_x * 50
+	let opengl_scale_y = opengl_scale_x
+
+	let lifetime = lifetime - 8
+
+	if lifetime < 50 then
+		kill_entity own_id
+	end_if
+end

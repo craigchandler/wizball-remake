@@ -1,0 +1,46 @@
+#define base_colour			v0
+#define actual_colour			v1
+#define rainbow_direction		v2
+#define variance			v3
+#define explosion_power			v4
+
+let draw_order = 11
+
+let variance = rand (2,6)
+
+let explosion_power = rand 5000,10000
+
+let rainbow_direction = rand (0,1)
+let rainbow_direction = rainbow_direction * 2
+let rainbow_direction = rainbow_direction - 1
+
+let base_colour = rand (0,360)
+
+for temp_1 = 0 to 36000 step 500
+	let temp_2 = rand (80,300)
+	let x_vel = temp_2 sin temp_1
+	let y_vel = temp_2 cos temp_1
+	spawn_entity ex_firework_streamer,0,0,process_next
+	let last_child.x_vel = x_vel % explosion_power
+	let last_child.y_vel = y_vel % explosion_power
+	let last_child.explosion_power = explosion_power
+
+	let temp_2 = temp_2 / variance
+	let temp_2 = temp_2 * rainbow_direction
+	let actual_colour = base_colour + temp_2 !< 0 !> 360
+
+	GET_VERTEX_COLOURS_FROM_HSL actual_colour 256 128
+	let last_child.opengl_vertex_red = opengl_vertex_red
+	let last_child.opengl_vertex_green = opengl_vertex_green
+	let last_child.opengl_vertex_blue = opengl_vertex_blue
+
+//	spawn_entity ex_firework_streamer,0,0,process_next
+//	let last_child.x_vel = x_vel % explosion_power
+//	let last_child.y_vel = y_vel % explosion_power
+//	let last_child.opengl_vertex_alpha = 128
+//	let last_child.explosion_power = explosion_power
+next
+
+kill_entity own_id
+
+end

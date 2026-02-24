@@ -1,0 +1,59 @@
+#define angular_offset			passed_param_1
+#define angle_counter			v0
+
+#define base_world_x			v1
+#define base_world_y			v2
+
+#define wobble_x_distance		v1
+#define wobble_y_distance		v2
+
+#define distance_adder			v3
+
+#define angle_to_frame_divider		1285 // Divides in 36000/14 so no skips. Mmm... Skips...
+
+	let opengl_booleans = opengl_boolean_blend_multiply + opengl_boolean_vertex_colour_alpha
+	let opengl_vertex_alpha = 0
+
+	let base_world_x = world_x
+	let base_world_y = world_y
+
+	let sprite = ending_object[set][32][32][16][16]
+	let base_frame = 0
+	let current_frame = base_frame
+	let frame_count = 14
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let draw_order = 480 - world_y
+	let draw_order = draw_order / 10
+	let draw_order = draw_order + 40
+
+	let bitshift = 0
+
+	let distance_adder = 100
+
+	set_private_co_ords
+
+start
+
+	if opengl_vertex_alpha < 255 then
+		let opengl_vertex_alpha = opengl_vertex_alpha + 5 !> 255
+	else
+		let opengl_booleans = opengl_boolean_masked
+	end_if
+
+	let temp_1 = parent.angle_counter + angular_offset
+
+	let temp_2 = parent.wobble_x_distance + distance_adder
+	let temp_2 = temp_2 sin temp_1
+	let world_x = base_world_x + temp_2
+
+	let temp_2 = parent.wobble_y_distance + distance_adder
+	let temp_2 = temp_2 sin temp_1
+	let world_y = base_world_y + temp_2
+
+	let temp_2 = temp_1 / angle_to_frame_divider
+	let current_frame = temp_2 mod frame_count
+
+	let distance_adder = distance_adder - 1 !< 0
+
+end

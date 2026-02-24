@@ -1,0 +1,208 @@
+// This creates and then manages the permanent upgrade icons for during the laboratory sequence.
+
+#define icon_sprite_frame		passed_param_1
+#define icon_position_index		passed_param_2
+
+#define icon_total_indices		v0
+#define current_index			v1
+#define starting_loadout		v2
+#define current_angle			v3
+#define target_angle			v4
+#define angle_size			v5
+#define angle_diff			v6
+#define angle_adder			v7
+#define effect_fullness			v8
+#define target_effect_fullness		v9
+#define biased_effect_fullness		v10
+#define icon_total_indices_minus_one	v11
+
+#define effect_fullness_adaption_rate	200
+
+CREATE_ARRAY (SPAWN_UPGRADE_VALUES_ARRAY_ID, MAX_SPAWNED_UPGRADE_ICONS)
+
+	let effect_fullness = 0
+	let target_effect_fullness = 10000
+
+	let icon_total_indices = 0
+
+	let starting_loadout = get_global_flag (wizball_starting_loadout)
+
+	if starting_loadout !& LATERAL_CONTROL_BITFLAG then
+		write_to_array ( LATERAL_CONTROL_BITFLAG , own_id , SPAWN_UPGRADE_VALUES_ARRAY_ID, icon_total_indices)
+		gosub spawn_icon
+		let last_child.icon_sprite_frame = 11
+	else_if starting_loadout !& VERTICAL_CONTROL_BITFLAG then
+		write_to_array ( VERTICAL_CONTROL_BITFLAG , own_id , SPAWN_UPGRADE_VALUES_ARRAY_ID, icon_total_indices)
+		gosub spawn_icon
+		let last_child.icon_sprite_frame = 12
+	end_if
+
+	if starting_loadout !& SHIELD_FIRE_BITFLAG then
+		write_to_array ( SHIELD_FIRE_BITFLAG , own_id , SPAWN_UPGRADE_VALUES_ARRAY_ID, icon_total_indices)
+		gosub spawn_icon
+		let last_child.icon_sprite_frame = 13
+	else_if starting_loadout !& REAR_FIRE_BITFLAG then
+		write_to_array ( REAR_FIRE_BITFLAG , own_id , SPAWN_UPGRADE_VALUES_ARRAY_ID, icon_total_indices)
+		gosub spawn_icon
+		let last_child.icon_sprite_frame = 14
+	end_if
+
+	if starting_loadout !& CATELLITE_BITFLAG then
+		write_to_array ( CATELLITE_BITFLAG , own_id , SPAWN_UPGRADE_VALUES_ARRAY_ID, icon_total_indices)
+		gosub spawn_icon
+		let last_child.icon_sprite_frame = 15
+	end_if
+
+	if starting_loadout !& DOUBLE_FIRE_BITFLAG then
+		write_to_array ( DOUBLE_FIRE_BITFLAG , own_id , SPAWN_UPGRADE_VALUES_ARRAY_ID, icon_total_indices)
+		gosub spawn_icon
+		let last_child.icon_sprite_frame = 16
+	end_if
+
+	if starting_loadout !& WIZ_SPREAD_FIRE_BITFLAG then
+		write_to_array ( WIZ_SPREAD_FIRE_BITFLAG , own_id , SPAWN_UPGRADE_VALUES_ARRAY_ID, icon_total_indices)
+		gosub spawn_icon
+		let last_child.icon_sprite_frame = 17
+	else_if starting_loadout !& CAT_SPREAD_FIRE_BITFLAG then
+		write_to_array ( CAT_SPREAD_FIRE_BITFLAG , own_id , SPAWN_UPGRADE_VALUES_ARRAY_ID, icon_total_indices)
+		gosub spawn_icon
+		let last_child.icon_sprite_frame = 18
+	end_if
+
+//	if starting_loadout !& INVULNERABILITY_BITFLAG then
+//		write_to_array ( INVULNERABILITY_BITFLAG , own_id , SPAWN_UPGRADE_VALUES_ARRAY_ID, icon_total_indices)
+//		gosub spawn_icon
+//		let last_child.icon_sprite_frame = 20
+//	end_if
+
+	// Always spawn an exit! ALWAYS!
+	gosub spawn_icon
+	let last_child.icon_sprite_frame = 21
+	write_to_array ( 0 , own_id , SPAWN_UPGRADE_VALUES_ARRAY_ID, icon_total_indices)
+
+	let angle_size = 36000 / icon_total_indices
+
+	let current_index = 0
+
+	let signal = 0
+
+	let icon_total_indices_minus_one = icon_total_indices - 1
+start
+
+	gosub adapt_effect_fullness
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 RIGHT then
+		let current_index = current_index - 1 !< 0 !> icon_total_indices_minus_one
+		PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
+	END_IF
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 LEFT then
+		let current_index = current_index + 1 !< 0 !> icon_total_indices_minus_one
+		PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
+	END_IF
+
+	if (effect_fullness = target_effect_fullness) then
+		IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 FIRE_1 then
+			goto end_sequence
+		END_IF
+	end_if
+
+	let target_angle = current_index * angle_size
+
+	let angle_diff = target_angle - current_angle
+
+	if angle_diff != 0 then
+
+		if angle_diff < -18000 then
+
+			let angle_adder = 36000 + angle_diff
+			let angle_adder = angle_adder % 2000
+
+		else_if angle_diff > 18000 then
+
+			let angle_adder = 36000 - angle_diff
+			let angle_adder = -angle_adder % 2000
+
+		else
+
+			let angle_adder = angle_diff
+			let angle_adder = angle_adder % 2000
+
+		end_if
+
+//		if angle_adder = 0 then
+//			// As it tends towards 0 even before the angles match...
+//			let angle_adder = sgn (angle_diff)
+//		end_if
+
+		let current_angle = current_angle + angle_adder !< 0 !> 35999
+
+	end_if
+
+end
+
+
+
+.end_sequence
+
+	PLAY_SOUND permanent_upgrade_selected 255 CONST_SOUND_FREQUENCY 128
+
+	LET TEMP_1 = READ_FROM_ARRAY (OWN_ID,SPAWN_UPGRADE_VALUES_ARRAY_ID,current_index)
+
+	let starting_loadout = starting_loadout OR TEMP_1
+
+	if temp_1 = CAT_SPREAD_FIRE_BITFLAG then
+		let starting_loadout = starting_loadout AND !WIZ_SPREAD_FIRE_BITFLAG
+	else_if temp_1 = WIZ_SPREAD_FIRE_BITFLAG then
+		let starting_loadout = starting_loadout AND !CAT_SPREAD_FIRE_BITFLAG
+	else_if temp_1 = 0 then
+		// No bonus = lotsa' points! Ish.
+
+		let temp_3 = get_global_flag (player_on_level_number)
+		let temp_3 = 9 - temp_2
+		let temp_3 = temp_3 * 1000
+
+		let temp_2 = get_global_flag (player_score)
+		let temp_2 = temp_2 + temp_3 !> MAXIMUM_POSSIBLE_SCORE
+		set_global_flag (player_score,temp_2)
+	end_if
+
+	set_global_flag (wizball_starting_loadout,starting_loadout)
+
+	let target_effect_fullness = 0
+
+	let signal = 1
+
+start
+
+	gosub adapt_effect_fullness
+
+	if (effect_fullness = target_effect_fullness) then
+		kill_entity own_id
+	end_if
+
+end
+
+
+
+.adapt_effect_fullness
+
+	if (effect_fullness < target_effect_fullness) then
+		let effect_fullness = effect_fullness + effect_fullness_adaption_rate !> target_effect_fullness
+	else_if (effect_fullness > target_effect_fullness) then
+		let effect_fullness = effect_fullness - effect_fullness_adaption_rate !< target_effect_fullness
+	end_if
+
+	let biased_effect_fullness = effect_fullness curve_percentage CURVE_PERCENTAGE_SISO
+
+return
+
+
+
+.spawn_icon
+
+	spawn_entity lab_permanent_upgrade_icon,0,0,process_next
+	let last_child.icon_position_index = icon_total_indices
+	let icon_total_indices = icon_total_indices + 1
+
+return

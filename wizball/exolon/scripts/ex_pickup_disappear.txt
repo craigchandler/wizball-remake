@@ -1,0 +1,31 @@
+	let collide_type = 0
+	let collide_with = 0
+
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+
+	let bitshift = 4
+	set_private_co_ords
+
+	let counter = 0
+
+	let y_vel = -64
+start
+	let y_vel = y_vel % 9700
+	let opengl_angle = opengl_angle + 300
+	let opengl_scale_x = opengl_scale_x % 9800
+	let opengl_scale_y = opengl_scale_x
+
+	let counter = counter + 1
+	if counter = 50 then
+		PLAY_SOUND pickup 255 22050 128
+		for counter = 0 to 12
+			spawn_entity ex_pickup_particle 0 0 PROCESS_NEXT
+			let temp_1 = counter * 3000
+			let last_child.x_vel = 512 sin temp_1
+			let last_child.y_vel = 512 cos temp_1
+		next
+		kill_entity own_id
+	end_if
+end
+

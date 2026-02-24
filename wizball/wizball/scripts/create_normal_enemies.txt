@@ -1,0 +1,56 @@
+#define game_mode			v0
+#define total_bubble_Waves		v1
+#define enemy_wave_type_bitflag		v2
+#define bit_value			v3
+#define total_wave_count		v4
+#define bit_number			v5
+
+//	start_program_trace
+
+	let total_wave_count = get_global_flag (enemy_wave_count_in_level)
+
+	// This creates a bitflag so that the positions and types of the enemy waves created are partially random.
+	// Basically it's because the Spectrum version seems to have less bubble waves per level.
+
+	let game_mode = get_global_flag (c64_or_spectrum_game_mode)
+
+	let enemy_wave_type_bitflag = 1 << total_wave_count
+	let enemy_wave_type_bitflag = enemy_wave_type_bitflag - 1
+
+	if game_mode = GAME_MODE_C64 then
+		let total_bubble_Waves = 3
+	else
+		let total_bubble_Waves = 2
+	end_if
+
+	// Knock out total_bubble_waves number of bits
+
+	let total_wave_count = total_wave_count - 1 // So we can use it to get a random bit number
+
+	start_loop (total_bubble_Waves > 0)
+
+		let bit_number = SPECIAL_RAND (0, 0,total_wave_count)
+		let bit_value = 1 << bit_number
+
+		if enemy_wave_type_bitflag & bit_value then
+			let enemy_wave_type_bitflag = enemy_wave_type_bitflag xor bit_value
+			let total_bubble_Waves = total_bubble_Waves - 1
+		end_if
+
+	end_loop
+
+	set_global_flag (enemy_wave_allotment_bitflag,enemy_wave_type_bitflag)
+
+	// Spawn appropriate enemy wave positions
+
+	let current_zone = get_current_zone (0,0,game_room_zone)
+
+	if game_mode = GAME_MODE_C64 then
+		spawn_entities_in_zone (current_zone,process_next,c64_main_level_enemy)
+	else
+		spawn_entities_in_zone (current_zone,process_next,zx_main_level_enemy)
+	end_if
+
+	// And let them do their bit...
+
+kill_entity own_id

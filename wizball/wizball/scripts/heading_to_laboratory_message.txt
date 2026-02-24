@@ -1,0 +1,9 @@
+	SPAWN_ENTITIES_FROM_TEXT (FALSE,0, overlay_fading_text, HEADING_TO_LAB_TAG, process_next, center_x, 320, 208, 0, 0, font[arb])
+
+	wait 180
+
+	let signal = true
+
+	wait 10
+
+	kill_entity own_id

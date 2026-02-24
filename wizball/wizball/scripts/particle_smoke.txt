@@ -1,0 +1,42 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	#define base_scale			passed_param_1
+	#define rotation_speed			passed_param_2
+
+	let bitshift = 8
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = particle_effects[arb]
+
+	let base_frame = 14
+	let current_frame = base_frame 
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_MULTIPLY + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let opengl_scale_x = base_scale
+	let opengl_scale_y = base_scale
+
+	let opengl_angle = rand (0,36000)
+
+	let draw_order = PAINT_STAIN_DRAW_ORDER
+
+start
+
+	let opengl_scale_x = opengl_scale_x + 50
+	let opengl_scale_y = opengl_scale_x
+
+	let opengl_vertex_alpha = opengl_vertex_alpha - 2 !< 0
+
+	let opengl_angle = opengl_angle + rotation_speed
+
+	if opengl_vertex_alpha = 0 then
+		kill_entity own_id
+	end_if
+
+end

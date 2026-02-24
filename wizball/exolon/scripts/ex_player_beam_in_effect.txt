@@ -1,0 +1,51 @@
+#define flame_size_min v0
+#define flame_size_max v1
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 87
+	let frame_count = 1
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let draW_order = draw_order - 2
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let opengl_scale_x = 100
+	let opengl_scale_y = 55800
+
+	let opengl_vertex_alpha = 0
+
+	let counter = 0
+start
+	let world_x = parent.world_x
+
+	set_private_co_ords
+
+	let counter = counter + 1
+
+	let temp_1 = counter mod 4
+	if temp_1 = 0 then
+		spawn_entity ex_player_beam_in_effect_pulser 0 0 PROCESS_NEXT
+	end_if
+
+	if counter < 100 then
+		let opengl_vertex_alpha = opengl_vertex_alpha >% 255 1000
+		let opengl_scale_x = opengl_scale_x >% 20000 500
+	else_if counter = 100 then
+		set_global_flag (player_beaming_in, 1)
+	else_if counter > 130 then
+		let opengl_vertex_alpha = opengl_vertex_alpha >% 0 1500
+		let opengl_scale_x = opengl_scale_x >% 100 1000
+		if counter = 160 then
+			set_global_flag (player_beaming_in, 0)
+			// So that next time around the player beams in properly.
+			kill_entity own_id
+		end_if
+	end_if
+end

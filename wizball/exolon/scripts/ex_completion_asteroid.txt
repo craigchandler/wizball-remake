@@ -1,0 +1,52 @@
+#define movement_angle		v0
+#define movement_speed		v1
+#define size			v2
+#define spin			v3
+#define scale_mod		v4
+#define percent			v5
+#define actual_movement_speed	v6
+
+#define progress_speed		v31
+
+	let opengl_booleans = opengl_booleans + opengl_boolean_scale
+	let opengl_booleans = opengl_booleans + opengl_boolean_rotate
+	let opengl_booleans = opengl_booleans + opengl_boolean_filtered
+
+	let Bitshift = 4
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 89
+	let current_frame = base_frame
+
+	let draw_mode = draw_mode_sprite
+
+	let scale_mod = rand -3000 3000
+
+	let opengl_scale_x = rand 16000 22000
+	let opengl_scale_y = opengl_scale_x + scale_mod
+
+	let movement_angle = rand 25000 29000
+	let movement_speed = rand 32 96
+
+	let spin = rand 128,256
+	let temp_1 = rand 0,1
+	let temp_1 = temp_1 * 2
+	let temp_1 = temp_1 - 1
+	let spin = spin * temp_1
+
+start
+
+	let percent = parent.progress_speed * 50
+	let actual_movement_speed = movement_speed % percent
+
+	let x_vel = actual_movement_speed sin movement_angle
+	let y_vel = actual_movement_speed cos movement_angle
+
+	let opengl_angle = opengl_angle + spin
+
+	if world_x < -32 then
+		kill_entity own_id
+	end_if
+
+end
+

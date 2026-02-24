@@ -1,0 +1,202 @@
+// This is a generic wave spawner for the bonus waves. It deals with ALL wave types and therefor is an ugly great state machine. Yuck.
+
+	LET ENTITY_TYPE = ENT_TYPE_BONUS_LEVEL_ENTITY
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+// This entity defines...
+
+	// This is what kinda' enemy it is...
+#define enemy_type			passed_param_1
+
+	// This is toggled every frame if the above is true.
+#define wave_flags			passed_param_2
+
+	// This determines when this wave gives the go-ahead to the parent.
+#define wave_continue_mode		passed_param_3
+
+	// This says how many enemies are in the wave. Lawks!
+#define total_wave_size			passed_param_4
+
+#define wave_number_in_bonus_level	passed_param_5
+
+
+
+	// This is for determining how the system decides whether to spawn another enemy in the wave.
+#define wave_spawn_continue_mode		v2
+#define wave_spawn_continue_mode_timer		v3
+#define wave_spawn_continue_mode_counter	v4
+
+	// This is the amount of children who have reported back as expired.
+#define total_alive_children			v6
+
+// Set up wave...
+
+	let total_alive_children = 0
+
+	switch enemy_type
+
+		case BONUS_WAVE_TYPE_SLOW_PLANES
+			let wave_spawn_continue_mode = WAIT_SET_TIME
+			let wave_spawn_continue_mode_timer = 12
+		break
+
+		case BONUS_WAVE_TYPE_REGULAR_PAINTBALL_BOUNCE
+			let wave_spawn_continue_mode = WAIT_SET_TIME
+			let wave_spawn_continue_mode_timer = 2
+		break
+
+		case BONUS_WAVE_TYPE_RANDOM_CIRCLES
+			let wave_spawn_continue_mode = WAIT_UNTIL_LOW_ENOUGH_COUNT
+			let wave_spawn_continue_mode_counter = 6
+			let wave_spawn_continue_mode_timer = 30
+		break
+
+		case BONUS_WAVE_TYPE_RANDOM_ASTEROIDS
+			let wave_spawn_continue_mode = WAIT_SET_TIME
+			let wave_spawn_continue_mode_timer = 45
+		break
+
+		case BONUS_WAVE_TYPE_RANDOM_PAINTBALL_BOUNCE
+			let wave_spawn_continue_mode = WAIT_SET_TIME
+			let wave_spawn_continue_mode_timer = 20
+		break
+
+		case BONUS_WAVE_TYPE_FILTH
+			let wave_spawn_continue_mode = WAIT_SET_TIME
+			if wave_flags & ALTERNATE_MODE_1 then
+				let wave_spawn_continue_mode_timer = 50
+			else
+				let wave_spawn_continue_mode_timer = 8
+			end_if
+		break
+
+		case BONUS_WAVE_TYPE_BONUS_LIFE
+			let wave_spawn_continue_mode = WAIT_SET_TIME
+			let wave_spawn_continue_mode_timer = 0
+		break
+
+		case BONUS_WAVE_TYPE_NEW_8_WAY_SHOOTERS
+			if wave_flags & ALTERNATE_MODE_1 then
+				let wave_spawn_continue_mode = WAIT_SET_TIME
+				let wave_spawn_continue_mode_timer = 75
+			else
+				let wave_spawn_continue_mode = WAIT_SET_TIME
+				let wave_spawn_continue_mode_timer = 30
+			end_if
+		break
+
+		case BONUS_WAVE_TYPE_NEW_ROTATE_SHOOTERS
+			let wave_spawn_continue_mode = WAIT_UNTIL_LOW_ENOUGH_COUNT
+			let wave_spawn_continue_mode_timer = 5
+			let wave_spawn_continue_mode_counter = 10
+		break
+
+		case BONUS_WAVE_TYPE_UP_AND_DOWNERS
+			let wave_spawn_continue_mode = WAIT_SET_TIME
+			let wave_spawn_continue_mode_timer = 15
+		break
+
+		case BONUS_WAVE_TYPE_NEW_RANDOM_WAY_DRIVE_BYS
+			let wave_spawn_continue_mode = WAIT_SET_TIME
+			let wave_spawn_continue_mode_timer = 30
+		break
+
+	end_switch
+
+	if wave_continue_mode = DO_NOT_WAIT then
+		// Hungry? Why wait?
+		gosub send_go_ahead
+	end_if
+
+// We then roll through to this point, where we do the actual spawning of an enemy.
+.spawn_enemy
+
+	spawn_entity (bonus_wave_enemy,0,0,process_next)
+	let last_child.enemy_type = enemy_type
+	let last_child.wave_flags = wave_flags
+	let last_child.wave_continue_mode = wave_continue_mode
+	let last_child.wave_number_in_bonus_level = wave_number_in_bonus_level
+
+	let counter = wave_spawn_continue_mode_timer
+
+	if wave_flags & SIMULTANEOUS then
+		// If it's simultaneous then we squirt out a pair by fudging the counter to 0.
+		let temp_1 = total_wave_size mod 2
+
+		if temp_1 = 0 then
+			let counter = 0
+		end_if
+	end_if
+
+start
+	let counter = counter - 1 !< 0
+
+	if counter = 0 then
+		if wave_spawn_continue_mode = WAIT_UNTIL_LOW_ENOUGH_COUNT then
+			if total_alive_children < wave_spawn_continue_mode_counter then
+				goto decision_time
+			end_if
+		else
+			goto decision_time
+		end_if
+	end_if
+end
+
+
+
+// This is where we go after waiting to spawn each enemy, it looks at our
+// wave_continue_mode and how many enemies we've spawned, etc, to see what to do next.
+.decision_time
+
+	wait 1
+
+	// Reduce the remaining enemy count for the wave
+	let total_wave_size = total_wave_size - 1
+
+	if wave_flags & X_TOGGLE then
+		let wave_flags = wave_flags XOR X_INVERT
+	end_if
+
+	if wave_flags & Y_TOGGLE then
+		let wave_flags = wave_flags XOR Y_INVERT
+	end_if
+
+	if total_wave_size = 0 then
+		// Righty, that's yer lot! We've spawned all our enemies. So what do we do next?
+
+		if wave_continue_mode = WAIT_UNTIL_LAST_DEAD then
+			goto wait_after_wave_finished
+		else_if wave_continue_mode = WAIT_UNTIL_LAST_SPAWNED then
+			gosub send_go_ahead
+		else // DO_NOT_WAIT
+			// We've already told our parent to continue so do nothing.
+		end_if
+	else
+		goto spawn_enemy
+	end_if
+
+	// If we haven't looped or been redirected, we just pop our clogs.
+	kill_entity own_id
+
+// This script only gets to this point if the wave_continue_mode is WAIT_UNTIL_LAST_DEAD.
+// We just wait here until our total_alive_children reaches 0 and then we tell our parent to continue and then pop our clogs.
+.wait_after_wave_finished
+
+start
+
+	if total_alive_children = 0 then
+		gosub send_go_ahead
+		kill_entity own_id
+	end_if
+
+end
+
+// And this tells daddy that he can plop out a new wave.
+
+.send_go_ahead
+
+	let temp_1 = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+	ADD_EVENT_TO_QUEUE (temp_1 , LEVEL_RESET_FLAG_MOVE_TO_NEXT_BONUS_WAVE)
+
+return
+

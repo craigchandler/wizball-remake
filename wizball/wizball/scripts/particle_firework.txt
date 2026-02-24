@@ -1,0 +1,88 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE + ENT_TYPE_BONUS_LEVEL_ENTITY
+	LET ENTITY_TYPE = ENTITY_TYPE + ENT_TYPE_DISPOSABLE
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+#define base_colour			v0
+#define actual_colour			v1
+#define rainbow_direction		v2
+#define variance			v3
+#define explosion_power			v4
+#define old_age				v5
+
+#define angular_step			V6
+
+let bitshift = 0
+set_private_co_ords
+
+let draw_order = EXPLOSION_DRAW_ORDER
+
+let variance = rand (2,6)
+
+let explosion_power = 10000
+
+let rainbow_direction = rand (0,1)
+let rainbow_direction = rainbow_direction * 2
+let rainbow_direction = rainbow_direction - 1
+
+let base_colour = rand (0,360)
+
+spawn_entity (particle_blinder,0,0,process_next)
+
+let angular_step = get_global_flag (particle_rareness_multiplier)
+let angular_step = 800 * angular_step
+
+for temp_1 = 0 to 36000 step angular_step
+	let temp_2 = rand (80,300)
+
+	let old_age = temp_2 / 10
+	let old_age = 40 - old_age
+
+	let x_vel = temp_2 sin temp_1
+	let y_vel = temp_2 cos temp_1
+	spawn_entity (particle_firework_streamer,0,0,process_next)
+	let last_child.x_vel = x_vel % explosion_power
+	let last_child.y_vel = y_vel % explosion_power
+	let last_child.explosion_power = explosion_power
+	let last_child.old_age = old_age
+
+	let temp_2 = temp_2 / variance
+	let temp_2 = temp_2 * rainbow_direction
+	let actual_colour = base_colour + temp_2 !< 0 !> 359
+
+	GET_VERTEX_COLOURS_FROM_HSL actual_colour 256 128
+	let last_child.opengl_vertex_red = opengl_vertex_red
+	let last_child.opengl_vertex_green = opengl_vertex_green
+	let last_child.opengl_vertex_blue = opengl_vertex_blue
+next
+
+let x_vel = 0
+let y_vel = 0
+
+let counter = 0
+
+start
+
+	set_global_flag (temp_flag,world_y)
+
+	let temp_2 = counter * 30
+	let temp_2 = temp_2 + 180
+
+	let actual_colour = base_colour + temp_2 !< 0 !> 360
+	GET_VERTEX_COLOURS_FROM_HSL actual_colour 256 128
+
+	spawn_entity (particle_shockwave,0,0,process_next)
+	let last_child.opengl_vertex_red = opengl_vertex_red
+	let last_child.opengl_vertex_green = opengl_vertex_green
+	let last_child.opengl_vertex_blue = opengl_vertex_blue
+
+	let counter = counter + 1
+
+	if counter = 5 then
+		kill_entity own_id
+	end_if
+
+	wait 6
+
+end
+

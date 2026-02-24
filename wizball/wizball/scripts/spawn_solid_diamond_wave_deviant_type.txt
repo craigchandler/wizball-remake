@@ -1,0 +1,135 @@
+// Private defines
+
+	#define wave_position			v0
+
+	#define wave_x_spread			v1
+	#define wave_y_spread			v2
+
+	#define wave_size			v3
+
+	#define x_deviation			v4
+	#define y_deviation			v5
+
+	#define child_velocity			v6
+	#define child_height			V7
+
+	#define box_start_x			V10
+	#define box_start_y			V11
+	#define box_end_x			V12
+	#define box_end_y			V13
+
+	#define allowed_positions		V14
+
+	#define wave_sub_type			V15
+
+	#define firing_frequency		V16
+
+	#define player_on_level_number_var	V17
+
+	#define box_width			V18
+	#define total_wave_width		V19
+
+	#define actual_speed			V20
+
+	#define WAVE_SUB_TYPE_UNIFORM		1
+		// All the entities get their own speed/height
+	#define WAVE_SUB_TYPE_RANDOM		2
+		// All the entities get the same speed/height
+
+// Child defines
+
+	#define top_or_bottom_flag				passed_param_1
+	#define paint_bubble_colour_flag			passed_param_2
+	#define paint_bubble_special_bonus_flag			passed_param_3
+	#define passed_in_min_horizontal_speed			passed_param_4
+	#define passed_in_max_horizontal_speed			passed_param_5
+	#define passed_in_min_height				passed_param_6
+	#define passed_in_max_height				passed_param_7
+	#define passed_in_firing_behaviour			passed_param_8
+	#define passed_in_firing_frequency			passed_param_9
+	#define passed_in_firing_initial_delay			passed_param_10
+	#define enemy_behaviour_type				passed_param_11
+	#define passed_in_gravity				passed_param_12
+	#define passed_in_min_vertical_speed			passed_param_13
+	#define passed_in_max_vertical_speed			passed_param_14
+	#define passed_in_enemy_bullet_speed_percentage		passed_param_15
+
+	#define VERTICAL_BOUNCE_FLOOR			1
+	#define VERTICAL_BOUNCE_ROOF			2
+	#define VERTICAL_POSITION_TOP			3
+	#define VERTICAL_POSITION_MIDDLE		4
+	#define VERTICAL_POSITION_BOTTOM		5
+
+	#define STARTING_X_VEL				V4
+
+	#define BULLET_TYPE_SINGLE_DIRECTED		1
+	#define BULLET_TYPE_SPREAD			2
+	#define BULLET_FREQUENCY_RANDOM			4
+	#define BULLET_FREQUENCY_FIXED			8
+
+	let temp_1 = MIN_WAVE_SIZE * MIN_WAVE_SIZE
+	let temp_2 = MAX_WAVE_SIZE * MAX_WAVE_SIZE
+
+	let wave_size = SPECIAL_RAND (0, temp_1,temp_2)
+	let wave_size = sqr wave_size
+
+	let wave_x_spread = SPECIAL_RAND (0, 32,48) // This is how far apart each enemy is horizontally
+	let wave_y_spread = SPECIAL_RAND (0, 0,0) // This is how far apart each enemy is vertically
+
+	let x_deviation = -wave_size * wave_x_spread
+	let x_deviation = x_deviation / 2
+
+	let y_deviation = -wave_size * wave_y_spread
+	let y_deviation = y_deviation / 2
+
+	let box_width = box_end_x - box_start_x
+	let box_width = abs (box_width)
+
+	let firing_frequency = player_on_level_number_var * 5
+	let firing_frequency = 300 - firing_frequency
+
+	start_loop
+		let total_wave_width = wave_x_spread * wave_size
+
+		if (total_wave_width > box_width) then
+			let wave_x_spread = wave_x_spread - 1
+		end_if
+	end_loop (total_wave_width > box_width)
+
+	let actual_speed = SPECIAL_RAND (0, SOLID_DIAMOND_DEVIANT_TYPE_MINIMUM_VERTICAL_SPEED,SOLID_DIAMOND_DEVIANT_TYPE_MAXIMUM_VERTICAL_SPEED)
+
+	for counter = 1 to wave_size
+		spawn_entity (generic_level_enemy,x_deviation,y_deviation,process_next)
+
+		let last_child.top_or_bottom_flag = top_or_bottom_flag
+
+		let last_child.passed_in_min_horizontal_speed = 0
+		let last_child.passed_in_max_horizontal_speed = 0
+		let last_child.passed_in_min_vertical_speed = actual_speed
+		let last_child.passed_in_max_vertical_speed = actual_speed
+
+		let last_child.passed_in_min_height = box_start_y
+		let last_child.passed_in_max_height = box_end_y
+
+
+		let x_deviation = x_deviation + wave_x_spread 
+		let y_deviation = y_deviation + wave_y_spread
+
+		let last_child.passed_in_enemy_bullet_speed_percentage = 10000
+		let last_child.draw_order = NORMAL_ENEMY_DRAW_ORDER
+		let last_child.passed_in_firing_behaviour = BULLET_TYPE_SINGLE_DIRECTED or BULLET_FREQUENCY_FIXED
+		let last_child.passed_in_firing_frequency = firing_frequency
+		let last_child.passed_in_firing_initial_delay = SOLID_DIAMOND_INITIAL_FIRING_DELAY
+		let last_child.enemy_behaviour_type = ENEMY_TYPE_SOLID_DIAMONDS_DEVIANT
+		let last_child.passed_in_gravity = 0
+
+		let last_child.sprite = enemies_01[set][48][48][24][24]
+		let last_child.opengl_booleans = opengl_boolean_masked
+
+		LET last_child.BASE_FRAME = 48
+		let last_child.frame_count = 1
+	next
+
+	kill_entity own_id
+
+end

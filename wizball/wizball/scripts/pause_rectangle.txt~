@@ -1,0 +1,45 @@
+// This is the text used for the options. It simply fades in and out when it sees the signal from it's parent. Really fast.
+
+#define pause_status			v0
+
+	let world_x = 320
+	let world_y = 208
+
+	set_private_co_ords
+
+	let draw_mode = DRAW_MODE_SOLID_RECTANGLE
+
+	let UPPER_WIDTH = 144
+	let LOWER_WIDTH = 144
+	let UPPER_HEIGHT = 64
+	let LOWER_HEIGHT = 64
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_MULTIPLY + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let opengl_vertex_alpha = 0
+	let opengl_vertex_red = 0
+	let opengl_vertex_green = 0
+	let opengl_vertex_blue = 0
+
+start
+
+	let opengl_vertex_alpha = opengl_vertex_alpha + 15 !> 192
+
+	if parent.pause_status = FALSE then
+		goto final_phase
+	end_if
+
+end
+
+.final_phase
+
+start
+
+	let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+
+	if opengl_vertex_alpha = 0 then
+		kill_entity own_id
+	end_if
+
+end
+

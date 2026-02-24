@@ -1,0 +1,297 @@
+#define effect_stage		passed_param_1
+#define pick_up_player		0
+#define ending_scroller		1
+#define player_id		v0
+
+#define screen_width		640
+
+#define wobble_offset_x		v1
+#define wobble_offset_y		v2
+#define wobble_offset_angle	v3
+#define wobble_offset_max_x	v4
+#define wobble_offset_max_y	v5
+#define wobble_angle_speed	v6
+
+#define empty_overlay_id	v7
+
+#define settling_mode		v8
+
+#define talking_overlay_id	v9
+#define gore_overlay_id		v10
+#define window_overlay_id	v11
+#define warning_overlay_id	v12
+
+#define sound_channel		v29
+
+#define message_ended		v39
+
+#define opening			2
+#define destructing		1
+#define closing			0
+
+#define behaviour		passed_param_1
+#define at_rest			0
+#define turn_then_talk		1
+#define turned			2
+#define talking			3
+#define look_forward		4
+#define forward_talk		5
+
+	let sound_channel = play_looped_sound (rocket_thruster, 64, 22050, 128)
+	ADD_TO_PERSISTANT_CHANNELS sound_channel
+
+	let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+	let sprite = large_graphics[arb]
+	let base_frame = 16
+	let current_frame = base_frame
+	let draw_mode = draw_mode_sprite
+
+	let bitshift = 8
+
+	let draw_order = 40
+
+//	// Get it's extents...
+//	let current_zone = GET_CURRENT_ZONE (world_x, world_y, game_room_zone)
+//	let BOUNDARY_START_X, BOUNDARY_END_X = GET_HORIZONTAL_ZONE_EXTENTS (current_zone)
+
+	spawn_entity (ex_c2_tail_jet,0,0,process_next)
+
+	if effect_stage = pick_up_player then
+		goto pick_up_player_label
+	else_if effect_stage = ending_scroller then
+		goto ending_scroller_label
+	else
+		stop
+	end_if
+
+	end
+
+.pick_up_player_label
+
+	// Find where the player is, as it's him we have to co-ordinate with:
+
+	let player_id = get_global_flag (player_entity_id)
+	
+	let world_x = player_id.world_x - 653
+	let world_y = player_id.world_y - 195
+
+	let x_vel = 2560
+	let y_vel = 512
+
+	set_private_co_ords
+
+	let y_acc = -4
+	let x_acc = -20
+
+	let wobble_offset_angle = 0
+	let wobble_offset_max_x = 4
+	let wobble_offset_max_y = 5
+	let wobble_angle_speed = 200
+
+	spawn_entity ex_big_c2_ship_overlay_empty,0,0,process_next
+	let empty_overlay_id = last_child
+	spawn_entity ex_big_c2_ship_overlay_window,0,0,process_next
+	let window_overlay_id = last_child
+	let signal = opening
+
+	let counter = 0
+
+start
+
+//	let temp_1 = world_x - BOUNDARY_START_X
+//	if temp_1 < -320 then
+//		let temp_2 = player_id.world_x - world_x
+//		let temp_3 = player_id.world_y - world_y
+//		stop
+//	end_if
+
+	if x_vel <= 0 then
+		let x_acc = 0
+		let y_acc = 0
+		let x_vel = 0
+		let y_vel = 0
+	end_if
+
+	let counter = counter + 1
+
+	if counter = 60 then
+		let signal = closing
+		play_sound c2_window,255,11025,128
+	else_if counter = 80 then
+		set_global_flag (completion_effect_kill_player,1)
+		kill_entity empty_overlay_id
+	else_if counter = 130 then
+		let signal = opening
+		play_sound c2_window,255,11025,128
+	else_if counter = 160 then
+		goto take_off
+	end_if
+
+	gosub wobble_position
+end
+
+.take_off
+
+	let y_acc = -8
+	let x_acc = 6
+
+start
+
+	gosub wobble_position
+
+	if world_x < -128 then
+		let signal = destructing
+		fade_persistant_channels
+	end_if
+
+end
+
+
+
+
+.ending_scroller_label
+
+	let world_x = 320 - 64
+	let world_y = 480
+
+	set_private_co_ords
+
+	let y_vel = -1550
+	let y_acc = 16
+
+	let x_vel = 300
+	let x_acc = -3
+
+	let wobble_offset_angle = 0
+	let wobble_offset_max_x = 32
+	let wobble_offset_max_y = 128
+	let wobble_angle_speed = 100
+
+	spawn_entity ex_big_c2_ship_overlay_window,0,0,process_next
+	let window_overlay_id = last_child
+	let signal = closing
+
+	let settling_mode = 1
+	let counter = 9000
+start
+
+	if settling_mode = 1 then
+		if y_vel >= 0 then
+			let x_acc = 0
+			let y_acc = 0
+			let x_vel = 0
+			let y_vel = 0
+			let settling_mode = 0
+		end_if
+	end_if
+
+	if message_ended = 1 then
+		let wobble_offset_max_y = 60 sin counter
+		let wobble_offset_max_y = wobble_offset_max_y + 68 		
+		let wobble_offset_max_x = wobble_offset_max_y / 4
+
+		let counter = counter + 200
+
+		if counter = 27000 then
+			goto very_end_sequence
+		end_if
+	end_if
+
+	gosub wobble_position
+
+end
+
+
+
+.very_end_sequence
+
+let counter = 130
+
+
+start
+	let counter = counter + 1
+
+	if counter = 180 then
+		spawn_entity ex_big_c2_ship_overlay_talking,0,0,process_next
+		let talking_overlay_id = last_child
+		let talking_overlay_id.behaviour = at_rest
+		let signal = opening
+		play_sound c2_window,255,11025,128
+	else_if counter = 200 then
+		let talking_overlay_id.behaviour = turn_then_talk
+	else_if counter = 225 then
+		play_sound well_done_1 255 22050 128
+	else_if counter = 375 then
+		let talking_overlay_id.behaviour = turned
+	else_if counter = 400 then
+		play_sound warning 255 22050 128
+		spawn_entity ex_big_c2_ship_overlay_warning,0,0,process_next
+		let warning_overlay_id = last_child
+	else_if counter = 425 then
+		let talking_overlay_id.behaviour = look_forward
+	else_if counter = 575 then
+		play_sound well_done_2_explode 255 22050 128
+		let talking_overlay_id.behaviour = forward_talk
+	else_if counter = 635 then
+		kill_entity window_overlay_id
+		kill_entity talking_overlay_id
+		spawn_entity ex_big_c2_ship_overlay_gory,0,0,process_next
+		let gore_overlay_id = last_child
+		for temp_1 = 0 to 30
+			spawn_entity ex_blood_splat,17,23,process_next
+		next
+		spawn_entity ex_body_bit,10,27,process_next
+		spawn_entity ex_body_bit,10,27,process_next
+		let last_child.passed_param_1 = 1
+		let y_acc = -8
+	else_if counter = 700 then
+		let y_acc = 12
+	else_if counter = 820 then
+		let y_acc = -16
+		let x_acc = -1
+	else_if counter = 940 then
+		let y_acc = 16
+	else_if counter = 1100 then
+		fade_persistant_channels
+	else_if counter = 1230 then
+		spawn_entity (ex_c2_ship_plummet,0,0,process_next)
+	else_if counter = 1300 then
+		let signal = destructing
+		kill_entity warning_overlay_id
+		kill_entity gore_overlay_id
+		kill_entity own_id
+	end_if
+
+	if counter > 635 then
+
+		let temp_1 = counter mod 3
+		if temp_1 = 0 then
+			spawn_entity ex_blood_splat,10,27,process_next
+			let last_child.passed_param_1 = 1
+		end_if
+
+		let temp_1 = rand (counter,1300)
+
+		if temp_1 > 1290 then
+			spawn_entity (ex_c2_jet_explosion,-96,7,process_next)
+		end_if
+
+	end_if
+
+	gosub wobble_position
+end
+
+
+
+.wobble_position
+
+	let wobble_offset_angle = wobble_offset_angle + wobble_angle_speed !> 36000 ? 0
+
+	let wobble_offset_x = wobble_offset_max_x sin wobble_offset_angle
+	let wobble_offset_y = wobble_offset_max_y cos wobble_offset_angle
+
+	let world_x = world_x + wobble_offset_x
+	let world_y = world_y + wobble_offset_y
+
+	return

@@ -1,0 +1,81 @@
+// This is an arbitrarily shaped slice which rolls a texture on it to make a weirdly hypnotic effect.
+
+#define slice_angle		passed_param_1
+#define slice_size		3000
+#define inner_radius		32
+#define outer_radius		420
+
+#define vertex_x		v0
+#define vertex_y		v1
+#define new_slice_angle		v2
+#define calculated_lines	v3
+
+	let draw_order = MENU_TUNNEL_DRAW_ORDER
+
+	let entity_type = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let opengl_booleans = opengl_boolean_masked + opengl_boolean_filtered
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_INTERPOLATED
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA
+
+	let world_x = 320
+	let world_y = 240
+
+	set_private_co_ords
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	// And the texture
+
+	LET SPRITE = title_screen_elements[arb]
+
+	let base_frame = 6
+	let current_frame = base_frame
+	let interpolated_frame = base_frame + 1
+
+	let INTERPOLATION_X_PERCENTAGE = 0
+	let INTERPOLATION_Y_PERCENTAGE = 0
+
+	let calculated_lines = false
+
+	SET_INDIVIDUAL_VERTEX_COLOURS (0,64,192,255,255)
+	SET_INDIVIDUAL_VERTEX_COLOURS (1,64,192,255,255)
+
+	SET_INDIVIDUAL_VERTEX_COLOURS (2,128,0,0,255)
+	SET_INDIVIDUAL_VERTEX_COLOURS (3,128,0,0,255)
+
+
+start
+
+	// Righty, the positions of the corners of the quad are fixed at the outside and not so fixed at the inside.
+
+	let new_slice_angle = slice_angle + parent.counter
+
+	let vertex_x = inner_radius sin new_slice_angle
+	let vertex_y = inner_radius cos new_slice_angle
+	SET_ARBITRARY_QUAD_CO_ORDINATE (0,vertex_x,vertex_y)
+
+	let vertex_x = outer_radius sin new_slice_angle
+	let vertex_y = outer_radius cos new_slice_angle
+	SET_ARBITRARY_QUAD_CO_ORDINATE (2,vertex_x,vertex_y)
+
+	let new_slice_angle = new_slice_angle + slice_size
+
+	let vertex_x = inner_radius sin new_slice_angle
+	let vertex_y = inner_radius cos new_slice_angle
+	SET_ARBITRARY_QUAD_CO_ORDINATE (1,vertex_x,vertex_y)
+
+	let vertex_x = outer_radius sin new_slice_angle
+	let vertex_y = outer_radius cos new_slice_angle
+	SET_ARBITRARY_QUAD_CO_ORDINATE (3,vertex_x,vertex_y)
+
+	if calculated_lines = false then
+		let calculated_lines = true
+		CALCULATE_ARBITRARY_QUAD_LINE_LENGTHS
+	end_if
+
+	// And update the texture interpolation
+
+	let INTERPOLATION_Y_PERCENTAGE = INTERPOLATION_Y_PERCENTAGE - 300 !< 0 !> 10000
+end

@@ -1,0 +1,51 @@
+#define splat_speed		v0
+#define rotation_speed		v1
+#define x_stretch		v2
+#define y_stretch		v3
+
+	let Bitshift = 6
+	if passed_param_1 = 0 then
+		let opengl_angle = rand 0 36000
+		let current_frame = rand 32,34
+		let splat_speed = rand 128 512
+		let x_acc = -32
+	else_if passed_param_1 = 1 then
+		let opengl_angle = rand 3000 6000
+		let current_frame = rand 32,34
+		let splat_speed = rand 128 512
+		let x_acc = -32
+	end_if
+
+	let x_vel = splat_speed sin opengl_angle
+	let y_vel = splat_speed cos opengl_angle
+
+	let x_stretch = rand 50 100
+	let temp_1 = rand -25 25
+	let y_stretch = x_stretch + temp_1
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = LARGE_GRAPHICS[arb]
+
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_MULTIPLY + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+
+	let opengl_vertex_alpha = 255
+	let opengl_angle = rand 0 36000
+	let rotation_speed = rand -500 500
+
+	let draw_order = draw_order + 4
+	
+start
+	let opengl_scale_x = opengl_scale_x + x_stretch
+	let opengl_scale_y = opengl_scale_y + y_stretch
+
+	let opengl_angle = opengl_angle + rotation_speed
+
+	let opengl_vertex_alpha = opengl_vertex_alpha - 5
+
+	if opengl_vertex_alpha = 0 then
+		kill_entity own_id
+	end_if
+end

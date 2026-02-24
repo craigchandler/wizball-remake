@@ -1,0 +1,160 @@
+// This is the daddy. It sits above all others while the game is running.
+
+// If the player his pause, then this freezes everything it needs to and nothing more.
+// I hope...
+
+#define pause_status			v0
+#define focussed_option			v1
+
+	let pause_status = FALSE
+
+	let window_number = SCORE_OVERLAY_WINDOW
+
+	let world_x = 0
+	let world_y = 0
+
+	set_private_co_ords
+
+start
+
+	if_flag (pause_allowed = true) then
+
+		IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,PAUSE) then
+
+			if (pause_status = FALSE) then
+				gosub start_pause
+			else
+				gosub end_pause
+			end_if
+
+		end_if
+
+	end_if
+
+	if pause_status = TRUE then
+		IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 UP then
+			gosub option_up
+		else
+			IF_INPUT_KEYBOARD_HIT key_up then
+				gosub option_up
+			END_IF
+		END_IF
+
+		IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 DOWN then
+			gosub option_down
+		else
+			IF_INPUT_KEYBOARD_HIT key_down then
+				gosub option_down
+			END_IF
+		END_IF
+
+		IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 FIRE_1 then
+			gosub option_select
+		else
+			IF_INPUT_KEYBOARD_HIT key_enter then
+				gosub option_select
+			END_IF
+
+		END_IF
+	end_if
+
+end
+
+
+
+.option_up
+	let focussed_option = focussed_option - 1 !< 0
+	PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
+
+	return
+
+
+
+.option_down
+	let focussed_option = focussed_option + 1 !> 1
+	PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
+
+	return
+
+
+
+.option_select
+	if focussed_option = 0 then
+		PLAY_SOUND menu_select_back 255 CONST_SOUND_FREQUENCY 128
+		gosub end_pause
+	else_if focussed_option = 1 then
+		PLAY_SOUND menu_select 255 CONST_SOUND_FREQUENCY 128
+		goto quit_game
+	end_if
+
+	return
+
+
+
+.start_pause
+
+	alter_entities ALTERATION_FREEZE (entity_type & ENT_TYPE_PAUSABLE)
+	let pause_status = TRUE
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, CONST_UNSET,pause_text, PAUSE_MENU_TITLE, process_next, center_x, 320, PAUSE_MENU_HEADER_Y, 0, 0, font[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, pause_text, PAUSE_MENU_RESUME, process_next, center_x, 320, PAUSE_MENU_RESUME_OPTION_Y, 0, 0, font[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 1, pause_text, PAUSE_MENU_QUIT, process_next, center_x, 320, PAUSE_MENU_QUIT_OPTION_Y, 0, 0, font[arb])
+	SPAWN_ENTITY (pause_rectangle)
+	let focussed_option = 0
+
+	return
+
+
+
+.end_pause
+
+	alter_entities ALTERATION_UNFREEZE (entity_type & ENT_TYPE_PAUSABLE)
+	let pause_status = FALSE
+
+	return
+
+
+
+.quit_game
+
+	start_program_trace
+
+	FADE_PERSISTANT_CHANNELS
+
+	let temp_1 = GET_RECORD_PLAYBACK_STATUS (PLAYER_1)
+
+	if temp_1 = STATUS_RECORDING then
+		STOP_RECORDING_INPUT (PLAYER_1)
+		SAVE_RAND_LOG FALSE
+		SAVE_RECORDED_INPUT (PLAYER_1, recorded_demo_tag)
+	else_if temp_1 = STATUS_PLAYBACK then
+		SAVE_RAND_LOG TRUE
+		STOP_PLAYBACK_INPUT (PLAYER_1)
+	end_if
+
+	disable_window SCORE_OVERLAY_WINDOW
+	disable_window GAME_MAIN_WINDOW
+	disable_window GAME_PANEL_WINDOW
+
+	// Everybody dies...
+	kill_entities (SELECT_BY_GENOCIDE)
+
+	wait 1
+
+	if_flag (playing_music_channel_flag) != CONST_UNSET then
+		spawn_entity (fade_music,0,0,process_next)
+		let last_child.passed_param_1 = GET_GLOBAL_FLAG (playing_music_channel_flag)
+		let last_child.passed_param_2 = GET_GLOBAL_FLAG (playing_music_stream_flag)
+		let last_child.passed_param_3 = 15
+		let last_child.passed_param_4 = 255
+
+		SET_GLOBAL_FLAG (playing_music_channel_flag, CONST_UNSET)
+		SET_GLOBAL_FLAG (playing_music_stream_flag, CONST_UNSET)
+	end_if
+
+	wait 60
+
+	spawn_entity restore_tiles_to_monochrome
+	spawn_entity menu_setup
+
+	kill_entity own_id

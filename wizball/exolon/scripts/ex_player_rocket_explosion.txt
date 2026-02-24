@@ -1,0 +1,19 @@
+	for v0 = 0 to 36000 step 3000
+		spawn_entity ex_smoke 0 0 PROCESS_NEXT
+		let last_child.draw_order = last_child.draw_order + 1
+		let last_child.x_vel = cos v0
+		let last_child.y_vel = sin v0
+		let last_child.x_vel = last_child.x_vel / 50
+		let last_child.y_vel = last_child.y_vel / 50
+		let last_child.PASSED_PARAM_1 = 100
+		let last_child.PASSED_PARAM_2 = 6000
+		let last_child.PASSED_PARAM_4 = 9700
+		let last_child.bitshift = 6
+		let last_child.lifetime = 30
+	next
+
+	spawn_entity ex_player_rocket_explosion_flame 0 0 PROCESS_NEXT
+
+	kill_entity own_id
+
+end

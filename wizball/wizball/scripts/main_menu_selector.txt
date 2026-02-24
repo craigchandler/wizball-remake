@@ -1,0 +1,217 @@
+// This appears behind options to allow cursor/controller selection of them.
+// It's spawned when a menu senses that someone is trying to use a controller to interact with them.
+
+#define BASE_Y				passed_param_1
+#define OPTION_HEIGHT			passed_param_2
+#define MAXIMUM_OPTIONS			passed_param_3
+#define OPTION_WIDTH			passed_param_4
+
+#define OPTION_NUMBER_HIGHLIGHTED	v0
+#define target_vertex_alpha		v1
+#define target_world_y			v2
+#define option_has_been_selected	v3
+#define MAXIMUM_OPTIONS_MINUS_ONE	v4
+
+#define current_menu_entity_id		v5
+
+let MAXIMUM_OPTIONS_MINUS_ONE = MAXIMUM_OPTIONS - 1
+
+let entity_type = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+let temp_1 = get_global_flag (cursor_controlled_menu)
+
+if temp_1 = false then
+	goto wait_for_user_input
+else
+	goto activate_selector
+end_if
+
+let option_has_been_selected = FALSE
+
+let draw_mode = draw_mode_invisible
+
+// We wait here until we sense any of the up/down directional controls getting pushed.
+.wait_for_user_input
+
+start
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 UP then
+		goto activate_selector
+	END_IF
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 DOWN then
+		goto activate_selector
+	END_IF
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 LEFT then
+		goto activate_selector
+	END_IF
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 RIGHT then
+		goto activate_selector
+	END_IF
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 FIRE_1 then
+		goto activate_selector
+	END_IF
+
+	IF_INPUT_KEYBOARD_HIT key_up then
+		goto activate_selector
+	END_IF
+
+	IF_INPUT_KEYBOARD_HIT key_down then
+		goto activate_selector
+	END_IF
+
+	IF_INPUT_KEYBOARD_HIT key_enter then
+		goto activate_selector
+	END_IF
+
+	gosub check_for_turn_off
+end
+
+// This is our main loop.
+.activate_selector
+
+start_program_trace
+
+let draw_mode = draw_mode_sprite
+
+let sprite = intro_logos[arb]
+let current_frame = 7
+
+let draw_order = MENU_SELECTOR_DRAW_ORDER
+
+let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+let opengl_vertex_alpha = 0
+
+let target_vertex_alpha = 128
+
+let opengl_scale_x = OPTION_WIDTH * 10000
+let opengl_scale_x = opengl_scale_x / 256
+
+let opengl_scale_y = 10000
+
+set_global_flag (cursor_controlled_menu,TRUE)
+
+let world_x = 320
+let world_y = BASE_Y
+let OPTION_NUMBER_HIGHLIGHTED = 0
+
+set_private_co_ords
+
+wait 1
+
+start
+
+	if option_has_been_selected = true then
+		let option_has_been_selected = false
+	end_if
+
+	let world_y = world_y >% target_world_y 1000
+
+	if opengl_vertex_alpha < target_vertex_alpha then
+		let opengl_vertex_alpha = opengl_vertex_alpha + 5 !> target_vertex_alpha
+	else_if opengl_vertex_alpha > target_vertex_alpha then
+		let opengl_vertex_alpha = opengl_vertex_alpha - 5 !< target_vertex_alpha
+	end_if
+
+	let target_world_y = OPTION_NUMBER_HIGHLIGHTED * OPTION_HEIGHT
+	let target_world_y = target_world_y + BASE_Y
+
+	let world_y = world_y >% target_world_y 2000
+
+	set_private_co_ords
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 UP then
+		gosub option_up
+	else
+		IF_INPUT_KEYBOARD_HIT key_up then
+			gosub option_up
+		END_IF
+	END_IF
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 DOWN then
+		gosub option_down
+	else
+		IF_INPUT_KEYBOARD_HIT key_down then
+			gosub option_down
+		END_IF
+	END_IF
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 FIRE_1 then
+		gosub option_select
+	ELSE
+		IF_INPUT_KEYBOARD_HIT key_enter then
+			gosub option_select
+		END_IF
+	END_IF
+
+	gosub check_for_turn_off
+
+end
+
+
+
+.option_up
+	PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
+	let OPTION_NUMBER_HIGHLIGHTED = OPTION_NUMBER_HIGHLIGHTED - 1 !< 0 !> MAXIMUM_OPTIONS_MINUS_ONE
+	return
+
+
+
+.option_down
+	PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
+	let OPTION_NUMBER_HIGHLIGHTED = OPTION_NUMBER_HIGHLIGHTED + 1 !< 0 !> MAXIMUM_OPTIONS_MINUS_ONE
+	return
+
+
+
+.option_select
+	let option_has_been_selected = true
+	let opengl_vertex_alpha = 255
+	return
+
+
+
+.check_for_turn_off
+
+	let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+	if current_menu_entity_id != CONST_UNSET then
+		if current_menu_entity_id.signal & DESTROY_OPTION_TEXT then
+			goto final_phase
+		end_if
+	end_if
+
+	return
+
+
+
+.final_phase
+
+	let option_has_been_selected = false
+	let target_vertex_alpha = 0
+
+start
+	let world_y = world_y >% target_world_y 1000
+
+	if opengl_vertex_alpha > target_vertex_alpha then
+		let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< target_vertex_alpha
+	else
+		kill_entity own_id
+	end_if
+
+	let target_world_y = OPTION_NUMBER_HIGHLIGHTED * OPTION_HEIGHT
+	let target_world_y = target_world_y + BASE_Y
+
+	let world_y = world_y >% target_world_y 2000
+
+	set_private_co_ords
+end
+
+
+

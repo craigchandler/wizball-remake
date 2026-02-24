@@ -1,0 +1,44 @@
+#define current_menu_entity_id			v0
+
+	let sprite = misc_stuff[arb]
+
+	let base_frame = 21
+	let current_frame = base_frame
+
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let opengl_scale_x = 20000
+	let opengl_scale_y = opengl_scale_x
+
+	let opengl_vertex_alpha = 0
+
+	let draw_order = MENU_INTRO_LOGO_DRAW_ORDER
+
+	set_private_co_ords
+
+start
+
+	let opengl_vertex_alpha = opengl_vertex_alpha + 15 !> 255
+
+	let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+	if current_menu_entity_id != CONST_UNSET then
+		if current_menu_entity_id.signal & DESTROY_INTRO_OBJECTS then
+			goto fade_out_stage
+		end_if
+	end_if
+end
+
+.fade_out_stage
+
+start
+
+	let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+
+	if (opengl_vertex_alpha = 0) then
+		kill_entity own_id
+	end_if
+
+end

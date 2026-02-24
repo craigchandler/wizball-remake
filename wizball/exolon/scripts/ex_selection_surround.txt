@@ -1,0 +1,75 @@
+#define x_scale		v0
+#define y_scale		v1
+
+#define x_offset	v2
+#define y_offset	v3
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = gameover[arb]
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let draw_order = 255
+
+	let opengl_booleans = opengl_boolean_masked + opengl_boolean_blend_multiply
+	let opengl_booleans = opengl_booleans + opengl_boolean_vertex_colour_alpha
+
+	if prev_sibling = const_unset then
+		let current_frame = 11
+	else
+		let current_frame = prev_sibling.current_frame + 1
+	end_if
+
+	switch current_frame
+
+		case 11
+			let x_scale = -1
+			let y_scale = -1
+		break
+
+		case 12
+			let x_scale = 1
+			let y_scale = -1
+		break
+
+		case 13
+			let x_scale = -1
+			let y_scale = 1
+		break
+
+		case 14
+			let x_scale = 1
+			let y_scale = 1
+		break
+
+	end_switch
+
+	let counter = 0
+
+start
+
+	let counter = counter + 400
+	let counter = counter mod 36000
+
+	let x_offset = 4 sin counter
+	let x_offset = x_offset + 16
+	let y_offset = x_offset
+
+	let x_offset = x_offset * x_scale
+	let y_offset = y_offset * y_scale
+
+	let world_x = parent.world_x + x_offset
+	let world_y = parent.world_y + y_offset
+
+	set_private_co_ords
+
+	if parent.signal = 1 then
+		let opengl_vertex_alpha = opengl_vertex_alpha - 15
+		if opengl_vertex_alpha <= 0 then
+			kill_entity own_id
+		end_if
+	end_if
+
+end
+

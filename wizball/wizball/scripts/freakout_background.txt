@@ -1,0 +1,129 @@
+
+#define half_display_width	320
+#define display_width		640
+#define display_height		416
+
+#define wiz_id				v0
+#define left_of_window			v1
+#define map_width			v2
+#define map_width_minus_window		v3
+#define interpolation_speed		V4
+#define freakout_flag			v5
+#define colour_divider			v6
+#define global_colour_percentage	v7
+#define effect_level			v8
+
+#define effect_on			v9
+
+	LET ENTITY_TYPE = ENT_TYPE_PAUSABLE
+
+	if parent.script_number != freakout_background then
+		// If this is the first spawned freakout background then we need to spawn
+		// a child one. And make this one not be transparent.
+
+		spawn_entity (freakout_background, 0, 0, process_next)
+		let opengl_booleans = opengl_boolean_masked + opengl_boolean_vertex_colour
+		let base_frame = 6
+		let interpolation_speed = -10
+
+		let draw_order = BG_FREAKOUT_DRAW_ORDER
+		
+		let counter = 0
+		let colour_divider = 160
+	else
+		let opengl_booleans = opengl_boolean_masked + opengl_boolean_blend_add
+		let opengl_booleans = opengl_booleans + opengl_boolean_vertex_colour
+		let base_frame = 8
+		let interpolation_speed = -5
+
+		let draw_order = FG_FREAKOUT_DRAW_ORDER
+
+		let counter = 9000
+		let colour_divider = 140
+	end_if
+
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_INTERPOLATED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let sprite = title_screen_and_large_bits[arb]
+	let current_frame = base_frame
+	let interpolated_frame = base_frame + 1
+	let draw_mode = DRAW_MODE_SPRITE
+start
+	let effect_on = get_global_flag (freak_out_flag)
+
+	if effect_on = false then
+		kill_entity own_id
+	end_if
+
+	let map_width = get_tilemap_width (TRUE)
+	let map_width_minus_window = map_width - display_width
+
+	let effect_level = get_global_flag (freak_out_counter)
+
+	if effect_level > FREAKOUT_HALF_EFFECT_LEVEL then
+		let draw_mode = DRAW_MODE_SPRITE
+
+		let temp_1 = 10000 / FREAKOUT_HALF_EFFECT_LEVEL
+		let global_colour_percentage = effect_level - FREAKOUT_HALF_EFFECT_LEVEL
+		let global_colour_percentage = global_colour_percentage * temp_1 
+
+		let temp_1 = 4000 sin counter
+		let opengl_scale_x = 40000
+		let opengl_scale_y = 38000 + temp_1
+
+		let temp_2 = counter / colour_divider
+		let temp_2 = temp_2 mod 360
+
+		GET_VERTEX_COLOURS_FROM_HSL temp_2 256 192
+
+		let opengl_vertex_red = opengl_vertex_red % global_colour_percentage
+		let opengl_vertex_green = opengl_vertex_green % global_colour_percentage
+		let opengl_vertex_blue = opengl_vertex_blue % global_colour_percentage
+
+		let counter = counter + 100
+
+		let freakout_flag = get_global_flag (freak_out_flag)
+		if freakout_flag = FALSE then
+			kill_entity own_id
+		end_if
+
+		let wiz_id = get_global_flag (wizball_entity_id_flag)
+
+		if wiz_id = const_unset then
+			let wiz_id = get_global_flag (proxy_entity_id_flag)
+		end_if
+
+		if wiz_id != const_unset then
+			let left_of_window = wiz_id.world_x - half_display_width
+
+			if left_of_window < 0 then
+				let left_of_window = 0
+			else_if left_of_window > map_width_minus_window then
+				let left_of_window = map_width_minus_window
+			end_if
+
+			let world_x = left_of_window 
+			let world_y = 416 / 2
+
+			set_private_co_ords
+		end_if
+
+		let INTERPOLATION_X_PERCENTAGE = left_of_window * interpolation_speed
+
+		let temp_2 = counter % 12500
+		let temp_1 = 1000 sin counter
+		let INTERPOLATION_X_PERCENTAGE = INTERPOLATION_X_PERCENTAGE + temp_1
+
+		if INTERPOLATION_X_PERCENTAGE < 0 then
+			let INTERPOLATION_X_PERCENTAGE = INTERPOLATION_X_PERCENTAGE + 100000
+		end_if
+
+		let INTERPOLATION_X_PERCENTAGE = INTERPOLATION_X_PERCENTAGE mod 10000
+
+	else
+		let draw_mode = draw_mode_invisible
+	end_if
+
+end

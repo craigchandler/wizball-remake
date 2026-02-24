@@ -1,0 +1,53 @@
+
+#define wiz_id				v0
+#define left_of_window			v1
+#define map_width			v2
+#define map_width_minus_window		v3
+
+#define freakout_flag 			V12
+#define freak_out_bump_counter 		V13
+#define freak_out_effect_counter 	V14
+
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	let opengl_booleans = opengl_booleans + opengl_boolean_vertex_colour
+
+	let unique_id = FREAKOUT_STARFIELD_ID 
+	let draw_mode = DRAW_MODE_STARFIELD
+
+	let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+	let draw_order = STARFIELD_DRAW_ORDER
+
+start
+
+	let freakout_flag = get_global_flag (freak_out_flag)
+
+	if freakout_flag = TRUE then
+
+		let freak_out_effect_counter = get_global_flag (freak_out_counter)
+
+		if freak_out_effect_counter > FREAKOUT_HALF_EFFECT_LEVEL then
+			let draw_mode = DRAW_MODE_STARFIELD
+			let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+			let freak_out_effect_counter  = freak_out_effect_counter - FREAKOUT_HALF_EFFECT_LEVEL 
+
+			let opengl_vertex_red = freak_out_effect_counter * 255
+			let opengl_vertex_red = opengl_vertex_red / FREAKOUT_HALF_EFFECT_LEVEL
+			let opengl_vertex_green = opengl_vertex_red 
+			let opengl_vertex_blue = opengl_vertex_red 
+		else
+			let draw_mode = DRAW_MODE_INVISIBLE
+			let draw_override = DRAW_OVERRIDE_NONE
+		end_if
+
+	else
+		let draw_mode = DRAW_MODE_INVISIBLE
+		let draw_override = DRAW_OVERRIDE_NONE
+	end_if
+
+
+	update_starfield FREAKOUT_STARFIELD_ID 0 10000 TRUE
+end

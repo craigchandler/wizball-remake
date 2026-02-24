@@ -1,0 +1,66 @@
+#define initial_deviation_x passed_param_1
+#define initial_deviation_y passed_param_2
+#define normalisation_percentage passed_param_3
+#define beam_down_laser passed_param_4
+
+#define x_offset v3
+#define y_offset v4
+
+#define base_x v8
+#define base_y v9
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 5
+	SET_PRIVATE_CO_ORDS
+
+	let initial_deviation_x = initial_deviation_x << Bitshift
+	let initial_deviation_y = initial_deviation_y << Bitshift
+
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 1
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	spawn_entity ex_thruster_flame -63 50 PROCESS_NEXT
+	spawn_entity ex_thruster_flame 63 50 PROCESS_NEXT
+
+	let counter = 18000
+
+	let base_x = x
+	let base_y = y
+
+	wait 2
+
+	let lifetime = 100
+
+	let draw_order = 23
+
+start
+	let counter = counter + 200
+
+	let y_offset = sin counter
+	let y_offset = y_offset / 30
+
+	let x_offset = counter / 2
+	let x_offset = cos x_offset
+	let x_offset = x_offset / 15
+
+	let x_offset = x_offset + initial_deviation_x
+	let y_offset = y_offset - initial_deviation_y
+
+	let initial_deviation_x = initial_deviation_x % normalisation_percentage
+	let initial_deviation_y = initial_deviation_y % normalisation_percentage
+
+	if passed_param_4 = 1 then
+		if initial_deviation_y < 80 then
+			spawn_entity ex_player_beam_in_effect 0 32 PROCESS_NEXT
+			play_sound start_teleport 255 22050 128
+			let passed_param_4 = 0
+		end_if
+	end_if
+
+	let x = base_x + x_offset
+	let y = base_y + y_offset
+end

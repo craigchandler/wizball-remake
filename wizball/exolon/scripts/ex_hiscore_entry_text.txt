@@ -1,0 +1,143 @@
+#define angular_offset			v0
+
+#define x_offset			v1
+#define y_offset			v2
+#define my_angle			v3
+
+#define base_world_x			v4
+#define base_world_y			v5
+
+#define letter_scale			v6
+
+#define extra_scale_factor		v7
+
+#define base_angle			v19
+#define base_distance			v20
+#define angle_gap			v21
+#define horizontal_ratio		v22
+#define selected_letter			v23
+#define current_hiscore_letter_frame	v24
+#define hiscore_entry_type		v25
+#define hiscore_key_hit			v27
+#define current_position_in_name_array	v28
+
+#define fade_flag			v29
+
+#define index_within_name		v5
+
+#define max_name_length			14
+
+#define letter_number			passed_param_1
+
+#define use_rotational_hiscore_entry	0
+#define use_direct_hiscore_entry	1
+
+#define hiscore_array_id		0
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+
+	let Bitshift = 4
+	SET_PRIVATE_CO_ORDS
+
+	let opengl_booleans = opengl_boolean_scale + opengl_boolean_masked
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let sprite = game_font[set][18][18][9][9]
+//	let sprite = game_font[set][16][16][0][0]
+
+	set_private_co_ords
+
+	let base_world_x = world_x
+	let base_world_y = world_y
+
+	let angular_offset = parent.angle_gap * passed_param_1
+
+	let extra_scale_factor = 10000
+
+	let fade_flag = 0
+
+start
+
+	let extra_scale_factor = extra_scale_factor >% 10000 1000
+
+	let my_angle = parent.base_angle + angular_offset
+
+	let x_offset = parent.base_distance sin my_angle
+	let x_offset = x_offset % parent.horizontal_ratio
+	let y_offset = -parent.base_distance cos my_angle
+
+	let letter_scale = -y_offset + 384
+	let letter_scale = letter_scale * 40
+	let letter_scale = letter_scale % extra_scale_factor
+	let opengl_scale_x = letter_scale
+	let opengl_scale_y = letter_scale
+
+	let draw_order = -y_offset / 2
+	let draw_order = draw_order + 80
+
+	let world_x = base_world_x + x_offset
+	let world_y = base_world_y + y_offset
+
+	set_private_co_ords
+
+	// Something was said! What was it...?
+	if parent.hiscore_key_hit = 1 then
+
+		// Is there still space in the name?
+		if parent.current_position_in_name_array < max_name_length then
+
+			if parent.hiscore_entry_type = use_rotational_hiscore_entry then
+
+				if parent.selected_letter = letter_number then
+					let parent.current_hiscore_letter_frame = current_frame
+
+					let temp_1 = current_frame + 32
+
+					write_to_array temp_1 parent hiscore_array_id parent.current_position_in_name_array
+					spawn_entity (ex_hiscore_entry_text_name, 0, 0, process_next)
+					let last_child.index_within_name = parent.current_position_in_name_array
+					let parent.current_position_in_name_array = parent.current_position_in_name_array + 1
+
+					// So the parent knows the frame number and by inference 
+					// the ascii code of the currently highlighted letter.
+				end_if
+
+			else
+
+				// In this mode parent.selected letter is the ascii code of the wanted key
+				// minus 32 so that it equates to the frame.
+
+				if parent.selected_letter = current_frame then
+					let extra_scale_factor = 20000
+					let parent.current_hiscore_letter_frame = 1
+
+					let temp_1 = current_frame + 32
+
+					write_to_array temp_1 parent hiscore_array_id parent.current_position_in_name_array
+					spawn_entity (ex_hiscore_entry_text_name, 0, 0, process_next)
+					let last_child.index_within_name = parent.current_position_in_name_array
+					let parent.current_position_in_name_array = parent.current_position_in_name_array + 1
+				end_if
+
+			end_if
+		end_if
+
+	end_if
+
+	if parent.signal & destroy_hiscore_entry_text then
+		let fade_flag = 1
+		let opengl_booleans = opengl_boolean_scale + opengl_boolean_blend_multiply
+		let opengl_booleans = opengl_booleans + opengl_boolean_vertex_colour_alpha
+		let opengl_vertex_alpha = 255
+	end_if
+
+	if fade_flag = 1 then
+		let opengl_vertex_alpha = opengl_vertex_alpha - 5
+		if opengl_vertex_alpha <= 0 then
+			kill_entity own_id
+		end_if
+	end_if
+
+end
+

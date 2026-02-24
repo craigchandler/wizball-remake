@@ -1,0 +1,44 @@
+
+#define extra_sound_effect	v26
+
+	let extra_sound_effect = player_grenade_explosion
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let point_value = 125
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 3
+
+	let DROP_ITEM = 1
+	let temp_1 = 11000
+
+	SET_COLLISION_FROM_FRAME
+
+// This lump of code below here just plonks various areas of tile into the map
+// which make the bio growth solid to the player.
+
+	let v0 = world_x - upper_width
+	let v1 = world_y - upper_height
+	let v1 = v1 + 8
+
+	let v0 = v0 / 16
+	let v1 = v1 / 16
+
+	let v0 = v0 + 1
+
+	SET_COLLISION_BY_PARAMETERS v0 v1 1 5 66
+
+	let v0 = v0 - 1
+	let v1 = v1 + 2
+
+	SET_COLLISION_BY_PARAMETERS v0 v1 3 1 66
+
+	let v1 = v1 + 2
+
+	SET_COLLISION_BY_PARAMETERS v0 v1 4 1 66
+
+	CHANGE_SCRIPT ex_standard_destructable

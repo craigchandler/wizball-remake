@@ -1,0 +1,54 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE + ENT_TYPE_BONUS_LEVEL_ENTITY
+	LET ENTITY_TYPE = ENTITY_TYPE + ENT_TYPE_DISPOSABLE
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+#define particle_speed			v1
+#define angular_step			V6
+
+let bitshift = 0
+set_private_co_ords
+
+let draw_order = EXPLOSION_DRAW_ORDER
+
+spawn_entity (particle_blinder,0,0,process_next)
+
+let angular_step = get_global_flag (particle_rareness_multiplier)
+let angular_step = 2400 * angular_step
+
+for temp_1 = 0 to 36000 step 3000
+	spawn_entity (particle_wizball_ghost,0,0,process_next)
+	let last_child.x_vel = 400 sin temp_1
+	let last_child.y_vel = 400 cos temp_1
+next
+
+let counter = 30
+
+start
+
+	let temp_2 = counter mod 10
+
+	if temp_2 = 0 then
+
+		for temp_1 = 0 to 36000 step angular_step
+			let temp_3 = rand (-800,800)
+			let temp_3 = temp_3 + temp_1
+			let particle_speed = rand (500,700)
+			spawn_entity (particle_spiral_explode_twinkle,0,0,process_next)
+			let last_child.x_vel = particle_speed sin temp_3 
+			let last_child.y_vel = particle_speed cos temp_3 
+			let last_child.y_vel = last_child.y_vel % 7000
+		next
+
+	end_if
+
+	let counter = counter - 1 !< 0
+
+	if counter = 0 then
+		kill_entity own_id
+	end_if
+
+end
+
+
+

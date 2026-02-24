@@ -1,0 +1,52 @@
+// This is used when Catellite and Wizball enter the wizlab.
+
+	#define poof_size			passed_param_1
+
+	#define offset_x			v0
+	#define offset_y			v1
+
+	#define poof_radius			v2
+	#define poof_radius_squared		v3
+
+	LET ENTITY_TYPE = ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	let poof_radius = 32 % poof_size
+	let poof_radius_squared = poof_radius * poof_radius
+
+for counter = 0 to poof_radius
+	
+	let temp_1 = rand (0,36000)
+	let temp_2 = rand (0,poof_radius_squared)
+	let temp_2 = sqr temp_2
+	let temp_2 = poof_radius - temp_2
+	let offset_x = temp_2 sin temp_1
+	let offset_y = temp_2 cos temp_1
+
+	spawn_entity magic_poof_twinkle,0,0,process_next
+	let offset_y = offset_y - 16
+	let last_child.x_vel = offset_x * 8
+	let last_child.y_vel = offset_y * 8
+next
+
+let counter = 0
+
+start
+
+	let temp_1 = rand (0,36000)
+	let temp_2 = rand (0,poof_radius_squared)
+	let temp_2 = sqr temp_2
+	let temp_2 = poof_radius - temp_2
+	let offset_x = temp_2 sin temp_1
+	let offset_y = temp_2 cos temp_1
+	spawn_entity particle_spiral_twinkle,offset_x,offset_y,process_next
+
+	let counter = counter + 1
+
+	if counter = poof_radius then
+		kill_entity own_id
+	end_if
+end
+
+
+

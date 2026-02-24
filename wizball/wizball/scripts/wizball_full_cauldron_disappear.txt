@@ -1,0 +1,119 @@
+
+#define particle_speed				v1
+
+#define progress_speed				v6
+
+#define percentage_progress			v7
+#define biased_percentage_progress		v8
+
+#define last_movement_direction			v9
+
+#define start_frame				v10
+#define end_frame				v11
+
+#define ghost_counter				v20
+#define rainbow_ghost_angle			v21
+#define ghost_colour				v22
+
+#define appearance_start_frame			64
+#define appearance_end_frame			93
+
+	PLAY_SOUND wizball_full_cauldron_notice 255 CONST_SOUND_FREQUENCY
+
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	let draw_order = WIZBALL_DRAW_ORDER
+
+	SET_GLOBAL_FLAG_AS_ENTITY_ID  (proxy_entity_id_flag)
+
+	set_private_co_ords
+
+	let draw_mode = draw_mode_sprite
+
+	let opengl_booleans = OPENGL_BOOLEAN_MASKED
+
+	let sprite = wizball[set][48][48][24][24]
+
+	let frame_delay = 0
+
+	let start_frame = current_frame
+
+	if last_movement_direction > 0 then
+		let end_frame = 64
+	else
+		let end_frame = 0
+	end_if
+
+	let temp_1 = start_frame - end_frame
+	let temp_1 = ABS (temp_1)
+
+	let progress_speed = 16000 / temp_1
+
+	let percentage_progress = 0
+	
+	let signal = false
+
+	let ghost_counter = 0
+	let ghost_colour = 120
+
+	let current_frame = start_frame
+
+// Rotate back to top...
+
+start
+
+	let biased_percentage_progress = percentage_progress CURVE_PERCENTAGE (CURVE_PERCENTAGE_SISO)
+
+	let current_frame = LERP (start_frame, end_frame, biased_percentage_progress) !< 0 !> 63
+
+	let percentage_progress = percentage_progress + progress_speed !> 10000
+
+	if percentage_progress = 10000 then
+		goto yawn_out
+	end_if
+
+	gosub spawn_rainbow_ghost
+
+end
+
+.yawn_out
+
+	let current_frame = appearance_end_frame
+
+	let signal = true
+
+start
+	if current_frame = appearance_start_frame then
+		kill_entity own_id
+	end_if
+
+	let frame_delay = 1 - frame_delay 
+
+	if frame_delay = 0 then
+		let current_frame = current_frame - 1
+	end_if
+
+	gosub spawn_rainbow_ghost
+end
+
+
+
+.spawn_rainbow_ghost
+
+	let temp_1 = ghost_counter mod 3
+
+	if temp_1 = 0 then
+		spawn_entity (wizball_rainbow_ghost)
+
+		let last_child.x_vel = 512 cos rainbow_ghost_angle
+		let last_child.y_vel = 512 sin rainbow_ghost_angle
+		let last_child.passed_param_1 = ghost_colour
+
+		let ghost_colour = ghost_colour + 20 !< 0 !> 359
+
+		let rainbow_ghost_angle = rainbow_ghost_angle + 3000
+	end_if
+
+	let ghost_counter = ghost_counter + 1
+
+return

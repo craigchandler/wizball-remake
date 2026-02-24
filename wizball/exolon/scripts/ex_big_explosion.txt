@@ -1,0 +1,95 @@
+#define base_scale 			PASSED_PARAM_1
+#define explosion_cloud_type 		passed_param_2
+#define center_of_mass_x 		v2
+#define center_of_mass_y 		v3
+#define parent_upper_width 		v4
+#define parent_lower_width 		v5
+#define parent_upper_height 		v6
+#define parent_lower_height 		v7
+#define spawned_x 			v8
+#define spawned_y 			v9
+#define spawned_angular_velocity 	v10
+
+	let opengl_scale_x = base_scale % 8000
+	let opengl_scale_y = base_scale % 14000
+
+	let bitshift = 0
+	set_private_co_ords
+
+	let parent_upper_height = -parent.upper_height
+	let parent_lower_height = parent.lower_height
+	let center_of_mass_y = parent_upper_height + parent_lower_height
+	let center_of_mass_y = center_of_mass_y / -2
+
+	let parent_upper_width = -parent.upper_width
+	let parent_lower_width = parent.lower_width
+	let center_of_mass_x = parent_upper_width + parent_lower_width
+	let center_of_mass_x = center_of_mass_x / 2
+
+//	kill_entity own_id
+
+// Don't really need to keep the value
+	let temp_1 = 0
+
+start
+	if temp_1 = 2 then
+		spawn_entity ex_blinder center_of_mass_x center_of_mass_y PROCESS_NEXT
+		let last_child.draw_order = last_child.draw_order + 2
+		let last_child.opengl_scale_x = PASSED_PARAM_1
+		let last_child.opengl_scale_y = PASSED_PARAM_1
+	end_if
+
+	if temp_1 = 4 then
+		for counter = 0 to 12
+			let spawned_x = rand parent_upper_width parent_lower_width
+			let spawned_x = spawned_x % 15000
+			let spawned_y = rand -32 -64
+			let spawned_angular_velocity = abs spawned_x
+			let spawned_y = spawned_y + spawned_angular_velocity
+			spawn_entity ex_spinning_flame_particle spawned_x spawned_y PROCESS_NEXT
+			let last_child.draw_order = last_child.draw_order + 1
+			let last_child.x_vel = spawned_x / 2
+			let last_child.y_vel = rand -96 -160
+			let last_child.angular_vel = spawned_x * 40
+			let last_child.base_frame = 20
+			let last_child.opengl_scale_x = rand 10000 20000
+			let last_child.opengl_scale_y = last_child.opengl_scale_x
+		next
+	end_if
+
+	if temp_1 = 4 then
+		// Make some smoke!
+		for counter = 0 to 20
+			let spawned_x = rand parent_upper_width parent_lower_width
+			let spawned_x = spawned_x % 15000
+			let spawned_y = rand -32 -64
+			let spawned_angular_velocity = abs spawned_x
+			let spawned_y = spawned_y + spawned_angular_velocity
+			spawn_entity ex_smoke spawned_x spawned_y PROCESS_NEXT
+			let last_child.draw_order = last_child.draw_order - 1
+			let last_child.x_vel = last_child.x_vel / 50
+			let last_child.y_vel = rand -48 -80
+			let last_child.PASSED_PARAM_1 = 8000
+			let last_child.PASSED_PARAM_2 = 20000
+			let last_child.PASSED_PARAM_4 = 9900
+			let last_child.PASSED_PARAM_3 = spawned_x * 10
+			let last_child.bitshift = 4
+			let last_child.lifetime = rand 80 120
+		next
+	end_if
+
+	if temp_1 < 5 then 
+		let temp_2 = rand -16 16
+		spawn_entity ex_mushroom_cloud_explosion temp_2 0 PROCESS_NEXT
+		let last_child.passed_param_2 = explosion_cloud_type
+		let last_child.draw_order = last_child.draw_order + 1
+		let last_child.opengl_scale_x = rand opengl_scale_x opengl_scale_y
+		let last_child.opengl_scale_y = last_child.opengl_scale_x
+	else
+		kill_entity own_id
+	end_if
+
+	wait 5
+
+	let temp_1 = temp_1 + 1
+end

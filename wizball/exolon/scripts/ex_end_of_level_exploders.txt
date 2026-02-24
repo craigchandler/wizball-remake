@@ -1,0 +1,44 @@
+#define explosion_size	v0
+
+// This is spawned in the position of the end_of_level_pad but only once...
+
+//let world_x = parent.world_x
+//let world_y = parent.world_y
+
+let bitshift = 0
+set_private_co_ords
+
+let upper_width = 32
+let lower_width = 32
+let lower_height = 96
+
+let explosion_size = 17500
+
+wait 60
+
+spawn_entity ex_big_explosion 0 32 process_next
+let last_child.PASSED_PARAM_1 = 20000
+
+play_sound fuel_explosion 255 22050 128
+
+let counter = 32
+
+start
+	wait 30
+
+	spawn_entity ex_big_explosion -counter 48 process_next
+	let last_child.PASSED_PARAM_1 = explosion_size
+
+	spawn_entity ex_big_explosion counter 48 process_next
+	let last_child.PASSED_PARAM_1 = explosion_size
+
+	play_sound fuel_explosion 255 22050 128
+
+	let counter = counter + 32
+	let explosion_size = explosion_size - 2500
+
+	if counter > 128 then
+		kill_entity own_id
+	end_if
+end
+

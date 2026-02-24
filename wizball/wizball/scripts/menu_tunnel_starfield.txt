@@ -1,0 +1,23 @@
+
+	LET ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let opengl_booleans = opengl_boolean_vertex_colour_alpha + opengl_boolean_blend_add
+	let opengl_vertex_alpha = 128
+
+	let opengl_vertex_red = 128
+	let opengl_vertex_green = 255
+	let opengl_vertex_blue = 192
+
+	let draw_mode = DRAW_MODE_STARFIELD_LINES
+
+	let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+	let draw_order = MENU_STARFIELD_DRAW_ORDER
+
+	let unique_id = TUNNEL_STARFIELD_ID
+
+start
+
+	update_starfield TUNNEL_STARFIELD_ID 10000 10000 TRUE
+
+end

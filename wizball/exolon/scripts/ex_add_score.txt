@@ -1,0 +1,9 @@
+#define target_score v0
+
+let target_score = get_global_flag (player_target_score)
+
+let target_score = target_score + parent.point_value
+
+set_global_flag (player_target_score , target_score)
+
+kill_entity (own_id)

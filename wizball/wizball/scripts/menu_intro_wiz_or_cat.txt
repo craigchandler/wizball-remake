@@ -1,0 +1,217 @@
+// This is used for the wiz and cat on the menu.
+// If they're told to wake up when they're not asleep they start adapting to their eventual positions.
+// However if they're asleep and told to wake up that progress skips straight to 10000 so that when we
+// come out of the hiscore entry phase they don't appear in the middle of the screen, but rather at the edges
+// where they belong.
+
+#define wiz_or_cat_id			passed_param_1
+
+#define start_scale			v0
+#define target_scale			v1
+
+#define start_x				v2
+#define start_y				v3
+
+#define target_x			v4
+#define target_y			v5
+
+#define current_menu_entity_id		v6
+
+#define progress_percentage		v7
+#define biased_progress_percentage	v8
+
+#define current_state			v9
+
+#define progress_speed			v10
+
+#define wobble_counter			v11
+#define this_wobble_angle		v12
+
+#define x_offset			v13
+#define y_offset			v14
+#define scale_offset			v15
+
+#define base_world_x			v16
+#define base_world_y			v17
+
+#define state_asleep			0
+#define state_intro			1
+#define state_menu			2
+
+
+	let draw_order = MENU_INTRO_WIZ_AND_CAT_DRAW_ORDER
+
+	LET ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let current_state = state_asleep
+
+	let sprite = title_screen_elements[arb]
+
+	let current_frame = READ_FROM_DATATABLE (wiz_and_cat_intro_data, wiz_or_cat_id, 0)
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_MULTIPLY
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let opengl_vertex_alpha = 0
+
+	let draw_mode = DRAW_MODE_INVISIBLE
+
+	let wobble_counter = wiz_or_cat_id * 9000
+
+	for temp_1 = 1 to 5
+		spawn_entity menu_intro_wiz_or_cat_drag
+		let last_child.passed_param_1 = temp_1
+	next
+
+start
+
+	let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+	if current_menu_entity_id != CONST_UNSET then
+
+		switch current_state
+
+			case state_asleep
+
+				if current_menu_entity_id.signal & INTRO_WIZ_AND_CAT then
+					// If we're asleep and we're intro awoken then we are in the intro
+					// section and so we need to start from scratch.
+
+					let current_state = state_intro
+
+					let start_x = READ_FROM_DATATABLE (wiz_and_cat_intro_data, wiz_or_cat_id, 1)
+					let start_y = READ_FROM_DATATABLE (wiz_and_cat_intro_data, wiz_or_cat_id, 2)
+					let start_scale = READ_FROM_DATATABLE (wiz_and_cat_intro_data, wiz_or_cat_id, 3)
+
+					let target_x = READ_FROM_DATATABLE (wiz_and_cat_intro_data, wiz_or_cat_id, 4)
+					let target_y = READ_FROM_DATATABLE (wiz_and_cat_intro_data, wiz_or_cat_id, 5)
+					let target_scale = READ_FROM_DATATABLE (wiz_and_cat_intro_data, wiz_or_cat_id, 6)
+
+					let progress_percentage = 0
+					let progress_speed = 50
+				end_if
+
+				if current_menu_entity_id.signal & MENU_WIZ_AND_CAT then
+					// If we're asleep and we're awoken then we've been spawned but
+					// we've not gone via the intro. So we should go straight to our
+					// final position.
+
+					let current_state = state_menu
+
+					let start_x = READ_FROM_DATATABLE (wiz_and_cat_intro_data, wiz_or_cat_id, 7)
+					let start_y = READ_FROM_DATATABLE (wiz_and_cat_intro_data, wiz_or_cat_id, 8)
+					let start_scale = READ_FROM_DATATABLE (wiz_and_cat_intro_data, wiz_or_cat_id, 9)
+
+					let target_x = start_x 
+					let target_y = start_y 
+					let target_scale = start_scale
+
+					let progress_percentage = 10000
+					let progress_speed = 200
+				end_if
+
+			break
+
+			case state_intro
+
+				if current_menu_entity_id.signal & SLEEP_WIZ_AND_CAT then
+					// If we're in the intro and we get a sleep signal, then something has gone
+					// wrong as we ALWAYS go via the menu state from intro to sleep.
+
+					STOP
+				end_if
+
+				if current_menu_entity_id.signal & MENU_WIZ_AND_CAT then
+					// If we're in the intro and we get a menu signal, then we just need to move from
+					// our current position to the end one.
+
+					let current_state = state_menu
+
+					let start_x = base_world_x 
+					let start_y = base_world_y
+					let start_scale = opengl_scale_x
+
+					let target_x = READ_FROM_DATATABLE (wiz_and_cat_intro_data, wiz_or_cat_id, 7)
+					let target_y = READ_FROM_DATATABLE (wiz_and_cat_intro_data, wiz_or_cat_id, 8)
+					let target_scale = READ_FROM_DATATABLE (wiz_and_cat_intro_data, wiz_or_cat_id, 9)
+
+					let progress_percentage = 0
+					let progress_speed = 200
+				end_if
+			break
+
+			case state_menu
+
+				if current_menu_entity_id.signal & SLEEP_WIZ_AND_CAT then
+					// If we're in the intro and we get a sleep signal, then that's really
+					// odd as it should never happen. Still, may as well deal with it.
+
+					let current_state = state_asleep
+				end_if
+
+				if current_menu_entity_id.signal & INTRO_WIZ_AND_CAT then
+					// This should never occur.
+
+					STOP
+				end_if
+			break
+
+		end_switch
+
+	end_if
+
+	if current_state = state_asleep then
+		let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+
+		if opengl_vertex_alpha = 0 then
+			let draw_mode = DRAW_MODE_INVISIBLE
+		end_if
+	else
+		let draw_mode = DRAW_MODE_SPRITE
+
+		let opengl_vertex_alpha = opengl_vertex_alpha + 5 !> 255
+	end_if
+
+	let progress_percentage = progress_percentage + progress_speed !> 10000
+
+	let biased_progress_percentage = progress_percentage curve_percentage CURVE_PERCENTAGE_SISO
+
+	let base_world_x = LERP (start_x, target_x, biased_progress_percentage)
+	let base_world_y = LERP (start_y, target_y, biased_progress_percentage)
+
+	let this_wobble_angle = wobble_counter * 2
+	let x_offset = 8 cos this_wobble_angle
+	let this_wobble_angle = wobble_counter * 4
+	let y_offset = 8 sin this_wobble_angle
+
+	let world_x = base_world_x + x_offset
+	let world_y = base_world_y + y_offset
+
+	set_private_co_ords
+
+	let this_wobble_angle = wobble_counter
+
+	let opengl_scale_x = LERP (start_scale, target_scale, biased_progress_percentage)
+	let scale_offset = 500 sin this_wobble_angle
+	let scale_offset = scale_offset % biased_progress_percentage
+	let opengl_scale_x = opengl_scale_x + scale_offset 
+	let opengl_scale_y = opengl_scale_x
+
+	let opengl_angle = 1000 cos this_wobble_angle
+
+	
+
+	let wobble_counter = wobble_counter + 100 !< 0 !> 35999
+
+end
+
+
+
+
+
+
+
+

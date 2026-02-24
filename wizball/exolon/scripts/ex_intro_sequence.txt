@@ -1,0 +1,101 @@
+#define border_sprite_id		v0
+#define sprite_counter			v1
+#define angle_offset			v4
+#define skip_border_inflate		passed_param_1
+
+let border_sprite_id = CONST_UNSET
+
+let window_number = MENU_WINDOW
+enable_window MENU_WINDOW
+
+spawn_entity ex_loading_screen 0 0 process_next
+
+let counter = 0
+
+#define SPAWN_NEBULA_AND_STARS		120
+#define TOKER_DEDICATION_APPEAR		180
+#define ALLEGRO_LOGO_APPEAR		460
+#define INFAMOUS_LOGO_APPEAR		740
+#define RETROSPEC_LOGO_APPEAR		1000
+#define ORBITTERS_APPEAR		1180
+
+start
+
+	let counter = counter + 1
+
+	if counter = SPAWN_NEBULA_AND_STARS then
+
+		let signal = 1
+		spawn_entity ex_intro_nebula 0 0 process_next
+		spawn_entity ex_intro_starfield 0 0 process_next
+
+	else_if counter = TOKER_DEDICATION_APPEAR then
+
+		spawn_entity ex_toker_dedication 0 0 process_next
+
+	else_if counter = ALLEGRO_LOGO_APPEAR then
+
+		spawn_entity ex_wobbly_logo 320 220 process_next
+		let last_child.current_frame = 8
+		spawn_entity ex_wobbly_logo 320 280 process_next
+		let last_child.current_frame = 9
+		spawn_entity ex_wobbly_logo 320 320 process_next
+		let last_child.current_frame = 10
+
+	else_if counter = INFAMOUS_LOGO_APPEAR then
+
+		spawn_entity ex_infamous_logo 320 240 process_next
+
+	else_if counter = RETROSPEC_LOGO_APPEAR then
+
+		spawn_entity ex_retrospec_logo 0 0 process_next
+
+	else_if counter = ORBITTERS_APPEAR then
+
+		for sprite_counter = 0 to 8
+			spawn_entity ex_menu_border_sprite 0 0 process_next
+			let last_child.angle_offset = sprite_counter * 4500
+		next
+		let border_sprite_id = last_child
+
+	end_if
+
+	if border_sprite_id != CONST_UNSET then
+		if border_sprite_id.signal = 1 then
+			let skip_border_inflate = 0
+			goto start_menu
+		end_if
+	end_if
+
+	IF_INPUT_KEYBOARD_HIT key_any then
+		goto destroy_all
+	end_if
+
+end
+
+.destroy_all
+
+// We wait a frame because otherwise stuff which has *just* been created
+// won't be squished by the kill_entities because its script ain't run and
+// so it's type ain't been set, has it? Thicky!
+wait 1
+
+// Kill everything we don't care about...
+kill_entities ( SELECT_BY_PARTIAL_ENTITY_TYPE , ENT_TYPE_DISPOSABLE )
+
+// Make the menu border appear instantly upon starting the menu up.
+let skip_border_inflate = 1
+
+// Check we've made the nebula!
+if signal != 1 then
+	spawn_entity ex_intro_nebula 0 0 process_next
+	spawn_entity ex_intro_starfield 0 0 process_next
+end_if
+
+.start_menu
+
+spawn_entity ex_menu_main 0 0 PROCESS_FIRST
+
+let last_child.skip_border_inflate = skip_border_inflate
+
+kill_entity own_id

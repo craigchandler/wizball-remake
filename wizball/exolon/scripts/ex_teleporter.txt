@@ -1,0 +1,65 @@
+#define overlay_1_id v20
+#define overlay_2_id v21
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 42
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let draw_order = 9
+
+	let COLLISION_SHAPE = RECTANGLE
+	SET_COLLISION_FROM_FRAME
+
+// This lump of code below here just plonks various areas of tile into the map
+// which make the bio growth solid to the player.
+
+	let v0 = world_x - upper_width
+	let v1 = world_y - upper_height
+
+	let v0 = v0 / 16
+	let v1 = v1 / 16
+
+	SET_COLLISION_BY_PARAMETERS v0 v1 4 2 1
+
+//	let upper_width = upper_width - 8
+//	let lower_width = lower_width - 8
+
+//	let upper_width = upper_width - 16
+//	let lower_width = lower_width - 16
+
+	let COLLIDE_WITH = ENT_TYPE_PLAYER
+	let COLLIDE_TYPE = ENT_TYPE_PLAYER_EMPLACEMENT
+
+	if next_sibling != CONST_UNSET then
+		let TARGET_ENTITY = next_sibling
+	else_if prev_sibling != CONST_UNSET then
+		let TARGET_ENTITY = prev_sibling
+	else
+		// They ain't linked!
+		stop
+	end_if
+
+	spawn_entity ex_teleporter_overlay 0 32 PROCESS_NEXT
+	let overlay_1_id = last_child
+	spawn_entity ex_teleporter_overlay 0 64 PROCESS_NEXT
+	let overlay_2_id = last_child
+
+	entity_hitline gosub glow
+
+start
+
+
+
+end
+
+.glow
+	let overlay_1_id.signal = 1
+	let overlay_2_id.signal = 1
+
+	end

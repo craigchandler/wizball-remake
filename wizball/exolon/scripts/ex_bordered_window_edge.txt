@@ -1,0 +1,115 @@
+// This is the scrolly edging. If there's room between it and the next
+// corner then it will create another one and then become dormant.
+
+#define horizontal_axis			0
+#define vertical_axis			1
+#define positive			1
+#define negative			-1
+
+#define block_size			32
+
+#define x_offset_from_parent		v0
+#define y_offset_from_parent		v1
+
+#define check_corner_id			v4
+#define check_axis			v5
+#define check_direction			v10
+
+#define spawn_new_block			v8
+
+#define opengl_boolean_adder		v9
+
+#define border_style			v11
+#define border_style_in_game		0
+#define border_style_menu		1
+
+if border_style = border_style_in_game then
+	let sprite = chrome_border[set][32][32][16][16]
+else_if border_style = border_style_menu then
+	let sprite = helix_border[set][32][32][16][16]
+end_if
+
+let base_frame = 0
+let current_frame = base_frame
+
+let draw_mode = draw_mode_sprite
+
+let opengl_booleans = opengl_booleans + opengl_boolean_adder
+
+let spawn_new_block = true
+
+start
+	let world_x = parent.world_x + x_offset_from_parent
+	let world_y = parent.world_y + y_offset_from_parent
+
+	set_private_co_ords
+
+	if check_axis = horizontal_axis then
+		let temp_1 = check_corner_id.world_x - world_x
+	else
+		let temp_1 = check_corner_id.world_y - world_y
+	end_if
+
+	if check_direction = positive then
+		// The corner we're looking for is to the right or down, so temp_1 will be positive
+
+		if spawn_new_block = true then
+			if temp_1 > block_size then
+				// Spawn a new block! Wooo!
+				spawn_entity ex_bordered_window_edge 0 0 process_next
+
+				let last_child.check_corner_id = check_corner_id
+				let last_child.check_axis = check_axis
+				let last_child.opengl_boolean_adder = opengl_boolean_adder
+				let last_child.check_direction = check_direction
+				let last_child.border_style = border_style
+
+				let last_child.x_offset_from_parent = x_offset_from_parent
+				let last_child.y_offset_from_parent = y_offset_from_parent
+
+				let spawn_new_block = false
+			end_if
+		else
+			let last_child.current_frame = current_frame
+		end_if
+
+		if temp_1 < 0 then
+			// It's to the right or below the corner so it needs killing off
+			if parent.script_number = ex_bordered_window_edge then
+				let parent.spawn_new_block = true
+			end_if
+			kill_entity own_id
+		end_if
+	else
+		// The corner we're looking for is to the left or above, so temp_1 will be negative
+
+		if spawn_new_block = true then
+			if temp_1 < -block_size then
+				// Spawn a new block! Wooo!
+				spawn_entity ex_bordered_window_edge 0 0 process_next
+
+				let last_child.check_corner_id = check_corner_id
+				let last_child.check_axis = check_axis
+				let last_child.opengl_boolean_adder = opengl_boolean_adder
+				let last_child.check_direction = check_direction
+				let last_child.border_style = border_style
+
+				let last_child.x_offset_from_parent = x_offset_from_parent
+				let last_child.y_offset_from_parent = y_offset_from_parent
+
+				let spawn_new_block = false
+			end_if
+		else
+			let last_child.current_frame = current_frame
+		end_if
+
+		if temp_1 > 0 then
+			// It's to the right or below the corner so it needs killing off
+			if parent.script_number = ex_bordered_window_edge then
+				let parent.spawn_new_block = true
+			end_if
+			kill_entity own_id
+		end_if
+	end_if
+
+end

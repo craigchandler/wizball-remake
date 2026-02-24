@@ -1,0 +1,78 @@
+#define COLOUR_NUMBER			passed_param_1
+	// This is so they can read the main_game_controller's array to see how full they should be.
+
+#define MAIN_GAME_CONTROLLER_ID		V0
+#define TARGET_CAULDRON_LEVEL		V1
+#define CAULDRON_ADAPTION_AMOUNT	V2
+#define WAVE_SPEED			V3
+#define TARGET_WORLD_Y			V4
+
+	let WAVE_SPEED = 100
+
+	LET DRAW_ORDER = CAULDRON_DRAW_ORDER - 2
+
+	let opengl_booleans = opengl_boolean_vertex_colour_alpha + OPENGL_BOOLEAN_BLEND_ADD
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_INTERPOLATED
+
+	LET WINDOW_NUMBER = GAME_PANEL_WINDOW
+	LET SPRITE = title_screen_and_large_bits[arb]
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let base_frame = 15
+	let current_frame = base_frame
+	let interpolated_frame = base_frame + 1
+
+	let bitshift = 0
+	set_private_co_ords
+
+	let INTERPOLATION_X_PERCENTAGE = rand (0,10000)
+	let INTERPOLATION_Y_PERCENTAGE = 0
+
+	LET counter = 0
+
+	let opengl_vertex_alpha = 192
+
+start
+
+	let opengl_vertex_red = parent.opengl_vertex_red
+	let opengl_vertex_green = parent.opengl_vertex_green
+	let opengl_vertex_blue = parent.opengl_vertex_blue
+
+	let INTERPOLATION_X_PERCENTAGE = INTERPOLATION_X_PERCENTAGE + WAVE_SPEED !< 0 !> 9999
+
+	LET MAIN_GAME_CONTROLLER_ID = GET_GLOBAL_FLAG (MAIN_GAME_CONTROLLER_ENTITY_ID)
+
+	IF MAIN_GAME_CONTROLLER_ID != CONST_UNSET THEN
+
+		LET TARGET_CAULDRON_LEVEL = READ_FROM_ARRAY (MAIN_GAME_CONTROLLER_ID,CAULDRON_FULLNESS_ARRAY_ID,COLOUR_NUMBER)
+
+		LET TEMP_3 = 10000 / MAX_CAULDRON_CAPACITY
+		LET TARGET_CAULDRON_LEVEL = TARGET_CAULDRON_LEVEL * TEMP_3
+
+		LET TEMP_1 = 46 % TARGET_CAULDRON_LEVEL
+		LET TARGET_WORLD_Y = PARENT.WORLD_Y + 47
+		LET TARGET_WORLD_Y = TARGET_WORLD_Y - TEMP_1
+	ELSE
+
+		STOP // WTF?!
+
+	END_IF
+
+	LET counter = counter + 1
+	LET counter = counter MOD 2
+
+	IF counter = 0 THEN
+
+		IF WORLD_Y < TARGET_WORLD_Y THEN
+			LET WORLD_Y = WORLD_Y + 1
+		ELSE_IF WORLD_Y > TARGET_WORLD_Y THEN
+			LET WORLD_Y = WORLD_Y - 1
+		END_IF
+
+	END_IF
+
+	SET_PRIVATE_CO_ORDS
+
+
+end

@@ -1,0 +1,75 @@
+#define rotation_speed		passed_param_1
+#define size			passed_param_2
+#define skew_angle		passed_param_3
+
+#define offset_angle		v0
+#define offset_x		v1
+#define offset_y		v2
+#define range			v3
+
+#define min_distance		v4
+#define max_distance		v5
+
+let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+let offset_angle = skew_angle + 9000
+let offset_x = 16 sin offset_angle
+let offset_y = 16 cos offset_angle
+
+set_private_co_ords
+
+let sprite = icons[set][32][32][16][16]
+let base_frame = 4
+
+spawn_entity ex_black_hole_layer offset_x offset_y process_next
+let last_child.rotation_speed = rotation_speed
+let last_child.size = size
+let last_child.skew_angle = skew_angle
+
+let last_child.opengl_vertex_blue = 96
+let last_child.opengl_vertex_red = 255
+let last_child.opengl_vertex_green = 64
+
+let offset_x = 8 sin offset_angle
+let offset_y = 8 cos offset_angle
+
+spawn_entity ex_black_hole_layer offset_x offset_y process_next
+let last_child.rotation_speed = rotation_speed % 12000
+let last_child.size = size % 8000
+let last_child.skew_angle = skew_angle
+
+let last_child.opengl_vertex_blue = 96
+let last_child.opengl_vertex_red = 64
+let last_child.opengl_vertex_green = 255
+
+spawn_entity ex_black_hole_layer 0 0 process_next
+let last_child.rotation_speed = rotation_speed % 15000
+let last_child.size = size % 6000
+let last_child.skew_angle = skew_angle
+
+let last_child.opengl_vertex_blue = 255
+let last_child.opengl_vertex_red = 96
+let last_child.opengl_vertex_green = 64
+
+let min_distance = 96 % size
+let max_distance = min_distance * 3
+
+start
+
+	let temp_1 = rand (0,100)
+
+	if temp_1 < 30 then
+
+		let offset_angle = skew_angle - 9000
+		let temp_1 = rand (-2000,2000)
+		let offset_angle = offset_angle + temp_1
+		let range = rand (min_distance,max_distance)
+
+		spawn_entity ex_black_hole_attractor,0,0,process_next
+
+		let last_child.offset_x = range cos offset_angle
+		let last_child.offset_y = range sin offset_angle
+	end_if
+
+end

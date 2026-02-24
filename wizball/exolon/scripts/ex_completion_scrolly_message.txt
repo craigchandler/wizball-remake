@@ -1,0 +1,60 @@
+#define message_length		v0
+#define letter_frame_gap	12
+#define colour_cycle		v1
+#define message_cycle		v2
+#define message_ended		v39
+
+	let message_length = GET_TEXT_LENGTH (COMPLETION_TEXT)
+	let temp_1 = message_length * letter_frame_gap
+	set_global_flag (end_scroll_frame_length,temp_1)
+	let counter = 0
+	let lifetime = 0
+	let colour_cycle = 255
+	let message_cycle = 0
+
+	let draw_order = 200
+
+.start_loop
+
+start
+
+	let colour_cycle = colour_cycle - 1 !< 0 ? 359
+	let message_cycle = message_cycle + 1
+
+	let temp_1 = message_cycle mod letter_frame_gap
+
+	if temp_1 = 0 then
+
+		if parent.signal & destroy_scrolly_message then
+			let signal = parent.signal // So the kids croak, too
+			kill_entity own_id
+		end_if
+
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,EX_completion_SCROLLY_TEXT,COMPLETION_TEXT,PROCESS_NEXT,NO_CENTER,656,240,0,0,counter,1)
+
+		let counter = counter + 1
+
+		if counter > message_length then
+			goto end_message
+		end_if
+
+	end_if
+
+end
+
+.end_message
+
+	let message_ended = 1
+	let counter = 300
+
+start
+
+	let colour_cycle = colour_cycle - 1 !< 0 ? 359
+
+	let counter = counter - 1
+
+	if counter = 0 then
+		kill_entity own_id
+	end_if
+
+end

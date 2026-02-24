@@ -1,0 +1,77 @@
+#define cumulative_angle v0
+#define base_opengl_booleans v1
+#define random_addition_boolean v2
+
+#define base_angle v5
+
+#define last_in_line v6
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 72
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let base_opengl_booleans = opengl_booleans
+
+	set_collision_from_frame
+
+	if passed_param_1 > 0 then
+		spawn_entity ex_vertical_recursive_lightning 0 0 PROCESS_NEXT
+		let last_child.passed_param_1 = passed_param_1 - 1
+	end_if
+
+	let draw_order = draw_order + 1
+
+	let base_angle = passed_param_1 * 9000
+
+	if last_child = CONST_UNSET then
+		let last_in_line = 1
+	else
+		let last_in_line = 0
+	end_if
+
+	let counter = 0
+
+start
+//	let opengl_angle = rand -3000 3000
+	let opengl_angle = sin base_angle
+	let opengl_angle = opengl_angle / 5
+	let base_angle = base_angle + 1000
+	let temp_1 = rand -1000 1000
+	let opengl_angle = opengl_angle + temp_1
+
+	let random_addition_boolean = rand 0 3
+	let random_addition_boolean = random_addition_boolean * OPENGL_BOOLEAN_VERT_FLIPPED
+	let opengl_booleans = base_opengl_booleans + random_addition_boolean
+
+	if parent.script_number = ex_vertical_recursive_lightning then
+		position_at_end_of_rotated_entity parent.opengl_angle -parent.upper_height parent 10000
+		set_private_co_ords
+	else
+		let temp_1 = rand 0 10
+		if temp_1 = 0 then
+			spawn_entity ex_particle 0 0 PROCESS_NEXT
+			let last_child.base_frame = 67
+			let last_child.x_vel = rand -2 2
+			let last_child.y_vel = rand -1 -3
+		end_if
+	end_if
+
+	let counter = counter + 1
+
+	if last_in_line = 1 then
+		if matriarch.signal > 0 then
+			let temp_1 = counter mod 30
+			if temp_1 = 0 then
+				spawn_entity ex_lightning_stream_follower 0 0 PROCESS_NEXT
+			end_if
+		end_if
+	end_if
+end

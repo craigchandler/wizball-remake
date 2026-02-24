@@ -1,0 +1,7 @@
+// This is the watch list, the bigger it is, the slower the game runs.
+// Basically it tells the program to keep an eye on all entities of the type
+// listed (EX_PLAYER), and if the variable listed (V10) changes, then a log of
+// the who/what/when/why/where is saved to a report which'll be created in this
+// very directory. Technology, eh?
+
+#END_OF_FILE

@@ -1,0 +1,41 @@
+#define flame_size_min v0
+#define flame_size_max v1
+#define scale_increase v2
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 88
+	let frame_count = 1
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let draW_order = draw_order + 1
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let opengl_scale_x = parent.opengl_scale_x
+	let opengl_vertex_alpha = parent.opengl_vertex_alpha
+	let opengl_scale_y = 20000
+	let scale_increase = opengl_scale_x / 20
+
+	let counter = 0
+
+	let y_vel = 8
+start
+	let world_x = parent.world_x
+
+	set_private_co_ords
+
+	let counter = counter + 1
+
+	if counter < 25 then
+		let opengl_scale_x = opengl_scale_x + scale_increase 
+		let opengl_vertex_alpha = opengl_vertex_alpha - 10
+	else
+		kill_entity own_id
+	end_if
+end

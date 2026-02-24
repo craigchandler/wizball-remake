@@ -1,0 +1,169 @@
+#define base_y 				v0
+#define phase 				v1
+#define stomper_offset 			v2
+#define stomper_resting_position 	8
+#define stomper_slammed_position 	64
+#define stomper_max_rebound 		16
+#define percentage 			v3
+#define volume				v4
+#define rock_type			passed_param_1
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 2
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 10
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let COLLISION_SHAPE = RECTANGLE
+	SET_COLLISION_FROM_FRAME
+
+	let collide_with = ENT_TYPE_PLAYER
+
+	let base_y = world_y
+
+	let draw_order = 9
+
+	let temp_1 = get_global_flag (current_level_flag)
+	
+	switch temp_1
+
+		case level01
+			let rock_type = 0
+		break
+
+		case level02
+			let rock_type = 2
+		break
+
+		case level03
+			let rock_type = 3
+		break
+
+		case level04
+			let rock_type = 1
+		break
+
+		case level05
+			let rock_type = 1
+		break
+
+	end_switch
+
+
+let temp_1 = world_x mod 640
+let temp_1 = temp_1 / 8
+wait temp_1
+
+	
+.waiting_phase
+let collide_type = 0
+let counter = rand 30 100
+start
+	let counter = counter - 1
+	if counter = 0 then
+		gosub click_into_place_phase
+	end_if
+end
+
+
+
+.click_into_place_phase
+let counter = 27000
+let percentage = 10000
+
+play_sound upstomper_prerelease 255 22050 128
+
+start
+	let stomper_offset = stomper_resting_position sin counter
+	let stomper_offset = stomper_offset % percentage
+	let percentage = percentage % 9500
+	let stomper_offset = stomper_offset + stomper_resting_position
+	let world_y = base_y - stomper_offset
+	SET_PRIVATE_CO_ORDS
+
+	let counter = counter + 1000
+
+	if percentage < 800 then
+		gosub upstomp
+	end_if
+end
+
+
+
+.upstomp
+let collide_type = ENT_TYPE_ENEMY
+let stomper_offset = stomper_resting_position
+
+play_sound upstomper_dirt_spray 255 22050 128
+
+start
+
+	let stomper_offset = stomper_offset % 11400
+	if stomper_offset > stomper_slammed_position then
+		let stomper_offset = stomper_slammed_position
+	end_if
+	let world_y = base_y - stomper_offset
+	SET_PRIVATE_CO_ORDS
+
+	if stomper_offset = stomper_slammed_position then
+		gosub rebound_phase
+	end_if
+
+	let temp_1 = rand -32 32
+	let temp_2 = base_y - world_y
+	spawn_entity ex_rubble temp_1 temp_2 PROCESS_NEXT
+	let last_child.rock_type = rock_type
+	let last_child.x_vel = temp_1 / 2
+end
+
+
+
+.rebound_phase
+let counter = 0
+let percentage = 10000
+
+play_sound upstomper_hit 255 22050 128
+let volume = 128
+
+start
+	let stomper_offset = stomper_max_rebound sin counter
+	let stomper_offset = stomper_offset % percentage
+	let percentage = percentage % 9500
+	let stomper_offset = stomper_offset + stomper_resting_position
+	let world_y = base_y - stomper_slammed_position
+	let world_y = world_y + stomper_offset
+	SET_PRIVATE_CO_ORDS
+
+	let counter = counter + 1000
+
+	if counter > 18000 then
+		let counter = counter - 18000
+		play_sound upstomper_hit volume 22050 128
+		let volume = volume / 2		
+	end_if
+
+	if percentage < 700 then
+		gosub wind_down_phase
+	end_if
+end
+
+
+
+.wind_down_phase
+wait 10
+let y_acc = 1
+start
+	if y_vel > 4 then
+		let y_vel = 8
+	end_if
+
+	if world_y > base_y then
+		let y_acc = 0
+		let y_vel = 0
+		gosub waiting_phase
+	end_if
+end

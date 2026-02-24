@@ -1,0 +1,50 @@
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 18
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let counter = 0
+	let temp_1 = 0
+	let temp_2 = 0
+	let temp_3 = 0
+
+	let draw_order = parent.draw_order + 1
+
+start
+
+	let counter = counter + 1
+
+	if counter < 50 then
+		let temp_1 = counter * 2
+	else
+		let temp_1 = 100 - counter
+		let temp_1 = temp_1 * 2
+	end_if
+
+	if counter = 100 then
+		let counter = 0
+	end_if
+
+	if signal = 1 then
+		let temp_3 = 150
+		let signal = 0
+	else
+		let temp_3 = 0
+	end_if
+
+	if temp_2 < temp_3 then
+		let temp_2 = temp_2 + 5
+	else_if temp_2 > temp_3 then
+		let temp_2 = temp_2 - 5
+	end_if
+
+	let opengl_vertex_alpha = temp_1 + temp_2
+
+end

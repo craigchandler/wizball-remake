@@ -1,0 +1,68 @@
+
+let Bitshift = 8
+
+let world_x = 512 - 14
+let world_y = 50 + 32
+
+SET_PRIVATE_CO_ORDS // That sets the private scale co-ords from the passed in world scale co-ords.
+
+// set_global_flag (wizball_entity_id,own_id) // So the other scripts know who's the daddy.
+
+// let matriarch = own_id // Er, this really doesn't matter I expect.
+
+let draw_mode = draw_mode_sprite
+
+let WORLD_COLLISION_LAYER = 1 // We use the second layer of the world as for our collision map.
+
+let x_vel = -1024
+let y_vel = -960
+let y = 21840
+let x = 129312
+
+let y_acc = 48
+
+
+let COLLISION_SHAPE = CIRCLE
+
+let opengl_booleans = OPENGL_BOOLEAN_MASKED
+
+let sprite = test_obj[set][32][32][16][16]
+let current_frame = 0
+
+SET_COLLISION_FROM_FRAME
+
+SET_WORLD_COLLISION_FROM_OBJECT
+
+world_hitline gosub hitwall_routine
+
+let WORLD_COLLISION_BEHAVIOUR = SLIDING_HORIZONTAL + COLLISION_RESPONSE_CALL_SCRIPT
+let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_RESPONSE_SIMPLE_BOUNCE_OR_DECELLERATE
+let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_USE_EXTRA_TEST_POINTS
+let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_ITERATE_MOVEMENT
+let WORLD_COLLISION_COEF_HORIZONTAL = -100
+let WORLD_COLLISION_COEF_VERTICAL = -100
+let ENTITY_MOVEMENT_BEHAVIOUR = ENTITY_MOVEMENT_HORIZONTAL_VERTICAL
+let world_collision_bitmask = 3
+
+start
+
+	set_global_flag (wx_vel,x_vel)
+	set_global_flag (wy_vel,y_vel)
+	set_global_flag (wx,x)
+	set_global_flag (wy,y)
+	set_global_flag (wworld_x,world_x)
+	set_global_flag (wworld_y,world_y)
+end
+
+// ---------------- Movement ----------------
+
+
+// ---------------- Collision Interaction ----------------
+
+// ---------------- World Collision Interaction ----------------
+
+.hitwall_routine
+
+	stop
+
+end

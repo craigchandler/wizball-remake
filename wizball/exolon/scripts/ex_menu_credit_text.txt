@@ -1,0 +1,43 @@
+#define behaviour		v0
+#define fade_up			0
+#define stable			1
+#define fade_down		2
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+
+	let Bitshift = 4
+	SET_PRIVATE_CO_ORDS
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = opengl_boolean_blend_multiply + opengl_boolean_vertex_colour_alpha
+
+	let sprite = game_font[set][16][16][0][0]
+
+	let opengl_vertex_alpha = 0
+
+	let behaviour = fade_up
+
+start
+
+	if behaviour = fade_up then
+		if opengl_vertex_alpha < 255 then
+			let opengl_vertex_alpha = opengl_vertex_alpha + 15
+		else
+			let opengl_booleans = opengl_boolean_masked
+			let behaviour = stable
+		end_if
+	else_if behaviour = fade_down then
+		if opengl_vertex_alpha > 0 then
+			let opengl_vertex_alpha = opengl_vertex_alpha - 15
+		else
+			kill_entity own_id
+		end_if
+	end_if
+
+	if parent.signal & destroy_credit then
+		let opengl_booleans = opengl_boolean_blend_multiply + opengl_boolean_vertex_colour_alpha
+		let behaviour = fade_down
+	end_if
+
+end

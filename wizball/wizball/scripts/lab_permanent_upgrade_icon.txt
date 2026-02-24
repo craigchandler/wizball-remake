@@ -1,0 +1,82 @@
+#define icon_sprite_frame		passed_param_1
+#define icon_position_index		passed_param_2
+
+#define icon_total_indices		v0
+#define current_index			v1
+#define starting_loadout		v2
+#define current_angle			v3
+#define target_angle			v4
+#define angle_size			v5
+
+#define own_angle			v6
+#define size_percentage			v7
+#define x_percentage			v8
+#define y_percentage			v9
+
+#define biased_effect_fullness		v10
+
+#define RING_MIDDLE_WORLD_X			320
+#define RING_MIDDLE_WORLD_Y			240
+#define RING_SCREEN_HALF_HEIGHT			32
+#define RING_SCREEN_HALF_WIDTH			128
+#define SCALE_HALF_RANGE			2500
+#define BASE_SCALE				7500
+
+	LET ENTITY_TYPE = ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+
+	let sprite = panel_icons[arb]
+	let draw_mode = draw_mode_sprite
+
+	let base_frame = icon_sprite_frame
+
+	let opengl_booleans = opengl_boolean_blend_multiply + opengl_boolean_scale
+	let opengl_booleans = opengl_booleans + opengl_boolean_filtered
+	let opengl_booleans = opengl_booleans + opengl_boolean_vertex_colour_alpha
+
+	let current_frame = base_frame 
+
+	set_private_co_ords
+
+	start
+
+		let opengl_vertex_alpha = 256 % parent.biased_effect_fullness
+
+		let own_angle = icon_position_index * parent.angle_size
+
+		let own_angle = parent.current_angle - own_angle !< 0 !> 35999
+
+		let x_percentage = sin own_angle
+		let y_percentage = cos own_angle
+
+		let world_x = RING_SCREEN_HALF_WIDTH % x_percentage
+		let world_x = world_x % parent.biased_effect_fullness
+		let world_x = world_x + RING_MIDDLE_WORLD_X
+
+		let world_y = RING_SCREEN_HALF_HEIGHT % y_percentage
+		let world_y = world_y % parent.biased_effect_fullness
+		let world_y = world_y + RING_MIDDLE_WORLD_Y
+
+		set_private_co_ords
+
+		let opengl_scale_x = SCALE_HALF_RANGE % y_percentage
+		let opengl_scale_x = opengl_scale_x + BASE_SCALE
+		let opengl_scale_x = opengl_scale_x % parent.biased_effect_fullness
+
+		if opengl_scale_x = 0 then
+			let opengl_scale_x = 10
+		end_if
+
+		let opengl_scale_y = opengl_scale_x
+
+		if y_percentage < 0 then
+			let DRAW_ORDER = LABORATORY_CAULDRON_GLOW_DRAW_ORDER - 1
+		else
+			let DRAW_ORDER = LABORATORY_CAULDRON_GLOW_DRAW_ORDER + 1
+		end_if
+
+		if parent.alive < 0 then
+			kill_entity own_id
+		end_if
+
+	end
+

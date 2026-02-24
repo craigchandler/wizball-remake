@@ -1,0 +1,12 @@
+// This is called when the game re-runs after a game over,
+// so that the player doesn't have to sit through the whole
+// damn intro again.
+
+enable_window MENU_WINDOW
+
+spawn_entity ex_intro_nebula 0 0 process_next
+spawn_entity ex_intro_starfield 0 0 process_next
+
+spawn_entity ex_menu_main 0 0 PROCESS_FIRST
+
+kill_entity own_id

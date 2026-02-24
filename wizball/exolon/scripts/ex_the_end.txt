@@ -1,0 +1,89 @@
+#define angular_offset			passed_param_1
+#define angle_counter			v0
+
+#define angular_speed			400
+
+#define wobble_x_distance		v1
+#define wobble_y_distance		v2
+
+#define number_of_spinners		v3
+
+#define line_type			v4
+#define x_pos				v5
+#define y_pos				v6
+#define line_size			v7
+
+#define object_counter			v8
+
+#define x_gap				24
+#define y_gap				20
+
+let wobble_x_distance = 16
+let wobble_y_distance = 8
+
+LET number_of_spinners = GET_DATATABLE_LINE_COUNT (the_end_positions)
+
+let counter = 0
+
+start_loop counter < number_of_spinners
+
+	let line_type = READ_FROM_DATATABLE (the_end_positions,counter,0)
+	let x_pos = READ_FROM_DATATABLE (the_end_positions,counter,1)
+	let y_pos = READ_FROM_DATATABLE (the_end_positions,counter,2)
+	let line_size = READ_FROM_DATATABLE (the_end_positions,counter,3)
+
+	let x_pos = x_pos * x_gap
+	let x_pos = x_pos + 32
+
+	let y_pos = y_pos * y_gap
+	let y_pos = y_pos + 180
+
+	switch line_type
+
+		case HORIZONTAL_LINE_OF_OBJECTS
+
+			for object_counter = 0 to line_size
+				spawn_entity (ex_the_end_spinner,0,0,process_next)
+				let last_child.world_x = x_pos
+				let last_child.world_y = y_pos
+				let last_child.angular_offset = x_pos + y_pos
+				let last_child.angular_offset = last_child.angular_offset * 50
+				let x_pos = x_pos + x_gap
+			next
+
+		break
+
+		case VERTICAL_LINE_OF_OBJECTS
+
+			for object_counter = 0 to line_size
+				spawn_entity (ex_the_end_spinner,0,0,process_next)
+				let last_child.world_x = x_pos
+				let last_child.world_y = y_pos
+				let last_child.angular_offset = x_pos + y_pos
+				let last_child.angular_offset = last_child.angular_offset * 50
+				let y_pos = y_pos + y_gap
+			next
+
+		break
+
+		case SINGLE_OBJECT
+
+			spawn_entity (ex_the_end_spinner,0,0,process_next)
+			let last_child.world_x = x_pos
+			let last_child.world_y = y_pos
+			let last_child.angular_offset = x_pos + y_pos
+			let last_child.angular_offset = last_child.angular_offset * 50
+
+		break
+
+	end_switch
+
+	let counter = counter + 1
+
+end_loop
+
+start
+
+	let angle_counter = angle_counter + angular_speed !< 0 !> 36000
+
+end

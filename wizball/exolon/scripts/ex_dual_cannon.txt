@@ -1,0 +1,73 @@
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 8
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let signal = 0
+
+	set_collision_from_frame
+
+	spawn_entity ex_cannon_barrel -upper_width 8 PROCESS_NEXT
+	let last_child.facing_direction = -1
+	spawn_entity ex_cannon_barrel -upper_width 24 PROCESS_NEXT
+	let last_child.facing_direction = -1
+
+	// Want it to be dead thin so player has to overlap it greatly to trigger it.
+
+	let upper_width = 0
+	let lower_width = 0
+
+	let collision_shape = rectangle
+
+	let collide_type = ent_type_enemy_emplacement
+	let collide_with = ent_type_player
+
+	entity_hitline gosub destroyed
+
+start
+end
+
+
+
+.destroyed
+	let signal = 1
+
+	REMOVE_FROM_COLLISION_LIST
+	let collide_type = 0
+
+	set_collision_from_frame
+
+	play_sound large_object_explosion 255 33000 128
+
+	spawn_entity ex_small_shaker_explosion 0 0 process_next
+	let last_child.draw_order = last_child.draw_order + 1
+
+	wait 15
+
+	play_sound fuel_explosion 255 22050 128
+
+	spawn_entity ex_big_explosion 0 lower_height process_next
+	let last_child.PASSED_PARAM_1 = 11000
+	let last_child.draw_order = last_child.draw_order + 1
+
+	wait 10
+
+	let upper_width = upper_width + 24
+	SET_COLLISION_BY_SIZE 0
+	let upper_width = upper_width - 24
+
+	spawn_entity ex_debris 0 lower_height process_next
+	let last_child.base_frame = 10
+
+	let point_value = 300
+	spawn_entity ex_display_score 0 24 PROCESS_NEXT
+	let last_child.passed_param_1 = 4
+	let last_child.passed_param_2 = 0
+
+	let signal = 2
+	kill_entity own_id

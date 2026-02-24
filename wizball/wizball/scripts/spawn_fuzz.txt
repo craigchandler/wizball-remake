@@ -1,0 +1,149 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+
+// Private defines
+
+	#define passed_in_wave_size		passed_param_1
+	// Really only for filth storms...
+
+	#define wave_position			v0
+
+	#define wave_x_spread			v1
+	#define wave_y_spread			v2
+
+	#define wave_size			v3
+
+	#define x_deviation			v4
+	#define y_deviation			v5
+
+	#define child_velocity			v6
+	#define child_height			V7
+
+	#define box_start_x			V10
+	#define box_start_y			V11
+	#define box_end_x			V12
+	#define box_end_y			V13
+
+	#define allowed_positions		V14
+
+	#define wave_sub_type			V15
+
+	#define firing_frequency		V16
+
+	#define player_on_level_number_var	V17
+
+	#define box_width			V18
+	#define total_wave_width		V19
+
+	#define middle_of_screen		V20
+	#define start_x_position		V21
+
+	#define wizball_entity_id		V22
+
+	// WIZBALL DEFINE
+	#define last_movement_direction			v9
+
+	#define WAVE_SUB_TYPE_UNIFORM		1
+		// All the entities get their own speed/height
+	#define WAVE_SUB_TYPE_RANDOM		2
+		// All the entities get the same speed/height
+
+// Child defines
+
+	#define top_or_bottom_flag				passed_param_1
+	#define paint_bubble_colour_flag			passed_param_2
+	#define paint_bubble_special_bonus_flag			passed_param_3
+	#define passed_in_min_horizontal_speed			passed_param_4
+	#define passed_in_max_horizontal_speed			passed_param_5
+	#define passed_in_min_height				passed_param_6
+	#define passed_in_max_height				passed_param_7
+	#define passed_in_firing_behaviour			passed_param_8
+	#define passed_in_firing_frequency			passed_param_9
+	#define passed_in_firing_initial_delay			passed_param_10
+	#define enemy_behaviour_type				passed_param_11
+	#define passed_in_gravity				passed_param_12
+	#define passed_in_min_vertical_speed			passed_param_13
+	#define passed_in_max_vertical_speed			passed_param_14
+	#define passed_in_enemy_bullet_speed_percentage		passed_param_15
+
+	#define VERTICAL_BOUNCE_FLOOR			1
+	#define VERTICAL_BOUNCE_ROOF			2
+	#define VERTICAL_POSITION_TOP			3
+	#define VERTICAL_POSITION_MIDDLE		4
+	#define VERTICAL_POSITION_BOTTOM		5
+
+	#define STARTING_X_VEL				V4
+
+	#define BULLET_TYPE_SINGLE_DIRECTED		1
+	#define BULLET_TYPE_SPREAD			2
+	#define BULLET_FREQUENCY_RANDOM			4
+	#define BULLET_FREQUENCY_FIXED			8
+
+.deploy_fuzz
+
+	let world_x = 0
+	let world_y = 0
+	set_private_co_ords
+
+	let wizball_entity_id = get_global_flag (wizball_entity_id_flag)
+
+	if wizball_entity_id = CONST_UNSET then
+		kill_entity own_id
+	end_if
+
+	// Unlike other enemies, these are spawns as and when they're needed rather than, er, not.
+
+	let middle_of_screen, temp_1 = GET_WINDOW_MAP_POSITION
+	let middle_of_screen = middle_of_screen + HALF_SCREEN_WIDTH
+
+	let start_x_position = wizball_entity_id.last_movement_direction * HALF_SCREEN_PLUS_ENTRANCE_PHANTOM_ZONE
+	let start_x_position = start_x_position + middle_of_screen
+
+	// Righty, start position will come in from whichever side the player is heading in...
+
+	let y_deviation = LEVEL_HEIGHT / 2
+	let x_deviation = start_x_position
+
+	// First figure out where is a good position to spawn the Fuzz in relation to the player.
+
+	spawn_entity (generic_level_enemy,x_deviation,y_deviation,process_next)
+
+	let last_child.top_or_bottom_flag = VERTICAL_POSITION_MIDDLE
+
+	let last_child.passed_in_min_height = 0
+	let last_child.passed_in_max_height = 0
+
+	LET last_child.SPRITE = fuzz_base[set][64][64][32][32]
+	LET last_child.BASE_FRAME = 0
+	LET last_child.FRAME_COUNT = 16
+
+	let x_deviation = x_deviation + wave_x_spread 
+	let y_deviation = y_deviation + wave_y_spread
+
+	let firing_frequency = player_on_level_number_var * 3
+	let firing_frequency = 60 - firing_frequency
+
+	let last_child.passed_in_enemy_bullet_speed_percentage = 10000
+	let last_child.draw_order = SPECIAL_NORMAL_ENEMY_DRAW_ORDER
+	let last_child.passed_in_firing_behaviour = BULLET_TYPE_SINGLE_DIRECTED or BULLET_FREQUENCY_FIXED
+	let last_child.passed_in_firing_frequency = firing_frequency
+	let last_child.enemy_behaviour_type = ENEMY_TYPE_FUZZ
+	let last_child.passed_in_gravity = 0
+	let last_child.passed_in_min_horizontal_speed = wizball_entity_id.last_movement_direction
+	
+	if passed_in_wave_size > 1 then
+		goto recycle
+	else
+		kill_entity own_id
+	end_if
+
+end
+
+.recycle
+
+	let passed_in_wave_size = passed_in_wave_size - 1
+
+	wait 60
+
+	goto deploy_fuzz
+
+end

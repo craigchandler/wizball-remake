@@ -1,0 +1,32 @@
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_debris[arb]
+	
+	SET_COLLISION_FROM_FRAME
+	let upper_width = upper_width / 2
+	let lower_width = lower_width / 2
+
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+start
+	// Just puff out occasional smoke...
+
+	let v0 = rand 0 50
+
+	if v0 = 0 then
+		let temp_1 = rand -upper_width lower_width
+		spawn_entity ex_smoke temp_1 0 PROCESS_NEXT
+		let last_child.draw_order = last_child.draw_order - 1	
+		let last_child.PASSED_PARAM_1 = 4000
+		let last_child.PASSED_PARAM_2 = 6000
+		let last_child.PASSED_PARAM_4 = 9995
+		let last_child.y_vel = -256
+		let last_child.bitshift = 8
+		let last_child.lifetime = 200
+	end_if
+
+end

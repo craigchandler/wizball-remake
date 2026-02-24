@@ -1,0 +1,82 @@
+#define base_world_y		v0
+#define base_opengl_booleans	v1
+#define sound_channel		v2
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 22
+	let frame_count = 4
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let base_world_y = world_y
+
+	let base_opengl_booleans = opengl_boolean_scale + opengl_boolean_blend_add
+	let base_opengl_booleans = base_opengl_booleans + opengl_boolean_filtered
+
+start
+
+	gosub get_frame
+
+	if parent.script_number = ex_level_ending_pad then
+		if parent.signal = 1 then
+			goto end_of_level_effect
+		end_if
+	end_if
+
+end
+
+.end_of_level_effect
+
+let counter = 0
+
+start
+	let counter = counter + 1
+
+	if counter = 110 then
+		goto next_bit
+	end_if
+	
+	gosub get_frame
+end
+
+.next_bit
+
+	spawn_entity ex_vertical_recursive_lightning -48 -16 PROCESS_NEXT
+	let last_child.passed_param_1 = 4
+	let last_child.draw_order = 21
+	
+	spawn_entity ex_vertical_recursive_lightning 48 -16 PROCESS_NEXT
+	let last_child.passed_param_1 = 4
+	let last_child.draw_order = 21
+
+	let signal = 1
+
+	let sound_channel = PLAY_LOOPED_SOUND (upgrade_pod_noise, 128, 22050, 128)
+	add_to_persistant_channels sound_channel
+
+start
+	gosub get_frame
+end
+
+.get_frame
+
+
+	let current_frame = rand 0 3
+	let current_frame = current_frame + base_frame
+
+	let temp_1 = rand (-8,8)
+	let world_y = base_world_y + temp_1
+	
+	let temp_2 = rand 0 3
+	let temp_2 = temp_2 * OPENGL_BOOLEAN_VERT_FLIPPED
+	let opengl_booleans = base_opengl_booleans + temp_2
+
+	let opengl_scale_x = rand 10000 12000
+	let opengl_scale_y = rand 6000 16000
+
+	return

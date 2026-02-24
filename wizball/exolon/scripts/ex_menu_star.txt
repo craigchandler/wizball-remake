@@ -1,0 +1,31 @@
+#define angle_offset		v0
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 91
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+
+	let counter = 500
+
+	let draw_order = 15
+
+	let angle_offset = rand 0 9000
+
+start
+	let opengl_scale_x = sin counter
+	let opengl_scale_y = opengl_scale_x 
+
+	let opengl_angle = counter + angle_offset
+
+	let counter = counter + 500
+
+	if counter = 18000 then
+		kill_entity own_id
+	end_if
+end

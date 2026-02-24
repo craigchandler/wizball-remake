@@ -1,0 +1,6 @@
+// These are the keys which are definable.
+// These work for both Wizball and Nifta at the moment.
+
+#SIZE CONSTANT:NUMBER_OF_DEFINABLE_KEYS
+
+#DATA 0,1,2,3,5,6

@@ -1,0 +1,109 @@
+#define pre_wait passed_param_1
+#define animation_style passed_param_2
+#define score_digit passed_param_3
+
+#define angle v0
+#define base_x v1
+#define base_y v2
+#define bounce_size v3
+#define angle_adder v4
+
+#define animation_style_bounce 0
+#define animation_style_rise_and_fade 1
+
+	let Bitshift = 4
+	SET_PRIVATE_CO_ORDS
+
+	let base_frame = passed_param_3
+	let current_frame = base_frame
+
+//	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+//	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+//	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+
+	// Setup animation style...
+
+	switch animation_style
+
+		case animation_style_bounce
+			let angle = 0
+			let base_x = x
+			let base_y = y
+			let bounce_size = 256
+			let angle_adder = 1000
+			let sprite = score_digits_medium[set][16][16][8][8]
+		break
+
+		case animation_style_rise_and_fade
+			let y_vel = -8
+			let sprite = score_digits_small[set][8][8][4][4]
+			let opengl_booleans = OPENGL_BOOLEAN_BLEND_MULTIPLY + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+		break
+
+	end_switch
+
+	let counter = 0
+
+	let lifetime = pre_wait
+
+start
+	if pre_wait > 0 then
+		let pre_wait = pre_wait - 1
+	else
+		goto proper_start
+	end_if
+end
+
+.proper_start
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let draw_order = 30
+start
+
+	fixed_switch animation_style
+
+		fixed_case animation_style_bounce
+			if counter < 200 then
+				let temp_1 = bounce_size sin angle
+				let temp_1 = abs temp_1
+				let y = base_y - temp_1
+				let angle = angle + angle_adder
+
+
+			end_if
+
+			if angle >= 18000 then
+				let angle = angle - 18000
+				let angle_adder = angle_adder * 2
+				let bounce_size = bounce_size / 2
+			end_if
+
+			if lifetime = 90 then
+				let opengl_booleans = OPENGL_BOOLEAN_BLEND_MULTIPLY + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+			else_if lifetime > 90 then
+				let opengl_vertex_alpha = opengl_vertex_alpha - 8
+				if lifetime = 120 then
+					kill_entity own_id
+				end_if
+			end_if
+		break
+
+		fixed_case animation_style_rise_and_fade
+			if counter > 30 then
+				let opengl_vertex_alpha = opengl_vertex_alpha - 5
+			end_if
+
+			if opengl_vertex_alpha <= 0 then
+				kill_entity own_id
+			end_if
+		break
+
+	end_switch
+
+	// The reason for both is that the counter in each number isn't always synced...
+	let counter = counter + 1
+
+	// But lifetime always is. So if you want all the letters to disappear together, use the lifetime.
+	let lifetime = lifetime + 1
+end

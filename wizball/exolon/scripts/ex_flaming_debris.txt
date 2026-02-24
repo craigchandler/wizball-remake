@@ -1,0 +1,23 @@
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_debris[arb]
+	
+	SET_COLLISION_FROM_FRAME
+	let upper_width = upper_width / 2
+	let lower_width = lower_width / 2
+
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	// Just create a likkle flame...
+
+	spawn_entity ex_ground_flame 0 0 process_next
+	let last_child.draw_order = draw_order - 1
+
+start
+	// Do nothing. NOTHING!
+
+end

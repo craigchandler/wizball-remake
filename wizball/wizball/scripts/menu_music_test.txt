@@ -1,0 +1,222 @@
+// This is our main menu. How jolly exciting, eh?
+
+// Selector Defines
+#define BASE_Y				passed_param_1
+#define OPTION_HEIGHT			passed_param_2
+#define MAXIMUM_OPTIONS			passed_param_3
+#define OPTION_WIDTH			passed_param_4
+
+#define OPTION_NUMBER_HIGHLIGHTED	v0
+#define option_has_been_selected	v3
+
+// Menu Defines
+
+#define option_text			v0
+#define option_y_co_ord			v1
+#define selector_id			v2
+#define playing_music_channel		v3
+
+#define chosen_tune_list_index		v4
+#define chosen_tune_actual_stream	v5
+
+#define music_volume			v6
+
+#define tune_bitflag			v7
+
+#define default_pause_length		20 // This is 20 because it takes 17 frames to fade a song so we want a little leeway.
+
+	let world_x = 0
+	let world_y = 0
+	set_private_co_ords
+
+	let music_volume = GET_GLOBAL_MUSIC_VOLUME
+
+	let signal = signal OR SLEEP_CREDITS
+	let signal = signal OR WAKE_SCROLLY
+	let signal = signal OR WAKE_LOGO
+	let signal = signal OR SLEEP_TUNNEL_LIGHT
+	let signal = signal OR SLEEP_WIZ_AND_CAT
+
+	// Each of the menus has a wait 5 at the start to allow everything from the previous one to do it's thing.
+	wait 5
+
+	SET_GLOBAL_FLAG_AS_ENTITY_ID (menu_entity_identity_flag)
+
+	// This variable isn't used to kill this thing, though. Just as a reminder, really.
+	let ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let option_y_co_ord = SOUND_TEST_MENU_OPTION_TOP_Y_CO_ORD
+
+	spawn_entity main_menu_selector,0,0,process_next
+	let selector_id = last_child
+	let selector_id.BASE_Y = option_y_co_ord
+	let selector_id.OPTION_HEIGHT = MENU_OPTION_HEIGHT
+	let selector_id.MAXIMUM_OPTIONS = 7
+	let selector_id.OPTION_WIDTH = 528
+
+	let option_text = MUSIC_OPTION_1
+
+	for counter = 0 to 6
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, counter, menu_tune_text, option_text, process_next, NO_CENTER, 88, option_y_co_ord, 0, 0, font[arb])
+		let option_text = option_text + 1
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, counter, menu_tune_text, option_text, process_next, RIGHT_ALIGN, 552, option_y_co_ord, 0, 0, font[arb])
+		let option_text = option_text + 1
+
+		let option_y_co_ord = option_y_co_ord + MENU_OPTION_HEIGHT
+	next
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, option_text, process_next, NO_CENTER, 88, option_y_co_ord, 0, 0, font[arb])
+	let option_text = option_text + 1
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, option_text, process_next, RIGHT_ALIGN, 552, option_y_co_ord, 0, 0, font[arb])
+	let option_text = option_text + 1
+
+.start_main_loop
+
+	wait 1
+
+start
+
+	// Now we just wait...
+
+	IF_INPUT_KEYBOARD_HIT key_1 then
+		let chosen_tune_list_index = 0
+		goto select_and_play_tune
+	end_if
+
+	IF_INPUT_KEYBOARD_HIT key_2 then
+		let chosen_tune_list_index = 1
+		goto select_and_play_tune
+	end_if
+
+	IF_INPUT_KEYBOARD_HIT key_3 then
+		let chosen_tune_list_index = 2
+		goto select_and_play_tune
+	end_if
+
+	IF_INPUT_KEYBOARD_HIT key_4 then
+		let chosen_tune_list_index = 3
+		goto select_and_play_tune
+	end_if
+
+	IF_INPUT_KEYBOARD_HIT key_5 then
+		let chosen_tune_list_index = 4
+		goto select_and_play_tune
+	end_if
+
+	IF_INPUT_KEYBOARD_HIT key_6 then
+		let chosen_tune_list_index = 5
+		goto select_and_play_tune
+	end_if
+
+	IF_INPUT_KEYBOARD_HIT key_7 then
+		goto option_menu
+	end_if
+
+	IF_INPUT_KEYBOARD_HIT key_esc then
+		goto option_menu
+	end_if
+
+
+
+	IF (selector_id.option_has_been_selected = TRUE) then
+		if selector_id.OPTION_NUMBER_HIGHLIGHTED < 6 then
+			let chosen_tune_list_index = selector_id.OPTION_NUMBER_HIGHLIGHTED
+			goto select_and_play_tune
+		else_if selector_id.OPTION_NUMBER_HIGHLIGHTED = 6 then
+			goto option_menu
+		else
+			stop
+		end_if
+
+	END_IF
+
+end
+
+
+
+.select_and_play_tune
+
+	let tune_bitflag = 1
+
+	for counter = 0 to chosen_tune_list_index
+		let tune_bitflag = tune_bitflag * 2
+	next
+
+	let temp_1 = get_global_flag (played_tunes_flag)
+
+	if (temp_1 !& tune_bitflag) then
+		PLAY_SOUND menu_select_bad 255 CONST_SOUND_FREQUENCY 128
+		goto start_main_loop
+	else
+
+		let chosen_tune_actual_stream = READ_FROM_DATATABLE (tune_indices, 0, chosen_tune_list_index)
+
+		IF_FLAG (playing_music_stream_flag) = chosen_tune_actual_stream then
+			// You can't play the same tune that's already playing.
+			PLAY_SOUND menu_select_bad 255 CONST_SOUND_FREQUENCY 128
+			goto start_main_loop
+		else
+
+			PLAY_SOUND menu_select 255 CONST_SOUND_FREQUENCY 128
+
+			if_flag (playing_music_channel_flag) != CONST_UNSET then
+				spawn_entity (fade_music,0,0,process_next)
+				let last_child.passed_param_1 = GET_GLOBAL_FLAG (playing_music_channel_flag)
+				let last_child.passed_param_2 = GET_GLOBAL_FLAG (playing_music_stream_flag)
+				let last_child.passed_param_3 = 15
+				let last_child.passed_param_4 = 255
+
+				SET_GLOBAL_FLAG (playing_music_channel_flag, CONST_UNSET)
+				SET_GLOBAL_FLAG (playing_music_stream_flag, CONST_UNSET)
+			end_if
+
+			wait default_pause_length
+
+			if_flag (playing_music_channel_flag) = CONST_UNSET then
+				let playing_music_channel = PLAY_MUSIC_STREAM_GET_HANDLE (chosen_tune_actual_stream,255,CONST_MUSIC_FREQUENCY,128,-1)
+				SET_GLOBAL_FLAG (playing_music_channel_flag, playing_music_channel)
+				SET_GLOBAL_FLAG (playing_music_stream_flag, chosen_tune_actual_stream)
+			end_if
+
+			goto start_main_loop
+
+		END_IF
+
+	end_if
+
+
+
+.option_menu
+
+	PLAY_SOUND menu_select_back 255 CONST_SOUND_FREQUENCY 128
+
+	if_flag (playing_music_channel_flag) != CONST_UNSET then
+		if_flag (playing_music_stream_flag) != wizball_title then
+			spawn_entity (fade_music,0,0,process_next)
+			let last_child.passed_param_1 = GET_GLOBAL_FLAG (playing_music_channel_flag)
+			let last_child.passed_param_2 = GET_GLOBAL_FLAG (playing_music_stream_flag)
+			let last_child.passed_param_3 = 15
+			let last_child.passed_param_4 = 255
+
+			SET_GLOBAL_FLAG (playing_music_channel_flag, CONST_UNSET)
+			SET_GLOBAL_FLAG (playing_music_stream_flag, CONST_UNSET)
+		end_if
+	end_if
+
+	if_flag (playing_music_channel_flag) = CONST_UNSET then
+		let playing_music_channel = PLAY_MUSIC_STREAM_GET_HANDLE (wizball_title,255,CONST_MUSIC_FREQUENCY,128,-1)
+		SET_GLOBAL_FLAG (playing_music_channel_flag, playing_music_channel)
+		SET_GLOBAL_FLAG (playing_music_stream_flag, wizball_title)
+	end_if
+
+	spawn_entity menu_options,0,0,process_next
+
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_SPECIFIC_MENU_ENTITY )
+
+	let signal = signal OR DESTROY_OPTION_TEXT
+
+	kill_entity own_id
+
+	end
+
+

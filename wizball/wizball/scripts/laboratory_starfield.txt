@@ -1,0 +1,26 @@
+
+	let unique_id = LABORATORY_STARFIELD_ID
+
+	LET ENTITY_TYPE = ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+
+	let opengl_booleans = opengl_boolean_vertex_colour_alpha + opengl_boolean_blend_add
+	let opengl_vertex_alpha = 128
+	let opengl_vertex_red = 255
+	let opengl_vertex_green = 128
+	let opengl_vertex_blue = 192
+
+	let draw_mode = DRAW_MODE_STARFIELD_LINES
+
+	let draw_override = DRAW_OVERRIDE_NONE
+
+	let draw_order = LABORATORY_STARFIELD_DRAW_ORDER
+
+	let world_x = 180
+	let world_y = 0
+	set_private_co_ords
+
+start
+
+	update_starfield unique_id -10000 -10000 TRUE
+
+end

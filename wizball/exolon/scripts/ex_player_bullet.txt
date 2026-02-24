@@ -1,0 +1,71 @@
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	// Base frame supplied by parent...
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let COLLISION_SHAPE = RECTANGLE
+	SET_COLLISION_FROM_FRAME
+	let world_collision_bitmask = 3
+	world_hitline gosub hitwall
+
+	let WORLD_COLLISION_BEHAVIOUR = COLLISION_RESPONSE_SIMPLE_BOUNCE_OR_DECELLERATE
+	let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_RESPONSE_CALL_SCRIPT
+	let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_NOTICE_WHEN_INSIDE_COLLISION
+
+	let WORLD_COLLISION_COEF_HORIZONTAL = 100
+	let WORLD_COLLISION_COEF_VERTICAL = 0
+
+	let ENTITY_MOVEMENT_BEHAVIOUR = ENTITY_MOVEMENT_HORIZONTAL_VERTICAL
+
+	let COLLIDE_TYPE = ENT_TYPE_PLAYER_BULLET
+	let collide_with = ENT_TYPE_ENEMY + ENT_TYPE_ENEMY_BULLET
+
+	if FACING_DIRECTION = 1 then
+		let x_vel = 6
+	else
+		let x_vel = -6
+		let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_HORI_FLIPPED
+	end_if
+
+	entity_hitline gosub hit_entity
+
+	let lifetime = 50
+start
+	
+	if world_x < BOUNDARY_START_X then
+		kill_entity own_id
+	end_if
+
+	if world_x > BOUNDARY_END_X then
+		kill_entity own_id
+	end_if
+
+	let lifetime = lifetime - 1
+	
+	if lifetime = 0 then
+		kill_entity own_id
+	end_if
+
+end
+
+.hit_entity
+	spawn_entity ex_create_particles 0 0 PROCESS_NEXT
+	let last_child.counter = 0
+	let last_child.v0 = -x_vel / 5
+	let last_child.v1 = 0
+	let last_child.v2 = drop_item
+	kill_entity own_id
+
+.hitwall
+	let temp_1 = rand 15000 30000
+	play_sound bullet_hit 128 temp_1 128
+	spawn_entity ex_create_particles 0 0 PROCESS_NEXT
+	let last_child.counter = 6
+	let last_child.v0 = -x_vel / 5
+	let last_child.v1 = 0
+	let last_child.v2 = drop_item
+	kill_entity own_id

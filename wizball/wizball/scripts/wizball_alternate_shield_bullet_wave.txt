@@ -1,0 +1,78 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+#define ideal_x_scale			v0
+#define ideal_y_scale			v1
+
+#define current_x_scale_percentage	v4
+#define current_y_scale_percentage	v5
+
+gosub set_up_image
+
+// ---------------- Collision Set Up ---------------- 
+
+	// None
+
+// ---------------- Final Set up ----------------
+
+	// None, really. Lawks.
+
+// ---------------- Main Loop ----------------
+
+start
+
+	let ideal_x_scale = ideal_x_scale >% 10000 250
+	let ideal_y_scale = ideal_y_scale >% 10000 500
+
+	if ideal_x_scale > 7000 then
+		let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+
+		if opengl_vertex_alpha = 0 then
+			kill_entity own_id
+		end_if
+	end_if
+
+	let opengl_scale_x = ideal_x_scale % parent.current_x_scale_percentage
+	let opengl_scale_y = ideal_y_scale % parent.current_y_scale_percentage
+
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+
+	if parent.signal = 1 then
+		let draw_mode = draw_mode_invisible
+	else
+		let draw_mode = draw_mode_sprite
+	end_if
+
+	if parent.alive <= 0 then
+		kill_entity own_id
+	end_if
+
+end
+
+// ---------------- Enemy Collision ----------------
+
+	// None
+
+// ---------------- Image Set Up ----------------
+
+.set_up_image
+
+	let draw_order = WIZBALL_BULLET_DRAW_ORDER
+
+	let draw_mode = draw_mode_sprite
+
+	let sprite = parent.sprite
+	let current_frame = parent.current_frame
+	let opengl_booleans = parent.opengl_booleans
+	let opengl_angle = parent.opengl_angle
+
+	let opengl_vertex_alpha = 255
+
+	let ideal_x_scale = 5000
+	let ideal_y_scale = 2500
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+return

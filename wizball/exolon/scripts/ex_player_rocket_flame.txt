@@ -1,0 +1,59 @@
+#define flame_size_min 		v0
+#define flame_size_max 		v1
+#define sound_channel		v2
+#define old_max_flame_size	v3
+#define sound_pitch		v4
+#define sound_volume		v5
+
+//	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+
+	let sound_channel = play_looped_sound (rocket_thruster, 0, 42050, 128)
+	add_to_persistant_channels sound_channel
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 65
+	let frame_count = 1
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+
+start
+	if old_max_flame_size != flame_size_max then
+		// Change the volume, man!
+		let sound_volume = flame_size_max / 80
+
+		if sound_volume > 255 then
+			let sound_volume = 255
+		end_if
+
+		adjust_sound sound_channel sound_volume 22050 128
+	end_if
+
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+
+	set_private_co_ords
+
+	let opengl_scale_y = rand flame_size_min flame_size_max
+	let opengl_scale_x = rand flame_size_min flame_size_max
+
+	if parent.alive < 0 then
+		// It's died, so we should, too. Turn off the noise and kill it.
+		goto kill_self
+	end_if
+
+	let old_max_flame_size = flame_size_max
+end
+
+.kill_self
+
+remove_from_persistant_channels sound_channel
+add_to_fader_channels sound_channel
+
+kill_entity own_id
+

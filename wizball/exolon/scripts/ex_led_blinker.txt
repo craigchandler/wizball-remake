@@ -1,0 +1,25 @@
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = mini_lights[set][8][8][4][0]
+	let frame_count = 4
+
+	if base_frame = 0 then
+		let base_frame = 0
+	end_if
+
+	let current_frame = base_frame
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let draw_order = 20
+
+start
+	SET_ANIM_FRAME ANIM_LOOP base_frame frame_count 1 counter false
+
+	let counter = counter + 1
+
+	wait 4
+end

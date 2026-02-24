@@ -1,0 +1,153 @@
+// This is the get ready screen. It's lovely.
+
+// It turns off the other windows so that it has you all to itself.
+
+#define offset_x			v0
+#define offset_y			v1
+
+#define get_ready_countdown		v2
+
+	let sprite = background_level_2[arb]
+	let base_frame = 4
+	let current_frame = base_frame
+
+	let world_x = 320
+	let world_y = 240
+
+	set_private_co_ords
+
+	let opengl_booleans = opengl_boolean_blend_add + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let draw_mode = draw_mode_sprite
+
+	// This'll do as it'll be the only thing in this window.
+	let draw_order = 0
+
+	let window_number = FLOATING_OVERLAY_WINDOW
+
+	disable_window GAME_MAIN_WINDOW
+	disable_window GAME_PANEL_WINDOW
+
+	enable_window FLOATING_OVERLAY_WINDOW
+
+	let opengl_scale_x = 5000
+	let opengl_scale_y = opengl_scale_x
+
+	let opengl_vertex_alpha = 0
+
+	let get_ready_countdown = 20
+
+	gosub spawn_orbitters
+
+	spawn_entity get_ready_starfield
+
+start
+
+	if get_ready_countdown = 0 then
+		IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,FIRE_1) THEN
+			goto fade_out
+		END_IF
+
+		IF_INPUT_KEYBOARD_HIT key_enter then
+			goto fade_out
+		END_IF
+	end_if
+
+	let get_ready_countdown = get_ready_countdown - 1 !< 0
+
+	let opengl_vertex_alpha = opengl_vertex_alpha + 15 !> 255
+
+	let counter = counter + 100 !< 0 !> 35999
+
+	gosub spawn_particles
+
+end
+
+
+
+.fade_out
+
+start
+
+	let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+
+	let counter = counter + 100 !< 0 !> 35999
+
+	if opengl_vertex_alpha = 0 then
+		goto time_for_bed
+	end_if
+
+end
+
+
+
+.time_for_bed
+
+	let signal = true
+
+	enable_window GAME_MAIN_WINDOW
+	enable_window GAME_PANEL_WINDOW
+
+	disable_window FLOATING_OVERLAY_WINDOW
+
+	kill_entity own_id
+
+
+
+.spawn_particles
+
+	let temp_1 = counter mod 12
+
+	if temp_1 = 0 then
+
+		let temp_1 = counter * 2
+
+		for temp_2 = 0 to 4
+			let offset_x = 288 sin temp_1
+			let offset_y = 64 cos temp_1
+
+			let offset_x = offset_x % opengl_scale_x
+			let offset_y = offset_y % opengl_scale_y
+
+			spawn_entity particle_get_ready_twinkle,offset_x,offset_y,process_next
+
+			let last_child.x_vel = 512 sin temp_1
+			let last_child.y_vel = 512 cos temp_1
+			let temp_1 = temp_1 + 9000
+		next
+
+		let temp_1 = -counter
+		let temp_1 = temp_1 * 2
+
+		for temp_2 = 0 to 4
+			let offset_x = 288 sin temp_1
+			let offset_y = 64 cos temp_1
+
+			let offset_x = offset_x % opengl_scale_x
+			let offset_y = offset_y % opengl_scale_y
+
+			spawn_entity particle_get_ready_twinkle,offset_x,offset_y,process_next
+
+			let last_child.x_vel = 512 sin temp_1
+			let last_child.y_vel = 512 cos temp_1
+			let temp_1 = temp_1 + 9000
+		next
+
+	end_if
+
+	return
+
+.spawn_orbitters
+
+	for temp_1 = 0 to 4
+		spawn_entity particle_get_ready_twirl
+		let last_child.passed_param_1 = temp_1 * 9000
+		let last_child.passed_param_2 = false
+		spawn_entity particle_get_ready_twirl
+		let last_child.passed_param_1 = temp_1 * 9000
+		let last_child.passed_param_2 = true
+	next
+
+	return

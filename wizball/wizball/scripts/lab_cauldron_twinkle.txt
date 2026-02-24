@@ -1,0 +1,61 @@
+#define datatable_line				v0
+#define hue					v1
+#define saturation				v2
+#define lightness				v3
+
+	let entity_type = ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+
+	let Bitshift = 7
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = particle_effects[arb]
+	let base_frame = 33
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+
+	let lifetime = rand (200,255)
+
+	let draw_order = LABORATORY_CAULDRON_GLOW_DRAW_ORDER
+
+	let y_acc = 4
+
+	let datatable_line = get_global_flag (cauldron_colour_datatable_line_flag)
+
+	let opengl_vertex_red = READ_FROM_DATATABLE (level_cauldron_colours,datatable_line,0)
+	let opengl_vertex_green = READ_FROM_DATATABLE (level_cauldron_colours,datatable_line,1)
+	let opengl_vertex_blue = READ_FROM_DATATABLE (level_cauldron_colours,datatable_line,2)
+
+	let hue,saturation,lightness = GET_HSL_FROM_OPENGL_COLOURS
+
+	let temp_1 = rand (-16,16)
+
+	let hue = hue + temp_1 !< 0 !> 359
+
+	GET_VERTEX_COLOURS_FROM_HSL (hue,saturation,lightness)
+
+start
+
+	let v0 = lifetime - 100
+	if v0 < 10 then
+		let v0 = 10 // Any smaller than this and we could easily frig the drawing up.
+	end_if
+
+	let temp_1 = x_vel * 10
+	let opengl_angle = opengl_angle + temp_1 !< 0 !> 35999
+
+	let opengl_scale_x = rand v0 lifetime
+
+	let opengl_scale_x = opengl_scale_x * 75
+	let opengl_scale_y = opengl_scale_x
+
+	let lifetime = lifetime - 3
+
+	if lifetime < 50 then
+		kill_entity own_id
+	end_if
+end

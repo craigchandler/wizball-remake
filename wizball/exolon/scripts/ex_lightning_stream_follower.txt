@@ -1,0 +1,99 @@
+#define start_entity_id v0
+#define end_entity_id v1
+#define percentage v2
+
+#define start_entity_x v3
+#define start_entity_y v4
+
+#define end_entity_x v5
+#define end_entity_y v6
+
+#define start_angle v7
+#define end_angle v8
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 69
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let v0 = 100
+	let opengl_angle = rand 0 36000
+	let v1 = rand -500 500
+
+	let start_entity_id = parent
+	let end_entity_id = parent.parent
+	let percentage = 0
+	
+start
+	let opengl_scale_y = rand 8000 12000
+	let opengl_scale_x = opengl_scale_y
+
+	let start_entity_x = start_entity_id.world_x
+	let start_entity_y = start_entity_id.world_y
+
+	let end_entity_x = end_entity_id.world_x
+	let end_entity_y = end_entity_id.world_y
+
+	let start_angle = start_entity_id.opengl_angle
+	let end_angle = end_entity_id.opengl_angle
+
+	let world_x = lerp start_entity_x end_entity_x percentage
+	let world_y = lerp start_entity_y end_entity_y percentage
+
+	let opengl_angle = lerp start_angle end_angle percentage
+
+	set_private_co_ords
+
+	let percentage = percentage + 1000
+
+	if percentage >= 10000 then
+		let start_entity_id = end_entity_id
+		let end_entity_id = start_entity_id.parent
+		let percentage = percentage - 10000
+
+		if end_entity_id = matriarch then
+			for counter = 0 to 10
+				spawn_entity ex_particle 0 0 PROCESS_NEXT
+				let last_child.base_frame = 67
+				let last_child.x_vel = rand -4 4
+				let last_child.y_vel = rand -2 -5
+			next
+			gosub next_phase
+		end_if
+	end_if
+end
+
+
+.next_phase
+
+let counter = 0
+let opengl_angle = 0
+
+start
+//	let world_x = end_entity_id.world_x
+//	let world_y = end_entity_id.world_y
+
+//	set_private_co_ords
+
+	if counter < 5 then
+		let opengl_scale_x = opengl_scale_x % 12000
+		let opengl_scale_y = opengl_scale_x 
+	else
+		let opengl_scale_x = opengl_scale_x % 7000
+		let opengl_scale_y = opengl_scale_x 
+	end_if
+
+	let counter = counter + 1
+
+	if counter = 10 then
+		kill_entity own_id
+	end_if
+
+end
+
+

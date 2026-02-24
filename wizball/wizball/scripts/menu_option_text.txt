@@ -1,0 +1,84 @@
+// This is the text used for the options. It simply fades in and out when it sees the signal from it's parent. Really fast.
+
+#define current_menu_entity_id		v0
+
+#define deviation			v1
+#define min_deviation			v2
+#define max_deviation			v3
+
+	let draw_order = MENU_TEXT_DRAW_ORDER
+
+	let entity_type = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_vertex_colour_alpha
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ARBITRARY_QUAD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let sprite = font[arb]
+
+	let opengl_vertex_alpha = 0
+
+	set_private_co_ords
+
+	let deviation = rand (50,70)
+
+	let draw_mode = draw_mode_sprite
+
+start
+
+	IF deviation > 0 THEN
+		let opengl_booleans = opengl_booleans or OPENGL_BOOLEAN_ARBITRARY_QUAD
+
+		SET_ARBITRARY_QUAD_FROM_BASE
+
+		for counter = 0 to 4
+			let min_deviation = deviation / 10
+			let max_deviation = deviation + 5
+			let max_deviation = max_deviation / 10
+			let temp_1 = rand (-min_deviation,max_deviation)
+			let temp_2 = rand (-min_deviation,max_deviation)
+			ALTER_ARBITRARY_QUAD_CO_ORDINATE (counter,temp_1,temp_2)
+		next
+	else
+		let opengl_booleans = opengl_booleans AND !OPENGL_BOOLEAN_ARBITRARY_QUAD
+	end_if
+
+	let deviation = deviation - 1 !< 0
+
+	let opengl_vertex_alpha = opengl_vertex_alpha + 15 !> 255
+
+	let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+	if current_menu_entity_id != CONST_UNSET then
+		if current_menu_entity_id.signal & DESTROY_OPTION_TEXT then
+			goto final_phase
+		end_if
+	end_if
+
+end
+
+.final_phase
+
+	let opengl_booleans = opengl_booleans or OPENGL_BOOLEAN_ARBITRARY_QUAD
+
+start
+
+	let deviation = deviation + 1
+
+	SET_ARBITRARY_QUAD_FROM_BASE
+
+	for counter = 0 to 4
+		let temp_3 = deviation / 10
+		let temp_1 = rand (-temp_3,temp_3)
+		let temp_2 = rand (-temp_3,temp_3)
+		ALTER_ARBITRARY_QUAD_CO_ORDINATE (counter,temp_1,temp_2)
+	next
+
+	let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+
+	if opengl_vertex_alpha = 0 then
+		kill_entity own_id
+	end_if
+
+end
+

@@ -1,0 +1,10 @@
+#define enemy_count			v0
+#define main_game_handler_id		v1
+
+	let main_game_handler_id = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+
+	let enemy_count = read_from_array (main_game_handler_id, LEVEL_ENEMY_COUNT_ARRAY_ID, PARENT_LEVEL)
+	let enemy_count = enemy_count - 1
+	write_to_array (enemy_count, main_game_handler_id, LEVEL_ENEMY_COUNT_ARRAY_ID, PARENT_LEVEL)
+
+return

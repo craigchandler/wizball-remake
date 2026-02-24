@@ -1,0 +1,74 @@
+#define base_opengl_booleans v1
+#define random_addition_boolean v2
+
+#define parental_offset_x v3
+#define parental_offset_y v4
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 72
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR
+
+	set_collision_from_frame
+
+	let random_addition_boolean = rand 0 3
+	let random_addition_boolean = random_addition_boolean * OPENGL_BOOLEAN_VERT_FLIPPED
+	let opengl_booleans = opengl_booleans + random_addition_boolean
+
+	let temp_1 = sgn opengl_angle
+	let temp_2 = rand 3600 5000
+	let temp_1 = temp_1 * temp_2
+
+	if passed_param_1 > 0 then
+		spawn_entity ex_earthed_lightning 0 0 PROCESS_NEXT
+		let last_child.passed_param_1 = passed_param_1 - 1
+		let last_child.opengl_angle = opengl_angle + temp_1
+	end_if
+
+	let lifetime = 0
+
+	if parent.script_number != ex_earthed_lightning then
+		let parent = parent.parent
+		let parental_offset_x = parent.world_x - world_x
+		let parental_offset_y = parent.world_y - world_y
+	end_if
+start
+	let opengl_scale_y = rand 4000 6000
+
+	if parent.script_number = ex_earthed_lightning then
+		position_at_end_of_rotated_entity parent.opengl_angle -parent.upper_height parent opengl_scale_y
+		set_private_co_ords
+		let opengl_angle = parent.opengl_angle + temp_1
+		if opengl_angle > 18000 then
+			let opengl_angle = 18000
+		else_if opengl_angle < -18000 then
+			let opengl_angle = -18000
+		end_if
+	else
+		let world_x = parent.world_x - parental_offset_x 
+		let world_y = parent.world_y - parental_offset_y
+		set_private_co_ords
+		let opengl_angle = opengl_angle % 9800
+	end_if
+
+	if lifetime > 0 then
+		let opengl_vertex_red = opengl_vertex_red % 9800
+		let opengl_vertex_green = opengl_vertex_green % 9800
+		let opengl_vertex_blue = opengl_vertex_blue % 9800
+	end_if
+
+	let lifetime = lifetime + 1
+
+	if opengl_vertex_red < 50 then
+		kill_entity own_id
+	end_if
+end

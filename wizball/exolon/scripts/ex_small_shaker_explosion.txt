@@ -1,0 +1,47 @@
+#define explosion_frequency	v25
+#define explosion_life		v26
+
+	let counter = 0
+
+	let v3 = -parent.upper_width
+	let v4 = parent.lower_width
+	let v5 = -parent.upper_height
+	let v6 = parent.lower_height
+
+	set_private_co_ords
+
+	let explosion_frequency = 6
+	let explosion_life = explosion_frequency * 7
+
+start
+
+	if counter < explosion_life then 
+		let temp_2 = counter mod explosion_frequency
+		if temp_2 = 0 then
+
+			let v1 = rand v3 v4
+			let v2 = rand v5 v6
+
+			for v0 = 0 to 35999 step 3000
+				spawn_entity ex_smoke v1 v2 PROCESS_NEXT
+				let last_child.draw_order = last_child.draw_order + 1
+				let last_child.x_vel = cos v0
+				let last_child.y_vel = sin v0
+				let last_child.x_vel = last_child.x_vel / 50
+				let last_child.y_vel = last_child.y_vel / 50	
+				let last_child.PASSED_PARAM_1 = 100
+				let last_child.PASSED_PARAM_2 = 6000
+				let last_child.PASSED_PARAM_4 = 9700
+				let last_child.lifetime = 30
+				let last_child.bitshift = 6
+			next
+
+			spawn_entity ex_player_rocket_explosion_flame v1 v2 PROCESS_NEXT
+		end_if
+	else
+		kill_entity own_id
+	end_if
+
+	let counter = counter + 1
+
+end

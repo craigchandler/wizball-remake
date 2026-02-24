@@ -1,0 +1,64 @@
+#define current_score			v0
+#define current_display_score		v1
+#define new_display_score		v2
+#define score_difference		v3
+#define score_adder			v4
+
+#define old_score_sector		v5
+#define new_score_sector		v6
+
+	let window_number = SCORE_OVERLAY_WINDOW
+
+	for temp_1 = 0 to HISCORE_MAX_SCORE_LENGTH
+		spawn_entity score_digit
+		let last_child.passed_param_1 = temp_1
+	next
+
+	for temp_1 = 0 to 2
+		spawn_entity enemy_count_digit
+		let last_child.passed_param_1 = temp_1
+	next
+
+	blank_window 10
+
+	// Afterwards this sits around updating the player's display score towards their real score...
+
+start
+
+	wait 2
+
+	let current_display_score = get_global_flag (player_display_score)
+
+	let current_score = get_global_flag (player_score)
+
+	if current_display_score < current_score then
+
+		let score_difference = current_score - current_display_score
+
+		if score_difference < 200 then
+			PLAY_SOUND score_counter_low_tick 32 CONST_SOUND_FREQUENCY 128
+			let score_adder = 10
+		else_if score_difference < 2000 then
+			PLAY_SOUND score_counter_medium_tick 32 CONST_SOUND_FREQUENCY 128
+			let score_adder = 100
+		else
+			PLAY_SOUND score_counter_high_tick 32 CONST_SOUND_FREQUENCY 128
+			let score_adder = 500
+		end_if
+
+		let new_display_score = current_display_score + score_adder !> current_score
+		set_global_flag (player_display_score, new_display_score)
+
+		// Now check to see if we've passed any barriers for extra lives...
+
+		let old_score_sector = current_display_score / 100000
+		let new_score_sector = new_display_score / 100000
+
+		if old_score_sector != new_score_sector then
+			// We've gained a life!
+			call_script function_gain_life
+		end_if
+
+	end_if
+
+end

@@ -1,0 +1,35 @@
+#define slice_size		3000
+
+	let ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	for counter = 0 to 35999 step slice_size
+		spawn_entity main_menu_background_slice,0,0,process_next
+		let last_child.passed_param_1 = counter
+	next
+
+	for counter = 0 to 4
+		spawn_entity main_menu_tunnel_light,0,0,process_next
+	next
+
+	let world_x = 320
+	let world_y = 240
+
+	set_private_co_ords
+
+	let sprite = title_screen_and_large_bits[arb]
+	let base_frame = 24
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let draw_order = MENU_TUNNEL_FAKE_BACK_DRAW_ORDER
+
+start
+
+	let counter = counter + 100 !< 0 !> 35999
+
+	let opengl_angle = counter
+
+end

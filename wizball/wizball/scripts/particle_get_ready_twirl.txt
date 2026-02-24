@@ -1,0 +1,65 @@
+#define angle_offset			passed_param_1
+#define inverted_offset			passed_param_2
+
+#define offset_x			v0
+#define offset_y			v1
+
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE + ENT_TYPE_DISPOSABLE
+
+	let Bitshift = 7
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = particle_effects[arb]
+	let base_frame = 15
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let lifetime = rand (200,255)
+
+	let draw_order = WIZBALL_LIFE_INDICATOR_TWINKLE_DRAW_ORDER
+
+	if inverted_offset = false then
+		let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_HORI_FLIPPED
+	end_if
+
+start
+	let opengl_scale_x = parent.opengl_scale_x * 3
+	let opengl_scale_y = opengl_scale_x
+
+	let opengl_vertex_alpha = parent.opengl_vertex_alpha
+
+	if inverted_offset = true then
+		let counter = -parent.counter * 2
+	else
+		let counter = parent.counter * 2
+	end_if
+
+	let counter = counter + angle_offset
+
+	if inverted_offset = true then
+		let opengl_angle = opengl_angle + 500 !< 0 !> 35999
+	else
+		let opengl_angle = opengl_angle - 500 !< 0 !> 35999
+	end_if
+
+	let offset_x = 288 sin counter
+	let offset_y = 64 cos counter
+
+	let offset_x = offset_x % parent.opengl_scale_x
+	let offset_y = offset_y % parent.opengl_scale_y
+
+	let world_x = parent.world_x + offset_x
+	let world_y = parent.world_y + offset_y
+
+	set_private_co_ords
+
+	if parent.signal = true then
+		kill_entity own_id
+	end_if
+
+end

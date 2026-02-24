@@ -1,0 +1,57 @@
+#define move_distance			64
+
+#define start_x_position		v0
+#define end_x_position			v1
+#define progress			v2
+#define biased_progress			v3
+
+set_global_flag_as_entity_id (proxy_entity_id_flag)
+
+let sprite = wizball[set][48][48][24][24]
+let base_frame = 30
+let current_frame = base_frame
+
+let bitshift = 4
+
+LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_MASKED
+LET DRAW_MODE = DRAW_MODE_SPRITE
+LET DRAW_ORDER = WIZBALL_DRAW_ORDER
+let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+PLAY_SOUND warp_tube_deposit 255 CONST_SOUND_FREQUENCY 128
+
+set_private_co_ords
+
+	let start_x_position = world_x
+	let end_x_position = start_x_position - move_distance
+
+	let progress = 0
+
+start
+	// This has to complete in less than 30 frames because the tube'll send a check for colour complete signal at that point!
+
+	let progress = progress + 400 !> 10000
+	let biased_progress = progress curve_percentage CURVE_PERCENTAGE_SISO
+
+	let world_x = lerp (start_x_position, end_x_position, biased_progress)
+	let current_frame = lerp (32, 0, biased_progress)
+
+	set_private_co_ords
+
+	if progress = 10000 then
+		goto spawn_real_wizball
+	end_if
+end
+
+.spawn_real_wizball
+
+	spawn_entity (wizball,0,0,process_next)
+
+	// We should only check for full cauldrons once wizball's alive.
+	let temp_1 = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+	ADD_EVENT_TO_QUEUE ( temp_1 , LEVEL_CHECK_FOR_FULL_COLOUR_AFTER_LEVEL_SWAP )
+
+	kill_entity own_id
+

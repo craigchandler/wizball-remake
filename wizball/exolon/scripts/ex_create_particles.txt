@@ -1,0 +1,39 @@
+SET_PRIVATE_CO_ORDS
+let sprite = level_scenery_sprites[arb]
+let base_frame = v2 + 1
+let current_frame = base_frame
+let draw_mode = DRAW_MODE_SPRITE
+let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+if counter > 0 then
+	for v9 = 0 to counter
+		spawn_entity ex_particle 0 0 PROCESS_NEXT
+		let last_child.x_vel = v0
+		let last_child.y_vel = v1
+		let last_child.base_frame = v2
+	next
+end_if
+
+let opengl_scale_x = 5000
+let opengl_scale_y = 5000
+
+let v9 = 16
+
+start
+	let v8 = v9 * 100
+
+	let opengl_scale_y = opengl_scale_y + v8
+	let opengl_scale_x = opengl_scale_x + v8
+	let OPENGL_VERTEX_ALPHA = OPENGL_VERTEX_ALPHA - 15
+
+	let v9 = v9 - 1
+	
+	if v9 = 0 then
+		kill_entity own_id
+	end_if
+end
+
+
+

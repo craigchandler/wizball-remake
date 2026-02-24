@@ -1,0 +1,235 @@
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+#define x_offset			v0
+#define y_offset			v1
+
+#define spawn_loop			v2
+
+#define position			v3
+#define position_top			-1
+#define position_bottom			1
+
+#define fire_button_hit			v16
+
+#define ideal_world_collision_width	40
+#define ideal_world_collision_height	48
+
+#define current_x_scale_percentage	v4
+#define current_y_scale_percentage	v5
+
+#define target_width			v6
+#define target_height			v7
+
+#define current_width			v8
+#define current_height			v9
+
+#define check_direction			v10
+
+#define wizball_entity_id 		v20
+
+#define sound_pulse_toggle		v30
+
+#define squash_adaption_percentage	2500
+
+gosub set_up_image
+
+// ---------------- Object Collision Set Up ---------------- 
+
+let COLLISION_SHAPE = RECTANGLE
+
+if position = position_bottom then
+	let upper_height = -16
+	let lower_height = 48
+else
+	let upper_height = 48
+	let lower_height = -16
+end_if
+
+let lower_width = 24
+let upper_width = 24
+
+let sound_pulse_toggle = 1
+
+let COLLIDE_WITH = ENT_TYPE_ENEMY
+let collide_type = ent_type_player_bullet
+
+entity_hitline gosub hit_enemy_routine
+
+// ---------------- World Collision Set Up ---------------- 
+
+let WORLD_COLLISION_BEHAVIOUR = SLIDING_HORIZONTAL + COLLISION_RESPONSE_SIMPLE_BOUNCE_OR_DECELLERATE
+let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_USE_EXTRA_TEST_POINTS
+let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_ITERATE_MOVEMENT
+
+let WORLD_COLLISION_COEF_HORIZONTAL = 0
+let WORLD_COLLISION_COEF_VERTICAL = 0
+
+//let ENTITY_MOVEMENT_BEHAVIOUR = ENTITY_MOVEMENT_HORIZONTAL_VERTICAL
+
+let world_collision_bitmask = WORLD_BITMASK_PLAYER_COLLIDES
+LET WORLD_COLLISION_LAYER = PLAYER_AND_ENEMY_WORLD_COLLISION_LAYER // We use the second layer of the world as for our collision map.
+
+let UPPER_WORLD_WIDTH = 0
+let UPPER_WORLD_HEIGHT = 0
+let LOWER_WORLD_WIDTH = 0
+let LOWER_WORLD_HEIGHT = 0
+	// Wuh?! Zero? Yes, zero, because we manually frig it each frame.
+
+// ---------------- Final Set up ----------------
+
+	let lifetime =  20
+
+// ---------------- Main Loop ----------------
+
+start
+
+	let wizball_entity_id = get_global_flag (wizball_entity_id_flag)
+
+	if wizball_entity_id = const_unset then
+		let wizball_entity_id = get_global_flag (proxy_entity_id_flag)
+	end_if
+
+	if wizball_entity_id != const_unset then
+
+		if spawn_loop = 0 then
+			spawn_entity wizball_alternate_shield_bullet_wave,0,0,process_next
+
+			if position = position_bottom then
+				if sound_pulse_toggle = 1 then
+					play_sound (wizball_up_down_shield_pulse, 32, CONST_SOUND_FREQUENCY)
+				end_if
+			end_if
+
+			let sound_pulse_toggle = 1 - sound_pulse_toggle
+
+		end_if
+
+		let spawn_loop = spawn_loop + 1 !> 10 ? 0
+
+		let world_x = wizball_entity_id.world_x + x_offset
+		let world_y = wizball_entity_id.world_y + y_offset
+
+		set_private_co_ords
+
+		if wizball_entity_id.fire_button_hit = 0 then
+			let lifetime = lifetime - 1
+
+			if lifetime = 0 then
+				kill_entity own_id
+			end_if
+		else
+			let lifetime = 20
+		end_if
+
+		if wizball_entity_id.alive <= 0 then
+			kill_entity own_id
+		end_if
+
+		gosub check_squash_sub_loop
+
+	else
+
+		kill_entity own_id
+
+	end_if
+
+end
+
+// ---------------- Enemy Collision ----------------
+
+.hit_enemy_routine
+
+	// Nothing, really. It's the enemy that bears the brunt of this.
+
+end
+
+// ---------------- Top Side Sub Loop ---------------- 
+
+.check_squash_sub_loop
+
+
+#define target_width			v6
+#define target_height			v7
+
+	let target_height = GET_DISTANCE_TO_TILE check_direction ideal_world_collision_height
+
+	let current_height = current_height >% target_height squash_adaption_percentage
+
+	if current_height < 3 then
+		let signal = 1
+	else
+		let signal = 0
+	end_if
+
+	let current_y_scale_percentage = 10000 * current_height
+	let current_y_scale_percentage = current_y_scale_percentage / ideal_world_collision_height
+
+//	if position = position_bottom then
+//		let lower_world_height = current_height
+//	else
+//		let upper_world_height = current_height
+//	end_if
+
+//	let temp_1 = GET_DISTANCE_TO_TILE DIRECTION_RIGHT ideal_world_collision_width
+//	let temp_2 = GET_DISTANCE_TO_TILE DIRECTION_LEFT ideal_world_collision_width
+
+//	let lower_world_height = 0
+//	let upper_world_height = 0
+
+//	if temp_1 < temp_2 then
+//		let target_width = temp_1
+//	else
+//		let target_width = temp_2
+//	end_if
+
+//	let current_width = current_width >% target_width squash_adaption_percentage
+
+//	let current_x_scale_percentage = 10000 * current_width
+//	let current_x_scale_percentage = current_x_scale_percentage / ideal_world_collision_width
+
+	let current_x_scale_percentage = 10000
+
+return
+
+
+
+// ---------------- Image Set Up ----------------
+
+#define bullet_speed			128
+#define starting_offset			16
+
+.set_up_image
+
+	let draw_order = WIZBALL_BULLET_DRAW_ORDER
+
+	let sprite = player_bullets[arb]
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_scale
+	let opengl_booleans = opengl_booleans + opengl_boolean_filtered
+	let opengl_booleans = opengl_booleans + opengl_boolean_rotate
+	let opengl_booleans = opengl_booleans + opengl_boolean_vertex_colour_alpha
+	
+	let draw_mode = draw_mode_invisible // This stuff below is *purely* for the kid's appearance
+
+	let x_offset = world_x - parent.world_x
+	let y_offset = world_y - parent.world_y
+
+	if y_offset > 0 then
+		let position = position_bottom
+		let check_direction = DIRECTION_DOWN
+		let opengl_angle = 0
+	else_if y_offset < 0 then
+		let position = position_top
+		let check_direction = DIRECTION_UP
+		let opengl_angle = 18000
+	end_if
+
+	let Bitshift = 0
+
+	let base_frame = 2
+	let current_frame = base_frame
+
+	SET_PRIVATE_CO_ORDS
+
+return

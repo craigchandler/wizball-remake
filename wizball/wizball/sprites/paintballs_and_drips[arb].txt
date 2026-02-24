@@ -1,0 +1,33 @@
+30
+0,0,32,32,16,16		//   0 = Red Colour Paintball
+32,0,32,32,16,16	//   1 = Green Colour Paintball
+64,0,32,32,16,16	//   2 = Blue Colour Paintball
+96,0,16,32,8,16		//   3 = Red Drip
+112,0,16,32,8,16	//   4 = Green Drip
+0,32,16,32,8,16		//   5 = Blue Drip
+16,32,16,32,8,16	//   6 = Bonus Cyan Drip
+32,32,16,32,8,16	//   7 = Bonus Grey Drip
+48,32,16,32,8,16	//   8 = Bonus Purple Drip
+64,32,16,32,8,16	//   9 = Bonus White Drip
+80,32,16,32,8,16	//  10 = Bonus Black Drip
+0,64,32,16,16,8		//  11 = Splat
+32,64,32,16,16,8	//  12 = Splat
+64,64,32,16,16,8	//  13 = Splat
+96,64,32,16,16,8	//  14 = Splat
+0,80,32,16,16,8		//  15 = Splat
+32,80,32,16,16,8	//  16 = Splat
+64,80,32,16,16,8	//  17 = Splat
+96,80,32,16,16,8	//  18 = Splat
+96,96,16,16,8,8		//  19 = Small Red Burst Drip
+112,96,16,16,8,8	//  20 = Small Green Burst Drip
+96,112,16,16,8,8	//  21 = Small Blue Burst Drip
+112,112,16,16,8,8	//  22 = Small Cyan Burst Drip
+96,32,16,16,8,8		//  23 = Small Grey Burst Drip
+96,48,16,16,8,8		//  24 = Small Purple Burst Drip
+112,32,16,16,8,8	//  25 = Small White Burst Drip
+112,48,16,16,8,8	//  26 = Small Black Burst Drip
+0,96,32,32,16,16	//  27 = Big Red Burst
+32,96,32,32,16,16	//  28 = Big Green Burst
+64,96,32,32,16,16	//  29 = Big Blue Burst
+
+

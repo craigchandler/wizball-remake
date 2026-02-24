@@ -1,0 +1,27 @@
+#define wizball_entity_id		temp_2
+
+// This is a function script, it's called with the command call_script command.
+
+	if world_y < -16 then
+		let returned_value_1 = FALSE
+	else_if world_y > 432 then
+		let returned_value_1 = FALSE
+	else
+		let temp_1, temp_2 = GET_WINDOW_MAP_POSITION
+
+		// Okay, now we know where the window is, lets add half the width on.
+
+		LET temp_1 = temp_1 + HALF_SCREEN_WIDTH
+
+		let temp_2 = world_x - temp_1
+
+		let temp_2 = abs temp_2
+
+		if temp_2 < HALF_SCREEN_PLUS_ENTRANCE_PHANTOM_ZONE then
+			let returned_value_1 = TRUE
+		else
+			let returned_value_1 = FALSE
+		end_if
+	end_if
+
+return

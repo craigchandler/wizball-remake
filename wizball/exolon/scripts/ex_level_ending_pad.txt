@@ -1,0 +1,66 @@
+#define not_exploded		v0
+#define music_volume		v1
+
+	let not_exploded = TRUE
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = icons[set][32][32][16][16]
+	let base_frame = 1
+	let current_frame = base_frame
+
+	let upper_width = 0
+	let lower_width = 0
+
+	let upper_height = 32
+	let lower_height = 32
+
+	let collision_shape = RECTANGLE
+
+	let COLLIDE_TYPE = ENT_TYPE_PLAYER_EMPLACEMENT
+	let COLLIDE_wITH = ENT_TYPE_PLAYER
+
+	entity_hitline gosub signal_the_end
+
+
+start
+
+	if signal = 1 then
+
+		if not_exploded = TRUE then
+			spawn_entity (ex_fade_in_game_music,0,0,process_next)
+
+			let music_volume = GET_GLOBAL_MUSIC_VOLUME
+
+			if music_volume > 0 then
+				let temp_1 = PLAY_MUSIC_STREAM_GET_HANDLE (endoflevel,255,CONST_END_OF_LEVEL_MUSIC_FREQUENCY,128,-1)
+				set_global_flag (end_of_level_tune_channel,temp_1)
+			else
+				set_global_flag (end_of_level_tune_channel,CONST_UNSET)
+			end_if
+
+			spawn_entity (ex_end_of_level_exploders,0,0,process_next)
+
+			play_sound servo,255,22050,128
+			let not_exploded = FALSE
+		end_if
+
+	end_if
+
+end
+
+.signal_the_end
+
+	let temp_1 = collided_entity.world_x - world_x
+	let temp_1 = abs temp_1
+
+	if temp_1 < 8 then
+		let signal = 1
+	end_if
+end
+
+

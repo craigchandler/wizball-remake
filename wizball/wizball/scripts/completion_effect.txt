@@ -1,0 +1,176 @@
+#define wobble_counter			passed_param_1
+#define wobble_size_x			passed_param_2
+#define wobble_size_y			passed_param_3
+#define scale_wobble_size		passed_param_4
+#define colour_counter			passed_param_5
+
+#define completion_effect_brightness_percentage			v0
+#define playing_music_channel					v1
+#define music_volume						v2
+
+
+
+	let playing_music_channel = GET_GLOBAL_FLAG (playing_music_channel_flag)
+
+	if playing_music_channel = CONST_UNSET then
+		let music_volume = GET_GLOBAL_MUSIC_VOLUME
+
+		if (music_volume > 0) then
+			let playing_music_channel = PLAY_MUSIC_STREAM_GET_HANDLE (wizball_completion,255,CONST_MUSIC_FREQUENCY,128,-1)
+			SET_GLOBAL_FLAG (playing_music_channel_flag, playing_music_channel)
+			SET_GLOBAL_FLAG (playing_music_stream_flag, wizball_completion)
+			LET TEMP_1 = GET_GLOBAL_FLAG (played_tunes_flag)
+			LET TEMP_1 = TEMP_1 OR COMPLETION_TUNE_BITFLAG
+			SET_GLOBAL_FLAG (played_tunes_flag,TEMP_1)
+		end_if
+	else
+		stop
+	end_if
+
+	let window_number = SCORE_OVERLAY_WINDOW
+
+	let completion_effect_brightness_percentage = 0
+
+	let world_x = 0
+	let world_y = 0
+
+	set_private_co_ords
+
+	let counter = 0
+
+	// Big Island
+	spawn_entity completion_effect_island_or_rock,385,326,process_next
+	let last_child.base_frame = 0
+	let last_child.wobble_counter = 0
+	let last_child.wobble_size_x = 16
+	let last_child.wobble_size_y = 8
+	let last_child.scale_wobble_size = 500
+	let last_child.colour_counter = 30
+
+	spawn_entity completion_effect_island_or_rock,525,280,process_next
+	let last_child.base_frame = 5
+	let last_child.wobble_counter = 1000
+	let last_child.wobble_size_x = 14
+	let last_child.wobble_size_y = 7
+	let last_child.scale_wobble_size = 500
+	let last_child.colour_counter = 20
+
+	spawn_entity completion_effect_island_or_rock,515,256,process_next
+	let last_child.base_frame = 4
+	let last_child.wobble_counter = 2000
+	let last_child.wobble_size_x = 12
+	let last_child.wobble_size_y = 6
+	let last_child.scale_wobble_size = 500
+	let last_child.colour_counter = 10
+
+	spawn_entity completion_effect_island_or_rock,559,202,process_next
+	let last_child.base_frame = 3
+	let last_child.wobble_counter = 3000
+	let last_child.wobble_size_x = 10
+	let last_child.wobble_size_y = 5
+	let last_child.scale_wobble_size = 500
+	let last_child.colour_counter = 00
+
+
+
+	// Medium Island
+	spawn_entity completion_effect_island_or_rock,170,262,process_next
+	let last_child.base_frame = 1
+	let last_child.wobble_counter = 24000
+	let last_child.wobble_size_x = 12
+	let last_child.wobble_size_y = 6
+	let last_child.scale_wobble_size = 500
+	let last_child.colour_counter = 150
+
+	spawn_entity completion_effect_island_or_rock,109,228,process_next
+	let last_child.base_frame = 8
+	let last_child.wobble_counter = 25000
+	let last_child.wobble_size_x = 10
+	let last_child.wobble_size_y = 5
+	let last_child.scale_wobble_size = 500
+	let last_child.colour_counter = 140
+
+	spawn_entity completion_effect_island_or_rock,92,202,process_next
+	let last_child.base_frame = 7
+	let last_child.wobble_counter = 26000
+	let last_child.wobble_size_x = 8
+	let last_child.wobble_size_y = 4
+	let last_child.scale_wobble_size = 500
+	let last_child.colour_counter = 130
+
+	spawn_entity completion_effect_island_or_rock,104,158,process_next
+	let last_child.base_frame = 6
+	let last_child.wobble_counter = 27000
+	let last_child.wobble_size_x = 6
+	let last_child.wobble_size_y = 3
+	let last_child.scale_wobble_size = 500
+	let last_child.colour_counter = 120
+
+
+
+	// Small Island
+	spawn_entity completion_effect_island_or_rock,410,174,process_next
+	let last_child.base_frame = 2
+	let last_child.wobble_counter = 12000
+	let last_child.wobble_size_x = 8
+	let last_child.wobble_size_y = 4
+	let last_child.scale_wobble_size = 500
+	let last_child.colour_counter = 270
+
+
+
+	// Rainbow
+	spawn_entity completion_effect_rainbow,391,230,process_next
+	let last_child.base_frame = 9
+	let last_child.wobble_counter = 0
+	let last_child.wobble_size_x = 14
+	let last_child.wobble_size_y = 7
+	let last_child.scale_wobble_size = 900
+
+
+	// Scrolly Message
+	spawn_entity (completion_effect_scrolly_manager)
+	spawn_entity (completion_effect_nebula)
+	spawn_entity (completion_effect_starfield)
+	spawn_entity (completion_effect_plasma_cloud,0,0,process_next)
+	spawn_entity (completion_effect_plasma_cloud,640,480,process_next)
+
+	// And the signal of DEATH!
+	let signal = false
+
+start
+
+	let completion_effect_brightness_percentage = completion_effect_brightness_percentage + 250 !> 10000
+
+	let counter = counter + 1 !> 100
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,FIRE_1) then
+		goto finish_it_all
+	end_if
+
+end
+
+
+
+.finish_it_all
+
+	kill_entities (SELECT_BY_GENOCIDE)
+
+	wait 1
+
+	if_flag (playing_music_channel_flag) != CONST_UNSET then
+		spawn_entity (fade_music,0,0,process_next)
+		let last_child.passed_param_1 = GET_GLOBAL_FLAG (playing_music_channel_flag)
+		let last_child.passed_param_2 = GET_GLOBAL_FLAG (playing_music_stream_flag)
+		let last_child.passed_param_3 = 15
+		let last_child.passed_param_4 = 255
+
+		SET_GLOBAL_FLAG (playing_music_channel_flag, CONST_UNSET)
+		SET_GLOBAL_FLAG (playing_music_stream_flag, CONST_UNSET)
+	end_if
+
+	spawn_entity restore_tiles_to_monochrome
+	spawn_entity menu_setup,0,0,process_next
+
+	kill_entity own_id
+

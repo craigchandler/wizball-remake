@@ -1,0 +1,122 @@
+#define selected_option		v10
+#define skip_border_inflate	passed_param_1
+
+#define OPTION_BACK_TO_GAME	0
+#define OPTION_QUIT_TO_MENU	1
+
+
+let draw_order = 1
+
+let window_number = FLOATING_OVERLAY_WINDOW
+enable_window FLOATING_OVERLAY_WINDOW
+
+SET_WINDOW_MAP_POSITION (0, 0)
+
+for x = 0 to 640 step 128
+	for y = 0 to 208 step 208
+		SPAWN_ENTITY ex_pause_fuzz,x,y,process_next
+	next
+next
+
+SPAWN_ENTITIES_FROM_TEXT (TRUE,0,ex_pause_game_menu_text, PAUSE_OPTION_1, process_next, center_x, 320, 192, 16, 0)
+SPAWN_ENTITIES_FROM_TEXT (TRUE,1,ex_pause_game_menu_text, PAUSE_OPTION_2, process_next, center_x, 320, 216, 16, 0)
+
+start
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 PAUSE then
+		goto back_to_game
+	end_if
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 UP then
+		PLAY_SOUND define_key 255 24000 128
+		let selected_option = selected_option - 1 !< 0
+	end_if
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 DOWN then
+		PLAY_SOUND define_key 255 24000 128
+		let selected_option = selected_option + 1 !> 1
+	end_if
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 FIRE_1 then
+		goto finished
+	end_if
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 PICK_UP then
+		PLAY_SOUND define_key 255 24000 128
+		let selected_option = selected_option + 1 !> 1
+	end_if
+
+end
+
+.finished
+
+// But what option did we select!? WOOOO!
+
+if selected_option = OPTION_BACK_TO_GAME then
+	goto back_to_game
+else_if selected_option = OPTION_QUIT_TO_MENU then
+	goto quit_to_menu
+else
+	// Should never get here...
+	stop
+end_if
+
+.quit_to_menu
+
+let temp_1 = GET_RECORD_PLAYBACK_STATUS 1
+
+if temp_1 = STATUS_RECORDING then
+	STOP_RECORDING_INPUT 1
+	SAVE_RECORDED_INPUT 1 game_demo
+else_if temp_1 = STATUS_PLAYBACK then
+	STOP_PLAYBACK_INPUT 1
+else
+	// Do nowt!
+end_if
+
+
+
+PLAY_SOUND menu_select 255 24000 128
+
+let temp_1 = get_global_flag (in_game_tune_channel)
+if temp_1 != CONST_UNSET then
+	stop_music_stream ingame
+	set_global_flag (in_game_tune_channel,CONST_UNSET)
+end_if
+
+let temp_1 = get_global_flag (end_of_level_tune_channel)
+if temp_1 != CONST_UNSET then
+	stop_music_stream endoflevel
+	set_global_flag (end_of_level_tune_channel,CONST_UNSET)
+end_if
+
+
+
+kill_entities select_by_genocide
+
+set_global_flag (player_score,0) // No hiscore for you!
+disable_window FLOATING_OVERLAY_WINDOW
+wait 1
+
+let window_number = MENU_WINDOW
+enable_window MENU_WINDOW
+SET_WINDOW_MAP_POSITION (0, 0)
+SET_WINDOW_POSITION_AND_SIZE (0, 0, 640, 480)
+spawn_entity ex_intro_nebula 0 0 process_next
+spawn_entity ex_intro_starfield 0 0 process_next
+spawn_entity ex_menu_main 0 0 process_next
+let last_child.skip_border_inflate = 1
+FADE_PERSISTANT_CHANNELS
+
+wait 30
+
+kill_entity own_id
+
+.back_to_game
+
+PLAY_SOUND menu_select 255 24000 128
+
+let signal = 1
+wait 20
+disable_window FLOATING_OVERLAY_WINDOW
+kill_entity own_id

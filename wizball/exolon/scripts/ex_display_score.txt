@@ -1,0 +1,66 @@
+#define pre_wait passed_param_1
+#define start_position_offset v0
+#define half_number_width v1
+#define number_width v2
+
+#define animation_style_bounce 0
+#define animation_style_rise_and_fade 1
+
+#define wait_period passed_param_1
+#define animation_style passed_param_2
+
+switch animation_style
+
+	case animation_style_bounce
+		let number_width = 16
+	break
+
+	case animation_style_rise_and_fade
+		let number_width = 8
+	break
+
+end_switch
+
+let half_number_width = number_width / 2
+
+let point_value = parent.point_value
+
+// backup point value
+let temp_1 = point_value
+
+let counter = -1
+
+start_loop point_value > 0
+
+	let point_value = point_value / 10
+	let counter = counter + 1
+
+end_loop
+
+let point_value = temp_1
+
+let start_position_offset = counter * half_number_width
+
+start_loop point_value > 0
+
+	let base_frame = point_value mod 10
+	spawn_entity ex_score_digit start_position_offset 0 process_next
+	let last_child.pre_wait = counter * wait_period
+	let last_child.passed_param_3 = base_frame
+	let last_child.animation_style = animation_style 
+
+	let start_position_offset = start_position_offset - number_width
+	let point_value = point_value / 10
+	let counter = counter - 1
+
+end_loop
+
+let point_value = temp_1
+
+wait 50
+
+spawn_entity ex_add_score 0 0 process_next
+
+kill_entity own_id
+
+end

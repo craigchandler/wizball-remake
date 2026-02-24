@@ -1,0 +1,23 @@
+22
+0,0,48,48,0,0		//   0 = Horizontal Control
+48,0,48,48,0,0		//   1 = Vertical Control
+96,0,48,48,0,0		//   2 = Shield Fire
+144,0,48,48,0,0		//   3 = Read Fire
+192,0,48,48,0,0		//   4 = Catellite
+0,48,48,48,0,0		//   5 = Fast Fire
+48,48,48,48,0,0		//   6 = Wiz Spread Fire
+96,48,48,48,0,0		//   7 = Cat Spread Fire
+144,48,48,48,0,0	//   8 = Smart Bomb
+192,48,48,48,0,0	//   9 = Invulnerability
+0,96,48,48,0,0		//  10 = Unselectable
+48,96,48,48,24,24	//  11 = Horizontal Control Floating Icon
+96,96,48,48,24,24	//  12 = Vertical Control Floating Icon
+144,96,48,48,24,24	//  13 = Shield Fire Floating Icon
+192,96,48,48,24,24	//  14 = Read Fire Floating Icon
+0,144,48,48,24,24	//  15 = Catellite Floating Icon
+48,144,48,48,24,24	//  16 = Fast Fire Floating Icon
+96,144,48,48,24,24	//  17 = Wiz Spread Fire Floating Icon
+144,144,48,48,24,24	//  18 = Cat Spread Fire Floating Icon
+192,144,48,48,24,24	//  19 = Smart Bomb Floating Icon
+0,192,48,48,24,24	//  20 = Invulnerability Floating Icon
+49,193,46,46,23,23	//  21 = Finished

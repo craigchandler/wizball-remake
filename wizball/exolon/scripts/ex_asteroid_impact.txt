@@ -1,0 +1,57 @@
+// This just sticks to a planet's surface.
+
+#define x_offset		v0
+#define y_offset		v1
+#define movement_angle		passed_param_1
+
+	for v0 = 0 to 36000 step 3000
+		spawn_entity (ex_smoke, 0, 0, PROCESS_NEXT)
+		let last_child.draw_order = last_child.draw_order + 1
+		let last_child.x_vel = 40 cos v0
+		let last_child.y_vel = 40 sin v0
+		let last_child.PASSED_PARAM_1 = 10
+		let last_child.PASSED_PARAM_2 = 100
+		let last_child.PASSED_PARAM_4 = 9700
+		let last_child.bitshift = 6
+		let last_child.lifetime = 30
+	next
+
+	spawn_entity (ex_mushroom_cloud_explosion, 0, 0, process_next)
+	let last_child.opengl_angle = movement_angle
+	let last_child.opengl_scale_x = 2000
+	let last_child.opengl_scale_y = 2000
+	let last_child.draw_order = last_child.draw_order + 2
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let opengl_booleans = opengl_boolean_blend_multiply + opengl_boolean_scale
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + opengl_boolean_rotate
+
+	let opengl_vertex_alpha = 96
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 90
+	let current_frame = base_frame
+
+	let draw_order = parent.draw_order + 1
+
+	let draw_mode = draw_mode_sprite
+
+	let x_offset = world_x - parent.world_x
+	let y_offset = world_y - parent.world_y
+
+start
+	let world_x = parent.world_x + x_offset
+	let world_y = parent.world_y + y_offset
+
+	set_private_co_ords
+
+	if parent.alive < 0 then
+		kill_entity (own_id)
+	end_if
+end
+

@@ -1,0 +1,594 @@
+// Catellite lags behind Wizball vertically, but not horizontally. Wizball's horizontal velocity determines which side catellite moves to.
+
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	#define previous_y_position_frame_buffer_id	999
+	#define previous_y_position_frame_pointer	v27
+
+	#define catellite_radius			12
+	#define catellite_frame_count			8
+
+	#define catellite_horizontal_lag_distance	64
+	#define catellite_close_horizontal_lag_distance	24
+
+	#define catellite_firing_rate			20
+
+	#define catellite_overlay_id			V0
+	#define catellite_target_world_x		V2
+	#define catellite_target_world_y		V3
+	#define wizball_entity_id			V4
+	#define wizball_side				V5
+	#define weapon_collection			v6
+
+	#define flip_vertical_firing_side		v8
+	#define next_flip_vertical_firing_side		v9
+
+	#define firing_direction			v10
+
+	#define fire_delay_counter			V11
+
+	#define wizball_firing_direction		v12
+
+	#define catellite_following_state		V13
+		// If this is TRUE then Catellite is at Wizball's heel, and will move horizontally
+		// at a particular speed and vertically as fast as necessary to keep up.
+		// Once the player starts controlling Catellite this will become FALSE and his
+		// speed is different. It *only* returns to TRUE once Catellite has gotten back to
+		// his default "heel" position.
+
+	#define catellite_energy			V14
+
+	#define minimum_x				V15
+	#define maximum_x				V16
+
+	#define sparking_counter			V17
+	#define smoking_counter				V18
+
+	#define hit_this_frame				V19
+
+	#define bullet_type				V20
+
+	#define self_destructing			V21
+	#define self_destructing_counter		V22
+
+	#define getting_sucked_into_a_hole_flag		V28
+
+	#define particle_count				V29
+	#define angle_step				V30
+	#define particle_chance				V31
+
+	#define spin_counter				V32
+
+	#define cat_mutant_state 			v33
+
+	#define cat_mutant_state_decision_counter	v34
+
+	#define cat_mutant_state_position_x_offset	v35
+	#define cat_mutant_state_position_y		v36
+
+	#define override_reverse_fire			v37
+
+	#define control_relapse_counter			v38
+
+// ---------------- External Defines ----------------
+
+	#define base_scale			passed_param_1
+	#define rotation_speed			passed_param_2
+
+// ---------------- Appearance Set Up ---------------- 
+
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_MASKED
+
+	LET SPRITE = catellite[arb]
+	LET BASE_FRAME = 0
+
+	LET CURRENT_FRAME = BASE_FRAME 
+	LET FRAME_COUNT = catellite_frame_count
+
+	LET DRAW_MODE = DRAW_MODE_SPRITE
+
+	LET DRAW_ORDER = CATELLITE_DRAW_ORDER
+
+	LET OPENGL_SCALE_X = 10000
+	LET OPENGL_SCALE_Y = 10000
+	LET OPENGL_ANGLE = 0
+
+	LET catellite_following_state = FALSE
+	LET self_destructing = FALSE
+
+// ---------------- Object And World Collision Set Up ---------------- 
+
+	ENTITY_HITLINE GOSUB object_interaction_routine
+
+	LET COLLIDE_TYPE = ENT_TYPE_CATELLITE + ENT_TYPE_PLAYER_BULLET
+
+	let COLLIDE_WITH = ENT_TYPE_ENEMY + ENT_TYPE_ENEMY_BULLET
+	let COLLIDE_WITH = COLLIDE_WITH + ENT_TYPE_PAINTDROP
+
+	LET ENTITY_MOVEMENT_BEHAVIOUR = ENTITY_MOVEMENT_HORIZONTAL_VERTICAL
+
+	LET WORLD_COLLISION_BITMASK = WORLD_BITMASK_ONLY_BASE_COLLIDES
+	LET WORLD_COLLISION_LAYER = PLAYER_AND_ENEMY_WORLD_COLLISION_LAYER
+	LET WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_VERTICAL_WORLD_EDGE_SOLID
+
+	LET COLLISION_SHAPE = CIRCLE
+	LET RADIUS = catellite_radius
+
+	SET_COLLISION_FROM_FRAME
+	SET_WORLD_COLLISION_FROM_OBJECT
+
+	let wizball_entity_id = get_global_flag (wizball_entity_id_flag)
+
+	if wizball_entity_id != const_unset then
+		let world_x = wizball_entity_id.world_x - 332
+		let world_y = 16
+	else
+		stop
+	end_if
+
+// ---------------- Bitshift And Anchor ---------------- 
+
+	LET BITSHIFT = 0
+	SET_PRIVATE_CO_ORDS
+
+// ---------------- Misc Crap ---------------- 
+
+	LET bullet_type = 1
+	SET_GLOBAL_FLAG_AS_ENTITY_ID  (catellite_entity_id_flag)
+
+	spawn_entity (catellite_overlay,0,0,process_next)
+	let catellite_overlay_id = last_child
+
+	let cat_mutant_state_decision_counter = 0
+	let cat_mutant_state_position_x_offset = 0
+
+	let wizball_side = -1
+
+// ---------------- And Begin... ---------------- 
+
+start
+	LET catellite_energy = get_global_flag (catellite_stored_health)
+
+	let hit_this_frame = FALSE
+
+	let temp_1, temp_2 = GET_WINDOW_MAP_POSITION
+	let minimum_x = temp_1 + 16
+	let maximum_x = temp_1 + 624
+
+	let spin_counter = spin_counter + 2 !< 0 !> 256
+
+	let current_frame = spin_counter / 8
+	let current_frame = current_frame MOD 8
+
+	let wizball_entity_id = get_global_flag (wizball_entity_id_flag)
+
+	if world_x < minimum_x THEN
+		let world_x = minimum_x
+		set_private_co_ords
+	end_if
+
+	if world_x > maximum_x THEN
+		let world_x = maximum_x
+		set_private_co_ords
+	end_if
+
+	if wizball_entity_id != const_unset then
+
+		if wizball_entity_id.x_vel < 0 then
+			let wizball_side = 1
+		else_if wizball_entity_id.x_vel > 0 then
+			let wizball_side = -1
+		end_if
+
+		if wizball_entity_id.getting_sucked_into_a_hole_flag = FALSE THEN
+			let catellite_target_world_x = wizball_side * catellite_horizontal_lag_distance
+			let catellite_target_world_x = catellite_target_world_x + wizball_entity_id.world_x
+		else
+			let getting_sucked_into_a_hole_flag = TRUE
+			let catellite_target_world_x = wizball_side * catellite_close_horizontal_lag_distance
+			let catellite_target_world_x = catellite_target_world_x + wizball_entity_id.world_x
+		end_if
+
+		// Also, lets see what weapons we should have...
+
+		let weapon_collection = wizball_entity_id.weapon_collection
+
+		let wizball_firing_direction = wizball_entity_id.wizball_firing_direction
+
+	else
+
+		// Wizball could've died in the mean time. That's okay.
+
+	end_if
+
+	let catellite_target_world_y = get_global_flag (catellite_buffered_target_y)
+
+	// Player input
+
+	// Set this state so we now what we can control...
+	let cat_mutant_state = get_global_flag (mutant_cat_flag)
+
+	// Shooting!
+
+	if fire_delay_counter = 0 then
+
+		IF getting_sucked_into_a_hole_flag = FALSE THEN
+
+			IF self_destructing = FALSE then
+
+				if cat_mutant_state = 0 then
+
+					IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_2,FIRE_1) then
+
+						gosub catellite_normal_fire
+						gosub catellite_spread_fire
+						let fire_delay_counter = catellite_firing_rate
+
+					end_if
+
+				else
+
+					gosub catellite_normal_fire
+					gosub catellite_spread_fire
+					let fire_delay_counter = catellite_firing_rate * 2
+
+				end_if
+
+			end_if
+
+		end_if
+
+	else
+
+		let fire_delay_counter = fire_delay_counter - 1 !< 0
+
+	end_if
+
+	// Moving - possibly...
+
+	let override_reverse_fire = false
+
+	// If the Cat is mad...
+	if cat_mutant_state = 1 then
+
+		// We control it ourselves and make it do loony things.
+
+		let cat_mutant_state_decision_counter = cat_mutant_state_decision_counter - 1 !< 0
+
+		if wizball_entity_id != const_unset then
+
+			if cat_mutant_state_decision_counter = 0 then
+				let cat_mutant_state_position_x_offset = SPECIAL_RAND (0, -256,256)
+				let cat_mutant_state_position_y = SPECIAL_RAND (0, 24,344)
+
+				let cat_mutant_state_decision_counter = SPECIAL_RAND (0, 60,120)
+			end_if
+
+			let catellite_target_world_x = wizball_entity_id.world_x + cat_mutant_state_position_x_offset
+
+		end_if
+
+		let catellite_target_world_y = cat_mutant_state_position_y
+
+		let x_vel = catellite_target_world_x - world_x !> CATELLITE_CONTROLLED_HORIZONTAL_WORLD_SPEED !< -CATELLITE_CONTROLLED_HORIZONTAL_WORLD_SPEED
+		let y_vel = catellite_target_world_y - world_y !> CATELLITE_CONTROLLED_VERTICAL_WORLD_SPEED !< -CATELLITE_CONTROLLED_VERTICAL_WORLD_SPEED
+
+		if x_vel != 0 then
+			let firing_direction = sgn (x_vel)
+		end_if
+
+	else
+
+		IF self_destructing = FALSE then
+
+			if_flag (catellite_two_player_control_counter > 0) then
+
+				IF getting_sucked_into_a_hole_flag = FALSE THEN
+
+					let control_relapse_counter = get_global_flag (catellite_two_player_control_counter)
+					let control_relapse_counter = control_relapse_counter - 1
+
+					LET catellite_following_state = FALSE
+
+					let x_vel = 0
+					let y_vel = 0
+
+					IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_2,LEFT) then
+						let x_vel = -CATELLITE_CONTROLLED_HORIZONTAL_WORLD_SPEED
+						let override_reverse_fire = true
+						LET firing_direction = -1
+						let control_relapse_counter = CATELLITE_CONTROL_THRESHOLD_COUNTER_START_VALUE
+					END_IF
+
+					IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_2,RIGHT) then
+						let x_vel = CATELLITE_CONTROLLED_HORIZONTAL_WORLD_SPEED
+						let override_reverse_fire = true
+						LET firing_direction = 1
+						let control_relapse_counter = CATELLITE_CONTROL_THRESHOLD_COUNTER_START_VALUE
+					END_IF
+
+					IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_2,UP) then
+						let y_vel = -CATELLITE_CONTROLLED_VERTICAL_WORLD_SPEED
+						let control_relapse_counter = CATELLITE_CONTROL_THRESHOLD_COUNTER_START_VALUE
+					END_IF
+
+					IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_2,DOWN) then
+						let y_vel = CATELLITE_CONTROLLED_VERTICAL_WORLD_SPEED
+						let control_relapse_counter = CATELLITE_CONTROL_THRESHOLD_COUNTER_START_VALUE
+					END_IF
+	
+					set_global_flag (catellite_two_player_control_counter, control_relapse_counter)
+
+				END_IF
+
+			ELSE
+
+				IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_2,LEFT) then
+					set_global_flag (catellite_two_player_control_counter, CATELLITE_CONTROL_THRESHOLD_COUNTER_START_VALUE)
+				END_IF
+
+				IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_2,RIGHT) then
+					set_global_flag (catellite_two_player_control_counter, CATELLITE_CONTROL_THRESHOLD_COUNTER_START_VALUE)
+				END_IF
+
+				IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_2,UP) then
+					set_global_flag (catellite_two_player_control_counter, CATELLITE_CONTROL_THRESHOLD_COUNTER_START_VALUE)
+				END_IF
+
+				IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_2,DOWN) then
+					set_global_flag (catellite_two_player_control_counter, CATELLITE_CONTROL_THRESHOLD_COUNTER_START_VALUE)
+				END_IF
+
+				LET firing_direction = wizball_firing_direction
+
+				// If we're not under player control, then attempt to return to the player's side.
+
+				IF catellite_following_state = FALSE then
+
+					let x_vel = catellite_target_world_x - world_x !> CATELLITE_CONTROLLED_HORIZONTAL_WORLD_SPEED !< -CATELLITE_CONTROLLED_HORIZONTAL_WORLD_SPEED
+					let y_vel = catellite_target_world_y - world_y !> CATELLITE_CONTROLLED_VERTICAL_WORLD_SPEED !< -CATELLITE_CONTROLLED_VERTICAL_WORLD_SPEED
+
+				ELSE
+
+					let x_vel = catellite_target_world_x - world_x !> CATELLITE_FOLLOWING_HORIZONTAL_WORLD_SPEED !< -CATELLITE_FOLLOWING_HORIZONTAL_WORLD_SPEED
+					let y_vel = catellite_target_world_y - world_y
+
+				END_IF
+
+				IF catellite_following_state = FALSE then
+
+					IF WORLD_X = catellite_target_world_x THEN
+						IF WORLD_Y = catellite_target_world_y THEN
+	
+							LET catellite_following_state = TRUE
+	
+						END_IF
+					END_IF
+
+				END_IF
+
+			END_IF
+
+		else
+
+			let x_vel = x_vel % 9900
+			let y_vel = y_vel % 9900
+
+		end_if
+
+	END_IF
+
+	if cat_mutant_state = 1 then
+		// Spawning of bubbles to show madness...
+		let temp_1 = rand (0,7)
+
+		if temp_1 = 0 then
+			spawn_entity particle_mutant_bubble,0,0,process_next
+		end_if
+	end_if
+
+	let flip_vertical_firing_side = next_flip_vertical_firing_side
+
+	if catellite_energy <= 1 then
+
+		if sparking_counter = 0 then
+			let temp_2 = rand (1,2)
+			let particle_count = get_global_flag (particle_commonness_multiplier)
+			let particle_count = particle_count * temp_2
+
+			for temp_1 = 1 to particle_count
+				spawn_entity (particle_catellite_damage_spark,0,0,process_next)
+			next
+
+			let particle_chance = get_global_flag (particle_rareness_multiplier)
+			let particle_chance = particle_chance * 40
+			let sparking_counter = rand (0,particle_chance)
+		end_if
+
+		if smoking_counter = 0 then
+			spawn_entity (particle_smoke,0,0,process_next)
+			let last_child.draw_order = draw_order - 1
+			let last_child.base_scale = 5000
+			let last_child.y_vel = -256
+			let last_child.y_acc = 2
+	
+			let last_child.rotation_speed = x_vel * -100
+
+			let particle_chance = get_global_flag (particle_rareness_multiplier)
+			let particle_chance = particle_chance * 15
+			let smoking_counter = rand (0,particle_chance)
+		end_if
+
+		let smoking_counter = smoking_counter - 1 !< 0
+		let sparking_counter = sparking_counter - 1 !< 0
+	end_if
+
+	if catellite_energy = 0 then
+		if self_destructing = false then
+			LET COLLISION_SHAPE = 0
+			LET self_destructing = TRUE
+			LET self_destructing_counter = 0
+			set_global_flag (catellite_stored_health,catellite_energy)
+		end_if
+	end_if
+
+	IF self_destructing = TRUE THEN
+
+		let temp_2 = self_destructing_counter / 32
+
+		let temp_1 = SPECIAL_RAND (0, -temp_2,temp_2)
+		let x_vel = x_vel + temp_1 
+		let temp_1 = SPECIAL_RAND (0, -temp_2,temp_2)
+		let y_vel = y_vel + temp_1 
+
+		LET self_destructing_counter = self_destructing_counter + 1
+
+		IF self_destructing_counter = 120 THEN
+			spawn_entity (particle_blinder,0,0,process_next)
+			let last_child.passed_param_1 = 5000
+			let last_child.passed_param_2 = 5000
+
+			let particle_count = get_global_flag (particle_commonness_multiplier)
+			let particle_count = 11 * particle_count
+
+			for counter = 1 to particle_count
+				spawn_entity (particle_catellite_damage_spark,0,0,process_next)
+			next
+
+			let angle_step = get_global_flag (particle_rareness_multiplier)
+			let angle_step = angle_step * 2000
+
+			for counter = 0 to 36000 step angle_step
+				spawn_entity (particle_smoke,0,0,process_next)
+				let last_child.draw_order = draw_order - 1
+				let last_child.base_scale = 5000
+				let last_child.x_vel = 128 sin counter
+				let last_child.y_vel = 128 cos counter
+	
+				let last_child.rotation_speed = 800
+			next
+
+			if wizball_entity_id != const_unset then
+				let wizball_entity_id.weapon_collection = wizball_entity_id.weapon_collection AND !CATELLITE_BITFLAG
+				set_global_flag (wizball_current_loadout , wizball_entity_id.weapon_collection)
+			else
+				// Could've died and Catellite died afterwards. This is okay.
+
+				let temp_1 = get_global_flag (wizball_current_loadout)
+				let temp_1 = temp_1  AND !CATELLITE_BITFLAG
+				set_global_flag (wizball_current_loadout , temp_1)
+			end_if
+
+
+			spawn_entity (nifta_bubble,0,0,process_next)
+
+			kill_entity catellite_overlay_id
+			kill_entity own_id
+		END_IF
+	END_IF
+
+	
+
+end
+
+
+
+// -------- Wizball Horizontal Fire --------
+
+.catellite_normal_fire
+
+	if override_reverse_fire = FALSE then
+		if weapon_collection & REAR_FIRE_BITFLAG then
+			let firing_direction = get_global_flag (shared_next_bullet_alternator)
+			set_global_flag (shared_next_bullet_alternator, -firing_direction)
+		end_if
+	end_if
+
+	spawn_entity (wizball_normal_bullet,0,0,process_next)
+
+	if firing_direction = -1 then
+		let last_child.opengl_angle = 18000
+	else
+		let last_child.opengl_angle = 0
+	end_if
+
+	if weapon_collection & REAR_FIRE_BITFLAG then
+		set_global_flag (shared_next_bullet_alternator, firing_direction)
+	end_if
+
+	let last_child.bullet_type = bullet_type
+
+	let firing_direction = -firing_direction
+
+return
+
+
+
+// -------- Wizball Spread Fire --------
+
+.catellite_spread_fire
+
+	IF weapon_collection & CAT_SPREAD_FIRE_BITFLAG then
+
+		if flip_vertical_firing_side = 0 then
+			for temp_1 = 4500 to 13500 step 4500
+				spawn_entity (wizball_normal_bullet,0,0,process_next)
+				let last_child.opengl_angle = temp_1
+				let last_child.bullet_type = 3
+			next
+		else
+			for temp_1 = 22500 to 31500 step 4500
+				spawn_entity (wizball_normal_bullet,0,0,process_next)
+				let last_child.opengl_angle = temp_1
+				let last_child.bullet_type = 3
+			next
+		end_if
+
+		let next_flip_vertical_firing_side = 1 - flip_vertical_firing_side
+
+	end_if
+
+return
+
+// ---------------- Collision Interaction ----------------
+
+.object_interaction_routine
+
+	IF getting_sucked_into_a_hole_flag = FALSE then
+
+		if hit_this_frame = FALSE then
+
+			if weapon_collection !& CATELLITE_INVULNERABILITY_BITFLAG then
+				// ie, only do dying stuff if I'm not invulnerable, dammit!
+
+				let temp_1 = ENT_TYPE_ENEMY + ENT_TYPE_ENEMY_BULLET
+
+				if collided_entity.COLLIDE_TYPE & temp_1 then
+
+					let temp_2 = get_global_flag (wizball_entity_id_flag)
+
+					if temp_2 != CONST_UNSET then
+						let catellite_energy = catellite_energy - 1 !< 0
+						set_global_flag (catellite_stored_health,catellite_energy )
+						let hit_this_frame = true
+					end_if
+
+				end_if
+
+			end_if
+
+		end_if
+
+	end_if
+
+end
+
+
+
+// Return to Wizball's side...
+
+.come_to_daddy
+
+
+return

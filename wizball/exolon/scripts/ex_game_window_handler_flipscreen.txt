@@ -1,0 +1,66 @@
+#define base_tile_map_position_x	v0
+#define base_tile_map_position_y	v1
+
+#define tilemap_x_adder			v2
+#define tilemap_y_adder			v3
+#define biorhythm			v4
+
+	let draw_mode = DRAW_MODE_TILEMAP
+	let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+	let draw_order = 20
+
+	let current_zone = CONST_UNSET
+
+	let sprite = tiles[set][16][16][0][0]
+	
+	set_private_co_ords	
+
+	spawn_entity ex_nebula 0 0 PROCESS_NEXT
+	let last_child.draw_order = 0
+
+	set_global_flag (tilemap_offset_x,0)
+	set_global_flag (tilemap_offset_y,0) // Make sure we ain't got no funky stuff hanging around
+
+start
+	let old_zone = current_zone
+	let current_zone = get_global_flag (Player_zone_number)
+	let tilemap_number = get_global_flag (level_number_flag)
+
+	let biorhythm = get_global_flag (global_biorhythm)
+	let biorhythm = biorhythm + 50
+	set_global_flag (global_biorhythm,biorhythm)
+
+	if old_zone != current_zone then
+
+		SETUP_ACTIVE_COLLISION_WINDOW_BY_ZONE (current_zone)
+
+		let x, y = GET_TOP_LEFT_ZONE_CO_ORDS (current_zone) 
+		// Find out where the zone is in the game world
+
+		SET_WINDOW_MAP_POSITION (x, y)
+		// Set window position so that it displays stuff in the correct position
+
+		let base_tile_map_position_x = x
+		let base_tile_map_position_y = y
+		// Make sure we're drawing the right part of the tilemap
+
+		// Then kill off all the current entities of general_type "disposable"
+		KILL_ENTITIES (SELECT_BY_PARTIAL_ENTITY_TYPE, ENT_TYPE_DISPOSABLE)
+
+		// Then spawn all the new ones as PROCESS_PREV so they are run after the player but before this window handler.
+		let draw_order = 6
+		SPAWN_ENTITIES_IN_ZONE (current_zone, PROCESS_PREVIOUS, map_object)
+		let draw_order = 20
+
+		// Then spawn the aurora...
+		spawn_entity (ex_make_aurora,0,0,process_next)
+
+		BLANK_WINDOW (5)
+	end_if
+
+	let tilemap_x_adder = get_global_flag (tilemap_offset_x)
+	let tilemap_y_adder = get_global_flag (tilemap_offset_y)
+
+	let tilemap_position_x = base_tile_map_position_x + tilemap_x_adder
+	let tilemap_position_y = base_tile_map_position_y + tilemap_y_adder 
+end

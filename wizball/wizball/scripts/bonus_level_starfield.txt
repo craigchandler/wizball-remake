@@ -1,0 +1,59 @@
+
+#define wiz_id				v0
+#define left_of_window			v1
+#define map_width			v2
+#define map_width_minus_window		v3
+#define colour_divider			v4
+#define starfield_id			V5
+#define starfield_update_speed		v6
+
+#define freakout_flag 			V12
+#define freak_out_bump_counter 		V13
+#define freak_out_effect_counter 	V14
+
+	if parent.script_number != bonus_level_starfield then
+		spawn_entity (bonus_level_starfield,0,0,process_next)
+		let unique_id = BONUS_LEVEL_STARFIELD_ID
+		let counter = 0
+	else
+		let unique_id = BONUS_LEVEL_STARFIELD_OTHER_ID 
+		let counter = 9000
+	end_if
+
+	let starfield_update_speed = 20000
+
+	LET ENTITY_TYPE = ENT_TYPE_BONUS_LEVEL_ENTITY
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	let opengl_booleans = opengl_boolean_vertex_colour_alpha + opengl_boolean_blend_add
+	let opengl_vertex_alpha = 128
+
+	let draw_mode = DRAW_MODE_STARFIELD_LINES
+
+	let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+	let draw_order = BONUS_LEVEL_STARFIELD_DRAW_ORDER
+
+	let colour_divider = 240
+
+start
+
+	let temp_2 = counter / colour_divider
+	let temp_2 = temp_2 mod 360
+
+	GET_VERTEX_COLOURS_FROM_HSL temp_2 256 192
+
+	let counter = counter + 100
+
+	let temp_2 = starfield_update_speed / 4
+	let temp_1 = temp_2 sin counter
+
+	update_starfield unique_id -starfield_update_speed temp_1 TRUE
+
+	let temp_1 = get_global_flag (bonus_level_starfield_slow_flag)
+
+	if temp_1 = 1 then
+		let starfield_update_speed = starfield_update_speed - 50 !< 4000
+	end_if
+
+end

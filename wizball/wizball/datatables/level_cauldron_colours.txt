@@ -1,0 +1,49 @@
+#SIZE 3
+
+// Level 1
+// Red Grn Blu
+#DATA 255,0,0
+#DATA 255,0,255
+#DATA 0,255,255
+
+// Level 2
+// Red Grn Blu
+#DATA 128,64,32
+#DATA 255,128,0
+#DATA 255,255,0
+
+// Level 3
+// Red Grn Blu
+#DATA 0,0,255
+#DATA 255,0,255
+#DATA 0,255,255
+
+// Level 4
+// Red Grn Blu
+#DATA 128,64,32
+#DATA 0,255,0
+#DATA 255,255,0
+
+// Level 5
+// Red Grn Blu
+#DATA 255,0,0
+#DATA 255,128,0
+#DATA 0,255,255
+
+// Level 6
+// Red Grn Blu
+#DATA 0,0,255
+#DATA 255,0,255
+#DATA 255,255,0
+
+// Level 7
+// Red Grn Blu
+#DATA 255,0,0
+#DATA 255,0,255
+#DATA 255,255,0
+
+// Level 8
+// Red Grn Blu
+#DATA 128,64,32
+#DATA 255,128,128
+#DATA 0,255,255

@@ -1,0 +1,127 @@
+#define level_number			passed_param_1
+#define layer_number			passed_param_2
+#define map_width			v0
+#define max_map_width			v1
+#define map_position			v2
+#define current_level			v3
+#define star_counter			v4
+#define current_speed			v5
+#define map_display_progress		v6
+#define old_biased_display_progress	v7
+#define biased_display_progress		v8
+#define min_map_width			v9
+
+	let entity_type = ENT_TYPE_BONUS_LEVEL_ENTITY
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	let current_level = get_global_flag (player_on_level_number)
+
+	let temp_1 = current_level + LEVEL_1_TILEMAP
+
+	SET_CURRENT_COLLISION_TILEMAP (temp_1)
+
+	let min_map_width = READ_FROM_DATATABLE (level_complete_buffer_size,current_level,0)
+	let min_map_width = min_map_width * 16
+
+	let map_width = get_tilemap_width (FALSE,temp_1)
+	let temp_2 = READ_FROM_DATATABLE (level_complete_buffer_size,current_level,1)
+	let map_width = map_width - temp_2
+
+	let map_width = map_width * 16
+	let max_map_width = map_width - FULL_SCREEN_WIDTH
+	let map_position = 0
+
+	let temp_2 = get_global_flag (player_score)
+	let temp_2 = temp_2 + 7490 !> MAXIMUM_POSSIBLE_SCORE
+	set_global_flag (player_score,temp_2)
+
+	// And make some new game window handlers to replace the ones we bumped off...
+	spawn_entity (game_window_handler,0,0,process_previous)
+	let last_child.level_number = current_level
+	let last_child.layer_number = 1
+	let last_child.draw_order = FG_TILEMAP_DRAW_ORDER
+
+	spawn_entity (game_window_handler,0,0,process_previous)
+	let last_child.level_number = current_level
+	let last_child.layer_number = 0
+	let last_child.draw_order = BG_TILEMAP_DRAW_ORDER
+
+	spawn_entity (background,0,0,process_next)
+	spawn_entity (game_starfield,0,0,process_previous)
+
+	let counter = 0
+
+	// Create some letters to congratulate the player, man!
+	// Ooh, grab the font from Wizball. :)
+	// Then stick multiple additive copies over each other slightly positionally offset and rainbow colour offset.
+
+	let draw_order = LEVEL_COMPLETE_TEXT_DRAW_ORDER
+	SPAWN_ENTITIES_FROM_TEXT (TRUE,0,text_triple_rainbow, WELL_DONE_1, process_next, center_x, 320, 160, 1, 0, font[arb])
+	SPAWN_ENTITIES_FROM_TEXT (TRUE,0,text_triple_rainbow, WELL_DONE_2, process_next, center_x, 320, 192, 1, 0, font[arb])
+	SPAWN_ENTITIES_FROM_TEXT (TRUE,0,text_triple_rainbow, WELL_DONE_3, process_next, center_x, 320, 224, 1, 0, font[arb])
+
+	let map_display_progress = 18000
+	let biased_display_progress = 0
+
+	for temp_1 = 0 to 60
+		let temp_2 = rand (0,640)
+		let temp_3 = rand (-24,416)
+		spawn_entity particle_star,temp_2,temp_3,process_next
+	next
+
+start
+
+	let star_counter = star_counter - 1 !< 0
+
+	if star_counter = 0 then
+		let temp_1 = rand (0,640)
+		spawn_entity particle_star,temp_1,-24,process_next
+		let star_counter = rand (4,10)
+	end_if
+
+
+	let old_biased_display_progress = biased_display_progress
+
+	IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_1,FIRE_1) then
+		goto exit_flythru_effect
+	END_IF
+
+	let map_display_progress = map_display_progress + 25 !> 36000
+
+	let biased_display_progress = 5000 cos map_display_progress
+	let biased_display_progress = biased_display_progress + 5000
+
+	let map_position = lerp (min_map_width,max_map_width,biased_display_progress)
+
+	let temp_1 = biased_display_progress - old_biased_display_progress 
+
+	let current_speed = temp_1 * -150
+
+	if map_display_progress = 36000 then
+		let current_speed = 0
+		LET counter = counter + 1
+
+		IF counter = 50 THEN
+			goto exit_flythru_effect
+		END_IF
+	end_if
+
+	// Spawn fireworks here!
+
+end
+
+.exit_flythru_effect
+
+	// Get rid of the game window handlers
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION )
+
+	let temp_1 = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+
+	if temp_1 != CONST_UNSET then
+		ADD_EVENT_TO_QUEUE ( temp_1 , LEVEL_RESET_FLAG_EXIT_FLY_THRU )
+	else
+		stop
+	end_if
+
+	KILL_ENTITY OWN_ID
+

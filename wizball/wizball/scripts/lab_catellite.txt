@@ -1,0 +1,183 @@
+// Catellite lags behind Wizball vertically, but not horizontally. Wizball's horizontal velocity determines which side catellite moves to.
+
+	LET ENTITY_TYPE = ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+
+	#define poof_size				passed_param_1
+
+	#define previous_y_position_frame_buffer_id	999
+	#define previous_y_position_frame_pointer	v27
+
+	#define catellite_radius			12
+	#define catellite_frame_count			8
+
+	#define catellite_horizontal_lag_distance	64
+	#define catellite_close_horizontal_lag_distance	24
+
+	#define catellite_firing_rate			20
+
+	#define catellite_overlay_id			V0
+	#define catellite_target_world_x		V2
+	#define catellite_target_world_y		V3
+	#define wizball_entity_id			V4
+	#define wizball_side				V5
+	#define weapon_collection			v6
+
+	#define flip_vertical_firing_side		v8
+	#define next_flip_vertical_firing_side		v9
+
+	#define firing_direction			v10
+
+	#define fire_delay_counter			V11
+
+	#define wizball_firing_direction		v12
+
+	#define catellite_following_state		V13
+		// If this is TRUE then Catellite is at Wizball's heel, and will move horizontally
+		// at a particular speed and vertically as fast as necessary to keep up.
+		// Once the player starts controlling Catellite this will become FALSE and his
+		// speed is different. It *only* returns to TRUE once Catellite has gotten back to
+		// his default "heel" position.
+
+	#define catellite_energy			V14
+
+	#define minimum_x				V15
+	#define maximum_x				V16
+
+	#define sparking_counter			V17
+	#define smoking_counter				V18
+
+	#define hit_this_frame				V19
+
+	#define bullet_type				V20
+
+	#define self_destructing			V21
+	#define self_destructing_counter		V22
+
+	#define getting_sucked_into_a_hole_flag		V28
+
+	#define particle_count				V29
+	#define angle_step				V30
+	#define particle_chance				V31
+
+	#define spin_counter				V32
+
+	#define progress_percentage			v33
+
+	#define shadow_id				v34
+
+	#define count_down_to_change			v40
+
+// ---------------- External Defines ----------------
+
+	#define base_scale			passed_param_1
+	#define rotation_speed			passed_param_2
+
+// ---------------- Appearance Set Up ---------------- 
+
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_MASKED
+
+	LET SPRITE = catellite[arb]
+	LET BASE_FRAME = 0
+
+	LET CURRENT_FRAME = BASE_FRAME 
+	LET FRAME_COUNT = catellite_frame_count
+
+	LET DRAW_MODE = DRAW_MODE_SPRITE
+
+	LET DRAW_ORDER = LABORATORY_WIZ_AND_CAT_DRAW_ORDER
+
+// ---------------- Bitshift And Anchor ---------------- 
+
+	LET BITSHIFT = 0
+	SET_PRIVATE_CO_ORDS
+
+// ---------------- Misc Crap ---------------- 
+
+	LET bullet_type = 1
+	SET_GLOBAL_FLAG_AS_ENTITY_ID  (catellite_entity_id_flag)
+
+	spawn_entity (catellite_overlay,0,0,process_next)
+	let catellite_overlay_id = last_child
+
+	let progress_percentage = 0
+	let count_down_to_change = 0
+
+// ---------------- And Begin... ---------------- 
+
+
+	spawn_entity lab_shadow,0,0,process_next
+	let shadow_id = last_child
+	let shadow_id.passed_param_1 = 7000
+	let shadow_id.world_y = LAB_CATELLITE_END_Y + 8
+
+
+
+start
+
+	let spin_counter = spin_counter + 2 !< 0 !> 256
+
+	let current_frame = spin_counter / 8
+	let current_frame = current_frame MOD 8
+
+	LET catellite_energy = get_global_flag (catellite_stored_health)
+
+	if catellite_energy <= 1 then
+
+		if sparking_counter = 0 then
+			let temp_2 = rand (1,2)
+			let particle_count = get_global_flag (particle_commonness_multiplier)
+			let particle_count = particle_count * temp_2
+
+			for temp_1 = 1 to particle_count
+				spawn_entity (particle_catellite_damage_spark,0,0,process_next)
+			next
+
+			let particle_chance = get_global_flag (particle_rareness_multiplier)
+			let particle_chance = particle_chance * 40
+			let sparking_counter = rand (0,particle_chance)
+		end_if
+
+		if smoking_counter = 0 then
+			spawn_entity (particle_smoke,0,0,process_next)
+			let last_child.draw_order = draw_order - 1
+			let last_child.base_scale = 5000
+			let last_child.y_vel = -256
+			let last_child.y_acc = 2
+	
+			let last_child.rotation_speed = x_vel * -100
+
+			let particle_chance = get_global_flag (particle_rareness_multiplier)
+			let particle_chance = particle_chance * 15
+			let smoking_counter = rand (0,particle_chance)
+		end_if
+
+		let smoking_counter = smoking_counter - 1 !< 0
+		let sparking_counter = sparking_counter - 1 !< 0
+	end_if
+
+	let temp_1 = progress_percentage curve_percentage CURVE_PERCENTAGE_SISO
+	let world_x = lerp (LAB_CATELLITE_START_X,LAB_CATELLITE_END_X,temp_1)
+
+	let temp_1 = progress_percentage curve_percentage CURVE_PERCENTAGE_FISO
+	let world_y = lerp (LAB_CATELLITE_START_Y,LAB_CATELLITE_END_Y,temp_1)
+
+	set_private_co_ords
+
+	let progress_percentage = progress_percentage + 100 !> 10000
+
+	if progress_percentage = 10000 then
+		let count_down_to_change = count_down_to_change + 1 !> 25
+		if count_down_to_change = 25 then
+			PLAY_SOUND wizball_or_catellite_lab_pop 255 CONST_SOUND_FREQUENCY
+
+			spawn_entity magic_poof,0,0,process_next
+			let last_child.poof_size = 15000
+			spawn_entity lab_nifta,0,0,process_next
+			kill_entity catellite_overlay_id
+			kill_entity shadow_id
+			kill_entity own_id
+		end_if
+	end_if
+
+end
+

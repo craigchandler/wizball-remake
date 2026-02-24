@@ -1,0 +1,115 @@
+// This is our main menu. How jolly exciting, eh?
+
+// Selector Defines
+#define BASE_Y				passed_param_1
+#define OPTION_HEIGHT			passed_param_2
+#define MAXIMUM_OPTIONS			passed_param_3
+
+// Menu Defines
+#define MENU_OPTION_START_Y		216
+#define MENU_OPTION_HEIGHT		24
+
+#define table_entries			10
+
+#define option_text			v0
+#define option_y_co_ord			v1
+#define playing_music_channel		v2
+#define stop_music_on_exit		v3
+
+	// If we were spawned by the hiscore entry screen we continue
+	// playing the music until such time as we get to the main menu.
+
+	if parent.script_number = menu_hiscore_entry then
+		let stop_music_on_exit = true
+	else
+		let stop_music_on_exit = false
+	end_if
+
+	// Each of the menus has a wait 5 at the start to allow everything from the previous one to do it's thing.
+	wait 5
+
+	SET_GLOBAL_FLAG_AS_ENTITY_ID (menu_entity_identity_flag)
+
+	// This variable isn't used to kill this thing, though. Just as a reminder, really.
+	let ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let option_text = SUB_OPTION_1
+
+	let signal = signal OR SLEEP_CREDITS
+	let signal = signal OR SLEEP_LOGO
+	let signal = signal OR SLEEP_TUNNEL_LIGHT
+	let signal = signal OR SLEEP_WIZ_AND_CAT
+
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_hiscore_text, HISCORE_TABLE, process_next, center_x, 320, 64, 0, 0, font[arb])
+
+	let counter = 0
+
+start
+
+	// Now we just wait...
+
+	let temp_1 = counter mod 10
+
+	if temp_1 = 0 then
+		let temp_2 = counter / 10
+		if temp_2 < table_entries then
+			let option_y_co_ord = temp_2 * 24
+			let option_y_co_ord = option_y_co_ord + 112
+
+			SPAWN_ENTITIES_FROM_HISCORE_NAME (FALSE,0,menu_hiscore_text, process_next, no_center, MAIN_HISCORE_TABLE, temp_2, 16, option_y_co_ord, -1, 0, font[arb])
+			SPAWN_ENTITIES_FROM_HISCORE_SCORE (FALSE,1,menu_hiscore_text, process_next, right_align, MAIN_HISCORE_TABLE, temp_2, TRUE, 624, option_y_co_ord, 16, 0)
+		else_if temp_2 = table_entries then
+			SPAWN_ENTITIES_FROM_TEXT (FALSE,0,menu_hiscore_text, PRESS_ANY_KEY, process_next, center_x, 320, 376, 0, 0, font[arb])
+		end_if
+	end_if		
+
+	let counter = counter + 1
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,FIRE_1) then
+		goto main_menu
+	END_IF
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_2,FIRE_1) then
+		goto main_menu
+	END_IF
+
+	IF_INPUT_KEYBOARD_HIT key_any then
+		goto main_menu
+	END_IF
+
+end
+
+
+
+.main_menu
+
+	if stop_music_on_exit = true then
+		// Stop the music! If it's playing...
+
+		if_flag (playing_music_channel_flag) != CONST_UNSET then
+			spawn_entity (fade_music,0,0,process_next)
+			let last_child.passed_param_1 = GET_GLOBAL_FLAG (playing_music_channel_flag)
+			let last_child.passed_param_2 = GET_GLOBAL_FLAG (playing_music_stream_flag)
+			let last_child.passed_param_3 = 15
+			let last_child.passed_param_4 = 255
+
+			SET_GLOBAL_FLAG (playing_music_channel_flag, CONST_UNSET)
+			SET_GLOBAL_FLAG (playing_music_stream_flag, CONST_UNSET)
+		end_if
+
+	end_if
+
+	PLAY_SOUND menu_select_back 255 CONST_SOUND_FREQUENCY 128
+
+	spawn_entity menu_main,0,0,process_next
+
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_SPECIFIC_MENU_ENTITY )
+
+	let signal = signal OR DESTROY_OPTION_TEXT
+	let signal = signal OR DESTROY_HISCORE_TEXT
+
+	kill_entity own_id
+
+	end
+
+

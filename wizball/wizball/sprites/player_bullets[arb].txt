@@ -1,0 +1,6 @@
+5
+1,1,78,54,39,0		//   0 = Shield
+80,0,48,8,40,4		//   1 = Normal Bullet Horizontal
+1,56,78,32,39,-32	//   2 = Alternate Shield
+80,8,48,8,40,4		//   3 = Powered-up Bullet Horizontal
+80,16,24,8,20,4		//   4 = Little Bullet Horizontal

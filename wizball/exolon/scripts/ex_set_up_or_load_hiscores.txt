@@ -1,0 +1,31 @@
+// This does what it says on the tin...
+
+// First of all it tries loading the hiscores, and if there
+// are none, it creates a default set instead.
+
+#define table_entries		16
+#define name_length		15
+#define score_length		7
+
+	let temp_1 = LOAD_HISCORE_TABLE (hiscore_file_tag)
+
+	if temp_1 = false then
+
+		let temp_1 = top_score_text_tag
+		let temp_2 = 150000
+
+		CREATE_HISCORE_TABLE (MAIN_HISCORE_TABLE, table_entries, name_length, score_length, table_type_normal)
+
+		// Add all the respectable scores...
+		for counter = 0 to 15
+			let temp_3 = ADD_SCORE_TO_HISCORE_TABLE_FROM_TEXT (MAIN_HISCORE_TABLE, temp_2, temp_1)
+			let temp_1 = temp_1 + 1
+			let temp_2 = temp_2 - 10000
+		next
+
+		// Add John Dow's score. Hahaha!
+		let temp_3 = ADD_SCORE_TO_HISCORE_TABLE_FROM_TEXT (MAIN_HISCORE_TABLE, 5, temp_1)
+
+	end_if
+
+	kill_entity (own_id)

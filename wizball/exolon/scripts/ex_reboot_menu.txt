@@ -1,0 +1,25 @@
+#define pre_pause_length	passed_param_1
+#define skip_border_inflate	passed_param_1
+
+let world_x = 0
+let world_y = 0
+
+set_private_co_ords
+
+let window_number = MENU_WINDOW
+enable_window MENU_WINDOW
+
+SET_WINDOW_POSITION_AND_SIZE (0, 240, 640, 0)
+SET_WINDOW_MAP_POSITION (0, 240)
+//SET_WINDOW_MAP_POSITION (0, 0)
+//SET_WINDOW_POSITION_AND_SIZE (0, 0, 640, 480)
+
+spawn_entity (ex_grow_window,0,0,process_next)
+let last_child.pre_pause_length = 1
+
+spawn_entity ex_intro_nebula 0 0 process_next
+spawn_entity ex_intro_starfield 0 0 process_next
+spawn_entity ex_menu_main 0 0 process_next
+let last_child.skip_border_inflate = 1
+
+kill_entity own_id

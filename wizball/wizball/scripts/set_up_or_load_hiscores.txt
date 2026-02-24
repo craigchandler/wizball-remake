@@ -1,0 +1,29 @@
+// This does what it says on the tin...
+
+// First of all it tries loading the hiscores, and if there
+// are none, it creates a default set instead.
+
+	let temp_1 = LOAD_HISCORE_TABLE (HISCORE_FILENAME_TAG)
+
+	if temp_1 = false then
+
+		let temp_1 = top_score_text_tag
+		let temp_2 = 50000
+
+		CREATE_HISCORE_TABLE (MAIN_HISCORE_TABLE, HISCORE_MAX_ENTRIES, HISCORE_MAX_NAME_LENGTH, HISCORE_MAX_SCORE_LENGTH, table_type_normal)
+
+		// Add all the respectable scores...
+		for counter = 0 to HISCORE_MAX_ENTRIES
+			let temp_3 = ADD_SCORE_TO_HISCORE_TABLE_FROM_TEXT (MAIN_HISCORE_TABLE, temp_2, temp_1)
+			let temp_1 = temp_1 + 1
+			if temp_2 = 50000 then
+				let temp_2 = temp_2 - 10000
+			else_if temp_2 > 30000 then
+				let temp_2 = temp_2 - 5000
+			else
+				let temp_2 = temp_2 - 2500
+			end_if
+		next
+	end_if
+
+	kill_entity (own_id)

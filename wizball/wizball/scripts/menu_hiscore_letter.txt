@@ -1,0 +1,146 @@
+// This is the text used for the options. It simply fades in and out when it sees the signal from it's parent. Really fast.
+
+#define current_menu_entity_id			v0
+
+#define current_letter_number			v3
+#define current_letter_x			v4
+#define current_letter_y			v5
+#define current_letter_width			v6
+#define current_letter_entity_id		v7
+
+#define start_x					v10
+#define start_y					v11
+#define target_x				v12
+#define target_y				v13
+
+#define progress_percentage			v14
+#define bias_progress_percentage		v15
+
+#define frame_width				v20
+#define frame_height				v21
+
+#define optional_letter				v30
+
+#define letter_sequence_index		passed_param_1
+#define spawn_identity			passed_param_2
+
+
+
+	let progress_percentage = 0
+
+	let draw_order = MENU_TEXT_DRAW_ORDER
+
+	let entity_type = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_vertex_colour_alpha
+
+	let sprite = font[arb]
+
+	let opengl_vertex_alpha = 0
+
+
+
+	if current_frame < 92 then
+		let optional_letter = false
+	else
+		let optional_letter = true
+	end_if
+
+	// Set up a few important numbers...
+
+	let frame_width = GET_GRAPHIC_FRAME_WIDTH (sprite,current_frame)
+	let frame_height = GET_GRAPHIC_FRAME_HEIGHT (sprite,current_frame)
+
+	let temp_1 = frame_width / 2
+
+	// Set start position...
+
+	let start_x = HISCORE_ENTRY_START_X - temp_1
+	let start_y = HISCORE_ENTRY_START_Y - 11
+
+	// Set end x position
+
+	let temp_1 = HISCORE_ENTRY_LETTER_X_GAP * HISCORE_ENTRY_LETTERS_PER_ROW
+	let temp_1 = temp_1 - HISCORE_ENTRY_LETTER_X_GAP
+	let temp_1 = temp_1 / 2
+	let temp_1 = HISCORE_ENTRY_MIDDLE_X - temp_1
+
+	if current_frame < 92 then
+		let temp_2 = letter_sequence_index mod HISCORE_ENTRY_LETTERS_PER_ROW
+	else_if current_frame = 92 then
+		let temp_2 = 2
+	else_if current_frame = 93 then
+		let temp_2 = 7
+	end_if
+
+	let temp_2 = temp_2 * HISCORE_ENTRY_LETTER_X_GAP
+
+	let temp_3 = frame_width / 2
+
+	let target_x = temp_1 + temp_2
+	let target_x = target_x - temp_3
+
+	// Set end y position
+
+	let temp_1 = HISCORE_ENTRY_LETTER_Y_GAP * 4
+	let temp_1 = temp_1 / 2
+	let temp_1 = HISCORE_ENTRY_MIDDLE_Y - temp_1
+
+	let temp_2 = letter_sequence_index / HISCORE_ENTRY_LETTERS_PER_ROW
+	let temp_2 = temp_2 * HISCORE_ENTRY_LETTER_Y_GAP
+
+	let target_y = temp_1 + temp_2
+	let target_y = target_y - 11 // This is the average half-height of most letters and a good base-number.
+
+start
+
+	let progress_percentage = progress_percentage + 200 !> 10000
+
+	let bias_progress_percentage = progress_percentage curve_percentage CURVE_PERCENTAGE_SISO
+
+	let world_x = lerp (start_x, target_x, bias_progress_percentage)
+	let world_y = lerp (start_y, target_y, bias_progress_percentage)
+
+	set_private_co_ords
+
+	if parent.current_letter_number = passed_param_1 then
+		let parent.current_letter_x = world_x
+		let parent.current_letter_y = world_y
+		let parent.current_letter_width = frame_width
+		let parent.current_letter_entity_id = own_id
+	end_if
+
+	if optional_letter = true then
+		if (parent.signal & SLEEP_JOYPAD_HISCORE_INPUT_ITEMS) then
+			let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+		else
+			let opengl_vertex_alpha = opengl_vertex_alpha + 15 !> 255
+		end_if
+	else
+		let opengl_vertex_alpha = opengl_vertex_alpha + 15 !> 255
+	end_if
+
+	let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+	if current_menu_entity_id != CONST_UNSET then
+		if current_menu_entity_id.signal & DESTROY_HISCORE_TEXT then
+			goto final_phase
+		end_if
+	end_if
+
+end
+
+.final_phase
+
+start
+
+	let opengl_vertex_alpha = opengl_vertex_alpha - 15 !< 0
+
+	if opengl_vertex_alpha = 0 then
+		kill_entity own_id
+	end_if
+
+end
+

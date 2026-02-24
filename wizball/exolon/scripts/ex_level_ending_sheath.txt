@@ -1,0 +1,54 @@
+#define ring_counter		v0
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let sprite = large_graphics[arb]
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_INTERP_SPRITE
+
+	let base_frame = 14
+	let current_frame = base_frame
+	let INTERPOLATED_FRAME = base_frame + 1
+
+	let INTERPOLATION_X_PERCENTAGE = 0
+	let INTERPOLATION_Y_PERCENTAGE = 0
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+	let counter = -9000
+	let ring_counter = 0
+
+	let draw_order = 20
+
+start
+
+	if parent != const_unset then
+		if parent.signal = 1 then
+			let counter = counter + 250 !> 9000
+			let INTERPOLATION_Y_PERCENTAGE = 5000 sin counter
+			let INTERPOLATION_Y_PERCENTAGE = INTERPOLATION_Y_PERCENTAGE + 5000
+
+			let ring_counter = ring_counter + 1
+
+			if ring_counter > 30 then
+				let temp_1 = ring_counter mod 20
+				if temp_1 = 0 then
+					// Spawn ring here!
+					spawn_entity (ex_level_ending_ring,0,96,process_next)
+					let last_child.base_frame = 36
+					let last_child.draw_order = 19
+					spawn_entity (ex_level_ending_ring,0,96,process_next)
+					let last_child.base_frame = 37
+					let last_child.draw_order = 21
+				end_if
+			end_if
+
+		end_if
+	else
+		// WTF?!
+		stop
+	end_if
+
+end

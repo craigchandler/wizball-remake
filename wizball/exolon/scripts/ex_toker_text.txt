@@ -1,0 +1,70 @@
+#define offset_x		v2
+#define offset_y		v3
+#define distance		v4
+#define offset_angle		v5
+
+#define behaviour		v0
+#define fade_up			0
+#define stable			1
+#define fade_down		2
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+
+	let Bitshift = 4
+	SET_PRIVATE_CO_ORDS
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = opengl_boolean_blend_add + opengl_boolean_vertex_colour_alpha
+
+	let sprite = toker_font[set][32][32][0][0]
+
+	let opengl_vertex_alpha = 0
+
+	let temp_1 = passed_param_1 * 2
+
+	let counter = 180
+
+	start
+		let temp_1 = temp_1 - 1
+
+		if temp_1 <= 0 then
+			goto continue
+		end_if
+	end
+
+.continue
+
+	let behaviour = fade_up
+
+	let y_vel = -32
+
+start
+
+	if y_vel < 0 then
+		if counter > 0 then
+			let y_vel = y_vel + 1
+		end_if
+	else
+		let counter = counter - 1
+		if counter = 0 then
+			let behaviour = fade_down
+		end_if
+	end_if
+
+	if behaviour = fade_up then
+		if opengl_vertex_alpha < 255 then
+			let opengl_vertex_alpha = opengl_vertex_alpha + 8
+		else
+			let behaviour = stable
+		end_if
+	else_if behaviour = fade_down then
+		if opengl_vertex_alpha > 0 then
+			let opengl_vertex_alpha = opengl_vertex_alpha - 8
+			let y_vel = y_vel - 1
+		else
+			kill_entity own_id
+		end_if
+	end_if
+
+end

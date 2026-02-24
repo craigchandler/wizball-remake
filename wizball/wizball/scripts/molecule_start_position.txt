@@ -1,0 +1,49 @@
+#define min_x		v10
+#define min_y		v11
+#define max_x		v12
+#define max_y		v13
+
+	let sprite = editor_icons[set][32][32][16][16]
+	let base_frame = 0
+
+if parent != CONST_UNSET then
+	// Okay, this is one half off the molecule start position doohicky.
+
+	let min_x = world_x
+	let max_x = parent.world_x
+
+	let min_y = world_y
+	let max_y = parent.world_y
+
+	if min_x > max_x then
+		let temp_1 = min_x
+		let min_x = max_x
+		let max_x = temp_1
+	end_if
+
+	if min_y > max_y then
+		let temp_1 = min_y
+		let min_y = max_y
+		let max_y = temp_1
+	end_if
+
+	let world_x = SPECIAL_RAND (0, min_x,max_x)
+	let world_y = SPECIAL_RAND (0, min_y,max_y)
+
+	set_private_co_ords
+
+	spawn_entity (molecule,0,0,process_next)
+	let last_child.min_x = min_x
+	let last_child.min_y = min_y
+	let last_child.max_x = max_x
+	let last_child.max_y = max_y
+
+	let temp_1 = get_global_flag (level_starting_molecule_count)
+	let temp_1 = temp_1 + 1
+	set_global_flag (level_starting_molecule_count,temp_1)
+
+	kill_entity parent
+	kill_entity own_id
+end_if
+
+end

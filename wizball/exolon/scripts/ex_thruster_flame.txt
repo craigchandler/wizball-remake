@@ -1,0 +1,57 @@
+#define sound_channel		v29
+#define sound_pitch		v28
+
+	let sound_pitch = rand 17000 25000
+
+	let sound_channel = play_looped_sound (rocket_thruster, 32, sound_pitch, 128)
+	ADD_TO_PERSISTANT_CHANNELS sound_channel
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 26
+	let frame_count = 8
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+
+	if parent != CONST_UNSET then
+		let v0 = world_x - parent.world_x
+		let v1 = world_y - parent.world_y
+	end_if
+
+	let v2 = 0
+start
+	if parent != CONST_UNSET then
+		let world_x = parent.world_x + v0
+		let world_y = parent.world_y + v1
+		set_private_co_ords
+	end_if
+
+	let opengl_scale_y = rand 6000 10000
+	let opengl_scale_x = rand 8000 10000
+
+	let v2 = v2 + 1
+	let current_frame = v2 mod frame_count
+	let current_frame = current_frame + base_frame
+
+	let temp_1 = rand 0 10
+
+	if temp_1 = 0 then
+		let temp_1 = rand -upper_width lower_width
+		spawn_entity ex_smoke temp_1 0 PROCESS_NEXT
+		let last_child.draw_order = last_child.draw_order - 1	
+		let last_child.PASSED_PARAM_1 = 2000
+		let last_child.PASSED_PARAM_2 = 4000
+		let last_child.PASSED_PARAM_4 = 9950
+		let last_child.y_vel = 40
+		let last_child.bitshift = 4
+		let last_child.lifetime = 50
+	end_if
+
+end

@@ -1,0 +1,70 @@
+#define start_angle passed_param_1
+#define signal_angle passed_param_2
+#define end_angle passed_param_3
+#define angle_speed passed_param_4
+#define rotate_axis PASSED_PARAM_5
+#define signal_pause_length PASSED_PARAM_6
+
+#define rotate_axis_vertical 0
+#define rotate_axis_horizontal 1
+
+#define angle v0
+#define delay_count v1
+
+let entity_type = ENT_TYPE_INDESTRUCTABLE
+
+let angle = start_angle
+
+let opengl_vertex_red = 256
+let opengl_vertex_green = 256
+let opengl_vertex_blue = 256
+
+let signal = 0
+let delay_count = 0
+
+ENABLE_WINDOW_VERTEX_COLOUR
+
+start
+
+	if delay_count = 0 then
+		let angle = angle + angle_speed
+	else
+		let delay_count = delay_count - 1
+	end_if
+
+	let temp_1 = cos angle
+	let temp_2 = temp_1 / 40
+	let temp_2 = abs temp_2
+	let temp_2 = 255 - temp_2
+
+	SET_WINDOW_VERTEX_COLOUR temp_2 temp_2 temp_2
+
+	if rotate_axis = rotate_axis_vertical then
+		set_window_scale window_number 10000 temp_1 0 5000
+	else
+		set_window_scale window_number temp_1 10000 5000 0
+	end_if
+
+	if signal = 0 then
+		if angle >= signal_angle then
+			let signal = 1
+			let delay_count = signal_pause_length
+			blank_window signal_pause_length
+		end_if
+	else
+		if angle >= end_angle  then
+			goto finish_flipping
+		end_if
+	end_if
+
+end
+
+.finish_flipping
+
+set_window_scale window_number 10000 10000 0 0
+
+SET_WINDOW_VERTEX_COLOUR 0 0 0
+
+DISABLE_WINDOW_VERTEX_COLOUR
+
+kill_entity own_id

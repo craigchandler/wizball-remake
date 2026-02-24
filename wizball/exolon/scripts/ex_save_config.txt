@@ -1,0 +1,59 @@
+
+#define window_colour_depth_status	v0
+#define window_status			v1
+#define colour_depth			v2
+#define window_status_label		v3
+#define colour_depth_label		v4
+#define hardware_status			v5
+
+start
+
+let hardware_status = get_global_flag (next_hardware_mode)
+
+let window_colour_depth_status = get_global_flag (next_window_colour_depth_status)
+
+let window_status = window_colour_depth_status / 2
+
+let colour_depth = window_colour_depth_status mod 2
+
+let window_status_label = WINDOWED_FALSE + window_status
+let colour_depth_label = COLOUR_DEPTH_16 + colour_depth
+
+START_CONFIG_FILE
+
+WRITE_TEXT_LINE_TO_CONFIG_FILE HEADER
+
+if hardware_status = 0 then
+	WRITE_TEXT_LINE_TO_CONFIG_FILE SOFTWARE_MODE
+else
+	WRITE_TEXT_LINE_TO_CONFIG_FILE HARDWARE_MODE
+end_if
+
+WRITE_TEXT_LINE_TO_CONFIG_FILE window_status_label
+WRITE_TEXT_LINE_TO_CONFIG_FILE colour_depth_label
+
+let temp_1 = get_global_flag (next_multitexture_effects_status)
+
+if temp_1 = 0 then
+	WRITE_TEXT_LINE_TO_CONFIG_FILE OPENGL11_MODE
+else
+	WRITE_TEXT_LINE_TO_CONFIG_FILE OPENGL13_MODE
+end_if
+
+WRITE_VOLUMES_TO_CONFIG_FILE
+
+WRITE_PLAYER_CONTROL_TO_CONFIG_FILE 1 UP
+WRITE_PLAYER_CONTROL_TO_CONFIG_FILE 1 DOWN
+WRITE_PLAYER_CONTROL_TO_CONFIG_FILE 1 LEFT
+WRITE_PLAYER_CONTROL_TO_CONFIG_FILE 1 RIGHT
+WRITE_PLAYER_CONTROL_TO_CONFIG_FILE 1 FIRE_1
+WRITE_PLAYER_CONTROL_TO_CONFIG_FILE 1 FIRE_2
+WRITE_PLAYER_CONTROL_TO_CONFIG_FILE 1 PAUSE
+WRITE_PLAYER_CONTROL_TO_CONFIG_FILE 1 DEBUG_1
+WRITE_PLAYER_CONTROL_TO_CONFIG_FILE 1 DEBUG_2
+WRITE_PLAYER_CONTROL_TO_CONFIG_FILE 1 DEBUG_3
+WRITE_PLAYER_CONTROL_TO_CONFIG_FILE 1 DEBUG_4
+
+END_CONFIG_FILE
+
+kill_entity own_id

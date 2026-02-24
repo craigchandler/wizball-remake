@@ -1,0 +1,50 @@
+// This is one of the plasma clouds which appears at the top and bottom of the screen and scrolls and colour-cycles and whatnot.
+
+#define interpolation_speed		V0
+#define colour_divider			v1
+#define global_colour_percentage	v2
+#define effect_level			v3
+
+	LET ENTITY_TYPE = ENT_TYPE_ATTRACT_SEQUENCE_ENTITY
+
+	set_private_co_ords
+
+	let opengl_booleans = opengl_boolean_masked + opengl_boolean_vertex_colour
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_INTERPOLATED
+	let base_frame = 4
+	let interpolation_speed = 50
+
+	let draw_order = LABORATORY_NEBULA_DRAW_ORDER
+
+	let counter = 0
+	let colour_divider = 160
+
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let opengl_scale_x = 11000
+	let opengl_scale_y = 12000
+
+	let world_x = 180
+	let world_y = 0
+
+	set_private_co_ords
+
+	let sprite = clouds[arb]
+
+	let current_frame = base_frame
+	let interpolated_frame = base_frame + 1
+	let draw_mode = DRAW_MODE_SPRITE
+	
+	let opengl_vertex_red = 128
+	let opengl_vertex_green = 0
+	let opengl_vertex_blue = 64
+
+start
+	let INTERPOLATION_X_PERCENTAGE = INTERPOLATION_X_PERCENTAGE + interpolation_speed !< 0 !> 10000
+	let INTERPOLATION_Y_PERCENTAGE = INTERPOLATION_Y_PERCENTAGE + interpolation_speed !< 0 !> 10000
+end
+
+
+
+

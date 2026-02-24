@@ -1,0 +1,65 @@
+	LET ENTITY_TYPE = PARENT.ENTITY_TYPE
+
+	#define catellite_energy			V14
+	#define pulse_colour				V1
+
+// ---------------- Bitshift And Anchor ---------------- 
+
+	LET WORLD_X = PARENT.WORLD_X
+	LET WORLD_Y = PARENT.WORLD_Y
+
+	LET BITSHIFT = 0
+	SET_PRIVATE_CO_ORDS
+
+// ---------------- Appearance Set Up ---------------- 
+
+	LET SPRITE = catellite[arb]
+	LET BASE_FRAME = 8
+
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_BLEND_ADD + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	LET DRAW_MODE = DRAW_MODE_SPRITE
+
+	LET DRAW_ORDER = PARENT.DRAW_ORDER + 1
+
+	LET OPENGL_VERTEX_ALPHA = 128
+	LET OPENGL_VERTEX_RED = 0
+	LET OPENGL_VERTEX_GREEN = 255
+	LET OPENGL_VERTEX_BLUE = 0
+
+// ---------------- Main Loop ---------------- 
+
+	LET counter = 0
+	LET pulse_colour = 0
+
+start
+
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+
+	SET_PRIVATE_CO_ORDS
+
+	LET CURRENT_FRAME = BASE_FRAME + parent.current_frame
+
+	IF (parent.catellite_energy > CATELLITE_STARTING_ENERGY) THEN
+
+		let counter = counter + 250 !< 0 !> 35999
+
+		LET OPENGL_VERTEX_ALPHA = 64 sin counter
+		LET OPENGL_VERTEX_ALPHA = OPENGL_VERTEX_ALPHA + 192
+
+		let pulse_colour = pulse_colour + 10 !< 0 !> 359
+
+		GET_VERTEX_COLOURS_FROM_HSL pulse_colour 256 128
+
+	ELSE
+
+		LET OPENGL_VERTEX_ALPHA = 128
+
+		LET temp_1 = parent.catellite_energy * 10
+
+		GET_VERTEX_COLOURS_FROM_HSL temp_1 256 128
+
+	END_IF
+
+end

@@ -1,0 +1,117 @@
+#define sound_frequency 	v0
+#define sound_volume	 	v1
+#define sound_effect 		v2
+#define play_gap		v3
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 1
+	SET_PRIVATE_CO_ORDS
+	let sprite = enemy_virus[set][16][16][8][8]
+	let base_frame = 0
+	let frame_count = 4
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let COLLISION_SHAPE = RECTANGLE
+	set_collision_from_frame
+	SET_WORLD_COLLISION_FROM_OBJECT
+
+	if parent = CONST_UNSET then
+		let collide_type = ent_type_enemy
+		let collide_with = ent_type_player
+		let collide_with = collide_with + ent_type_player_bullet
+		let sound_volume = 192
+		let sound_effect = virus_noise_sharp
+	else
+		let sound_volume = 128
+		let sound_effect = virus_noise_dull
+	end_if
+
+	let BOUNDARY_START_X = passed_param_1 - 12
+	let BOUNDARY_END_X = passed_param_1 + 20
+
+	let BOUNDARY_START_Y = passed_param_2 - 8
+	let BOUNDARY_END_Y = passed_param_2 + 16
+
+	let counter = rand 0 3
+
+	let draw_order = draw_order - 1
+
+	world_hitline gosub hit_something
+	entity_hitline gosub hit_something
+	let ENTITY_MOVEMENT_BEHAVIOUR = ENTITY_MOVEMENT_HORIZONTAL_VERTICAL
+	let world_collision_behaviour = COLLISION_RESPONSE_CALL_SCRIPT
+
+	let play_gap = rand 0 70
+
+start
+	// These just bobble around, really. If they have a parent and it sends the correct
+	// signal they will stay within a certain radius of it.
+
+	let temp_1 = rand 0 5
+
+	if temp_1 = 0 then
+		let x_vel = rand 1 4
+		let x_vel = rand_sign x_vel
+		let y_vel = rand -1 1
+	end_if
+
+	if play_gap = 0 then
+		let temp_1 = rand 0 10
+
+		if temp_1 = 0 then
+			let sound_frequency = rand 18000 26000
+			play_sound sound_effect sound_volume sound_frequency 128
+			let play_gap = 70
+		end_if
+	else
+		let play_gap = play_gap - 1
+	end_if
+		
+	let counter = counter + 1
+	let current_frame = counter / 4
+	let current_frame = current_frame mod 4
+	let current_frame = current_frame + base_frame
+
+	if parent != CONST_UNSET then
+		if parent.signal = 0 then
+			CONTAIN_ENTITY
+		else
+			// It's just exploded, so stop the virii trying to read it...
+			let parent = CONST_UNSET
+			// And also set their collision up so they can now be hit...
+			let collide_type = ent_type_enemy
+			let collide_with = ent_type_player + ent_type_player_bullet
+			// And make it so they appear in front of the container
+			let draw_order = draw_order + 2
+			// And let them hit the world
+			let world_collision_bitmask = 3
+
+			let sound_volume = 192
+			let sound_effect = virus_noise_sharp
+		end_if
+	else
+		let world_collision_bitmask = 3
+	end_if
+
+end
+
+.hit_something
+
+	spawn_entity ex_player_rocket_explosion_flame 0 0 PROCESS_NEXT
+	let last_child.opengl_scale_x = rand 3000 5000
+	let last_child.opengl_angle = rand 0 36000
+
+	let temp_1 = rand 16000 26000
+	play_sound small_explosion 255 temp_1 128
+
+	if collided_entity.script_number = ex_player_bullet then
+		let point_value = 10
+		spawn_entity ex_display_score 0 0 PROCESS_NEXT
+		let last_child.passed_param_1 = 0
+		let last_child.passed_param_2 = 1
+	end_if
+
+	kill_entity own_id

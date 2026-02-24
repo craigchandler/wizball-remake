@@ -1,0 +1,2 @@
+#SIZE 6
+#DATA STREAMS:wizball_title, STREAMS:wizball_in_game, STREAMS:wizball_bonus , STREAMS:wizball_laboratory , STREAMS:wizball_hi_score , STREAMS:wizball_completion

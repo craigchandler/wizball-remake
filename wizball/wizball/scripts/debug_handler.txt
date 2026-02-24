@@ -1,0 +1,96 @@
+// This is spawned by the launch_game function and exists PERMANENTLY (ideally,
+// it'll get it's clogs popped by the genocide entity kills occasionally but it
+// can be relaunched at that point).
+
+// All it does it trap the debug keypresses and act on them, toggling the entity
+// list, pausing the rest of the game or frame-advancing the game. Possibly summat
+// else, too...
+
+#define pause_status			v0
+#define current_pickup_count		V1
+#define main_game_handler_id		v2
+
+
+
+let pause_status = FALSE
+
+let entity_type = ENT_TYPE_INDESTRUCTABLE // So that pausing the game doesn't affect it
+
+.main_loop
+
+start
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,DEBUG_2) THEN
+		TOGGLE_DEBUG
+	end_if
+
+//	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,DEBUG_3) THEN
+//		gosub toggle_pause
+//	end_if
+
+//	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,DEBUG_4) THEN
+//		goto frame_advance
+//	end_if
+
+	IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_1,DEBUG_5) THEN
+		let main_game_handler_id = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+		if main_game_handler_id != CONST_UNSET then
+			ADD_EVENT_TO_QUEUE (main_game_handler_id,ADD_PAINTDROP_RED)
+		end_if
+	end_if
+
+	IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_1,DEBUG_6) THEN
+		let main_game_handler_id = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+		if main_game_handler_id != CONST_UNSET then
+			ADD_EVENT_TO_QUEUE (main_game_handler_id,ADD_PAINTDROP_GREEN)
+		end_if
+	end_if
+
+	IF_INPUT_PLAYER_CONTROL_DOWN (PLAYER_1,DEBUG_7) THEN
+		let main_game_handler_id = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+		if main_game_handler_id != CONST_UNSET then
+			ADD_EVENT_TO_QUEUE (main_game_handler_id,ADD_PAINTDROP_BLUE)
+		end_if
+	end_if
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,DEBUG_9) THEN
+		call_script function_gain_life
+	end_if
+
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,DEBUG_10) THEN
+		let main_game_handler_id = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+		if main_game_handler_id != CONST_UNSET then
+			ADD_EVENT_TO_QUEUE (main_game_handler_id,LEVEL_RESET_FLAG_DEBUG_TILE_SWAP)
+		end_if
+	end_if
+
+end
+
+
+
+.frame_advance
+
+	alter_entities alteration_unfreeze (own_id != own_id)
+
+	wait 1
+
+	alter_entities alteration_freeze (own_id != own_id)
+
+	let pause_status = TRUE
+
+	goto main_loop
+
+
+
+.toggle_pause
+
+	if pause_status = TRUE then
+		let pause_status = FALSE
+		alter_entities ALTERATION_UNFREEZE (own_id != own_id)
+	else
+		let pause_status = TRUE
+		alter_entities ALTERATION_FREEZE (own_id != own_id)
+	end_if
+
+	return
+

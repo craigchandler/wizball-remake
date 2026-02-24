@@ -1,0 +1,63 @@
+#define position_in_word		passed_param_1
+#define generation			passed_param_4
+#define base_world_x			v0
+#define base_world_y			v1
+#define offset_x			v2
+#define offset_y			v3
+
+#define delay_per_letter		1000
+#define delay_per_generation		1000
+#define orbit_distance			16
+
+	let generation = 0
+
+	let entity_type = parent.entity_type
+
+//	if parent.script_number != text_triple_rainbow then
+//		let generation = 2
+//	else
+//		let generation = parent.generation - 1
+//		let position_in_word = parent.position_in_word
+//		let current_frame = parent.current_frame
+//	end_if
+
+	if current_frame = 0 then
+		kill_entity own_id
+	end_if
+
+//	if generation > 0 then
+//		spawn_entity text_triple_rainbow,0,0,process_next
+//	end_if
+
+	let base_world_x = world_x
+	let base_world_y = world_y
+
+	SET_PRIVATE_CO_ORDS
+	let sprite = font[arb]
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD 
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR
+
+	let counter = position_in_word * delay_per_letter
+	let temp_1 = generation * delay_per_generation
+	let counter = counter + temp_1
+
+//	let DEBUG_FLAGS = DEBUG_FLAG_STOP_WHEN_DRAWN_IN_WINDOW
+
+start
+
+	let counter = counter + 500 !< 0 !> 35999
+	let temp_1 = counter / 100
+
+	GET_VERTEX_COLOURS_FROM_HSL temp_1 256 128
+
+	let offset_x = orbit_distance sin counter
+	let offset_y = orbit_distance cos counter
+
+	let world_x = base_world_x + offset_x
+	let world_y = base_world_y + offset_y
+
+	SET_PRIVATE_CO_ORDS
+
+end

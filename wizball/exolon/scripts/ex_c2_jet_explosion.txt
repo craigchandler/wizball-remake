@@ -1,0 +1,39 @@
+
+	if world_y > 480 then
+		let temp_1 = world_y - 480
+		let temp_1 = temp_1 / 2
+		let temp_1 = 255 - temp_1
+		if temp_1 < 0 then
+			let temp_1 = 0
+		end_if
+	else
+		let temp_1 = 255
+	end_if
+
+	play_sound player_grenade_explosion temp_1 22050 128
+
+	let temp_1 = parent.y_vel >> 8
+
+	for v0 = 0 to 36000 step 3000
+		spawn_entity ex_smoke 0 0 PROCESS_NEXT
+		let last_child.draw_order = last_child.draw_order + 1
+		let last_child.x_vel = cos v0
+		let last_child.y_vel = sin v0
+		let last_child.x_vel = last_child.x_vel / 50
+		let last_child.y_vel = last_child.y_vel / 50
+		let last_child.y_vel = last_child.y_vel + temp_1
+		let last_child.PASSED_PARAM_1 = 100
+		let last_child.PASSED_PARAM_2 = 6000
+		let last_child.PASSED_PARAM_4 = 9700
+		let last_child.bitshift = 6
+		let last_child.lifetime = 30
+		let last_child.x_acc = -1
+	next
+
+	spawn_entity ex_player_rocket_explosion_flame 0 0 PROCESS_NEXT
+	let last_child.y_vel = temp_1
+	let last_child.x_acc = -4
+
+	kill_entity own_id
+
+end

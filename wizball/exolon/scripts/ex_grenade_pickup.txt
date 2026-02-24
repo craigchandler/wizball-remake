@@ -1,0 +1,32 @@
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = pickup_sprites[set][32][32][16][16]
+	let base_frame = 4
+	let frame_count = 4
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let collide_type = ENT_TYPE_PICKUP
+	let collide_with = ent_type_player
+
+	let COLLISION_SHAPE = RECTANGLE
+	SET_COLLISION_FROM_FRAME
+
+	let upper_width = upper_width - 8
+	let lower_width = lower_width - 8
+
+	ENTITY_HITLINE gosub award_grenades
+start
+end
+
+.award_grenades
+
+	let collided_entity.GUN_2_AMMO_COUNT = 10
+	// Do some nice particle effect here...
+
+	PLAY_SOUND pickup_sptang 255 26000 128
+
+	change_script ex_pickup_disappear

@@ -1,0 +1,48 @@
+// This uses the same timing as the fancy shmancy rainbow one, thus the odd units used occasionally.
+
+#define colour_counter		v0
+#define overlay_id 		v1
+#define max_iterations		passed_param_1
+
+#define permanent_invulnerability		1000
+
+if max_iterations = 0 then
+	let max_iterations = 4
+end_if
+
+let counter = 72
+let temp_1 = max_iterations * 36
+let counter = counter + temp_1
+let colour_counter = 0
+
+let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+start
+	let counter = counter - 1
+
+	if max_iterations != permanent_invulnerability then
+		if counter = 0 then
+			let signal = 1
+			kill_entity own_id
+		end_if
+	end_if
+
+	if counter > 72 then
+		let temp_1 = counter mod 8
+		if temp_1 = 0 then
+			// Spawn ring here!
+			spawn_entity (ex_ogl11_player_invulnerable_ring,0,0,process_next)
+			let last_child.passed_param_1 = parent
+			let last_child.passed_param_2 = colour_counter
+			let last_child.base_frame = 12
+			let last_child.draw_order = draw_order - 1
+			spawn_entity (ex_ogl11_player_invulnerable_ring,0,0,process_next)
+			let last_child.passed_param_1 = parent
+			let last_child.passed_param_2 = colour_counter
+			let last_child.base_frame = 13
+			let last_child.draw_order = draw_order + 2
+			let_value_loop colour_counter = 0 to 6 step 1
+		end_if
+	end_if
+end
+

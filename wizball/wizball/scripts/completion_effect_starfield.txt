@@ -1,0 +1,37 @@
+#define completion_effect_brightness_percentage			v0
+
+#define wiz_id				v0
+#define left_of_window			v1
+#define map_width			v2
+#define map_width_minus_window		v3
+#define colour_divider			v4
+#define starfield_id			V5
+#define starfield_update_speed		v6
+
+#define freakout_flag 			V12
+#define freak_out_bump_counter 		V13
+#define freak_out_effect_counter 	V14
+
+	let unique_id = COMPLETION_EFFECT_STARFIELD_ID
+
+	let starfield_update_speed = 20000
+
+	let opengl_booleans = opengl_boolean_vertex_colour_alpha + opengl_boolean_blend_add
+
+	let draw_mode = DRAW_MODE_STARFIELD_LINES
+
+	let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+	let draw_order = 12
+
+	let opengl_vertex_red = 128
+	let opengl_vertex_green = 160
+	let opengl_vertex_blue = 192
+
+start
+
+	let opengl_vertex_alpha = 128 % parent.completion_effect_brightness_percentage
+
+	update_starfield unique_id -starfield_update_speed 0 TRUE
+
+end

@@ -1,0 +1,76 @@
+// This is one of the plasma clouds which appears at the top and bottom of the screen and scrolls and colour-cycles and whatnot.
+
+#define interpolation_speed		V0
+#define colour_divider			v1
+#define global_colour_percentage	v2
+#define effect_level			v3
+
+	let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+	LET ENTITY_TYPE = ENT_TYPE_BONUS_LEVEL_ENTITY
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	set_private_co_ords
+
+	if parent.script_number != bonus_level_plasma_cloud then
+		// If this is the first spawned bonus level plasma then we need to spawn
+		// a child one. And make this one not be transparent, because that's just wasteful.
+
+		spawn_entity (bonus_level_plasma_cloud, 0, 0, process_next)
+
+		let base_frame = 0
+		let interpolation_speed = 32
+
+		let draw_order = BG_BONUS_LEVEL_CLOUD_DRAW_ORDER
+
+		let counter = 0
+		let colour_divider = 160
+	else
+		let base_frame = 2
+		let interpolation_speed = 14
+
+		let draw_order = FG_BONUS_LEVEL_CLOUD_DRAW_ORDER
+
+		let counter = 9000
+		let colour_divider = 140
+	end_if
+
+	let opengl_booleans = opengl_boolean_masked + opengl_boolean_blend_add
+	let opengl_booleans = opengl_booleans + opengl_boolean_vertex_colour
+
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE_AND_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_INTERPOLATED
+
+	if world_y = 416 then
+		// If we're at the top we need to draw our shit upside-down.
+		let OPENGL_ANGLE = 18000
+		let counter = counter + 18000
+		let interpolation_speed = -interpolation_speed
+	end_if
+
+	let sprite = clouds[arb]
+
+	let current_frame = base_frame
+	let interpolated_frame = base_frame + 1
+	let draw_mode = DRAW_MODE_SPRITE
+
+start
+	let counter = counter + 100
+
+	let temp_1 = 2000 sin counter
+	let opengl_scale_x = 30000
+	let opengl_scale_y = 10000 + temp_1
+
+	let temp_2 = counter / colour_divider
+	let temp_2 = temp_2 mod 360
+
+	GET_VERTEX_COLOURS_FROM_HSL temp_2 256 192
+
+	let INTERPOLATION_X_PERCENTAGE = INTERPOLATION_X_PERCENTAGE + interpolation_speed !< 0 !> 10000
+end
+
+
+
+

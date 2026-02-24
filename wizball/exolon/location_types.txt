@@ -1,0 +1,3 @@
+kitchen
+toilet
+classroom_chemistry

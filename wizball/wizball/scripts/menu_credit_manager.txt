@@ -1,0 +1,73 @@
+// This cycles the credits displayed on the menus.
+
+#define credit_counter_cycle_length	180
+#define credit_counter_fade_threshold	30
+
+#define current_menu_entity_id		v0
+#define credit_counter			v1
+#define credit_title_number		v2
+#define credit_name_number		v3
+
+	let entity_type = ENT_TYPE_PERMANENT_MENU_ENTITY
+
+	let credit_title_number = credit_start_tag
+
+.awake
+
+	let credit_counter = credit_counter_fade_threshold
+
+start
+	let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+	if current_menu_entity_id != CONST_UNSET then
+		if current_menu_entity_id.signal & SLEEP_CREDITS then
+			// Sleep. Now.
+			goto sleep
+		end_if
+	end_if
+
+	gosub cycle_credits
+end
+
+.sleep
+
+	let signal = FALSE
+
+start
+	let current_menu_entity_id = GET_GLOBAL_FLAG (menu_entity_identity_flag)
+
+	if current_menu_entity_id != CONST_UNSET then
+		if current_menu_entity_id.signal & WAKE_CREDITS then
+			// Wakey, wakey!
+			goto awake
+		end_if
+	end_if
+end
+
+.cycle_credits
+
+	let credit_counter = credit_counter - 1 !< 0
+
+	if credit_counter = credit_counter_fade_threshold then
+
+		let signal = FALSE
+
+		let credit_title_number = credit_title_number + 2
+		if credit_title_number > credit_end_tag then
+			let credit_title_number = credit_start_tag
+		end_if
+
+	else_if credit_counter = 0 then
+		// Spawn a new credit!
+
+		let signal = TRUE
+
+		let credit_name_number = credit_title_number + 1
+
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,menu_credit_text, credit_title_number, process_next, center_x, 320, CREDIT_TITLE_Y_CO_ORD, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE,0,menu_credit_text, credit_name_number, process_next, center_x, 320, CREDIT_NAME_Y_CO_ORD, 0, 0, font[arb])
+
+		let credit_counter = credit_counter_cycle_length
+	end_if
+
+return

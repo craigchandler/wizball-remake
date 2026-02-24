@@ -1,0 +1,52 @@
+	LET ENTITY_TYPE = PARENT.ENTITY_TYPE
+	LET PARENT_LEVEL = PARENT.PARENT_LEVEL
+
+// ---------------- Bitshift And Anchor ---------------- 
+
+	LET WORLD_X = PARENT.WORLD_X
+	LET WORLD_Y = PARENT.WORLD_Y
+
+	LET BITSHIFT = 0
+	SET_PRIVATE_CO_ORDS
+
+// ---------------- Appearance Set Up ---------------- 
+
+	LET SPRITE = fuzz_overlay[set][64][64][32][32]
+	LET BASE_FRAME = 0
+
+	LET OPENGL_BOOLEANS = OPENGL_BOOLEAN_BLEND_ADD + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	LET DRAW_MODE = DRAW_MODE_SPRITE
+	LET DRAW_ORDER = CONST_UNSET
+
+	LET OPENGL_VERTEX_ALPHA = 128
+	LET OPENGL_VERTEX_RED = 0
+	LET OPENGL_VERTEX_GREEN = 128
+	LET OPENGL_VERTEX_BLUE = 0
+
+// ---------------- Main Loop ---------------- 
+
+	LET counter = 0
+
+	let window_number = CONST_UNSET
+
+start
+
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+
+	SET_PRIVATE_CO_ORDS
+
+	LET CURRENT_FRAME = parent.current_frame
+
+	LET temp_1 = 128 sin counter
+	LET opengl_vertex_red = 128 - temp_1
+	LET opengl_vertex_blue = 128 + temp_1
+
+	let counter = counter + 1000 !< 0 !> 35999
+
+	if parent.alive < 0 then
+		kill_entity own_id
+	end_if
+
+end

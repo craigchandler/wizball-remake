@@ -1,0 +1,51 @@
+// This entity is spawned whenever the player enters a new room. It simply comes to rest by dropping downwards
+// at which point it resets the restart point of the room to be at that position. This has the advantage that
+// if a room is designed so that there is a destructable object you enter on which you then destroy, the
+// restart point will move down accordingly.
+
+SET_PRIVATE_CO_ORDS
+
+set_global_flag (Start_position_x, world_x)
+set_global_flag (Start_position_x, world_y)
+
+let COLLISION_SHAPE = RECTANGLE
+
+//let draw_mode = DRAW_MODE_SPRITE
+//let sprite = player_basic[arb]
+//let base_frame = 0
+
+let upper_width = 16
+let lower_width = 16
+let lower_height = 0
+let upper_height = 0
+
+let speed = 15
+
+let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_RESPONSE_SIMPLE_BOUNCE_OR_DECELLERATE
+let WORLD_COLLISION_BEHAVIOUR = WORLD_COLLISION_BEHAVIOUR + COLLISION_USE_EXTRA_TEST_POINTS
+let WORLD_COLLISION_COEF_HORIZONTAL = 0
+let WORLD_COLLISION_COEF_VERTICAL = 0
+let ENTITY_MOVEMENT_BEHAVIOUR = ENTITY_MOVEMENT_HORIZONTAL_VERTICAL
+let world_collision_bitmask = 3
+
+let y_acc = 1
+
+start
+
+	if y_vel >= 0 then
+		// ie, we only check for landing if we are moving downwards
+		// this stops us immediately exiting the jump routine or sticking when
+		// we jump up through a platform and coincide with its surface.
+
+		let v0 V1 = COMPILE_SOLID_TILE_NUMBERS (CHECK_EDGE, DIRECTION_DOWN, TRUE, 1)
+		let v0 V1 = COMPILE_SOLID_TILE_NUMBERS (CHECK_CORNERS, DIRECTION_DOWN, FALSE, 1)
+
+		if v0 != 0 then
+			set_global_flag (Start_position_x, world_x)
+			set_global_flag (Start_position_y, world_y)
+		end_if
+	end_if
+
+	let y_vel = min_max (-speed, speed)
+
+end

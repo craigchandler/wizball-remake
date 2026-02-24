@@ -1,0 +1,28 @@
+#define planet_size 		v0
+#define planet_width 		v1
+#define planet_type		v29
+
+#define planet_size_small	0
+#define planet_size_medium	1
+#define planet_size_large	2
+
+	let planet_type = 0
+
+	let planet_size = planet_size_large
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 8
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 43
+	let OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_FILTERED
+	let OPENGL_BOOLEANS = OPENGL_BOOLEANS + OPENGL_BOOLEAN_SCALE
+	let OPENGL_SCALE_X = 10000
+	let OPENGL_SCALE_Y = 10000
+
+	let draw_order = 3
+
+	CHANGE_SCRIPT ex_standard_planet
+

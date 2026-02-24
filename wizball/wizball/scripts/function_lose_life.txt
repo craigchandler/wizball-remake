@@ -1,0 +1,5 @@
+	let temp_1 = get_global_flag ( player_lives )
+	let temp_1 = temp_1 - 1
+	set_global_flag ( player_lives, WIZBALL_START_LIVES )
+
+return

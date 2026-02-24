@@ -1,0 +1,57 @@
+#define behaviour		passed_param_1
+#define constant_speed		0
+#define decellerating		1
+#define accellerating		2
+#define screen_width		640
+#define pre_wait		passed_param_2
+
+	let draw_override = DRAW_OVERRIDE_OVERRIDE_ALWAYS
+
+	let sprite = large_graphics[arb]
+	let base_frame = 35
+	let current_frame = base_frame
+	let draw_mode = draw_mode_sprite
+
+	let bitshift = 8
+
+	// Get it's extents...
+	let current_zone = GET_CURRENT_ZONE (world_x, world_y, game_room_zone)
+	let BOUNDARY_START_X, BOUNDARY_END_X = GET_HORIZONTAL_ZONE_EXTENTS (current_zone)
+
+	let BOUNDARY_START_X = BOUNDARY_START_X - 192
+
+	// Move it off the right of the current screen...
+	let world_x = BOUNDARY_END_X + 64
+
+	set_private_co_ords
+
+	wait pre_wait
+
+//	let behaviour = accellerating
+
+	switch behaviour
+
+		case decellerating
+			let x_acc = 6
+			let y_acc = 3
+		break
+
+		case accellerating
+			let x_acc = -8
+			let y_acc = -8
+		break
+
+	end_switch
+
+	let x_vel = -2048
+
+	spawn_entity (ex_c2_tail_jet,88,7,process_next)
+
+start
+
+	if world_x < BOUNDARY_START_X then
+		let signal = 1
+		kill_entity own_id
+	end_if
+
+end

@@ -1,0 +1,142 @@
+#define top_left_corner			0
+#define top_right_corner		1
+#define bottom_left_corner		2
+#define bottom_right_corner		3
+#define positive			1
+#define negative			-1
+
+#define horizontal_axis			0
+#define vertical_axis			1
+
+#define instant_version			passed_param_1
+#define collapse			passed_param_2
+
+#define parent_corner			v0
+
+#define check_corner_id			v4
+#define check_axis			v5
+
+#define opengl_boolean_adder		v9
+
+#define top_left_corner_id		v10
+#define top_right_corner_id		v11
+#define bottom_left_corner_id		v12
+#define bottom_right_corner_id		v13
+
+#define border_style			v11
+#define border_style_in_game		0
+#define border_style_menu		1
+
+#define check_direction			v10
+
+#define master_frame_counter		v14
+
+let world_x = 320
+let world_y = 240
+
+set_private_co_ords
+
+// This then spawns the edges and corner pieces which will look to this
+// entity and it's width/height to know where they should be positioned.
+
+let draw_order = 5 // It ain't actually drawn but it's just so it's kids are in the right place
+
+if instant_version = 1 then
+	let upper_width = 0
+	let lower_width = 0
+	let upper_height = 0
+	let lower_height = 0
+	let counter = 9000 - 250
+else
+	let upper_width = 0
+	let lower_width = 0
+	let upper_height = 0
+	let lower_height = 0
+	let counter = -9000
+end_if
+
+spawn_entity ex_bordered_window_corner 0 0 process_next
+let top_left_corner_id = last_child
+let top_left_corner_id.parent_corner = top_left_corner
+
+spawn_entity ex_bordered_window_corner 0 0 process_next
+let top_right_corner_id = last_child
+let top_right_corner_id.parent_corner = top_right_corner
+
+spawn_entity ex_bordered_window_corner 0 0 process_next
+let bottom_left_corner_id = last_child
+let bottom_left_corner_id.parent_corner = bottom_left_corner
+
+spawn_entity ex_bordered_window_corner 0 0 process_next
+let bottom_right_corner_id = last_child
+let bottom_right_corner_id.parent_corner = bottom_right_corner
+
+let top_left_corner_id.check_corner_id = top_right_corner_id
+let top_right_corner_id.check_corner_id = bottom_left_corner_id
+let bottom_left_corner_id.check_corner_id = bottom_right_corner_id
+let bottom_right_corner_id.check_corner_id = top_left_corner_id
+
+let top_left_corner_id.check_axis = horizontal_axis
+let top_right_corner_id.check_axis = vertical_axis
+let bottom_left_corner_id.check_axis = horizontal_axis
+let bottom_right_corner_id.check_axis = vertical_axis
+
+let top_left_corner_id.check_direction = positive
+let top_right_corner_id.check_direction = positive
+let bottom_left_corner_id.check_direction = negative
+let bottom_right_corner_id.check_direction = negative
+
+let top_left_corner_id.border_style = border_style_menu
+let top_right_corner_id.border_style = border_style_menu
+let bottom_left_corner_id.border_style = border_style_menu
+let bottom_right_corner_id.border_style = border_style_menu
+
+let top_left_corner_id.opengl_boolean_adder = 0
+let top_right_corner_id.opengl_boolean_adder = OPENGL_BOOLEAN_ROTATE_CLOCKWISE
+let bottom_left_corner_id.opengl_boolean_adder = OPENGL_BOOLEAN_HORI_FLIPPED
+let bottom_right_corner_id.opengl_boolean_adder = OPENGL_BOOLEAN_ROTATE_CLOCKWISE + OPENGL_BOOLEAN_HORI_FLIPPED
+
+
+
+start
+
+	if collapse = 1 then
+		goto collapse_label
+	end_if
+
+	if counter < 9000 then
+		let upper_width = 152 sin counter
+		let upper_width = upper_width + 152
+		let lower_width = upper_width
+
+		let upper_height = 112 sin counter
+		let upper_height = upper_height + 112
+		let lower_height = upper_height
+
+		let counter = counter + 250
+	end_if
+
+	let_value_loop master_frame_counter = 15 to 0 step -1
+
+end
+
+.collapse_label
+
+start
+	if counter > -9000 then
+		let upper_width = 152 sin counter
+		let upper_width = upper_width + 152
+		let lower_width = upper_width
+
+		let upper_height = 112 sin counter
+		let upper_height = upper_height + 112
+		let lower_height = upper_height
+
+		let counter = counter - 250
+	end_if
+
+	let_value_loop master_frame_counter = 15 to 0 step -1
+end
+
+
+

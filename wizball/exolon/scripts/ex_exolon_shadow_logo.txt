@@ -1,0 +1,57 @@
+#define deviation		v0
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+	let sprite = large_graphics[arb]
+	let base_frame = 3
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+
+	let world_x = 320
+	let world_y = 128
+
+	set_private_co_ords
+
+	let opengl_vertex_alpha = 0
+
+	let draw_order = draw_order + 1
+
+	let counter = rand 0 36000
+	let deviation = 850
+	
+start
+	if deviation > 0 then
+		let opengl_vertex_alpha = opengl_vertex_alpha + 3
+		let deviation = deviation - 10
+	else_if opengl_vertex_alpha > 0 then
+		let opengl_vertex_alpha = opengl_vertex_alpha - 3
+	else
+		kill_entity own_id
+	end_if
+
+	let counter = counter + 1000
+
+	let temp_1 = deviation sin counter
+	let opengl_scale_x = 10000 + temp_1
+
+	let temp_1 = deviation cos counter
+	let opengl_scale_y = 10000 + temp_1
+
+	if parent.signal = 1 then
+		goto kill_me_quick
+	end_if
+end
+
+.kill_me_quick
+
+start
+	if opengl_vertex_alpha > 0 then
+		let opengl_vertex_alpha = opengl_vertex_alpha - 10
+	else
+		kill_entity own_id
+	end_if
+end

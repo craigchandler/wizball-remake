@@ -1,0 +1,126 @@
+#define currently_selected		passed_param_1
+#define suspend_selector		passed_param_2
+
+#define first_option_y			v0
+#define option_gap_y			v1
+
+#define max_option			v2
+
+#define target_y			v3
+
+let world_x = 320
+
+SET_PRIVATE_CO_ORDS
+let sprite = large_graphics[arb]
+let current_frame = 11
+
+let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SECONDARY_SCALE
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SECONDARY_ROTATE
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+.restart
+
+let opengl_vertex_alpha = 0
+
+let signal = 0 // This indicates if we're active or not. Wooters!
+
+let draw_mode = DRAW_MODE_INVISIBLE
+
+let opengl_secondary_angle = rand 0 36000
+
+let opengl_secondary_scale_x = 50000
+let opengl_secondary_scale_y = 4000
+
+start
+	// Here we wait until the player either presses UP or DOWN or FIRE_1
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 UP then
+		goto the_next_bit
+	end_if
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 DOWN then
+		goto the_next_bit
+	end_if
+
+	IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 FIRE_1 then
+		goto the_next_bit
+	end_if
+
+	IF_INPUT_KEYBOARD_HIT key_enter then
+		goto the_next_bit
+	end_if
+
+end
+
+.the_next_bit
+
+wait 1 // wait for keyboard buffer flush
+
+let draw_mode = DRAW_MODE_SPRITE_EXTRA_TRANSFORMS
+
+let currently_selected = 0
+let temp_1 = currently_selected * option_gap_y
+let target_y = first_option_y + temp_1
+let world_y = target_y
+let draw_order = 9
+SET_PRIVATE_CO_ORDS
+
+start
+	if suspend_selector = 0 then
+
+		let opengl_vertex_alpha = opengl_vertex_alpha + 10 !> 200
+
+		IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 UP then
+			let currently_selected = currently_selected - 1 !< 0
+			PLAY_SOUND define_key 255 22050 128
+		end_if
+
+		IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 DOWN then
+			let currently_selected = currently_selected + 1 !> max_option
+			PLAY_SOUND define_key 255 22050 128
+		end_if
+
+		IF_INPUT_KEYBOARD_HIT key_enter then
+			let signal = 1 // If the parent sees this, they know we have decided...
+		else
+			IF_INPUT_PLAYER_CONTROL_HIT PLAYER_1 FIRE_1 then
+				let signal = 1 // If the parent sees this, they know we have decided...
+			else
+				let signal = 0
+			end_if		
+		end_if
+
+		let world_y = world_y >% target_y 5000
+
+		set_private_co_ords
+
+	else_if suspend_selector = 1 then
+		let signal = 0
+
+		let opengl_vertex_alpha = opengl_vertex_alpha - 10 !< 0
+
+		if opengl_vertex_alpha = 0 then
+			goto hibernate
+		end_if
+	else_if suspend_selector = 2 then
+		goto restart
+	end_if
+
+	let temp_1 = currently_selected * option_gap_y
+	let target_y = first_option_y + temp_1
+
+	let opengl_secondary_angle = opengl_secondary_angle + 250
+end
+
+.hibernate
+
+start
+
+	if suspend_selector = 0 then
+		goto the_next_bit
+	else_if suspend_selector = 2 then
+		goto restart
+	end_if
+end

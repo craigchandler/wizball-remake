@@ -1,0 +1,154 @@
+#define top_left_corner			0
+#define top_right_corner		1
+#define bottom_left_corner		2
+#define bottom_right_corner		3
+#define positive			1
+#define negative			-1
+
+#define horizontal_axis			0
+#define vertical_axis			1
+
+#define parent_corner			v0
+
+#define check_corner_id			v4
+#define check_axis			v5
+
+#define opengl_boolean_adder		v9
+
+#define top_left_corner_id		v10
+#define top_right_corner_id		v11
+#define bottom_left_corner_id		v12
+#define bottom_right_corner_id		v13
+
+#define border_style			v11
+#define border_style_in_game		0
+#define border_style_menu		1
+
+#define check_direction			v10
+
+#define master_frame_counter		v14
+
+let draw_order = 58
+
+let draw_mode = draw_mode_solid_rectangle
+
+set_private_co_ords
+
+// This then spawns the edges and corner pieces which will look to this
+// entity and it's width/height to know where they should be positioned.
+
+let upper_width = 0
+let lower_width = 0
+let upper_height = 0
+let lower_height = 0
+
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR
+
+let opengl_vertex_red = 0
+let opengl_vertex_green = 0
+let opengl_vertex_blue = 0
+
+spawn_entity ex_bordered_window_corner 0 0 process_next
+let top_left_corner_id = last_child
+let top_left_corner_id.parent_corner = top_left_corner
+
+spawn_entity ex_bordered_window_corner 0 0 process_next
+let top_right_corner_id = last_child
+let top_right_corner_id.parent_corner = top_right_corner
+
+spawn_entity ex_bordered_window_corner 0 0 process_next
+let bottom_left_corner_id = last_child
+let bottom_left_corner_id.parent_corner = bottom_left_corner
+
+spawn_entity ex_bordered_window_corner 0 0 process_next
+let bottom_right_corner_id = last_child
+let bottom_right_corner_id.parent_corner = bottom_right_corner
+
+let top_left_corner_id.check_corner_id = top_right_corner_id
+let top_right_corner_id.check_corner_id = bottom_left_corner_id
+let bottom_left_corner_id.check_corner_id = bottom_right_corner_id
+let bottom_right_corner_id.check_corner_id = top_left_corner_id
+
+let top_left_corner_id.check_axis = horizontal_axis
+let top_right_corner_id.check_axis = vertical_axis
+let bottom_left_corner_id.check_axis = horizontal_axis
+let bottom_right_corner_id.check_axis = vertical_axis
+
+let top_left_corner_id.check_direction = positive
+let top_right_corner_id.check_direction = positive
+let bottom_left_corner_id.check_direction = negative
+let bottom_right_corner_id.check_direction = negative
+
+let top_left_corner_id.border_style = border_style_in_game
+let top_right_corner_id.border_style = border_style_in_game
+let bottom_left_corner_id.border_style = border_style_in_game
+let bottom_right_corner_id.border_style = border_style_in_game
+
+let top_left_corner_id.opengl_boolean_adder = 0
+let top_right_corner_id.opengl_boolean_adder = OPENGL_BOOLEAN_ROTATE_CLOCKWISE
+let bottom_left_corner_id.opengl_boolean_adder = OPENGL_BOOLEAN_HORI_FLIPPED
+let bottom_right_corner_id.opengl_boolean_adder = OPENGL_BOOLEAN_ROTATE_CLOCKWISE + OPENGL_BOOLEAN_HORI_FLIPPED
+
+let counter = -9000
+
+let draw_order = 0
+
+start
+	if counter < 9250 then
+		let upper_width = 64 sin counter
+		let upper_width = upper_width + 64
+		let lower_width = upper_width
+
+		let upper_height = 32 sin counter
+		let upper_height = upper_height + 32
+		let lower_height = upper_height
+
+		let counter = counter + 250
+	end_if
+
+	if signal != 0 then
+		goto shutdown
+	end_if
+
+	let_value_loop master_frame_counter = 15 to 0 step -1
+end
+
+.shutdown
+
+start
+	if counter > -9250 then
+		let upper_width = 64 sin counter
+		let upper_width = upper_width + 64
+		let lower_width = upper_width
+
+		let upper_height = 32 sin counter
+		let upper_height = upper_height + 32
+		let lower_height = upper_height
+
+		let counter = counter - 250
+	else
+		goto now_really_shutdown
+	end_if
+
+	let_value_loop master_frame_counter = 15 to 0 step -1
+end
+
+.now_really_shutdown
+
+wait 10
+
+let draw_order = 58
+spawn_entity (ex_blip,0,0,process_next)
+let draw_order = 0
+//WATCH_ENTITY_VARIABLE last_child current_frame
+
+wait 2
+
+let signal = 2
+
+start
+
+end
+
+
+

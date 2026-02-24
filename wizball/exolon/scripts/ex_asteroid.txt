@@ -1,0 +1,117 @@
+// The asteroid behaves differently based on whether it has a parent or not. Without one it'll
+// just move off in a given direction (passed_param_1 = angle) but with one it'll accellerate
+// towards said planet so it crashes into the interior of it it and explodes, leaving a mark if it hits the front.
+
+#define movement_angle		passed_param_1
+#define movement_speed		passed_param_2
+#define size			passed_param_3
+#define size_increaser		passed_param_4
+#define spin			v0
+#define distance_to_parent	v1
+#define threshold		v2
+#define size_decreaser		v3
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let opengl_booleans = opengl_booleans + opengl_boolean_scale
+	let opengl_booleans = opengl_booleans + opengl_boolean_rotate
+	let opengl_booleans = opengl_booleans + opengl_boolean_filtered
+
+	let Bitshift = 8
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 89
+	let current_frame = base_frame
+
+	let draw_mode = draw_mode_sprite
+
+	if size = 0 then
+		let size = 10000
+	end_if
+
+	if movement_speed = 0 then
+		let movement_speed = 100
+	end_if
+
+	let opengl_scale_x = size
+	let opengl_scale_y = size
+
+	if parent = CONST_UNSET then
+		goto roaming_start
+	else
+		goto homing_start
+	end_if
+
+.homing_start
+
+let draw_order = parent.draw_order + 2
+let movement_angle = ANGLE_TO_ENTITY parent
+
+let x_vel = movement_speed cos movement_angle
+let y_vel = movement_speed sin movement_angle
+let threshold = 16 * 16
+
+let spin = movement_speed % 20000
+
+let distance_to_parent = SQUARED_DISTANCE_TO_ENTITY parent
+let distance_to_parent = sqr distance_to_parent
+
+let size_decreaser = distance_to_parent * 256
+let size_decreaser = size_decreaser / movement_speed
+
+let temp_1 = size % 7000
+
+let size_decreaser = temp_1 / size_decreaser
+
+start
+	let opengl_angle = opengl_angle + spin
+
+	let movement_angle = ANGLE_TO_ENTITY (parent)
+
+	let x_vel = movement_speed cos movement_angle
+	let y_vel = movement_speed sin movement_angle
+
+	let opengl_scale_x = opengl_scale_x - size_decreaser
+	let opengl_scale_y = opengl_scale_y - size_decreaser
+
+	let distance_to_parent = SQUARED_DISTANCE_TO_ENTITY (parent)
+
+	if distance_to_parent < threshold then
+//		if world_y > parent.world_y then
+			// Only cause hit and explosion on front-side
+			spawn_entity (ex_asteroid_impact, 0, 0, process_next)
+			let last_child.parent = parent
+			let last_child.movement_angle = movement_angle - 9000
+//		end_if
+		let parent.x_vel = x_vel / 10
+		let parent.y_vel = y_vel / 10
+		kill_entity (own_id)
+	end_if
+end
+
+.roaming_start
+
+let opengl_scale_x = rand 5000 20000
+let temp_1 = rand -3000 3000
+let opengl_scale_y = opengl_scale_x + temp_1
+
+let draw_order = 4
+
+let movement_speed = rand 100 250
+let movement_angle = rand -3000 3000
+
+let x_vel = movement_speed cos movement_angle
+let y_vel = movement_speed sin movement_angle
+
+
+let spin = movement_speed % 20000
+
+start
+
+	let opengl_scale_x = opengl_scale_x + size_increaser
+	let opengl_scale_y = opengl_scale_y + size_increaser
+
+	let opengl_angle = opengl_angle + spin
+
+end

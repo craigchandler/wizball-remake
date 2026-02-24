@@ -1,0 +1,42 @@
+#define base_colour			passed_param_1
+
+	LET ENTITY_TYPE = ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION + ENT_TYPE_DESTROYED_IN_LEVEL_RESET
+	LET ENTITY_TYPE = ENTITY_TYPE + ENT_TYPE_BONUS_LEVEL_ENTITY
+	LET ENTITY_TYPE = ENTITY_TYPE + ENT_TYPE_DISPOSABLE
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	let draw_order = EXPLOSION_DRAW_ORDER
+
+	let draw_mode = DRAW_MODE_SPRITE
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let sprite = parent.sprite
+	let current_frame = parent.current_frame
+
+	let bitshift = 8
+
+	set_private_co_ords
+
+start
+
+	GET_VERTEX_COLOURS_FROM_HSL base_colour 256 128
+
+	let base_colour = base_colour + 4 !< 0 !> 359
+
+	let opengl_vertex_alpha = opengl_vertex_alpha - 5 !< 0
+
+	if opengl_vertex_alpha = 0 then
+		kill_entity own_id
+	end_if
+
+	let opengl_scale_x = opengl_scale_x - 100 !< 100
+	let opengl_scale_y = opengl_scale_x
+
+	let x_vel = x_vel % 9800
+	let y_vel = y_vel % 9800
+
+end
+

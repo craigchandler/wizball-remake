@@ -1,0 +1,52 @@
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 19
+	let frame_count = 1
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let draw_order = 21
+
+	let COLLISION_SHAPE = RECTANGLE
+	SET_COLLISION_FROM_FRAME
+	let lower_width = lower_width - 8
+	let upper_width = upper_width - 8
+	let upper_height = upper_height - 8
+
+	let COLLIDE_TYPE = ENT_TYPE_ENEMY
+	let COLLIDE_WITH = ENT_TYPE_PLAYER
+
+	entity_hitline gosub destroyed
+
+start
+end
+
+.destroyed
+	REMOVE_FROM_COLLISION_LIST
+
+	play_sound fuel_explosion 255 22050 128
+
+	spawn_entity ex_big_explosion 0 lower_height process_next
+	let last_child.PASSED_PARAM_1 = 7000
+	let last_child.draw_order = last_child.draw_order + 1
+
+	wait 1
+
+	// Only do this after a while so that it doesn't stop things colliding with it too soon.
+
+	let collide_type = 0
+
+	wait 9
+
+	spawn_entity ex_flaming_debris 0 lower_height process_next
+	let last_child.base_frame = 7
+
+	let point_value = 50
+	spawn_entity ex_display_score 0 0 PROCESS_NEXT
+	let last_child.passed_param_1 = 4
+	let last_child.passed_param_2 = 0
+
+	kill_entity own_id

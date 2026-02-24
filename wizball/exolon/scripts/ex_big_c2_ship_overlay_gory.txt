@@ -1,0 +1,12 @@
+
+	let sprite = large_graphics[arb]
+	let base_frame = 25
+	let current_frame = base_frame
+	let draw_mode = draw_mode_sprite
+
+	let draw_order = draw_order + 1
+
+start
+	let world_x = parent.world_x
+	let world_y = parent.world_y
+end

@@ -1,0 +1,118 @@
+// This script is called by the program itself and will be the only one referenced
+// from within the code.
+
+#define window_colour_depth_status		v30
+
+//toggle_debug
+
+	define_key player_1 PICK_UP KEY_ENTER
+
+	SET_VIRTUAL_SCREEN_SIZE (640, 480)
+
+	SETUP_TILEMAP_COLLISION
+	SETUP_TILE_PROFILES (16)
+
+	SET_RESET_PREFAB (RESET_PREFAB)
+
+	set_global_flag (Rocket_in_flight, 0)
+	set_global_flag (Difficulty_level, 5000)
+	set_global_flag (Retro_control, 0)
+	set_global_flag (HIGHEST_LEVEL_REACHED, 0)
+	set_global_flag (start_level_store,CONST_UNSET)
+
+	set_global_flag (in_game_tune_channel,CONST_UNSET)
+	set_global_flag (end_of_level_tune_channel,CONST_UNSET)
+
+	LOAD_SAVE_FILE (save_file_tag)
+
+	spawn_entity (ex_intro_sequence, 0, 0, PROCESS_NEXT)
+
+	SET_WINDOW_COUNT (4)
+	SET_UP_WINDOW (MENU_WINDOW, 0, 0, 640, 480, 128, 256, 2)
+	SET_UP_WINDOW (GAME_MAIN_WINDOW, 0, 0, 640, 416, 32, 60, 0)
+	SET_UP_WINDOW (GAME_PANEL_WINDOW, 0, 416, 640, 64, 32, 4, 4)
+	SET_UP_WINDOW (FLOATING_OVERLAY_WINDOW, 0, 0, 640, 480, 32, 60, 2)
+
+	spawn_entity (ex_set_up_or_load_hiscores, 0, 0, process_next)
+
+	if_key_undefined PLAYER_1 UP then
+		spawn_entity (ex_define_default_controls,0,0,PROCESS_NEXT)
+	end_if
+
+	// Set up the default window option
+
+	GET_WINDOWED_STATUS temp_1
+
+	if temp_1 = 0 then
+		let window_colour_depth_status = 0
+	else
+		let window_colour_depth_status = 2
+	end_if
+
+	GET_COLOUR_DEPTH temp_1
+
+	if temp_1 = 32 then
+		let window_colour_depth_status = window_colour_depth_status + 1
+	end_if
+
+	set_global_flag (next_window_colour_depth_status, window_colour_depth_status)
+
+	let temp_1 = GET_MULTI_TEXTURE_IDEAL_STATUS
+
+	if temp_1 = FALSE then
+		DISABLE_MULTI_TEXTURE_EFFECTS
+	end_if
+
+	set_global_flag (next_multitexture_effects_status,temp_1)
+
+	// Done!
+
+	// Set up hardware stuff
+
+	if_hardware_graphics then
+		set_global_flag (next_hardware_mode,1)
+	else
+		set_global_flag (next_hardware_mode,0)
+	end_if
+
+	// Done!
+
+////	spawn_entity (ex_debug_handler,0,0,PROCESS_FIRST)
+
+	set_global_flag (start_level_adder,0)
+
+	kill_entity (own_id)
+
+	let counter = 0
+
+	start
+
+		let counter = counter + 1
+
+		if counter = 60 then
+			goto start_and_record
+		end_if
+
+		IF_INPUT_KEYBOARD_HIT KEY_1 then
+			goto start_and_playback
+		end_if
+
+	end
+
+.start_and_record
+	START_RECORDING_INPUT (1)
+	goto start_proper
+
+.start_and_playback
+	LOAD_RECORDED_INPUT (1, error_demo)
+	START_PLAYBACK_INPUT (1)
+	goto start_proper
+
+.start_proper
+	RESET_ENTITIES ex_launch_play
+	kill_entity (own_id)
+
+
+
+
+

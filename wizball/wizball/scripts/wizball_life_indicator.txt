@@ -1,0 +1,74 @@
+#define this_frame_life_count			v0
+#define last_frame_life_count			v1
+#define particle_count				v2
+
+#define wizball_icon_entity_id			v3
+
+#define extra_life_signal			1
+#define lose_life_signal			2
+
+
+	spawn_entity (wizball_life_indicator_background,0,0,process_next)
+	let wizball_icon_entity_id = last_child
+
+	LET WINDOW_NUMBER = GAME_PANEL_WINDOW
+	LET DRAW_ORDER = WIZBALL_LIFE_INDICATOR_DRAW_ORDER
+
+	let this_frame_life_count = get_global_flag (player_lives)
+	let last_frame_life_count = this_frame_life_count
+
+	let sprite = font[arb]
+	let base_frame = 74
+
+	let world_x = LIFE_INDICATOR_X_CO_ORD
+	let world_y = LIFE_INDICATOR_Y_CO_ORD
+
+	set_private_co_ords
+
+	let counter = 0
+
+	let draw_mode = draw_mode_sprite
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD + OPENGL_BOOLEAN_FILTERED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+
+start
+
+	let opengl_scale_x = opengl_scale_x >% 10000 500
+	let opengl_scale_y = opengl_scale_x
+	
+	let this_frame_life_count = get_global_flag (player_lives)
+	let current_frame = base_frame + this_frame_life_count !> 91
+
+	if last_frame_life_count < this_frame_life_count then
+		let wizball_icon_entity_id.signal = extra_life_signal
+
+		let opengl_scale_x = 15000
+
+		let particle_count = get_global_flag (particle_commonness_multiplier)
+		let particle_count = 5 * particle_count
+
+		for temp_1 = 1 to particle_count
+			let temp_2 = rand (-16,16)
+			let temp_3 = rand (-16,16)
+
+			spawn_entity particle_status_twinkle,temp_2,temp_3,process_next
+		next
+	else_if last_frame_life_count > this_frame_life_count then
+		let wizball_icon_entity_id.signal = lose_life_signal
+
+		let opengl_scale_x = 500
+
+		let particle_count = get_global_flag (particle_commonness_multiplier)
+		let particle_count = 5 * particle_count
+
+		for temp_1 = 1 to particle_count
+			let temp_2 = rand (-16,16)
+			let temp_3 = rand (-16,16)
+
+			spawn_entity particle_status_spiral_twinkle,temp_2,temp_3,process_next
+		next
+	end_if
+
+	let last_frame_life_count = this_frame_life_count
+end

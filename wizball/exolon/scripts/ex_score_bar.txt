@@ -1,0 +1,75 @@
+#define angular_offset v0
+#define base_angle v1
+#define private_angle v2
+#define base_world_y v3
+#define base_draw_order v4
+#define private_number v5
+#define extra_scaler v6
+#define distance v7
+#define current_front_runner v10
+
+#define END_LEVEL_SIGNAL 9999
+
+set_private_co_ords
+
+let base_world_y = world_y
+
+let sprite = gameover[arb]
+let current_frame = base_frame
+
+let opengl_booleans = OPENGL_BOOLEAN_SCALE
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_BLEND_MULTIPLY
+
+let draw_mode = draw_mode_sprite
+
+let extra_scaler = 100
+let base_draw_order = 30
+
+let distance = 0
+
+start
+	let private_angle = parent.base_angle + angular_offset 
+
+	let temp_1 = distance cos private_angle
+	let world_y = base_world_y + temp_1
+
+	let distance = distance >% 48 800
+
+	let temp_2 = 2000 sin private_angle
+	let opengl_scale_x = temp_2 + 8000
+	let opengl_scale_x = opengl_scale_x % extra_scaler 
+	let opengl_scale_y = opengl_scale_x
+
+	let temp_3 = temp_2 + 4000
+	let opengl_vertex_red = temp_3 * 256
+	let opengl_vertex_red = opengl_vertex_red / 8000
+	let opengl_vertex_green = opengl_vertex_red
+	let opengl_vertex_blue = opengl_vertex_red
+
+	let temp_3 = 10 sin private_angle
+	let draw_order = base_draw_order + temp_3
+
+	if parent.signal != CONST_UNSET then
+		if parent.signal != private_number then
+			if opengl_vertex_alpha > 0 then
+				let opengl_vertex_alpha = opengl_vertex_alpha - 3
+			else
+				kill_entity own_id
+			end_if
+		else
+			let draw_order = base_draw_order + 10
+			let extra_scaler = extra_scaler + 50
+			if extra_scaler > 15000 then
+				let opengl_vertex_alpha = opengl_vertex_alpha - 3
+			end_if
+			if extra_scaler > 20000 then
+				let parent.signal = END_LEVEL_SIGNAL
+				spawn_entity ex_add_score,0,0,process_next
+				kill_entity own_id
+			end_if
+		end_if
+	else
+		let extra_scaler = extra_scaler >% 10000 800
+	end_if
+end

@@ -1,0 +1,175 @@
+#define missile_id 				v0
+#define offset_to_room_edge_x 			v1
+#define solid_collision_builder_x 		v2
+#define solid_collision_builder_y 		v3
+#define top_vertical_spawn_position 		v4
+#define bottom_vertical_spawn_position 		v5
+#define player_id 				v6
+#define player_vertical_position 		v7
+#define sound_channel				v8
+#define colour_flip_flop			v9
+#define sound_frequency				v10
+#define sound_volume				v11
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+	let sprite = level_scenery_sprites[arb]
+	let base_frame = 11
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE
+	let draw_order = 5
+	let drop_item = 5
+	
+	let current_zone = GET_CURRENT_ZONE (world_x, world_y, game_room_zone)
+	let BOUNDARY_START_X, BOUNDARY_END_X = GET_HORIZONTAL_ZONE_EXTENTS (current_zone)
+
+	let offset_to_room_edge_x = boundary_end_x - world_x
+	let offset_to_room_edge_x = offset_to_room_edge_x + 32
+
+	let missile_id = const_unset
+
+	let COLLISION_SHAPE = RECTANGLE
+	SET_COLLISION_FROM_FRAME
+
+	let solid_collision_builder_x = world_x - upper_width
+	let solid_collision_builder_y = world_y - upper_height
+
+	let solid_collision_builder_x = solid_collision_builder_x / 16
+	let solid_collision_builder_y = solid_collision_builder_y / 16
+
+	let solid_collision_builder_x = solid_collision_builder_x + 1
+
+	SET_COLLISION_BY_PARAMETERS solid_collision_builder_x solid_collision_builder_y 2 9 66
+
+	let COLLIDE_TYPE = ENT_TYPE_ENEMY_EMPLACEMENT
+	let COLLIDE_wITH = ENT_TYPE_PLAYER_SUPER_BULLET
+
+	entity_hitline gosub destroyed
+
+	spawn_entity ex_missile_tracker_base 0 64 PROCESS_NEXT
+
+
+	IF_HARDWARE_GRAPHICS then
+		IF_BLEND_MODE_AVAILABLE then
+			spawn_entity ex_overlay_enemy_missile_tracker 0 0 PROCESS_NEXT
+		else
+			// Have a fadey pulser using that graphic which is already the right side for the top bit...
+		end_if
+	else
+
+	end_if
+	
+
+	let player_id = get_global_flag (Player_entity_id)
+	let top_vertical_spawn_position = 160
+	let bottom_vertical_spawn_position = 416 - 160
+
+	let sound_channel = play_looped_sound (tracker_top_sound, 255, 22050, 128)
+	add_to_persistant_channels sound_channel
+
+	let counter = 0
+	let colour_flip_flop = 0
+
+	
+
+start
+	if missile_id = CONST_UNSET then
+		spawn_entity ex_enemy_guided_missile offset_to_room_edge_x 0 PROCESS_NEXT
+		let player_vertical_position = player_id.world_y - 32
+
+		if player_vertical_position < top_vertical_spawn_position then
+			let last_child.world_y = top_vertical_spawn_position
+		else_if player_vertical_position > bottom_vertical_spawn_position then
+			let last_child.world_y = bottom_vertical_spawn_position
+		else
+			let last_child.world_y = player_vertical_position
+		end_if
+		
+//		spawn_entity ex_enemy_guided_missile 0 0 PROCESS_NEXT
+		let missile_id = last_child
+		let missile_id.BOUNDARY_START_X = BOUNDARY_START_X - 32
+		let missile_id.BOUNDARY_END_X = BOUNDARY_END_X + 32
+		let missile_id.FACING_DIRECTION = -1
+	else
+		if missile_id.alive <= 0 then
+			let missile_id = const_unset
+		else_if missile_id.script_number != ex_enemy_guided_missile then
+			let missile_id = const_unset
+		end_if
+	end_if
+
+	let temp_1 = counter mod 20
+	let counter = counter + 1
+
+	if temp_1 = 0 then
+		spawn_entity ex_missile_tracker_ping 0 48 process_next
+		let last_child.passed_param_1 = colour_flip_flop
+		let colour_flip_flop = 1 - colour_flip_flop
+	end_if
+
+end
+
+.destroyed
+	REMOVE_FROM_COLLISION_LIST
+	let collide_type = 0
+
+
+	play_sound large_object_explosion 255 33000 128
+
+	spawn_entity ex_small_shaker_explosion 0 0 process_next
+	let last_child.draw_order = last_child.draw_order + 1
+
+	let signal = 1
+
+	wait 15
+
+	spawn_entity ex_big_explosion 0 lower_height process_next
+	let last_child.PASSED_PARAM_1 = 10000
+	let last_child.PASSED_PARAM_2 = 1
+	let last_child.draw_order = last_child.draw_order + 1
+
+	play_sound fuel_explosion 255 22050 128
+
+	wait 10
+
+	SET_COLLISION_BY_PARAMETERS solid_collision_builder_x solid_collision_builder_y 2 9 0
+
+	spawn_entity ex_debris 0 lower_height process_next
+	let last_child.base_frame = DROP_ITEM
+
+	let point_value = 350
+	spawn_entity ex_display_score 0 32 PROCESS_NEXT
+	let last_child.passed_param_1 = 4
+	let last_child.passed_param_2 = 0
+
+	let draw_mode = draw_mode_invisible
+
+// Time to detune...
+
+	let entity_type = 0 // So it doesn't get killed off mid-fade
+
+	let sound_frequency = 22050
+	let sound_volume = 255
+
+start
+	remove_from_persistant_channels sound_channel
+	adjust_sound sound_channel sound_volume sound_frequency 128
+
+	let sound_frequency = sound_frequency - 150
+
+	if sound_frequency < 1000 then
+
+		let sound_volume = sound_volume - 10
+		let sound_frequency = 1000
+
+		if sound_volume < 10 then
+			STOP_SOUND sound_channel
+
+			kill_entity own_id
+		end_if
+	end_if
+end
+

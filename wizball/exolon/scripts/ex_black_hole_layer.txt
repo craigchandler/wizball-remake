@@ -1,0 +1,39 @@
+#define rotation_speed		passed_param_1
+#define size			passed_param_2
+#define skew_angle		passed_param_3
+
+	let entity_type = entity_type + ENT_TYPE_DISPOSABLE
+	let entity_type = entity_type + ENT_TYPE_SLEEPABLE
+
+	let Bitshift = 0
+	SET_PRIVATE_CO_ORDS
+
+	let draw_order = 5
+
+	let sprite = large_graphics[arb]
+	let base_frame = 107
+	let current_frame = base_frame
+	let draw_mode = DRAW_MODE_SPRITE_EXTRA_TRANSFORMS
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SECONDARY_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_FILTERED
+
+	let counter = 0
+
+	let opengl_angle = skew_angle
+
+	let opengl_vertex_alpha = 180
+
+	let opengl_secondary_angle = rand 0 36000
+	
+	let opengl_scale_x = 160000 % size
+	let opengl_scale_y = 40000 % size
+
+start
+
+	let opengl_secondary_angle = opengl_secondary_angle + rotation_speed
+
+end

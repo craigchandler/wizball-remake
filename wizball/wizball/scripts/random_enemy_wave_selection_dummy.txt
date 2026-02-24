@@ -1,0 +1,12 @@
+// This really does nothing, except allow you to set enemy selection stuff. Will be killed by it's parent/child.
+
+	let bitshift = 0
+	set_private_co_ords
+
+	let sprite = editor_icons[set][32][32][16][16]
+	let base_frame = 4
+
+start
+
+end
+
