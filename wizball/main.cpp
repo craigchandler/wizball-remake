@@ -1,6 +1,7 @@
 #include "version.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 #include <allegro.h>
@@ -13,6 +14,10 @@
 #include <signal.h>
 #ifdef ALLEGRO_LINUX
 	#include <execinfo.h>
+	#include <sys/time.h>
+#endif
+#ifdef ALLEGRO_MACOSX
+	#include <sys/time.h>
 #endif
 
 #include "string_size_constants.h"
@@ -110,6 +115,8 @@ bool output_debug_information = false;
 bool create_dat_file = true;
 
 bool load_from_dat_file = false;
+bool linux_vblank_hint_enabled = true;
+bool linux_timer_watchdog_enabled = true;
 
 typedef struct
 {
@@ -290,6 +297,56 @@ void TIMING_fps_handler()
 }
 END_OF_FUNCTION (TIMING_fps_handler);
 
+
+unsigned int MAIN_get_wall_time_ms(void)
+{
+#ifdef ALLEGRO_WINDOWS
+	return (unsigned int)GetTickCount();
+#else
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	return (unsigned int)((tv.tv_sec * 1000) + (tv.tv_usec / 1000));
+#endif
+}
+
+
+void MAIN_configure_linux_vblank_environment(void)
+{
+#ifdef ALLEGRO_LINUX
+	if (linux_vblank_hint_enabled == false)
+	{
+		MAIN_add_to_log("Linux vblank env hints disabled by -novblankhint.");
+		return;
+	}
+
+	char line[MAX_LINE_SIZE];
+	const char *mesa_vblank = getenv("vblank_mode");
+	const char *nvidia_vblank = getenv("__GL_SYNC_TO_VBLANK");
+
+	if (mesa_vblank == NULL)
+	{
+		setenv("vblank_mode", "0", 0);
+		MAIN_add_to_log("Set env vblank_mode=0 (Mesa swap sync disable hint).");
+	}
+	else
+	{
+		sprintf(line, "Keep existing env vblank_mode=%s", mesa_vblank);
+		MAIN_add_to_log(line);
+	}
+
+	if (nvidia_vblank == NULL)
+	{
+		setenv("__GL_SYNC_TO_VBLANK", "0", 0);
+		MAIN_add_to_log("Set env __GL_SYNC_TO_VBLANK=0 (NVIDIA swap sync disable hint).");
+	}
+	else
+	{
+		sprintf(line, "Keep existing env __GL_SYNC_TO_VBLANK=%s", nvidia_vblank);
+		MAIN_add_to_log(line);
+	}
+#endif
+}
+
 #ifdef ALLEGRO_MACOSX
 extern "C" char* project_writeable(char*);
 #endif
@@ -454,21 +511,53 @@ int game_main(void)
 	game_trigger=0;
 
 	int first_frames = 2;
+	const int max_logic_steps_per_frame = 2;
+	const int max_logic_backlog = 4;
+	const int timer_stall_recovery_ms = 100;
+	unsigned int last_logic_tick_time = MAIN_get_wall_time_ms();
 
 	int counter = 0;
 
 	char word[MAX_LINE_SIZE];
 
 	do {
-		// This will loop as long as the game timer trigger is >0.
-		// The stuff in here is fast as its just logic code with no rasterizing.
-		while ((game_trigger) && (draw == false))
+		// Keep simulation ticking at a fixed timer rate while rendering once per frame.
+		// A small cap prevents runaway catch-up when rendering stalls.
+		int logic_steps = 0;
+
+		if (close_callback_signal == 1)
+		{
+			close_callback_signal = 2;
+
+			SCRIPTING_spawn_shutdown_entity();
+//			SCRIPTING_spawn_entity_by_name("shutdown",0,0,0,0,0);
+		}
+
+		if ((linux_timer_watchdog_enabled == true) && (game_trigger <= 0))
+		{
+			unsigned int now = MAIN_get_wall_time_ms();
+			unsigned int stalled_ms = now - last_logic_tick_time;
+
+			// Some Linux compositor/display transitions can temporarily stop Allegro timer callbacks.
+			// Recover with a conservative synthetic tick so the game loop cannot hard-freeze.
+			if (stalled_ms >= timer_stall_recovery_ms)
+			{
+				game_trigger = 1;
+				last_logic_tick_time = now;
+			}
+		}
+
+		if (game_trigger > max_logic_backlog)
+		{
+			game_trigger = max_logic_backlog;
+		}
+
+		if (game_trigger > 0)
 		{
 			#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
 			sprintf (wheres_wally,"I'm in the game loop!");
 			#endif
 		
-			CONTROL_update_all_input ();
 			SOUND_check_persistant_channel_validity ();
 			SOUND_fade_channels ();
 
@@ -476,35 +565,37 @@ int game_main(void)
 			sprintf (wheres_wally,"Just updated the control!");
 			#endif
 
-			frames_so_far++;
-
-			if (close_callback_signal == 1)
+			while ((game_trigger > 0) && (logic_steps < max_logic_steps_per_frame) && (exit_game == false))
 			{
-				close_callback_signal = 2;
+				// Poll input on logic ticks so CONTROL_key_hit edge transitions are observed by game logic.
+				CONTROL_update_all_input ();
 
-				SCRIPTING_spawn_shutdown_entity();
-//				SCRIPTING_spawn_entity_by_name("shutdown",0,0,0,0,0);
+				switch(game_state)
+				{
+				case GAME_STATE_EXIT_GAME:
+					exit_game = true;
+					break;
+
+				case GAME_STATE_GAME:
+					GAME_game ();
+					break;
+
+				default:
+					break;
+				}
+
+				frames_so_far++;
+				counter++;
+				game_trigger--;
+				logic_steps++;
+				last_logic_tick_time = MAIN_get_wall_time_ms();
 			}
 
-			switch(game_state)
-			{
-			case GAME_STATE_EXIT_GAME:
-				exit_game = true;
-				break;
-
-			case GAME_STATE_GAME:
-				GAME_game ();
-				break;
-
-			default:
-				break;
-			}
-
-			frames_so_far++;
-			counter++;
-
-			draw = true;
-			game_trigger=0; // Decrement game count for next loop
+			draw = (logic_steps > 0);
+		}
+		else
+		{
+			draw = false;
 		}
 
 		if (draw==true)
@@ -1301,6 +1392,14 @@ int main (int argc, char *argv[])
 		{
 			force_dat_mode = true;
 		}
+		else if (strcmp("-novblankhint",argv[t]) == 0)
+		{
+			linux_vblank_hint_enabled = false;
+		}
+		else if (strcmp("-notimerwatchdog",argv[t]) == 0)
+		{
+			linux_timer_watchdog_enabled = false;
+		}
 		else if (strcmp("-datdir", argv[t]) == 0)
 		{
 			if ((t + 1) < argc)
@@ -1337,6 +1436,15 @@ int main (int argc, char *argv[])
 #endif
 
 	MAIN_start_log ();
+	MAIN_configure_linux_vblank_environment();
+	if (linux_timer_watchdog_enabled)
+	{
+		MAIN_add_to_log("Linux timer watchdog enabled.");
+	}
+	else
+	{
+		MAIN_add_to_log("Linux timer watchdog disabled by -notimerwatchdog.");
+	}
 
 	MAIN_add_to_log ("Initialised Allegro...");
 	allegro_init();

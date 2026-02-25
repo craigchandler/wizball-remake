@@ -171,8 +171,6 @@ DATAFILE *gfx_dat = NULL;
 DATAFILE *stream_dat = NULL;
 DATAFILE *music_dat = NULL;
 
-
-
 void * INPUT_get_stream_data_pointer(char *object_name, int *data_length)
 {
 	DATAFILE *data_pointer = find_datafile_object(stream_dat, object_name);
@@ -685,7 +683,7 @@ void OUTPUT_enable_vsync (void)
 
 void OUTPUT_disable_vsync (void)
 {
-	wait_for_vsync = true;
+	wait_for_vsync = false;
 }
 
 
@@ -4577,10 +4575,6 @@ void OUTPUT_store_frame_info_in_entity_collision_including_scale (int *entity_po
 	entity_pointer [ENT_LOWER_WIDTH] = ((width-1) - pivot_x) + modifier;
 	entity_pointer [ENT_LOWER_HEIGHT] = ((height-1) - pivot_y) + modifier;
 }
-
-
-
-
 
 
 
