@@ -1,5 +1,6 @@
 # Build directories
 /build/
+/build_asan/
 /cmake-build-*/
 
 # CMake/Ninja/Make artifacts
@@ -41,6 +42,9 @@ a.out
 # Project-generated pack/build scripts and logs
 wizball/data_compile*
 wizball/logfile.txt
+wizball/crash.log
 wizball/the_last_thing_i_did.txt
 wizball/OpenGL_Extension.txt
 wizball/fortify.log
+logfile.txt
+crash.log
