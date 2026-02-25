@@ -1,4 +1,4 @@
-377
+379
 12
 BONUS = 40 *
 1
@@ -479,6 +479,10 @@ PETER HULL
 LINUX CONVERSION
 14
 SCOTT WIGHTMAN
+20
+LINUX REVIVAL (2026)
+14
+CRAIG CHANDLER
 13
 GRAHAM GORING
 13
@@ -503,8 +507,8 @@ PUNY MORTALS!
 .............
 13
 recorded_demo
-10
-error_demo
+18
+recorded_demo_0024
 10
 range_demo
 20
@@ -555,8 +559,8 @@ MUSIC VOLUME
 SOUND VOLUME    
 3
 5 -
-16
-DISPLAY MODE    
+17
+GRAPHICS MODE    
 3
 6 -
 13

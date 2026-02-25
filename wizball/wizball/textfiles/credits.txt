@@ -22,6 +22,8 @@ dummy_tag		INFAMOUS
 dummy_tag		MAC CONVERSION
 dummy_tag		PETER HULL
 
-credit_end_tag		LINUX CONVERSION
+dummy_tag		LINUX CONVERSION
 dummy_tag		SCOTT WIGHTMAN
 
+credit_end_tag		LINUX REVIVAL (2026)
+dummy_tag		CRAIG CHANDLER
