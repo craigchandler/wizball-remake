@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 project(WizBall LANGUAGES CXX)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 include(CheckCXXSymbolExists)
+include(CheckCXXSourceCompiles)
 
 set(CMAKE_CXX_STANDARD 98)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -73,16 +74,23 @@ if(WIZBALL_ENABLE_FMOD)
     message(FATAL_ERROR "WIZBALL_ENABLE_FMOD is ON, but FMOD headers or library were not found.")
   endif()
 
-  # This codebase uses the legacy FSOUND_* API, which is not present in all FMOD packages.
+  # Validate modern FMOD Ex/Core API availability.
   set(CMAKE_REQUIRED_INCLUDES ${FMOD_INCLUDE_DIR})
-  check_cxx_symbol_exists(FSOUND_Init "fmod.h" WIZBALL_FMOD_HAS_FSOUND_API)
+  set(CMAKE_REQUIRED_LIBRARIES ${FMOD_LIBRARY})
+  check_cxx_source_compiles("
+    #include <fmod.h>
+    int main() {
+      FMOD_SYSTEM *sys = 0;
+      FMOD_RESULT r = FMOD_System_Create(&sys);
+      (void)r;
+      return 0;
+    }" WIZBALL_FMOD_HAS_MODERN_API)
   unset(CMAKE_REQUIRED_INCLUDES)
+  unset(CMAKE_REQUIRED_LIBRARIES)
 
-  if(NOT WIZBALL_FMOD_HAS_FSOUND_API)
+  if(NOT WIZBALL_FMOD_HAS_MODERN_API)
     message(FATAL_ERROR
-      "WIZBALL_ENABLE_FMOD is ON, but the installed FMOD headers do not expose legacy FSOUND_* symbols.\n"
-      "This engine's sound backend expects FMOD 3-style FSOUND API. Keep WIZBALL_ENABLE_FMOD=OFF,\n"
-      "or port wizball/sound.cpp to modern FMOD Ex API.")
+      "WIZBALL_ENABLE_FMOD is ON, but the installed FMOD headers do not expose modern FMOD_System_* symbols.")
   endif()
 
   list(APPEND WIZBALL_SOURCES wizball/sound.cpp)

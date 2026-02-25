@@ -1,6 +1,7 @@
 # Build directories
 /build/
 /build_release/
+/build_fmod/
 /build_asan/
 /cmake-build-*/
 

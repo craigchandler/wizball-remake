@@ -1400,6 +1400,19 @@ int main (int argc, char *argv[])
 		{
 			linux_timer_watchdog_enabled = false;
 		}
+		else if (strcmp("-fmoddriver", argv[t]) == 0)
+		{
+			if ((t + 1) < argc)
+			{
+				SOUND_set_preferred_driver(atoi(argv[t + 1]));
+				t++;
+			}
+			else
+			{
+				OUTPUT_message("Missing argument after -fmoddriver");
+				return 1;
+			}
+		}
 		else if (strcmp("-datdir", argv[t]) == 0)
 		{
 			if ((t + 1) < argc)

@@ -25,6 +25,7 @@ void SOUND_set_global_sound_volume (int percentage);
 void SOUND_set_global_music_volume (int percentage);
 int SOUND_get_global_sound_volume (void);
 int SOUND_get_global_music_volume (void);
+void SOUND_set_preferred_driver (int driver_index);
 
 extern int current_persistant_channels;
 extern int fading_channel_count;
@@ -35,4 +36,3 @@ extern int fading_channel_count;
 #define MAX_FADER_CHANNELS		(128)
 
 #endif
-
