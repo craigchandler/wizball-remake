@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(WizBall LANGUAGES CXX)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+include(CheckCXXSymbolExists)
 
 set(CMAKE_CXX_STANDARD 98)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,6 +10,7 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 option(WIZBALL_ENABLE_FMOD "Build with FMOD backend (requires FMOD headers/libs)" OFF)
 option(WIZBALL_ENABLE_ASAN "Build with AddressSanitizer (debug heap corruption)" OFF)
+set(WIZBALL_DAT_TOOL "dat" CACHE STRING "Path/name of Allegro dat packing tool")
 
 find_path(ALLEGRO_INCLUDE_DIR allegro.h)
 find_library(ALLEGRO_LIBRARY NAMES alleg allegro)
@@ -60,11 +63,26 @@ set(WIZBALL_SOURCES
 )
 
 if(WIZBALL_ENABLE_FMOD)
-  find_path(FMOD_INCLUDE_DIR fmod.h)
+  find_path(FMOD_INCLUDE_DIR
+    fmod.h
+    PATH_SUFFIXES fmodex
+  )
   find_library(FMOD_LIBRARY NAMES fmod fmodex)
 
   if(NOT FMOD_INCLUDE_DIR OR NOT FMOD_LIBRARY)
     message(FATAL_ERROR "WIZBALL_ENABLE_FMOD is ON, but FMOD headers or library were not found.")
+  endif()
+
+  # This codebase uses the legacy FSOUND_* API, which is not present in all FMOD packages.
+  set(CMAKE_REQUIRED_INCLUDES ${FMOD_INCLUDE_DIR})
+  check_cxx_symbol_exists(FSOUND_Init "fmod.h" WIZBALL_FMOD_HAS_FSOUND_API)
+  unset(CMAKE_REQUIRED_INCLUDES)
+
+  if(NOT WIZBALL_FMOD_HAS_FSOUND_API)
+    message(FATAL_ERROR
+      "WIZBALL_ENABLE_FMOD is ON, but the installed FMOD headers do not expose legacy FSOUND_* symbols.\n"
+      "This engine's sound backend expects FMOD 3-style FSOUND API. Keep WIZBALL_ENABLE_FMOD=OFF,\n"
+      "or port wizball/sound.cpp to modern FMOD Ex API.")
   endif()
 
   list(APPEND WIZBALL_SOURCES wizball/sound.cpp)
@@ -120,5 +138,22 @@ add_custom_target(run_wizball_dat_debug
   COMMAND $<TARGET_FILE:wizball> -dat -debug
   DEPENDS wizball
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wizball
+  USES_TERMINAL
+)
+
+add_custom_target(repack_wizball_data
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/repack_wizball_data.py
+          --root ${CMAKE_CURRENT_SOURCE_DIR}
+          --dat-tool ${WIZBALL_DAT_TOOL}
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  USES_TERMINAL
+)
+
+add_custom_target(repack_wizball_data_full
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/repack_wizball_data.py
+          --root ${CMAKE_CURRENT_SOURCE_DIR}
+          --dat-tool ${WIZBALL_DAT_TOOL}
+          --include-core-data
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   USES_TERMINAL
 )
