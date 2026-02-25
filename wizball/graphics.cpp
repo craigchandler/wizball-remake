@@ -45,6 +45,11 @@ void GRAPHICS_load_graphics()
 
 	GPL_list_extents ("SPRITES", &list_start, &list_end);
 	char *extension_pointer = GPL_what_is_list_extension ("SPRITES");
+	if ((list_start == UNSET) || (list_end == UNSET) || (extension_pointer == NULL))
+	{
+		MAIN_add_to_log("SPRITES list missing or invalid in global parameter list.");
+		return;
+	}
 
 	#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 		char debug_text[MAX_LINE_SIZE];
@@ -84,19 +89,30 @@ void GRAPHICS_load_graphics()
 
 		word_pointer = strtok(filename,"[].");
 		word_pointer = strtok(NULL,"[].");
+		if (word_pointer == NULL)
+		{
+			char skip_text[MAX_LINE_SIZE];
+			sprintf(skip_text, "Skipping malformed sprite entry '%s'.", GPL_what_is_word_name(list_pointer));
+			MAIN_add_to_log(skip_text);
+			continue;
+		}
 
 		if ( strcmp(word_pointer,"SET") == 0 ) // it's a set type! Hurrah! This means they are all the same...
 		{
 			word_pointer = strtok(NULL,"[].");
+			if (word_pointer == NULL) { continue; }
 			frame_width = atoi(word_pointer);
 
 			word_pointer = strtok(NULL,"[].");
+			if (word_pointer == NULL) { continue; }
 			frame_height = atoi(word_pointer);
 
 			word_pointer = strtok(NULL,"[].");
+			if (word_pointer == NULL) { continue; }
 			pivot_x = atoi(word_pointer);
 
 			word_pointer = strtok(NULL,"[].");
+			if (word_pointer == NULL) { continue; }
 			pivot_y = atoi(word_pointer);
 
 			#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
@@ -156,4 +172,3 @@ void GRAPHICS_load_graphics()
 	}
 
 }
-
