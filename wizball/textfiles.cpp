@@ -175,7 +175,7 @@ void TEXTFILE_load_compiled_text_from_datafile (void)
 {
 	char filename[MAX_LINE_SIZE];
 	char line[MAX_LINE_SIZE];
-	sprintf (filename,"%s\\data.dat#cptf.txt",MAIN_get_project_name());
+	sprintf (filename,"%s\\data.dat#cptf.txt",MAIN_get_pack_project_name());
 	fix_filename_slashes(filename);
 	PACKFILE *packfile_pointer = pack_fopen (filename,"r");
 
@@ -343,5 +343,4 @@ int TEXTFILE_get_line_length_by_index (int index)
 		return strlen (tx[index].line);
 	}
 }
-
 

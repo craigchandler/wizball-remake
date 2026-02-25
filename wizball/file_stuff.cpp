@@ -13,7 +13,7 @@
 
 #include "fortify.h"
 
-#if defined(ALLEGRO_MACOSX) || !defined(ALLEGRO_WINDOWS)
+#if defined(ALLEGRO_MACOSX) || defined(ALLEGRO_LINUX)
 	struct al_ffblk finder;
 	char file_pattern[NAME_SIZE];
 #else
@@ -232,7 +232,7 @@ int FILE_get_int_from_file (FILE *file_pointer)
 }
 
 
-#if defined(ALLEGRO_MACOSX) || !defined(ALLEGRO_WINDOWS)
+#if defined(ALLEGRO_MACOSX) || defined(ALLEGRO_LINUX)
 
 
 
@@ -345,5 +345,4 @@ char * FILE_read_dir_entry (bool capitalise)
 }
 
 #endif
-
 

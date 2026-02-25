@@ -115,7 +115,7 @@ void TILESETS_draw_loaded_tileset_names (void);
 
 void TILESETS_invert_tile_solidity (void);
 
-void TILESETS_load_game_data (void);
+bool TILESETS_load_game_data (void);
 
 void TILESETS_reset_conversion_table (int tilemap_index);
 void TILESETS_add_to_conversion_table (int tilemap_index, int first_original_tile, int last_original_tile, int first_replacement_tile);
@@ -126,4 +126,3 @@ extern tileset *ts;
 extern int number_of_tilesets_loaded;
 
 #endif
-

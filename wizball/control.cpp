@@ -3411,14 +3411,14 @@ void CONTROL_blank_mouse_input (void)
 
 	for (t=0; t<MOUSE_AXIS; t++)
 	{
-		mouse_button_store[t].current_state = 0;
-		mouse_button_store[t].old_state = 0;
-		mouse_button_store[t].current_position = 0;
-		mouse_button_store[t].old_position = 0;
-		mouse_button_store[t].this_hit = 0;
-		mouse_button_store[t].prev_hit = 0;
-		mouse_button_store[t].held_time = 0;
-		mouse_button_store[t].locked = false;
+		mouse_position_store[t].current_state = 0;
+		mouse_position_store[t].old_state = 0;
+		mouse_position_store[t].current_position = 0;
+		mouse_position_store[t].old_position = 0;
+		mouse_position_store[t].this_hit = 0;
+		mouse_position_store[t].prev_hit = 0;
+		mouse_position_store[t].held_time = 0;
+		mouse_position_store[t].locked = false;
 
 		mouse_sampling_size[t] = 1;
 
@@ -3428,7 +3428,7 @@ void CONTROL_blank_mouse_input (void)
 		}
 	}
 
-	for (t=0; t<=MOUSE_BUTTONS; t++)
+	for (t=0; t<MOUSE_BUTTONS; t++)
 	{
 		mouse_button_store[t].current_state = 0;
 		mouse_button_store[t].old_state = 0;

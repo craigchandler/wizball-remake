@@ -490,7 +490,7 @@ void GPL_load_global_parameter_list_from_datfile(void)
 	char line[NAME_SIZE*2];
 	char filename[MAX_LINE_SIZE];
 
-	sprintf (filename,"%s\\data.dat#gpl_list_size.txt",MAIN_get_project_name());
+	sprintf (filename,"%s\\data.dat#gpl_list_size.txt",MAIN_get_pack_project_name());
 	fix_filename_slashes(filename);
 
 	PACKFILE *packfile_pointer = pack_fopen (filename,"r");
@@ -522,7 +522,7 @@ void GPL_load_global_parameter_list_from_datfile(void)
 		assert(0); // AARGH!
 	}
 
-	sprintf (filename,"%s\\data.dat#global_parameter_list.txt",MAIN_get_project_name());
+	sprintf (filename,"%s\\data.dat#global_parameter_list.txt",MAIN_get_pack_project_name());
 	fix_filename_slashes(filename);
 
 	packfile_pointer = pack_fopen (filename,"r");

@@ -761,6 +761,27 @@ void OBCOLL_open_up_collision_buckets (void)
 	end_x = (end_x >> collision_bitshift) + 1;
 	end_y = (end_y >> collision_bitshift) + 1;
 
+	if (start_x < 0)
+	{
+		start_x = 0;
+	}
+	if (start_y < 0)
+	{
+		start_y = 0;
+	}
+	if (end_x > collision_buckets_per_row)
+	{
+		end_x = collision_buckets_per_row;
+	}
+	if (end_y > collision_buckets_per_col)
+	{
+		end_y = collision_buckets_per_col;
+	}
+	if (start_x >= end_x || start_y >= end_y)
+	{
+		return;
+	}
+
 	active_collision_area.shifted_start_x = start_x;
 	active_collision_area.shifted_start_y = start_y;
 	active_collision_area.shifted_end_x = end_x;
@@ -815,6 +836,27 @@ void OBCOLL_close_down_collision_buckets (void)
 
 	end_x = (end_x >> collision_bitshift) + 1;
 	end_y = (end_y >> collision_bitshift) + 1;
+
+	if (start_x < 0)
+	{
+		start_x = 0;
+	}
+	if (start_y < 0)
+	{
+		start_y = 0;
+	}
+	if (end_x > collision_buckets_per_row)
+	{
+		end_x = collision_buckets_per_row;
+	}
+	if (end_y > collision_buckets_per_col)
+	{
+		end_y = collision_buckets_per_col;
+	}
+	if (start_x >= end_x || start_y >= end_y)
+	{
+		return;
+	}
 
 	for (y=start_y; y<end_y; y++)
 	{
@@ -1735,6 +1777,27 @@ void OBCOLL_collision_handler (void)
 	end_bucket_x = ( (active_collision_area.current_x + active_collision_area.current_width) >> collision_bitshift) + 1;
 	end_bucket_y = ( (active_collision_area.current_y + active_collision_area.current_height) >> collision_bitshift) + 1;
 
+	if (start_bucket_x < 0)
+	{
+		start_bucket_x = 0;
+	}
+	if (start_bucket_y < 0)
+	{
+		start_bucket_y = 0;
+	}
+	if (end_bucket_x > collision_buckets_per_row)
+	{
+		end_bucket_x = collision_buckets_per_row;
+	}
+	if (end_bucket_y > collision_buckets_per_col)
+	{
+		end_bucket_y = collision_buckets_per_col;
+	}
+	if (start_bucket_x >= end_bucket_x || start_bucket_y >= end_bucket_y)
+	{
+		return;
+	}
+
 	int entity_bx,entity_by;
 	int entity_id;
 
@@ -1746,11 +1809,6 @@ void OBCOLL_collision_handler (void)
 		for (entity_by = start_bucket_y; entity_by < end_bucket_y ; entity_by++)
 		{
 			entity_id = collision_bucket_starts [entity_bx + (entity_by * collision_buckets_per_row)]; // Get the first ID in the bucket.
-
-			if (entity[entity_id][ENT_SCRIPT_NUMBER]==50)
-			{
-				int a=0;
-			}
 
 			while (entity_id != UNSET)
 			{
@@ -1799,4 +1857,3 @@ void OBCOLL_collision_handler (void)
 	}
 
 }
-

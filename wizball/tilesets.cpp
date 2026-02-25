@@ -934,7 +934,42 @@ void TILESETS_append_data (int tileset_number)
 
 
 
-void TILESETS_load_game_data (void)
+static bool TILESETS_is_reasonable_tilesize (int tilesize)
+{
+	return (tilesize == 8 || tilesize == 16 || tilesize == 32 || tilesize == 64 || tilesize == 128);
+}
+
+
+static void TILESETS_cleanup_loaded_data (int loaded_tilesets)
+{
+	int tileset_number;
+
+	if (ts != NULL)
+	{
+		for (tileset_number = 0; tileset_number < loaded_tilesets; tileset_number++)
+		{
+			if (ts[tileset_number].tileset_pointer != NULL)
+			{
+				free(ts[tileset_number].tileset_pointer);
+				ts[tileset_number].tileset_pointer = NULL;
+			}
+
+			if (ts[tileset_number].tile_conversion_table != NULL)
+			{
+				free(ts[tileset_number].tile_conversion_table);
+				ts[tileset_number].tile_conversion_table = NULL;
+			}
+		}
+
+		free(ts);
+		ts = NULL;
+	}
+
+	number_of_tilesets_loaded = 0;
+}
+
+
+bool TILESETS_load_game_data (void)
 {
 	// This loads the data in it's more compressed format, malloc'ing happily as it goes...
 
@@ -943,29 +978,85 @@ void TILESETS_load_game_data (void)
 	int data[1];
 	int tileset_number;
 	int tile_number;
+	int loaded_tilesets = 0;
 
 	FILE *file_pointer = fopen (MAIN_get_project_filename ("tilesets.dat"),"rb");
 	
 	if (file_pointer != NULL)
 	{
-		fread ( data, sizeof(int), 1, file_pointer );
+		if (fread ( data, sizeof(int), 1, file_pointer ) != 1)
+		{
+			fclose(file_pointer);
+			OUTPUT_message("tilesets.dat header read failed.");
+			return false;
+		}
 #ifdef ALLEGRO_MACOSX
-	data[0] = EndianS32_LtoN(data[0]);
+		data[0] = EndianS32_LtoN(data[0]);
 #endif
+		if (data[0] <= 0 || data[0] > 2048)
+		{
+			fclose(file_pointer);
+			OUTPUT_message("tilesets.dat contains an invalid tileset count.");
+			return false;
+		}
+
 		number_of_tilesets_loaded = data[0];
-		ts = (tileset *) malloc (sizeof (tileset) * number_of_tilesets_loaded);
+		ts = (tileset *) calloc (number_of_tilesets_loaded, sizeof (tileset));
+		if (ts == NULL)
+		{
+			fclose(file_pointer);
+			OUTPUT_message("Could not allocate tileset table.");
+			number_of_tilesets_loaded = 0;
+			return false;
+		}
 
 		for (tileset_number = 0; tileset_number<number_of_tilesets_loaded; tileset_number++)
 		{
-			fread (&ts[tileset_number] , sizeof(tileset) , 1 , file_pointer);
+			if (fread (&ts[tileset_number] , sizeof(tileset) , 1 , file_pointer) != 1)
+			{
+				fclose(file_pointer);
+				OUTPUT_message("tilesets.dat truncated while reading tileset header.");
+				TILESETS_cleanup_loaded_data(loaded_tilesets);
+				return false;
+			}
 #ifdef ALLEGRO_MACOSX
 			ts[tileset_number].tilesize = EndianS32_LtoN(ts[tileset_number].tilesize);
 			ts[tileset_number].tile_count = EndianS32_LtoN(ts[tileset_number].tile_count);
 			ts[tileset_number].tileset_image_index = EndianS32_LtoN(ts[tileset_number].tileset_image_index);
 #endif
+			if (ts[tileset_number].tile_count <= 0 || ts[tileset_number].tile_count > 65536)
+			{
+				fclose(file_pointer);
+				OUTPUT_message("tilesets.dat contains an invalid tile_count.");
+				TILESETS_cleanup_loaded_data(loaded_tilesets);
+				return false;
+			}
+
+			if (!TILESETS_is_reasonable_tilesize(ts[tileset_number].tilesize))
+			{
+				fclose(file_pointer);
+				OUTPUT_message("tilesets.dat contains an invalid tilesize.");
+				TILESETS_cleanup_loaded_data(loaded_tilesets);
+				return false;
+			}
+
 			ts[tileset_number].tileset_pointer = (tile *) malloc (ts[tileset_number].tile_count * sizeof(tile));
 			ts[tileset_number].tile_conversion_table = (short *) malloc (ts[tileset_number].tile_count * sizeof(short));
-			fread (ts[tileset_number].tileset_pointer , sizeof(tile) , ts[tileset_number].tile_count , file_pointer);
+			if (ts[tileset_number].tileset_pointer == NULL || ts[tileset_number].tile_conversion_table == NULL)
+			{
+				fclose(file_pointer);
+				OUTPUT_message("Could not allocate tile data while loading tilesets.dat.");
+				TILESETS_cleanup_loaded_data(loaded_tilesets + 1);
+				return false;
+			}
+
+			if (fread (ts[tileset_number].tileset_pointer , sizeof(tile) , ts[tileset_number].tile_count , file_pointer) != (size_t)ts[tileset_number].tile_count)
+			{
+				fclose(file_pointer);
+				OUTPUT_message("tilesets.dat truncated while reading tiles.");
+				TILESETS_cleanup_loaded_data(loaded_tilesets + 1);
+				return false;
+			}
 #ifdef ALLEGRO_MACOSX
 			for (tile_number = 0; tile_number < ts[tileset_number].tile_count; ++tile_number)
 			{
@@ -997,14 +1088,22 @@ void TILESETS_load_game_data (void)
 				ts[tileset_number].tileset_pointer[tile_number].move_collision_to_layer = EndianS32_LtoN(ts[tileset_number].tileset_pointer[tile_number].move_collision_to_layer);
 			}	
 #endif
+			for (tile_number = 0; tile_number < ts[tileset_number].tile_count; ++tile_number)
+			{
+				ts[tileset_number].tileset_pointer[tile_number].param_list_pointer = NULL;
+				ts[tileset_number].tileset_pointer[tile_number].params = 0;
+			}
+
+			loaded_tilesets++;
 		}
 
 		fclose (file_pointer);
+		return true;
 	}
 	else
 	{
 		OUTPUT_message("Could not open tilesets.dat!");
-		assert(0); // couldn't create file!
+		return false;
 	}
 }
 
@@ -4285,6 +4384,11 @@ bool TILESETS_confirm_all_links (void)
 
 char * TILESETS_get_name (int tileset_number)
 {
+	if (tileset_number < 0 || tileset_number >= number_of_tilesets_loaded || ts == NULL)
+	{
+		return (char *)"UNSET";
+	}
+
 	return ts[tileset_number].name;
 }
 
@@ -4292,6 +4396,11 @@ char * TILESETS_get_name (int tileset_number)
 
 int TILESETS_get_tilesize (int tileset_number)
 {
+	if (tileset_number < 0 || tileset_number >= number_of_tilesets_loaded || ts == NULL)
+	{
+		return 0;
+	}
+
 	return ts[tileset_number].tilesize;
 }
 
@@ -4299,6 +4408,11 @@ int TILESETS_get_tilesize (int tileset_number)
 
 int TILESETS_get_sprite_index (int tileset_number)
 {
+	if (tileset_number < 0 || tileset_number >= number_of_tilesets_loaded || ts == NULL)
+	{
+		return UNSET;
+	}
+
 	return ts[tileset_number].tileset_image_index;
 }
 
@@ -4306,6 +4420,11 @@ int TILESETS_get_sprite_index (int tileset_number)
 
 int TILESETS_get_tile_count (int tileset_number)
 {
+	if (tileset_number < 0 || tileset_number >= number_of_tilesets_loaded || ts == NULL)
+	{
+		return 0;
+	}
+
 	return ts[tileset_number].tile_count;
 }
 

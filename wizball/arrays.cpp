@@ -17,6 +17,16 @@
 
 #include "fortify.h"
 
+static int ARRAYS_bswap32(int v)
+{
+	unsigned int u = (unsigned int) v;
+	u = ((u & 0x000000FFU) << 24) |
+		((u & 0x0000FF00U) << 8)  |
+		((u & 0x00FF0000U) >> 8)  |
+		((u & 0xFF000000U) >> 24);
+	return (int) u;
+}
+
 entity_array_holder ent_arrays[MAX_ENTITIES];
 
 datatable_struct *datatable_data = NULL;
@@ -459,20 +469,44 @@ void ARRAY_load_datatables (void)
 	FILE *fp = fopen(MAIN_get_project_filename("datatable.dat",false),"rb");
 
 	int data_size;
-	
+	bool swap_endian = false;
+		
 	if (fp != NULL)
 	{
 		fread(&data_size,sizeof(int),1,fp);
 #ifdef ALLEGRO_MACOSX
 		data_size = EndianS32_LtoN(data_size);
 #endif
+		if ((data_size <= 0) || (data_size > 100000000))
+		{
+			int swapped_data_size = ARRAYS_bswap32(data_size);
+			if ((swapped_data_size > 0) && (swapped_data_size < 100000000))
+			{
+				swap_endian = true;
+				data_size = swapped_data_size;
+			}
+		}
+
 		int *data_chunk = (int *) malloc (data_size * sizeof(int));
 
-		fread(data_chunk,sizeof(int),data_size,fp);
+		if ((int)fread(data_chunk,sizeof(int),data_size,fp) != data_size)
+		{
+			free(data_chunk);
+			fclose(fp);
+			OUTPUT_message("Cannot read datatable.dat data chunk.");
+			assert(0);
+		}
 #ifdef ALLEGRO_MACOSX
 		for (i=0; i<data_size; ++i)
 			data_chunk[i] = EndianS32_LtoN(data_chunk[i]);
 #endif
+		if (swap_endian)
+		{
+			for (i=0; i<data_size; ++i)
+			{
+				data_chunk[i] = ARRAYS_bswap32(data_chunk[i]);
+			}
+		}
 		int *pointer = &data_chunk[0];
 
 		number_of_datatables = *pointer++;

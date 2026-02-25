@@ -32,6 +32,8 @@ void MAIN_draw_loading_picture (char *description, int int_progress);
 
 char * MAIN_get_project_filename (char *filename, bool writeable = false);
 char * MAIN_get_project_name (void);
+char * MAIN_get_pack_project_name (void);
+char * MAIN_get_pack_filename (char *filename);
 
 void MAIN_set_next_window_state (bool value);
 void MAIN_set_next_colour_depth (int value);
@@ -126,4 +128,3 @@ extern bool release_mode;
 #define RETRENGINE_RETROSPEC_HISCORE_GAME_ID				(86)
 
 #endif
-

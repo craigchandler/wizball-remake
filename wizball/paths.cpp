@@ -642,7 +642,7 @@ void PATHS_load_from_datafile (char *filename , int path_number)
 
 	char full_filename [TEXT_LINE_SIZE];
 
-	sprintf (full_filename,"%s\\paths.dat#%s",MAIN_get_project_name(),filename);
+	sprintf (full_filename,"%s\\paths.dat#%s",MAIN_get_pack_project_name(),filename);
 	fix_filename_slashes(full_filename);
 	bool exitflag;
 
@@ -3840,7 +3840,6 @@ bool PATHS_edit_paths (int state , bool overlay_display, int *current_cursor ,in
 	return override_main_editor;
 
 }
-
 
 
 

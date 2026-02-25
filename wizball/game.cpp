@@ -125,9 +125,15 @@ void GAME_load_and_set_up_everything (void)
 	}
 	else
 	{
+#ifdef ALLEGRO_LINUX
+		MAIN_add_to_log ("Linux compatibility mode: loading verbose prefabs...");
+		SCRIPTING_load_prefabs ();
+		MAIN_add_to_log ("\tOK!\n");
+#else
 		MAIN_add_to_log ("Loading compiled prefabs...");
 		SCRIPTING_load_compiled_prefabs ();
 		MAIN_add_to_log ("\tOK!\n");
+#endif
 	}
 
 	MAIN_add_to_log ("Loading datatables...");
@@ -322,4 +328,3 @@ void GAME_destroy_everything (bool create_dat_file)
 
 	EDIT_close_down ();
 }
-

@@ -1244,7 +1244,11 @@ void ROOMZONES_generate_localised_zone_lists (void)
 	for (tilemap_number=0;tilemap_number<number_of_tilemaps_loaded;tilemap_number++)
 	{
 		tileset_index = cm[tilemap_number].tile_set_index;
-		tilesize = ts[tileset_index].tilesize;
+		tilesize = TILESETS_get_tilesize(tileset_index);
+		if (tilesize <= 0)
+		{
+			tilesize = 1;
+		}
 
 		width_in_lzones = ((cm[tilemap_number].map_width * tilesize) / localised_zone_divider) + 1;
 		height_in_lzones = ((cm[tilemap_number].map_height * tilesize) / localised_zone_divider) + 1;
@@ -1344,4 +1348,3 @@ void ROOMZONES_set_zone_flag_by_uid (int map_uid, int zone_uid, int flag_value)
 		}
 	}
 }
-

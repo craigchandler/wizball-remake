@@ -431,6 +431,25 @@ void WORLDCOLL_generate_collision_maps (bool generate_optimisation_data , bool i
 
 void WORLDCOLL_set_collision_map (int tilemap_number)
 {
+	if (tilemap_number < 0 || tilemap_number >= number_of_tilemaps_loaded)
+	{
+		collision_map = UNSET;
+		collision_map_pointer = NULL;
+		collision_data_layers = 0;
+		collision_data_width = 0;
+		collision_data_height = 0;
+		collision_data_layer_size = 0;
+		collision_data_pointer = NULL;
+		exposure_data_pointer = NULL;
+		collision_bitmask_data_pointer = NULL;
+		map_pointer = NULL;
+		collision_tileset = UNSET;
+		collision_tilesize = 0;
+		collision_data_width_in_pixels = 0;
+		collision_data_height_in_pixels = 0;
+		return;
+	}
+
 	collision_map = tilemap_number;
 	collision_map_pointer = &cm[collision_map];
 	collision_data_layers = cm[collision_map].map_layers;
@@ -442,6 +461,14 @@ void WORLDCOLL_set_collision_map (int tilemap_number)
 	collision_bitmask_data_pointer = cm[collision_map].collision_bitmask_data_pointer;
 	map_pointer = cm[collision_map].map_pointer;
 	collision_tileset = cm[tilemap_number].tile_set_index;
+	if (collision_tileset < 0 || collision_tileset >= number_of_tilesets_loaded)
+	{
+		collision_tilesize = 0;
+		collision_data_width_in_pixels = 0;
+		collision_data_height_in_pixels = 0;
+		return;
+	}
+
 	collision_tilesize = ts[collision_tileset].tilesize;
 	collision_data_width_in_pixels = collision_data_width * collision_tilesize;
 	collision_data_height_in_pixels = collision_data_height * collision_tilesize;
@@ -4541,6 +4568,25 @@ void WORLDCOLL_apply_tile_movement_property (int *entity_pointer, int property, 
 
 void WORLDCOLL_get_horizontal_zone_tile_extents (int zone_number, int *first, int *second)
 {
+	if (first == NULL || second == NULL)
+	{
+		return;
+	}
+
+	if (collision_map < 0 || collision_map >= number_of_tilemaps_loaded)
+	{
+		*first = 0;
+		*second = 0;
+		return;
+	}
+
+	if (cm[collision_map].zone_list_pointer == NULL || zone_number < 0 || zone_number >= cm[collision_map].zones)
+	{
+		*first = 0;
+		*second = 0;
+		return;
+	}
+
 	*first = cm[collision_map].zone_list_pointer[zone_number].x;
 	*second = *first + cm[collision_map].zone_list_pointer[zone_number].width;
 }
@@ -4549,6 +4595,25 @@ void WORLDCOLL_get_horizontal_zone_tile_extents (int zone_number, int *first, in
 
 void WORLDCOLL_get_vertical_zone_tile_extents (int zone_number, int *first, int *second)
 {
+	if (first == NULL || second == NULL)
+	{
+		return;
+	}
+
+	if (collision_map < 0 || collision_map >= number_of_tilemaps_loaded)
+	{
+		*first = 0;
+		*second = 0;
+		return;
+	}
+
+	if (cm[collision_map].zone_list_pointer == NULL || zone_number < 0 || zone_number >= cm[collision_map].zones)
+	{
+		*first = 0;
+		*second = 0;
+		return;
+	}
+
 	*first = cm[collision_map].zone_list_pointer[zone_number].y;
 	*second = *first + cm[collision_map].zone_list_pointer[zone_number].height;
 }
@@ -4557,6 +4622,25 @@ void WORLDCOLL_get_vertical_zone_tile_extents (int zone_number, int *first, int 
 
 void WORLDCOLL_get_top_left_zone_tile_co_ords (int zone_number, int *first, int *second)
 {
+	if (first == NULL || second == NULL)
+	{
+		return;
+	}
+
+	if (collision_map < 0 || collision_map >= number_of_tilemaps_loaded)
+	{
+		*first = 0;
+		*second = 0;
+		return;
+	}
+
+	if (cm[collision_map].zone_list_pointer == NULL || zone_number < 0 || zone_number >= cm[collision_map].zones)
+	{
+		*first = 0;
+		*second = 0;
+		return;
+	}
+
 	*first = cm[collision_map].zone_list_pointer[zone_number].x;
 	*second = cm[collision_map].zone_list_pointer[zone_number].y;
 }
@@ -4565,6 +4649,25 @@ void WORLDCOLL_get_top_left_zone_tile_co_ords (int zone_number, int *first, int 
 
 void WORLDCOLL_get_horizontal_zone_extents (int zone_number, int *first, int *second)
 {
+	if (first == NULL || second == NULL)
+	{
+		return;
+	}
+
+	if (collision_map < 0 || collision_map >= number_of_tilemaps_loaded)
+	{
+		*first = 0;
+		*second = 0;
+		return;
+	}
+
+	if (cm[collision_map].zone_list_pointer == NULL || zone_number < 0 || zone_number >= cm[collision_map].zones)
+	{
+		*first = 0;
+		*second = 0;
+		return;
+	}
+
 	*first = cm[collision_map].zone_list_pointer[zone_number].real_x;
 	*second = *first + cm[collision_map].zone_list_pointer[zone_number].real_width;
 }
@@ -4573,6 +4676,25 @@ void WORLDCOLL_get_horizontal_zone_extents (int zone_number, int *first, int *se
 
 void WORLDCOLL_get_vertical_zone_extents (int zone_number, int *first, int *second)
 {
+	if (first == NULL || second == NULL)
+	{
+		return;
+	}
+
+	if (collision_map < 0 || collision_map >= number_of_tilemaps_loaded)
+	{
+		*first = 0;
+		*second = 0;
+		return;
+	}
+
+	if (cm[collision_map].zone_list_pointer == NULL || zone_number < 0 || zone_number >= cm[collision_map].zones)
+	{
+		*first = 0;
+		*second = 0;
+		return;
+	}
+
 	*first = cm[collision_map].zone_list_pointer[zone_number].real_y;
 	*second = *first + cm[collision_map].zone_list_pointer[zone_number].real_height;
 }
@@ -4581,6 +4703,25 @@ void WORLDCOLL_get_vertical_zone_extents (int zone_number, int *first, int *seco
 
 void WORLDCOLL_get_top_left_zone_co_ords (int zone_number, int *first, int *second)
 {
+	if (first == NULL || second == NULL)
+	{
+		return;
+	}
+
+	if (collision_map < 0 || collision_map >= number_of_tilemaps_loaded)
+	{
+		*first = 0;
+		*second = 0;
+		return;
+	}
+
+	if (cm[collision_map].zone_list_pointer == NULL || zone_number < 0 || zone_number >= cm[collision_map].zones)
+	{
+		*first = 0;
+		*second = 0;
+		return;
+	}
+
 	*first = cm[collision_map].zone_list_pointer[zone_number].real_x;
 	*second = cm[collision_map].zone_list_pointer[zone_number].real_y;
 }
@@ -4598,4 +4739,3 @@ int WORLDCOLL_get_flag (int zone_number)
 {
 	return (cm[collision_map].zone_list_pointer[zone_number].flag);
 }
-
