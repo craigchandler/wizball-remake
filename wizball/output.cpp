@@ -3,7 +3,9 @@
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
+#include <ctype.h>
 
 #include "glext.h"
 #include "string_size_constants.h"
@@ -1526,6 +1528,48 @@ static bool OUTPUT_is_valid_sprite_frame(int bitmap_number, int sprite_number)
 	return (sprite_number >= 0 && sprite_number < bmps[bitmap_number].sprite_count);
 }
 
+static void OUTPUT_fatal_exit(char *message)
+{
+	OUTPUT_message(message);
+	MAIN_add_to_log(message);
+	exit(1);
+}
+
+static const char *OUTPUT_strip_project_prefix(const char *path)
+{
+	const char *project_name;
+	size_t project_len;
+
+	if (path == NULL)
+	{
+		return path;
+	}
+
+	project_name = MAIN_get_project_name();
+	if (project_name == NULL)
+	{
+		return path;
+	}
+
+	project_len = strlen(project_name);
+	if (project_len == 0)
+	{
+		return path;
+	}
+
+	if (strncasecmp(path, project_name, project_len) != 0)
+	{
+		return path;
+	}
+
+	if ((path[project_len] == '/') || (path[project_len] == '\\'))
+	{
+		return path + project_len + 1;
+	}
+
+	return path;
+}
+
 
 
 #define CHUNK_SIZE		(128)
@@ -1534,8 +1578,28 @@ static bool OUTPUT_is_valid_sprite_frame(int bitmap_number, int sprite_number)
 
 void INPUT_create_sprite_space (int parent_bitmap, int total_sprites)
 {
+	char error[MAX_LINE_SIZE];
+
+	if (!OUTPUT_is_valid_bitmap_index(parent_bitmap))
+	{
+		sprintf(error, "Invalid parent bitmap index %i while creating sprite space.", parent_bitmap);
+		OUTPUT_fatal_exit(error);
+	}
+
+	if ((total_sprites <= 0) || (total_sprites > 50000))
+	{
+		sprintf(error, "Invalid sprite count %i for bitmap index %i.", total_sprites, parent_bitmap);
+		OUTPUT_fatal_exit(error);
+	}
+
 	bmps[parent_bitmap].sprite_count = total_sprites;
 	bmps[parent_bitmap].sprite_list = (sprite *) malloc (total_sprites * sizeof(sprite));
+
+	if (bmps[parent_bitmap].sprite_list == NULL)
+	{
+		sprintf(error, "Out of memory while allocating %i sprites for bitmap %i.", total_sprites, parent_bitmap);
+		OUTPUT_fatal_exit(error);
+	}
 }
 
 
@@ -1784,10 +1848,11 @@ void INPUT_create_arbitrary_sized_sprite_series (int parent_bitmap, char *name_b
 	int x,y,width,height,pivot_x,pivot_y;
 	char line[MAX_LINE_SIZE];
 	char *pointer;
+	const char *normalised_descriptor_file = OUTPUT_strip_project_prefix(descriptor_file);
 
 	if (load_from_dat_file)
 	{
-		sprintf(full_pack_filename,"%s\\gfx.dat#%s",MAIN_get_pack_project_name(),descriptor_file);
+		sprintf(full_pack_filename,"%s\\gfx.dat#%s",MAIN_get_pack_project_name(),normalised_descriptor_file);
 		fix_filename_slashes(full_pack_filename);
 		PACKFILE *packfile_pointer = pack_fopen (full_pack_filename,"r");
 
@@ -1800,39 +1865,51 @@ void INPUT_create_arbitrary_sized_sprite_series (int parent_bitmap, char *name_b
 
 			INPUT_create_sprite_space (parent_bitmap , counter);
 
-			for (t=0 ; t<counter ; t++)
-			{
-				sprintf(full_name,"%s%i",name_base,counter);
+				for (t=0 ; t<counter ; t++)
+				{
+					sprintf(full_name,"%s%i",name_base,t);
 
 				pack_fgets ( line , MAX_LINE_SIZE , packfile_pointer );
 
-				pointer = strtok(line,", ");
-				x = atoi(pointer);
-				pointer = strtok(NULL,", ");
-				y = atoi(pointer);
-				pointer = strtok(NULL,", ");
-				width = atoi(pointer);
-				pointer = strtok(NULL,", ");
-				height = atoi(pointer);
-				pointer = strtok(NULL,", ");
-				pivot_x = atoi(pointer);
-				pointer = strtok(NULL,", ");
-				pivot_y = atoi(pointer);
+					pointer = strtok(line,", ");
+					if (pointer == NULL) { OUTPUT_fatal_exit((char*)"Malformed sprite descriptor line (x missing)."); }
+					x = atoi(pointer);
+					pointer = strtok(NULL,", ");
+					if (pointer == NULL) { OUTPUT_fatal_exit((char*)"Malformed sprite descriptor line (y missing)."); }
+					y = atoi(pointer);
+					pointer = strtok(NULL,", ");
+					if (pointer == NULL) { OUTPUT_fatal_exit((char*)"Malformed sprite descriptor line (width missing)."); }
+					width = atoi(pointer);
+					pointer = strtok(NULL,", ");
+					if (pointer == NULL) { OUTPUT_fatal_exit((char*)"Malformed sprite descriptor line (height missing)."); }
+					height = atoi(pointer);
+					pointer = strtok(NULL,", ");
+					if (pointer == NULL) { OUTPUT_fatal_exit((char*)"Malformed sprite descriptor line (pivot_x missing)."); }
+					pivot_x = atoi(pointer);
+					pointer = strtok(NULL,", ");
+					if (pointer == NULL) { OUTPUT_fatal_exit((char*)"Malformed sprite descriptor line (pivot_y missing)."); }
+					pivot_y = atoi(pointer);
 
 				INPUT_create_sprite (parent_bitmap, t, full_name, x, y, width, height, pivot_x, pivot_y);
 			}
 
 			pack_fclose(packfile_pointer);
 		}
-		else
-		{
-			assert(0);
-			// No descriptor! Well shit, it really should be in here...
-		}
+				else
+				{
+					char error[MAX_LINE_SIZE];
+					sprintf(error, "Sprite descriptor not found in gfx.dat: '%s' (normalised '%s').",
+					        descriptor_file, normalised_descriptor_file);
+					OUTPUT_fatal_exit(error);
+				}
 	}
 	else
 	{
-		FILE *file_pointer = fopen (descriptor_file,"r");
+		FILE *file_pointer = FILE_open_read_case_fallback(descriptor_file);
+		if (file_pointer == NULL)
+		{
+			file_pointer = FILE_open_project_read_case_fallback((char *)normalised_descriptor_file);
+		}
 
 		if (file_pointer != NULL)
 		{
@@ -1840,35 +1917,43 @@ void INPUT_create_arbitrary_sized_sprite_series (int parent_bitmap, char *name_b
 
 			INPUT_create_sprite_space (parent_bitmap , counter);
 
-			for (t=0 ; t<counter ; t++)
-			{
-				sprintf(full_name,"%s%i",name_base,counter);
+				for (t=0 ; t<counter ; t++)
+				{
+					sprintf(full_name,"%s%i",name_base,t);
 
 				fgets ( line , MAX_LINE_SIZE , file_pointer );
 
-				pointer = strtok(line,", ");
-				x = atoi(pointer);
-				pointer = strtok(NULL,", ");
-				y = atoi(pointer);
-				pointer = strtok(NULL,", ");
-				width = atoi(pointer);
-				pointer = strtok(NULL,", ");
-				height = atoi(pointer);
-				pointer = strtok(NULL,", ");
-				pivot_x = atoi(pointer);
-				pointer = strtok(NULL,", ");
-				pivot_y = atoi(pointer);
+					pointer = strtok(line,", ");
+					if (pointer == NULL) { OUTPUT_fatal_exit((char*)"Malformed sprite descriptor line (x missing)."); }
+					x = atoi(pointer);
+					pointer = strtok(NULL,", ");
+					if (pointer == NULL) { OUTPUT_fatal_exit((char*)"Malformed sprite descriptor line (y missing)."); }
+					y = atoi(pointer);
+					pointer = strtok(NULL,", ");
+					if (pointer == NULL) { OUTPUT_fatal_exit((char*)"Malformed sprite descriptor line (width missing)."); }
+					width = atoi(pointer);
+					pointer = strtok(NULL,", ");
+					if (pointer == NULL) { OUTPUT_fatal_exit((char*)"Malformed sprite descriptor line (height missing)."); }
+					height = atoi(pointer);
+					pointer = strtok(NULL,", ");
+					if (pointer == NULL) { OUTPUT_fatal_exit((char*)"Malformed sprite descriptor line (pivot_x missing)."); }
+					pivot_x = atoi(pointer);
+					pointer = strtok(NULL,", ");
+					if (pointer == NULL) { OUTPUT_fatal_exit((char*)"Malformed sprite descriptor line (pivot_y missing)."); }
+					pivot_y = atoi(pointer);
 
 				INPUT_create_sprite (parent_bitmap, t, full_name, x, y, width, height, pivot_x, pivot_y);
 			}
 
 			fclose(file_pointer);
 		}
-		else
-		{
-			assert(0);
-			// No descriptor! Do it in the Blitz Plus editor, dammit!
-		}
+			else
+			{
+				char error[MAX_LINE_SIZE];
+				sprintf(error, "Sprite descriptor not found on disk: '%s' (normalised '%s').",
+				        descriptor_file, normalised_descriptor_file);
+				OUTPUT_fatal_exit(error);
+			}
 	}
 }
 
@@ -1883,6 +1968,7 @@ int INPUT_load_bitmap (char *filename)
 	#endif
 
 	RGB *pal = NULL;
+	char error[MAX_LINE_SIZE];
 
 	// First of all create space for the bitmap by mallocing or reallocing
 	// the space needed.
@@ -1899,6 +1985,14 @@ int INPUT_load_bitmap (char *filename)
 			bmps = (bitmap_holder *) realloc (bmps , sizeof(bitmap_holder) * (CHUNK_SIZE + total_bitmaps_allocated) );
 			total_bitmaps_allocated += CHUNK_SIZE;
 		}
+
+		if (bmps == NULL)
+		{
+			sprintf(error, "Out of memory while allocating bitmap storage for '%s'.", filename);
+			OUTPUT_message(error);
+			MAIN_add_to_log(error);
+			exit(1);
+		}
 	}
 
 	if (load_from_dat_file)
@@ -1910,11 +2004,96 @@ int INPUT_load_bitmap (char *filename)
 			MAIN_debug_last_thing (debug_text);
 		#endif
 
+			if ((data_pointer == NULL) || (data_pointer->dat == NULL))
+			{
+				sprintf(error, "Could not load bitmap '%s' from gfx.dat.", filename);
+				OUTPUT_message(error);
+				MAIN_add_to_log(error);
+				exit(1);
+			}
+
 		bmps[total_bitmaps_loaded].image = (BITMAP *) data_pointer->dat;
 	}
 	else
 	{
 		bmps[total_bitmaps_loaded].image = load_bitmap( filename , pal);
+
+#if defined(ALLEGRO_LINUX) || defined(ALLEGRO_MACOSX)
+		if (bmps[total_bitmaps_loaded].image == NULL)
+		{
+			char lower_filename[MAX_LINE_SIZE];
+			size_t len;
+			size_t i;
+
+			strncpy(lower_filename, filename, sizeof(lower_filename) - 1);
+			lower_filename[sizeof(lower_filename) - 1] = '\0';
+			len = strlen(lower_filename);
+
+			// First fallback: lowercase basename.
+			for (i = len; i > 0; i--)
+			{
+				if ((lower_filename[i - 1] == '/') || (lower_filename[i - 1] == '\\'))
+				{
+					break;
+				}
+			}
+			for (; i < len; i++)
+			{
+				lower_filename[i] = (char)tolower((unsigned char)lower_filename[i]);
+			}
+
+			bmps[total_bitmaps_loaded].image = load_bitmap(lower_filename, pal);
+
+			// Second fallback: lowercase final directory + basename tail.
+			if (bmps[total_bitmaps_loaded].image == NULL)
+			{
+				strncpy(lower_filename, filename, sizeof(lower_filename) - 1);
+				lower_filename[sizeof(lower_filename) - 1] = '\0';
+				len = strlen(lower_filename);
+
+				int slash_count = 0;
+				size_t start = 0;
+				for (i = len; i > 0; i--)
+				{
+					if ((lower_filename[i - 1] == '/') || (lower_filename[i - 1] == '\\'))
+					{
+						slash_count++;
+						if (slash_count == 2)
+						{
+							start = i;
+							break;
+						}
+					}
+				}
+				if (slash_count < 2)
+				{
+					start = 0;
+				}
+				for (i = start; i < len; i++)
+				{
+					lower_filename[i] = (char)tolower((unsigned char)lower_filename[i]);
+				}
+
+				bmps[total_bitmaps_loaded].image = load_bitmap(lower_filename, pal);
+			}
+		}
+#endif
+
+			if (bmps[total_bitmaps_loaded].image == NULL)
+			{
+				sprintf(error, "Could not load bitmap '%s'.", filename);
+				OUTPUT_message(error);
+				MAIN_add_to_log(error);
+				exit(1);
+			}
+		}
+
+	if (bmps[total_bitmaps_loaded].image == NULL)
+	{
+		sprintf(error, "Bitmap '%s' resolved to NULL image pointer.", filename);
+		OUTPUT_message(error);
+		MAIN_add_to_log(error);
+		exit(1);
 	}
 
 	bmps[total_bitmaps_loaded].width = bmps[total_bitmaps_loaded].image->w;
@@ -1959,6 +2138,33 @@ void INPUT_create_sprite (int parent_bitmap, int sprite_number, char *name, int 
 	// the space needed.
 
 	float unit_x,unit_y;
+	char error[MAX_LINE_SIZE];
+
+	if (!OUTPUT_is_valid_bitmap_index(parent_bitmap))
+	{
+		sprintf(error, "Invalid parent bitmap index %i while creating sprite.", parent_bitmap);
+		OUTPUT_fatal_exit(error);
+	}
+
+	if (bmps[parent_bitmap].sprite_list == NULL)
+	{
+		sprintf(error, "Sprite list is NULL for bitmap index %i.", parent_bitmap);
+		OUTPUT_fatal_exit(error);
+	}
+
+	if ((sprite_number < 0) || (sprite_number >= bmps[parent_bitmap].sprite_count))
+	{
+		sprintf(error, "Sprite frame index %i is out of range [0,%i) for bitmap index %i.",
+		        sprite_number, bmps[parent_bitmap].sprite_count, parent_bitmap);
+		OUTPUT_fatal_exit(error);
+	}
+
+	if ((bmps[parent_bitmap].width <= 0) || (bmps[parent_bitmap].height <= 0))
+	{
+		sprintf(error, "Invalid bitmap dimensions %ix%i for bitmap index %i while creating sprite.",
+		        bmps[parent_bitmap].width, bmps[parent_bitmap].height, parent_bitmap);
+		OUTPUT_fatal_exit(error);
+	}
 
 	strcpy (bmps[parent_bitmap].sprite_list[sprite_number].name , name);
 	bmps[parent_bitmap].sprite_list[sprite_number].parent_bitmap = parent_bitmap;
@@ -2137,12 +2343,15 @@ void OUTPUT_shutdown (void)
 
 	if (software_mode_active)
 	{
-		for (bitmap_number=0 ; bitmap_number < total_bitmaps_loaded ; bitmap_number++)
+		if (bmps != NULL)
 		{
-			if (load_from_dat_file == false) // You really don't wanna' try destroying them inside the packfile.
+			for (bitmap_number=0 ; bitmap_number < total_bitmaps_loaded ; bitmap_number++)
 			{
-				destroy_bitmap(bmps[bitmap_number].image);
-				bmps[bitmap_number].image = NULL;
+				if (load_from_dat_file == false) // You really don't wanna' try destroying them inside the packfile.
+				{
+					destroy_bitmap(bmps[bitmap_number].image);
+					bmps[bitmap_number].image = NULL;
+				}
 			}
 		}
 
@@ -2748,7 +2957,11 @@ void OUTPUT_destroy_bitmap_and_sprite_containers (void)
 		}
 
 		free (bmps);
+		bmps = NULL;
 	}
+
+	total_bitmaps_loaded = 0;
+	total_bitmaps_allocated = 0;
 }
 
 
@@ -4575,14 +4788,6 @@ void OUTPUT_store_frame_info_in_entity_collision_including_scale (int *entity_po
 	entity_pointer [ENT_LOWER_WIDTH] = ((width-1) - pivot_x) + modifier;
 	entity_pointer [ENT_LOWER_HEIGHT] = ((height-1) - pivot_y) + modifier;
 }
-
-
-
-
-
-
-
-
 
 
 
