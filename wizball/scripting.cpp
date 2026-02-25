@@ -39,6 +39,16 @@
 
 #include "fortify.h"
 
+static int SCRIPTING_bswap32(int v)
+{
+	unsigned int u = (unsigned int) v;
+	u = ((u & 0x000000FFU) << 24) |
+		((u & 0x0000FF00U) << 8)  |
+		((u & 0x00FF0000U) >> 8)  |
+		((u & 0xFF000000U) >> 24);
+	return (int) u;
+}
+
 int total_process_counter;
 int drawn_process_counter;
 int alive_process_counter;
@@ -125,6 +135,79 @@ bool pop_star_mode_y; // Ditto but for the y-co-ord.
 int pop_star_entity; // Who's the daddy?
 
 bool completely_exit_game = false;
+
+static bool SCRIPTING_is_focus_script_name(const char *name)
+{
+	if (name == NULL)
+	{
+		return false;
+	}
+
+	return
+		(strcmp(name, "START_GAME") == 0) ||
+		(strcmp(name, "MAIN_GAME_CONTROLLER") == 0) ||
+		(strcmp(name, "CHOOSE_WIZBALL_START_POSITION") == 0) ||
+		(strcmp(name, "GET_READY_SCREEN") == 0) ||
+		(strcmp(name, "GAME_WINDOW_HANDLER") == 0) ||
+		(strcmp(name, "WIZBALL") == 0);
+}
+
+
+
+static bool SCRIPTING_is_focus_script_index(int script_number)
+{
+	if ((script_number < 0) || (script_number >= script_count))
+	{
+		return false;
+	}
+
+	return SCRIPTING_is_focus_script_name(GPL_get_entry_name("SCRIPTS", script_number));
+}
+
+static int scripting_kill_source_entity = UNSET;
+static int scripting_kill_source_line = UNSET;
+
+static void SCRIPTING_log_focus_kill(int target_entity, const char *reason)
+{
+	if (output_debug_information == false)
+	{
+		return;
+	}
+
+	if ((target_entity < 0) || (target_entity >= MAX_ENTITIES))
+	{
+		return;
+	}
+
+	int target_script = entity[target_entity][ENT_SCRIPT_NUMBER];
+	if (SCRIPTING_is_focus_script_index(target_script) == false)
+	{
+		return;
+	}
+
+	const char *target_name = GPL_get_entry_name("SCRIPTS", target_script);
+	const char *source_name = "UNSET";
+	if ((scripting_kill_source_entity >= 0) && (scripting_kill_source_entity < MAX_ENTITIES))
+	{
+		int source_script = entity[scripting_kill_source_entity][ENT_SCRIPT_NUMBER];
+		if ((source_script >= 0) && (source_script < script_count))
+		{
+			source_name = GPL_get_entry_name("SCRIPTS", source_script);
+		}
+	}
+
+	char line[MAX_LINE_SIZE];
+	sprintf(line,
+		"FOCUS_KILL target=%d(%s) by=%d(%s) src_line=%d frame=%d reason=%s",
+		target_entity,
+		target_name,
+		scripting_kill_source_entity,
+		source_name,
+		scripting_kill_source_line,
+		frames_so_far,
+		reason);
+	MAIN_add_to_log(line);
+}
 
 typedef struct
 {
@@ -215,6 +298,13 @@ int *window_bucket_ends = NULL;
 
 int *scripting_interaction_table = NULL;
 int script_list_size = UNSET;
+
+static bool SCRIPTING_is_valid_script_index(int script_number)
+{
+	int total_scripts = GPL_list_size("SCRIPTS");
+
+	return (scr_lookup != NULL) && (script_number >= 0) && (script_number < total_scripts);
+}
 
 // This structure says where in the world collisions between entities take place. Because it's
 // obviously fairly processor intensive to collide loads of things together you can only have
@@ -612,6 +702,8 @@ void SCRIPTING_limbo_entity (int entity_id)
 			assert(0);
 		}
 	#endif
+
+	SCRIPTING_log_focus_kill(entity_id, "limbo_entity");
 
 	// Oh, and make sure it's taken out of the processing loop.
 	SCRIPTING_delete_processing_order_entry (entity_id);
@@ -1181,6 +1273,11 @@ void SCRIPTING_output_tracer_script_line (int line_number, int new_line_number, 
 
 int SCRIPTING_alter_entities_by_criteria_new (int calling_entity_id,int alteration,int variable,int operation ,int compare_value)
 {
+	int previous_kill_source_entity = scripting_kill_source_entity;
+	int previous_kill_source_line = scripting_kill_source_line;
+	scripting_kill_source_entity = calling_entity_id;
+	scripting_kill_source_line = UNSET;
+
 	int calling_entity_follower = entity[calling_entity_id][ENT_NEXT_PROCESS_ENT];
 	int override_next_entity = VERY_UNSET;
 	bool search_for_next_survivor = false;
@@ -1276,6 +1373,9 @@ int SCRIPTING_alter_entities_by_criteria_new (int calling_entity_id,int alterati
 	{
 		override_next_entity = UNSET;
 	}
+
+	scripting_kill_source_entity = previous_kill_source_entity;
+	scripting_kill_source_line = previous_kill_source_line;
 	
 	return override_next_entity;
 }
@@ -1284,6 +1384,11 @@ int SCRIPTING_alter_entities_by_criteria_new (int calling_entity_id,int alterati
 
 int SCRIPTING_alter_entities_by_criteria (int criteria,int value,int calling_entity_id, int alteration)
 {
+	int previous_kill_source_entity = scripting_kill_source_entity;
+	int previous_kill_source_line = scripting_kill_source_line;
+	scripting_kill_source_entity = calling_entity_id;
+	scripting_kill_source_line = UNSET;
+
 	int calling_entity_follower = entity[calling_entity_id][ENT_NEXT_PROCESS_ENT];
 	int override_next_entity = VERY_UNSET;
 	bool search_for_next_survivor = false;
@@ -1672,6 +1777,9 @@ int SCRIPTING_alter_entities_by_criteria (int criteria,int value,int calling_ent
 	{
 		override_next_entity = UNSET;
 	}
+
+	scripting_kill_source_entity = previous_kill_source_entity;
+	scripting_kill_source_line = previous_kill_source_line;
 	
 	return override_next_entity;
 	
@@ -2305,6 +2413,14 @@ int SCRIPTING_spawn_entity_from_spawn_point (int tilemap_number, int parent_spaw
 
 	calling_entity_pointer = &entity[calling_entity_id][0];
 
+	if (SCRIPTING_is_valid_script_index(script_number) == false)
+	{
+		char line[MAX_LINE_SIZE];
+		sprintf(line, "Invalid spawn-point script index (%d) at map %d spawn %d.", script_number, tilemap_number, parent_spawn_point);
+		MAIN_add_to_log(line);
+		return UNSET;
+	}
+
 	if (SCRIPTING_find_next_entity() == true)
 	{
 		just_created_entity_pointer = &entity[just_created_entity][0];
@@ -2435,6 +2551,10 @@ int SCRIPTING_recursively_spawn_from_spawn_points (int tilemap_number, int spawn
 	// Create entity here...
 
 	created_entity_id = SCRIPTING_spawn_entity_from_spawn_point (tilemap_number , spawn_point_number, sp->script_index , sp->x , sp->y , process_offset , calling_entity_id);
+	if (created_entity_id == UNSET)
+	{
+		return UNSET;
+	}
 	cm[tilemap_number].spawn_point_list_pointer[spawn_point_number].created_entity_index = created_entity_id;
 	created_entity_pointer = &entity[created_entity_id][0];
 
@@ -2456,6 +2576,10 @@ int SCRIPTING_recursively_spawn_from_spawn_points (int tilemap_number, int spawn
 		if (cm[tilemap_number].spawn_point_list_pointer[sp->parent_index].last_fired != frames_so_far)
 		{
 			returned_entity_id = SCRIPTING_recursively_spawn_from_spawn_points (tilemap_number, sp->parent_index, created_entity_id, PROCESS_PREVIOUS);
+			if (returned_entity_id == UNSET)
+			{
+				return created_entity_id;
+			}
 
 			entity [created_entity_id][ENT_PARENT] = returned_entity_id;
 			entity [returned_entity_id][ENT_LAST_CHILD] = created_entity_id;
@@ -2477,6 +2601,10 @@ int SCRIPTING_recursively_spawn_from_spawn_points (int tilemap_number, int spawn
 		if (cm[tilemap_number].spawn_point_list_pointer[sp->child_index].last_fired != frames_so_far)
 		{
 			returned_entity_id = SCRIPTING_recursively_spawn_from_spawn_points (tilemap_number, sp->child_index, created_entity_id, PROCESS_NEXT);
+			if (returned_entity_id == UNSET)
+			{
+				return created_entity_id;
+			}
 
 			entity [returned_entity_id][ENT_PARENT] = created_entity_id;
 			entity [created_entity_id][ENT_LAST_CHILD] = returned_entity_id;
@@ -2498,6 +2626,10 @@ int SCRIPTING_recursively_spawn_from_spawn_points (int tilemap_number, int spawn
 		if (cm[tilemap_number].spawn_point_list_pointer[sp->next_sibling_index].last_fired != frames_so_far)
 		{
 			returned_entity_id = SCRIPTING_recursively_spawn_from_spawn_points (tilemap_number, sp->next_sibling_index, created_entity_id, PROCESS_NEXT);
+			if (returned_entity_id == UNSET)
+			{
+				return created_entity_id;
+			}
 			
 			entity [returned_entity_id][ENT_PREV_SIBLING] = created_entity_id;
 			entity [created_entity_id][ENT_NEXT_SIBLING] = returned_entity_id;
@@ -2517,6 +2649,10 @@ int SCRIPTING_recursively_spawn_from_spawn_points (int tilemap_number, int spawn
 		if (cm[tilemap_number].spawn_point_list_pointer[sp->prev_sibling_index].last_fired != frames_so_far)
 		{
 			returned_entity_id = SCRIPTING_recursively_spawn_from_spawn_points (tilemap_number, sp->prev_sibling_index, created_entity_id, PROCESS_PREVIOUS);
+			if (returned_entity_id == UNSET)
+			{
+				return created_entity_id;
+			}
 
 			entity [created_entity_id][ENT_PREV_SIBLING] = returned_entity_id;
 			entity [returned_entity_id][ENT_NEXT_SIBLING] = created_entity_id;
@@ -2575,16 +2711,40 @@ int SCRIPTING_count_spawnpoint_in_zone (int tilemap_number, int zone_number, int
 	int counter;
 	int list_size;
 	int *list_pointer;
-	int last_created = UNSET;
 
 	int total_of_type = 0;
+
+	if (tilemap_number < 0 || tilemap_number >= number_of_tilemaps_loaded)
+	{
+		return 0;
+	}
+
+	if (zone_number < 0 || zone_number >= cm[tilemap_number].zones)
+	{
+		return 0;
+	}
+
+	if (cm[tilemap_number].zone_list_pointer == NULL || cm[tilemap_number].spawn_point_list_pointer == NULL)
+	{
+		return 0;
+	}
 
 	list_size = cm[tilemap_number].zone_list_pointer[zone_number].spawn_point_index_list_size;
 	list_pointer = cm[tilemap_number].zone_list_pointer[zone_number].spawn_point_index_list;
 
+	if (list_size <= 0 || list_pointer == NULL)
+	{
+		return 0;
+	}
+
 	for (counter=0; counter<list_size; counter++)
 	{
 		spawn_point_number = list_pointer[counter];
+
+		if (spawn_point_number < 0 || spawn_point_number >= cm[tilemap_number].spawn_points)
+		{
+			continue;
+		}
 
 		if (cm[tilemap_number].spawn_point_list_pointer[spawn_point_number].type_value == spawn_point_type)
 		{
@@ -2608,12 +2768,37 @@ void SCRIPTING_spawn_all_points_in_zone (int tilemap_number, int zone_number, in
 	int *list_pointer;
 	int last_created = UNSET;
 
+	if (tilemap_number < 0 || tilemap_number >= number_of_tilemaps_loaded)
+	{
+		return;
+	}
+
+	if (zone_number < 0 || zone_number >= cm[tilemap_number].zones)
+	{
+		return;
+	}
+
+	if (cm[tilemap_number].zone_list_pointer == NULL || cm[tilemap_number].spawn_point_list_pointer == NULL)
+	{
+		return;
+	}
+
 	list_size = cm[tilemap_number].zone_list_pointer[zone_number].spawn_point_index_list_size;
 	list_pointer = cm[tilemap_number].zone_list_pointer[zone_number].spawn_point_index_list;
+
+	if (list_size <= 0 || list_pointer == NULL)
+	{
+		return;
+	}
 
 	for (counter=0; counter<list_size; counter++)
 	{
 		spawn_point_number = list_pointer[counter];
+
+		if (spawn_point_number < 0 || spawn_point_number >= cm[tilemap_number].spawn_points)
+		{
+			continue;
+		}
 
 		if (cm[tilemap_number].spawn_point_list_pointer[spawn_point_number].last_fired != frames_so_far)
 		{
@@ -2626,7 +2811,10 @@ void SCRIPTING_spawn_all_points_in_zone (int tilemap_number, int zone_number, in
 
 	if (last_created != UNSET)
 	{
-		entity[calling_entity_id][ENT_LAST_CHILD] = last_created;
+		if (calling_entity_id >= 0 && calling_entity_id < MAX_ENTITIES)
+		{
+			entity[calling_entity_id][ENT_LAST_CHILD] = last_created;
+		}
 	}
 }
 
@@ -3188,6 +3376,7 @@ bool SCRIPTING_load_script ( char *filename )
 	int details_array[5];
 	int *big_data;
 	int *pointer;
+	bool swap_endian = false;
 
 	FILE *file_pointer = fopen (MAIN_get_project_filename(filename),"rb");
 
@@ -3201,6 +3390,40 @@ bool SCRIPTING_load_script ( char *filename )
 	for (t = 0; t < 5; ++t)
 		details_array[t] = EndianS32_LtoN(details_array[t]);
 #endif
+	int swapped_details[5];
+	for (t = 0; t < 5; ++t)
+	{
+		swapped_details[t] = SCRIPTING_bswap32(details_array[t]);
+	}
+
+	bool native_header_plausible = false;
+	bool swapped_header_plausible = false;
+
+	if (details_array[0] > 0 && details_array[0] < 50000000 &&
+		details_array[1] >= 0 && details_array[2] > 0 && details_array[3] > 0 && details_array[4] >= 0 &&
+		details_array[3] == details_array[2] &&
+		(details_array[1] + details_array[2] + details_array[3] + (details_array[4] * 3)) == details_array[0])
+	{
+		native_header_plausible = true;
+	}
+
+	if (swapped_details[0] > 0 && swapped_details[0] < 50000000 &&
+		swapped_details[1] >= 0 && swapped_details[2] > 0 && swapped_details[3] > 0 && swapped_details[4] >= 0 &&
+		swapped_details[3] == swapped_details[2] &&
+		(swapped_details[1] + swapped_details[2] + swapped_details[3] + (swapped_details[4] * 3)) == swapped_details[0])
+	{
+		swapped_header_plausible = true;
+	}
+
+	if (!native_header_plausible && swapped_header_plausible)
+	{
+		swap_endian = true;
+		for (t = 0; t < 5; ++t)
+		{
+			details_array[t] = swapped_details[t];
+		}
+	}
+
 	total_size = details_array[0];
 	script_index_table_size = details_array[1];
 	line_length_table_size = details_array[2];
@@ -3215,11 +3438,24 @@ bool SCRIPTING_load_script ( char *filename )
 		assert(0);
 	}
 
-	fread (big_data , sizeof(int) , total_size , file_pointer);
+	if ((int)fread (big_data , sizeof(int) , total_size , file_pointer) != total_size)
+	{
+		free (big_data);
+		fclose (file_pointer);
+		OUTPUT_message("Script file read failed.");
+		assert(0);
+	}
 #ifdef ALLEGRO_MACOSX
 	for (t = 0; t < total_size; ++t)
 		big_data[t] = EndianS32_LtoN(big_data[t]);
 #endif
+	if (swap_endian)
+	{
+		for (t = 0; t < total_size; ++t)
+		{
+			big_data[t] = SCRIPTING_bswap32(big_data[t]);
+		}
+	}
 	fclose (file_pointer);
 
 	// Now we've loaded the data, we need to allocate the necessary
@@ -3551,6 +3787,14 @@ int SCRIPTING_spawn_entity (int calling_entity_id , int script_number , int x_of
 	int *calling_entity_pointer;
 	int *just_created_entity_pointer;
 
+	if (SCRIPTING_is_valid_script_index(script_number) == false)
+	{
+		char line[MAX_LINE_SIZE];
+		sprintf(line, "Invalid spawn script index (%d) requested by entity %d.", script_number, calling_entity_id);
+		MAIN_add_to_log(line);
+		return UNSET;
+	}
+
 	calling_entity_pointer = &entity[calling_entity_id][0];
 
 //	first_processed_entity_in_list;
@@ -3734,10 +3978,28 @@ int SCRIPTING_spawn_entity (int calling_entity_id , int script_number , int x_of
 		just_created_entity_pointer[ENT_WORLD_Y] = calling_entity_pointer[ENT_WORLD_Y] + y_offset;
 		just_created_entity_pointer[ENT_X] = just_created_entity_pointer[ENT_WORLD_X];
 		just_created_entity_pointer[ENT_Y] = just_created_entity_pointer[ENT_WORLD_Y];
-		just_created_entity_pointer[ENT_DRAW_ORDER] = calling_entity_pointer[ENT_DRAW_ORDER];
-		just_created_entity_pointer[ENT_SCRIPT_NUMBER] = script_number;
+			just_created_entity_pointer[ENT_DRAW_ORDER] = calling_entity_pointer[ENT_DRAW_ORDER];
+			just_created_entity_pointer[ENT_SCRIPT_NUMBER] = script_number;
 
-		return just_created_entity;
+			if (output_debug_information && SCRIPTING_is_focus_script_index(script_number))
+			{
+				const char *created_name = GPL_get_entry_name("SCRIPTS", script_number);
+				const char *caller_name = "UNSET";
+				if ((calling_entity_id >= 0) && (calling_entity_id < MAX_ENTITIES))
+				{
+					int caller_script = entity[calling_entity_id][ENT_SCRIPT_NUMBER];
+					if ((caller_script >= 0) && (caller_script < script_count))
+					{
+						caller_name = GPL_get_entry_name("SCRIPTS", caller_script);
+					}
+				}
+
+				char line[MAX_LINE_SIZE];
+				sprintf(line, "FOCUS_SPAWN child=%d(%s) caller=%d(%s) frame=%d", just_created_entity, created_name, calling_entity_id, caller_name, frames_so_far);
+				MAIN_add_to_log(line);
+			}
+
+			return just_created_entity;
 
 	}
 	else
@@ -4193,12 +4455,21 @@ void SCRIPTING_spawn_entity_by_name (char *script_name , int x , int y , int v0 
 	// does allow you to specify the first three values v0, v1 and v2 which can then be used by the called
 	// script to do stuff.
 
+	int script_number = int (GPL_find_word_value ("SCRIPTS", script_name));
+	if (SCRIPTING_is_valid_script_index(script_number) == false)
+	{
+		char line[MAX_LINE_SIZE];
+		sprintf(line, "Invalid top-level spawn script '%s' (index %d).", script_name, script_number);
+		MAIN_add_to_log(line);
+		return;
+	}
+
 	SCRIPTING_find_next_entity();
 
 	int *just_created_entity_pointer = &entity[just_created_entity][0];
 
 	just_created_entity_pointer[ENT_ALIVE] = ALIVE;
-	just_created_entity_pointer[ENT_SCRIPT_NUMBER] = int (GPL_find_word_value ("SCRIPTS", script_name));
+	just_created_entity_pointer[ENT_SCRIPT_NUMBER] = script_number;
 	just_created_entity_pointer[ENT_PROGRAM_START] = scr_lookup[just_created_entity_pointer[ENT_SCRIPT_NUMBER]];
 	just_created_entity_pointer[ENT_V0] = v0;
 	just_created_entity_pointer[ENT_V1] = v1;
@@ -4211,6 +4482,13 @@ void SCRIPTING_spawn_entity_by_name (char *script_name , int x , int y , int v0 
 	just_created_entity_pointer[ENT_PREV_PROCESS_ENT] = UNSET;
 
 	first_processed_entity_in_list = just_created_entity;
+
+	if (output_debug_information && SCRIPTING_is_focus_script_index(script_number))
+	{
+		char line[MAX_LINE_SIZE];
+		sprintf(line, "FOCUS_TOPLEVEL entity=%d(%s) frame=%d", just_created_entity, GPL_get_entry_name("SCRIPTS", script_number), frames_so_far);
+		MAIN_add_to_log(line);
+	}
 
 }
 
@@ -4604,13 +4882,15 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 			line_number = over_ride_line;
 		}
 
-		while (finished == false)
-		{
-			instruction = scr[line_number].script_line_pointer[scr[line_number].command_instruction_index].data_value;
+			while (finished == false)
+			{
+				instruction = scr[line_number].script_line_pointer[scr[line_number].command_instruction_index].data_value;
+				scripting_kill_source_entity = entity_id;
+				scripting_kill_source_line = line_number;
 
-			#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-				sprintf (wheres_wally,"Line %i Instruction %i",line_number,instruction);
-			#endif
+				#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
+					sprintf (wheres_wally,"Line %i Instruction %i",line_number,instruction);
+				#endif
 
 			#ifdef RETRENGINE_DEBUG_VERSION_SCRIPT_TRACER
 				if (trace_lines)
@@ -8669,8 +8949,8 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 
 // ---------------- TILEMAP STUFF ----------------
 
-			case COM_GET_TILEMAP_WIDTH:
-				boolean_result = SCRIPTING_get_bool_value(entity_id,line_number,4);
+				case COM_GET_TILEMAP_WIDTH:
+					boolean_result = SCRIPTING_get_bool_value(entity_id,line_number,4);
 				
 				if (scr[line_number].script_line_size == 5)
 				{
@@ -8690,8 +8970,33 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 					first_value = SCRIPTING_get_int_value(entity_id,line_number,5);
 				}
 
-				SCRIPTING_put_value ( entity_id , line_number , 1 , TILEMAPS_get_width (first_value,boolean_result) );
-			break;
+					result_i = TILEMAPS_get_width (first_value,boolean_result);
+					if (output_debug_information && boolean_result && result_i <= 0)
+					{
+						char line[MAX_LINE_SIZE];
+						const char *caller = GPL_get_entry_name("SCRIPTS", entity_pointer[ENT_SCRIPT_NUMBER]);
+						int map_width_tiles = 0;
+						int map_tileset = UNSET;
+						int map_tilesize = 0;
+						if ((first_value >= 0) && (first_value < number_of_tilemaps_loaded) && cm != NULL)
+						{
+							map_width_tiles = cm[first_value].map_width;
+							map_tileset = cm[first_value].tile_set_index;
+							map_tilesize = TILESETS_get_tilesize(map_tileset);
+						}
+						sprintf(line,
+							"DEBUG_TILEMAP_WIDTH caller=%s map=%d in_pixels=%d result=%d map_width_tiles=%d tile_set_index=%d tile_size=%d",
+							caller,
+							first_value,
+							int(boolean_result),
+							result_i,
+							map_width_tiles,
+							map_tileset,
+							map_tilesize);
+						MAIN_add_to_log(line);
+					}
+					SCRIPTING_put_value ( entity_id , line_number , 1 , result_i );
+				break;
 
 			case COM_GET_TILEMAP_HEIGHT:
 				boolean_result = SCRIPTING_get_bool_value(entity_id,line_number,4);
@@ -9282,6 +9587,218 @@ bool SCRIPTING_process_entities (void)
 
 //	SCRIPTING_confirm_entity_counts();
 
+	if (output_debug_information)
+	{
+		int focus_wizball = 0;
+		int focus_controller = 0;
+		int focus_game_window = 0;
+		int focus_get_ready = 0;
+		int focus_choose_start = 0;
+		int focus_start_game = 0;
+		int focus_wizball_drawable = 0;
+		int focus_controller_drawable = 0;
+		int focus_game_window_drawable = 0;
+		int focus_get_ready_drawable = 0;
+		int focus_choose_start_drawable = 0;
+		int focus_start_game_drawable = 0;
+		int first_wizball_entity = UNSET;
+		int first_wizball_alive = UNSET;
+		int first_wizball_draw_mode = UNSET;
+		int first_wizball_draw_order = UNSET;
+		int first_wizball_window = UNSET;
+		int first_wizball_world_x = UNSET;
+		int first_wizball_world_y = UNSET;
+		int first_wizball_draw_override = UNSET;
+		int first_wizball_window_tl_x = UNSET;
+		int first_wizball_window_tl_y = UNSET;
+		int first_wizball_window_br_x = UNSET;
+		int first_wizball_window_br_y = UNSET;
+
+		entity_id = first_processed_entity_in_list;
+		while (entity_id != UNSET)
+		{
+			entity_pointer = &entity[entity_id][0];
+			if (entity_pointer[ENT_ALIVE] >= JUST_BORN)
+			{
+				int script_number = entity_pointer[ENT_SCRIPT_NUMBER];
+				if ((script_number >= 0) && (script_number < script_count))
+				{
+					const char *name = GPL_get_entry_name("SCRIPTS", script_number);
+					bool drawable = false;
+					if ((entity_pointer[ENT_DRAW_ORDER] != UNSET) &&
+						(entity_pointer[ENT_DRAW_MODE] > DRAW_MODE_INVISIBLE) &&
+						(entity_pointer[ENT_ALIVE] > JUST_BORN) &&
+						(entity_pointer[ENT_ALIVE] != SLEEPING))
+					{
+						int window_number = entity_pointer[ENT_WINDOW_NUMBER];
+						if ((window_number != UNSET) && (window_details[window_number].active == true))
+						{
+							drawable = true;
+						}
+					}
+
+					if (name != NULL)
+					{
+						if (strcmp(name, "WIZBALL") == 0)
+						{
+							focus_wizball++;
+							if (drawable) focus_wizball_drawable++;
+							if (first_wizball_entity == UNSET)
+							{
+								first_wizball_entity = entity_id;
+								first_wizball_alive = entity_pointer[ENT_ALIVE];
+								first_wizball_draw_mode = entity_pointer[ENT_DRAW_MODE];
+								first_wizball_draw_order = entity_pointer[ENT_DRAW_ORDER];
+								first_wizball_window = entity_pointer[ENT_WINDOW_NUMBER];
+								first_wizball_world_x = entity_pointer[ENT_WORLD_X];
+								first_wizball_world_y = entity_pointer[ENT_WORLD_Y];
+								first_wizball_draw_override = entity_pointer[ENT_DRAW_OVERRIDE];
+								if ((first_wizball_window >= 0) && (first_wizball_window < number_of_windows))
+								{
+									first_wizball_window_tl_x = window_details[first_wizball_window].buffered_tl_x;
+									first_wizball_window_tl_y = window_details[first_wizball_window].buffered_tl_y;
+									first_wizball_window_br_x = window_details[first_wizball_window].buffered_br_x;
+									first_wizball_window_br_y = window_details[first_wizball_window].buffered_br_y;
+								}
+							}
+						}
+						else if (strcmp(name, "MAIN_GAME_CONTROLLER") == 0)
+						{
+							focus_controller++;
+							if (drawable) focus_controller_drawable++;
+						}
+						else if (strcmp(name, "GAME_WINDOW_HANDLER") == 0)
+						{
+							focus_game_window++;
+							if (drawable) focus_game_window_drawable++;
+						}
+						else if (strcmp(name, "GET_READY_SCREEN") == 0)
+						{
+							focus_get_ready++;
+							if (drawable) focus_get_ready_drawable++;
+						}
+						else if (strcmp(name, "CHOOSE_WIZBALL_START_POSITION") == 0)
+						{
+							focus_choose_start++;
+							if (drawable) focus_choose_start_drawable++;
+						}
+						else if (strcmp(name, "START_GAME") == 0)
+						{
+							focus_start_game++;
+							if (drawable) focus_start_game_drawable++;
+						}
+					}
+				}
+			}
+			entity_id = entity_pointer[ENT_NEXT_PROCESS_ENT];
+		}
+
+		static int last_focus_wizball = -1;
+		static int last_focus_controller = -1;
+		static int last_focus_game_window = -1;
+		static int last_focus_get_ready = -1;
+		static int last_focus_choose_start = -1;
+		static int last_focus_start_game = -1;
+		static int last_focus_wizball_drawable = -1;
+		static int last_focus_controller_drawable = -1;
+		static int last_focus_game_window_drawable = -1;
+		static int last_focus_get_ready_drawable = -1;
+		static int last_focus_choose_start_drawable = -1;
+		static int last_focus_start_game_drawable = -1;
+		static int last_first_wizball_entity = -2;
+		static int last_first_wizball_alive = -2;
+		static int last_first_wizball_draw_mode = -2;
+		static int last_first_wizball_draw_order = -2;
+		static int last_first_wizball_window = -2;
+		static int last_first_wizball_world_x = -2;
+		static int last_first_wizball_world_y = -2;
+		static int last_first_wizball_draw_override = -2;
+		static int last_first_wizball_window_tl_x = -2;
+		static int last_first_wizball_window_tl_y = -2;
+		static int last_first_wizball_window_br_x = -2;
+		static int last_first_wizball_window_br_y = -2;
+		if ((focus_wizball != last_focus_wizball) ||
+			(focus_controller != last_focus_controller) ||
+			(focus_game_window != last_focus_game_window) ||
+			(focus_get_ready != last_focus_get_ready) ||
+			(focus_choose_start != last_focus_choose_start) ||
+			(focus_start_game != last_focus_start_game) ||
+			(focus_wizball_drawable != last_focus_wizball_drawable) ||
+			(focus_controller_drawable != last_focus_controller_drawable) ||
+			(focus_game_window_drawable != last_focus_game_window_drawable) ||
+			(focus_get_ready_drawable != last_focus_get_ready_drawable) ||
+			(focus_choose_start_drawable != last_focus_choose_start_drawable) ||
+			(focus_start_game_drawable != last_focus_start_game_drawable) ||
+			(first_wizball_entity != last_first_wizball_entity) ||
+			(first_wizball_alive != last_first_wizball_alive) ||
+			(first_wizball_draw_mode != last_first_wizball_draw_mode) ||
+			(first_wizball_draw_order != last_first_wizball_draw_order) ||
+			(first_wizball_window != last_first_wizball_window) ||
+			(first_wizball_world_x != last_first_wizball_world_x) ||
+			(first_wizball_world_y != last_first_wizball_world_y) ||
+			(first_wizball_draw_override != last_first_wizball_draw_override) ||
+			(first_wizball_window_tl_x != last_first_wizball_window_tl_x) ||
+			(first_wizball_window_tl_y != last_first_wizball_window_tl_y) ||
+			(first_wizball_window_br_x != last_first_wizball_window_br_x) ||
+			(first_wizball_window_br_y != last_first_wizball_window_br_y))
+		{
+			char line[MAX_LINE_SIZE];
+			sprintf(line,
+				"FOCUS_COUNTS frame=%d WIZBALL=%d/%d MAIN_GAME_CONTROLLER=%d/%d GAME_WINDOW_HANDLER=%d/%d GET_READY_SCREEN=%d/%d CHOOSE_WIZBALL_START_POSITION=%d/%d START_GAME=%d/%d WIZBALL_STATE id=%d alive=%d draw_mode=%d draw_order=%d window=%d wx=%d wy=%d override=%d win_tl=(%d,%d) win_br=(%d,%d)",
+				frames_so_far,
+				focus_wizball,
+				focus_wizball_drawable,
+				focus_controller,
+				focus_controller_drawable,
+				focus_game_window,
+				focus_game_window_drawable,
+				focus_get_ready,
+					focus_get_ready_drawable,
+					focus_choose_start,
+					focus_choose_start_drawable,
+					focus_start_game,
+					focus_start_game_drawable,
+				first_wizball_entity,
+				first_wizball_alive,
+				first_wizball_draw_mode,
+				first_wizball_draw_order,
+				first_wizball_window,
+				first_wizball_world_x,
+				first_wizball_world_y,
+				first_wizball_draw_override,
+				first_wizball_window_tl_x,
+				first_wizball_window_tl_y,
+				first_wizball_window_br_x,
+				first_wizball_window_br_y);
+			MAIN_add_to_log(line);
+
+			last_focus_wizball = focus_wizball;
+			last_focus_controller = focus_controller;
+			last_focus_game_window = focus_game_window;
+			last_focus_get_ready = focus_get_ready;
+			last_focus_choose_start = focus_choose_start;
+			last_focus_start_game = focus_start_game;
+			last_focus_wizball_drawable = focus_wizball_drawable;
+			last_focus_controller_drawable = focus_controller_drawable;
+			last_focus_game_window_drawable = focus_game_window_drawable;
+			last_focus_get_ready_drawable = focus_get_ready_drawable;
+			last_focus_choose_start_drawable = focus_choose_start_drawable;
+			last_focus_start_game_drawable = focus_start_game_drawable;
+			last_first_wizball_entity = first_wizball_entity;
+			last_first_wizball_alive = first_wizball_alive;
+			last_first_wizball_draw_mode = first_wizball_draw_mode;
+			last_first_wizball_draw_order = first_wizball_draw_order;
+			last_first_wizball_window = first_wizball_window;
+			last_first_wizball_world_x = first_wizball_world_x;
+			last_first_wizball_world_y = first_wizball_world_y;
+			last_first_wizball_draw_override = first_wizball_draw_override;
+			last_first_wizball_window_tl_x = first_wizball_window_tl_x;
+			last_first_wizball_window_tl_y = first_wizball_window_tl_y;
+			last_first_wizball_window_br_x = first_wizball_window_br_x;
+			last_first_wizball_window_br_y = first_wizball_window_br_y;
+		}
+	}
+
 	return completely_exit_game;
 }
 
@@ -9462,11 +9979,26 @@ void SCRIPTING_set_default_entity_from_prefab (int prefab_number)
 {
 	int t;
 
+	if ((prefab_number < 0) || (prefab_number >= number_of_prefabs_loaded) || (prefab_space == NULL))
+	{
+		return;
+	}
+
 	int preset_count = prefab_space[prefab_number].presets;
+	if (preset_count <= 0 || prefab_space[prefab_number].variables == NULL || prefab_space[prefab_number].values == NULL)
+	{
+		return;
+	}
 
 	for (t=0; t<preset_count; t++)
 	{
-		reset_entity[ prefab_space[prefab_number].variables[t] ] = prefab_space[prefab_number].values[t];
+		int variable_index = prefab_space[prefab_number].variables[t];
+		if (variable_index < 0 || variable_index >= MAX_ENTITY_VARIABLES)
+		{
+			continue;
+		}
+
+		reset_entity[variable_index] = prefab_space[prefab_number].values[t];
 	}
 }
 
@@ -9476,11 +10008,26 @@ void SCRIPTING_use_prefab (int prefab_number , int *entity_pointer)
 {
 	int t;
 
+	if ((prefab_number < 0) || (prefab_number >= number_of_prefabs_loaded) || (prefab_space == NULL) || (entity_pointer == NULL))
+	{
+		return;
+	}
+
 	int preset_count = prefab_space[prefab_number].presets;
+	if (preset_count <= 0 || prefab_space[prefab_number].variables == NULL || prefab_space[prefab_number].values == NULL)
+	{
+		return;
+	}
 
 	for (t=0; t<preset_count; t++)
 	{
-		entity_pointer[ prefab_space[prefab_number].variables[t] ] = prefab_space[prefab_number].values[t];
+		int variable_index = prefab_space[prefab_number].variables[t];
+		if (variable_index < 0 || variable_index >= MAX_ENTITY_VARIABLES)
+		{
+			continue;
+		}
+
+		entity_pointer[variable_index] = prefab_space[prefab_number].values[t];
 	}
 }
 
@@ -9528,6 +10075,29 @@ void SCRIPTING_load_prefab (char *filename, int index)
 	FILE *file_pointer;
 
 	file_pointer = fopen(MAIN_get_project_filename(filename),"r");
+#ifdef ALLEGRO_LINUX
+	if (file_pointer == NULL)
+	{
+		// Legacy projects often have upper-case names in GPL but lower-case files on disk.
+		char lowercase_filename[MAX_LINE_SIZE];
+		int i = 0;
+
+		for (i=0; filename[i] != '\0' && i < MAX_LINE_SIZE-1; i++)
+		{
+			if (filename[i] >= 'A' && filename[i] <= 'Z')
+			{
+				lowercase_filename[i] = filename[i] - 'A' + 'a';
+			}
+			else
+			{
+				lowercase_filename[i] = filename[i];
+			}
+		}
+		lowercase_filename[i] = '\0';
+
+		file_pointer = fopen(MAIN_get_project_filename(lowercase_filename),"r");
+	}
+#endif
 
 	if (file_pointer != NULL)
 	{
@@ -9607,7 +10177,12 @@ void SCRIPTING_load_prefab (char *filename, int index)
 	}
 	else
 	{
-		assert(0);
+		// Keep running even if a prefab source file is missing on this platform.
+		prefab_space[index].presets = 0;
+		prefab_space[index].variables = NULL;
+		prefab_space[index].values = NULL;
+
+		MAIN_add_to_log ("Missing prefab file; using empty prefab.");
 	}
 }
 

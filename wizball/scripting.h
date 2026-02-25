@@ -392,5 +392,3 @@ extern window_struct *window_details;
 
 
 
-
-
