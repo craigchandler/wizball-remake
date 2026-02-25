@@ -2143,7 +2143,7 @@ Fortify_PostDelete()
  * operator delete - fortify's replacement delete
  */
 void FORTIFY_STORAGE
-operator delete(void *uptr)
+operator delete(void *uptr) throw()
 {
     const char *file;
     unsigned long line;
@@ -2185,7 +2185,7 @@ operator delete(void *uptr)
  * operator delete[] - fortify's replacement delete[]
  */
 void FORTIFY_STORAGE
-operator delete[](void *uptr)
+operator delete[](void *uptr) throw()
 {
     const char *file;
     unsigned long line;

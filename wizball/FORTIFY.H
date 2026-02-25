@@ -187,7 +187,7 @@ extern int gbl_FortifyMagic;
     /* Fortify versions of new and delete */
     void *operator new(size_t size);
     void *operator new(size_t size, const char *file, unsigned long line);
-    void  operator delete(void *pointer);
+    void  operator delete(void *pointer) throw();
     void  Fortify_PreDelete(const char *file, unsigned long line);
     void  Fortify_PostDelete();
 
@@ -203,7 +203,7 @@ extern int gbl_FortifyMagic;
      * This incldues GNU G++ (2.6.0)
      */
     #ifdef FORTIFY_PROVIDE_ARRAY_DELETE
-        void  operator delete[](void *pointer);
+        void  operator delete[](void *pointer) throw();
     #endif
 
 #endif /* __cplusplus */
