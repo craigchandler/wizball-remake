@@ -115,6 +115,47 @@ def remove_if_exists(path: Path) -> None:
         path.unlink()
 
 
+def compile_cptf_from_textfiles(gpl_lists: Dict[str, Dict[str, object]], game_dir: Path, out_cptf: Path) -> None:
+    textfiles_spec = gpl_lists.get("TEXTFILES")
+    if textfiles_spec is None:
+        raise RuntimeError("Missing list 'TEXTFILES' in global_parameter_list.txt")
+
+    extension = str(textfiles_spec.get("extension", ""))
+    if not extension:
+        raise RuntimeError("List 'TEXTFILES' has no extension in global_parameter_list.txt")
+
+    entries = textfiles_spec.get("entries", [])
+    assert isinstance(entries, list)
+
+    source_dir = game_dir / "textfiles"
+    compiled_lines: List[str] = []
+
+    for entry in entries:
+        wanted_name = f"{entry}{extension}"
+        source_path = find_file_case_insensitive(source_dir, wanted_name)
+        if source_path is None:
+            raise RuntimeError(f"Could not resolve 'textfiles/{wanted_name}' case-insensitively.")
+
+        for raw in source_path.read_text(encoding="utf-8", errors="replace").splitlines():
+            stripped = raw.strip(" \t\r\n")
+            if not stripped or stripped.startswith("//"):
+                continue
+
+            # Match TEXTFILE_load_text() behavior:
+            # token 1 = tag, token 2 = rest of line (leading spaces/tabs removed).
+            parts = raw.split(None, 1)
+            if len(parts) < 2:
+                continue
+            text = parts[1].lstrip(" \t")
+            compiled_lines.append(text if text else "EMPTY LINE!")
+
+    with out_cptf.open("w", encoding="utf-8", newline="\n") as fp:
+        fp.write(f"{len(compiled_lines)}\n")
+        for line in compiled_lines:
+            fp.write(f"{len(line)}\n")
+            fp.write(f"{line}\n")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Cross-platform WizBall data repacker.")
     parser.add_argument("--root", default=None, help="Repo root (defaults from script location).")
@@ -154,9 +195,12 @@ def main() -> int:
         data_pack = out_dir / "data.dat"
         if args.include_core_data:
             remove_if_exists(data_pack)
+            compiled_cptf = out_dir / "cptf.txt"
+            compile_cptf_from_textfiles(gpl_lists, game_dir, compiled_cptf)
+
             run_dat(args.dat_tool, data_pack, game_dir / "global_parameter_list.txt", "DATA", True)
             run_dat(args.dat_tool, data_pack, game_dir / "gpl_list_size.txt", "DATA", True)
-            run_dat(args.dat_tool, data_pack, game_dir / "cptf.txt", "DATA", True)
+            run_dat(args.dat_tool, data_pack, compiled_cptf, "DATA", True)
             run_dat(args.dat_tool, data_pack, game_dir / "project_settings.txt", "DATA", True)
 
             # Dat-mode runtime still reads several non-packed core binaries directly.

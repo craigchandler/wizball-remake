@@ -165,3 +165,14 @@ add_custom_target(repack_wizball_data_full
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   USES_TERMINAL
 )
+
+add_custom_target(rebuild_wizball_scripts_and_data
+  COMMAND $<TARGET_FILE:wizball> -rebuildscripts wizball
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/repack_wizball_data.py
+          --root ${CMAKE_CURRENT_SOURCE_DIR}
+          --dat-tool ${WIZBALL_DAT_TOOL}
+          --include-core-data
+  DEPENDS wizball
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wizball
+  USES_TERMINAL
+)
