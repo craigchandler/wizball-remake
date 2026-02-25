@@ -193,7 +193,7 @@ void * INPUT_get_sfx_data_pointer(char *object_name, int *data_length)
 
 bool INPUT_load_datafile (void)
 {
-	data_dat = load_datafile(MAIN_get_project_filename("data.dat")); 
+	data_dat = load_datafile(MAIN_get_pack_filename("data.dat")); 
 
 	if (data_dat != NULL)
 	{
@@ -209,10 +209,10 @@ bool INPUT_load_datafile (void)
 
 void INPUT_load_media_datafiles (void)
 {
-	sfx_dat = load_datafile(MAIN_get_project_filename("sfx.dat"));
-	gfx_dat = load_datafile(MAIN_get_project_filename("gfx.dat"));
-	stream_dat = load_datafile(MAIN_get_project_filename("stream.dat"));
-	music_dat = load_datafile(MAIN_get_project_filename("music.dat"));
+	sfx_dat = load_datafile(MAIN_get_pack_filename("sfx.dat"));
+	gfx_dat = load_datafile(MAIN_get_pack_filename("gfx.dat"));
+	stream_dat = load_datafile(MAIN_get_pack_filename("stream.dat"));
+	music_dat = load_datafile(MAIN_get_pack_filename("music.dat"));
 }
 
 
@@ -1160,6 +1160,21 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 
 		/* Setup OpenGL like we want */
 
+		if (output_debug_information)
+		{
+			const char *gl_vendor = (const char *) glGetString(GL_VENDOR);
+			const char *gl_renderer = (const char *) glGetString(GL_RENDERER);
+			const char *gl_version = (const char *) glGetString(GL_VERSION);
+			char gl_line[MAX_LINE_SIZE];
+
+			sprintf(gl_line, "OpenGL vendor: %s", (gl_vendor != NULL) ? gl_vendor : "UNKNOWN");
+			MAIN_add_to_log(gl_line);
+			sprintf(gl_line, "OpenGL renderer: %s", (gl_renderer != NULL) ? gl_renderer : "UNKNOWN");
+			MAIN_add_to_log(gl_line);
+			sprintf(gl_line, "OpenGL version: %s", (gl_version != NULL) ? gl_version : "UNKNOWN");
+			MAIN_add_to_log(gl_line);
+		}
+
 		// Textures? Yes please!
 		glEnable(GL_TEXTURE_2D);
 
@@ -1493,6 +1508,26 @@ int OUTPUT_bitmap_frames (int bitmap_number)
 	return (bmps[bitmap_number].sprite_count);
 }
 
+static bool OUTPUT_is_valid_bitmap_index(int bitmap_number)
+{
+	return (bitmap_number >= 0 && bitmap_number < total_bitmaps_loaded);
+}
+
+static bool OUTPUT_is_valid_sprite_frame(int bitmap_number, int sprite_number)
+{
+	if (!OUTPUT_is_valid_bitmap_index(bitmap_number))
+	{
+		return false;
+	}
+
+	if (bmps[bitmap_number].sprite_list == NULL)
+	{
+		return false;
+	}
+
+	return (sprite_number >= 0 && sprite_number < bmps[bitmap_number].sprite_count);
+}
+
 
 
 #define CHUNK_SIZE		(128)
@@ -1754,7 +1789,7 @@ void INPUT_create_arbitrary_sized_sprite_series (int parent_bitmap, char *name_b
 
 	if (load_from_dat_file)
 	{
-		sprintf(full_pack_filename,"%s\\gfx.dat#%s",MAIN_get_project_name(),descriptor_file);
+		sprintf(full_pack_filename,"%s\\gfx.dat#%s",MAIN_get_pack_project_name(),descriptor_file);
 		fix_filename_slashes(full_pack_filename);
 		PACKFILE *packfile_pointer = pack_fopen (full_pack_filename,"r");
 
@@ -2967,35 +3002,44 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 				}
 				#endif
 
-				#ifdef RETRENGINE_DEBUG_VERSION
-					if ( (entity_pointer[ENT_DRAW_MODE] != DRAW_MODE_SOLID_RECTANGLE) && (entity_pointer[ENT_DRAW_MODE] != DRAW_MODE_STARFIELD) && (entity_pointer[ENT_DRAW_MODE] != DRAW_MODE_STARFIELD_LINES) && (entity_pointer[ENT_DRAW_MODE] != DRAW_MODE_STARFIELD_COLOUR) && (entity_pointer[ENT_DRAW_MODE] != DRAW_MODE_STARFIELD_COLOUR_LINES) )
-					{
-						if (bmps[entity_pointer[ENT_SPRITE]].sprite_count <= entity_pointer[ENT_CURRENT_FRAME])
+					draw_type = entity_pointer[ENT_DRAW_MODE];
+					opengl_booleans = entity_pointer[ENT_OPENGL_BOOLEANS];
+
+					#ifdef RETRENGINE_DEBUG_VERSION
+						if (draw_type == DRAW_MODE_SPRITE)
 						{
-							sprintf (debug_text,"Entity %s is trying to access frame %i (max is %i)", GPL_get_entry_name("SCRIPTS",entity_pointer[ENT_SCRIPT_NUMBER]) , entity_pointer[ENT_CURRENT_FRAME] , bmps[entity_pointer[ENT_SPRITE]].sprite_count-1 );
-							OUTPUT_message(debug_text);
+							int sprite_index = entity_pointer[ENT_SPRITE];
+							int frame_index = entity_pointer[ENT_CURRENT_FRAME];
+							if (!OUTPUT_is_valid_sprite_frame(sprite_index, frame_index))
+							{
+								int max_frame = -1;
+								if (OUTPUT_is_valid_bitmap_index(sprite_index))
+								{
+									max_frame = bmps[sprite_index].sprite_count - 1;
+								}
+
+								sprintf (debug_text,"Entity %s is trying to access frame %i (max is %i)", GPL_get_entry_name("SCRIPTS",entity_pointer[ENT_SCRIPT_NUMBER]) , frame_index , max_frame );
+								MAIN_add_to_log(debug_text);
+							}
 						}
-					}
-				#endif
+					#endif
 
-				#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-					sprintf (debug_text,"Entity %i = %s ",current_entity, GPL_get_entry_name("SCRIPTS",entity_pointer[ENT_SCRIPT_NUMBER]) );
-					MAIN_debug_last_thing (debug_text);
-				#endif
+					#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
+						sprintf (debug_text,"Entity %i = %s ",current_entity, GPL_get_entry_name("SCRIPTS",entity_pointer[ENT_SCRIPT_NUMBER]) );
+						MAIN_debug_last_thing (debug_text);
+					#endif
 
-				draw_type = entity_pointer[ENT_DRAW_MODE];
-
-				#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-					sprintf (debug_text,"Draw Type = %i",draw_type );
-					MAIN_debug_last_thing (debug_text);
+					#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
+						sprintf (debug_text,"Draw Type = %i",draw_type );
+						MAIN_debug_last_thing (debug_text);
 
 					MAIN_debug_last_thing ("About to check multitexture sprite...");
 				#endif
 
-				if (texture_combiner_available)
-				{
-					secondary_bitmap_number = entity_pointer[ENT_SECONDARY_SPRITE];
-					if ((secondary_bitmap_number != UNSET) && (opengl_booleans & (OPENGL_BOOLEAN_MULTITEXTURE_MASK | OPENGL_BOOLEAN_MULTITEXTURE_DOUBLE_MASK) > 0))
+					if (texture_combiner_available)
+					{
+						secondary_bitmap_number = entity_pointer[ENT_SECONDARY_SPRITE];
+						if ((secondary_bitmap_number != UNSET) && OUTPUT_is_valid_bitmap_index(secondary_bitmap_number) && (opengl_booleans & (OPENGL_BOOLEAN_MULTITEXTURE_MASK | OPENGL_BOOLEAN_MULTITEXTURE_DOUBLE_MASK) > 0))
 					{
 						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 							MAIN_debug_last_thing ("About to set multi-texture sprite...");
@@ -3044,14 +3088,17 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 					MAIN_debug_last_thing ("About to bind texture sprite...");
 				#endif
 
-				bitmap_number = entity_pointer[ENT_SPRITE];
-				if ( (bitmap_number != old_bitmap_number) && (bitmap_number != UNSET) )
-				{
-					glBindTexture(GL_TEXTURE_2D, bmps[bitmap_number].texture);
-				}
-				old_bitmap_number = bitmap_number;
-
-				opengl_booleans = entity_pointer[ENT_OPENGL_BOOLEANS];
+					bitmap_number = entity_pointer[ENT_SPRITE];
+					if (!OUTPUT_is_valid_bitmap_index(bitmap_number))
+					{
+						current_entity = entity[current_entity][ENT_NEXT_WINDOW_ENT];
+						continue;
+					}
+					if ( (bitmap_number != old_bitmap_number) && (bitmap_number != UNSET) )
+					{
+						glBindTexture(GL_TEXTURE_2D, bmps[bitmap_number].texture);
+					}
+					old_bitmap_number = bitmap_number;
 
 				if ( (old_bitmap_number != bitmap_number) || (opengl_booleans != old_opengl_booleans) )
 				{
@@ -3303,15 +3350,24 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 				switch (draw_type)
 				{
-					case DRAW_MODE_SPRITE: // NEW TYPE!!!				
-					{
-						if (opengl_booleans & OPENGL_BOOLEAN_INTERPOLATED)
+						case DRAW_MODE_SPRITE: // NEW TYPE!!!				
 						{
 							frame_number = entity_pointer[ENT_CURRENT_FRAME];
-							interp_frame_number = entity_pointer[ENT_INTERPOLATED_FRAME];
-							
-							sp = &bmps[bitmap_number].sprite_list[frame_number];
-							interp_sp = &bmps[bitmap_number].sprite_list[interp_frame_number];
+							if (!OUTPUT_is_valid_sprite_frame(bitmap_number, frame_number))
+							{
+								break;
+							}
+
+							if (opengl_booleans & OPENGL_BOOLEAN_INTERPOLATED)
+							{
+								interp_frame_number = entity_pointer[ENT_INTERPOLATED_FRAME];
+								if (!OUTPUT_is_valid_sprite_frame(bitmap_number, interp_frame_number))
+								{
+									interp_frame_number = frame_number;
+								}
+								
+								sp = &bmps[bitmap_number].sprite_list[frame_number];
+								interp_sp = &bmps[bitmap_number].sprite_list[interp_frame_number];
 
 							interp_x = float (entity_pointer[ENT_INTERPOLATION_X_PERCENTAGE]) / 10000.0f;
 							interp_y = float (entity_pointer[ENT_INTERPOLATION_Y_PERCENTAGE]) / 10000.0f;
@@ -3330,14 +3386,12 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							u2 = MATH_lerp (u2,interp_u2,interp_x);
 							v1 = MATH_lerp (v1,interp_v1,interp_y);
 							v2 = MATH_lerp (v2,interp_v2,interp_y);
-						}
-						else
-						{
-							frame_number = entity_pointer[ENT_CURRENT_FRAME];
-								
-							sp = &bmps[bitmap_number].sprite_list[frame_number];
+							}
+							else
+							{
+								sp = &bmps[bitmap_number].sprite_list[frame_number];
 
-							u1 = sp->u1;
+								u1 = sp->u1;
 							u2 = sp->u2;
 							v1 = sp->v1;
 							v2 = sp->v2;
@@ -3416,15 +3470,23 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							v2 = temp_uv;
 						}
 
-						if ((texture_combiner_available = true) && (opengl_booleans & (OPENGL_BOOLEAN_MULTITEXTURE_MASK | OPENGL_BOOLEAN_MULTITEXTURE_DOUBLE_MASK)))
-						{
-							if (secondary_opengl_booleans & OPENGL_BOOLEAN_INTERPOLATED)
+							if ((texture_combiner_available == true) && OUTPUT_is_valid_bitmap_index(secondary_bitmap_number) && (opengl_booleans & (OPENGL_BOOLEAN_MULTITEXTURE_MASK | OPENGL_BOOLEAN_MULTITEXTURE_DOUBLE_MASK)))
 							{
-								secondary_frame_number = entity_pointer[ENT_SECONDARY_CURRENT_FRAME];
-								secondary_interp_frame_number = entity_pointer[ENT_SECONDARY_INTERPOLATED_FRAME];
-								
-								secondary_sp = &bmps[secondary_bitmap_number].sprite_list[secondary_frame_number];
-								secondary_interp_sp = &bmps[secondary_bitmap_number].sprite_list[secondary_interp_frame_number];
+								if (secondary_opengl_booleans & OPENGL_BOOLEAN_INTERPOLATED)
+								{
+									secondary_frame_number = entity_pointer[ENT_SECONDARY_CURRENT_FRAME];
+									secondary_interp_frame_number = entity_pointer[ENT_SECONDARY_INTERPOLATED_FRAME];
+									if (!OUTPUT_is_valid_sprite_frame(secondary_bitmap_number, secondary_frame_number))
+									{
+										secondary_frame_number = 0;
+									}
+									if (!OUTPUT_is_valid_sprite_frame(secondary_bitmap_number, secondary_interp_frame_number))
+									{
+										secondary_interp_frame_number = secondary_frame_number;
+									}
+									
+									secondary_sp = &bmps[secondary_bitmap_number].sprite_list[secondary_frame_number];
+									secondary_interp_sp = &bmps[secondary_bitmap_number].sprite_list[secondary_interp_frame_number];
 
 								interp_x = float (entity_pointer[ENT_SECONDARY_INTERPOLATION_X_PERCENTAGE]) / 10000.0f;
 								interp_y = float (entity_pointer[ENT_SECONDARY_INTERPOLATION_Y_PERCENTAGE]) / 10000.0f;
@@ -3444,14 +3506,18 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 								secondary_v1 = MATH_lerp (secondary_v1,interp_v1,interp_y);
 								secondary_v2 = MATH_lerp (secondary_v2,interp_v2,interp_y);
 							}
-							else
-							{
-								secondary_frame_number = entity_pointer[ENT_SECONDARY_CURRENT_FRAME];
-									
-								secondary_sp = &bmps[bitmap_number].sprite_list[frame_number];
+								else
+								{
+									secondary_frame_number = entity_pointer[ENT_SECONDARY_CURRENT_FRAME];
+									if (!OUTPUT_is_valid_sprite_frame(secondary_bitmap_number, secondary_frame_number))
+									{
+										secondary_frame_number = 0;
+									}
+										
+									secondary_sp = &bmps[secondary_bitmap_number].sprite_list[secondary_frame_number];
 
-								secondary_u1 = secondary_sp->u1;
-								secondary_u2 = secondary_sp->u2;
+									secondary_u1 = secondary_sp->u1;
+									secondary_u2 = secondary_sp->u2;
 								secondary_v1 = secondary_sp->v1;
 								secondary_v2 = secondary_sp->v2;
 							}
@@ -4426,7 +4492,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 	}
 
-	if ((secondary_bitmap_number != UNSET) && (texture_combiner_available = true))
+	if ((secondary_bitmap_number != UNSET) && (texture_combiner_available == true))
 	{
 		// If we had a multi-texture last frame then we need to first disable the second texture unit...
 		pglActiveTextureARB(GL_TEXTURE1);
@@ -4511,12 +4577,6 @@ void OUTPUT_store_frame_info_in_entity_collision_including_scale (int *entity_po
 	entity_pointer [ENT_LOWER_WIDTH] = ((width-1) - pivot_x) + modifier;
 	entity_pointer [ENT_LOWER_HEIGHT] = ((height-1) - pivot_y) + modifier;
 }
-
-
-
-
-
-
 
 
 

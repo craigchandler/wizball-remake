@@ -371,6 +371,36 @@ bool EDIT_confirm_links (void)
 }
 
 
+static bool EDIT_tilemaps_have_valid_dimensions(void)
+{
+	if (cm == NULL || number_of_tilemaps_loaded <= 0)
+	{
+		MAIN_add_to_log("Tilemap validation failed: no tilemaps are loaded.");
+		return false;
+	}
+
+	for (int map_number = 0; map_number < number_of_tilemaps_loaded; map_number++)
+	{
+		if ((cm[map_number].map_width <= 0) || (cm[map_number].map_height <= 0) || (cm[map_number].map_layers <= 0))
+		{
+			char line[MAX_LINE_SIZE];
+			sprintf(line,
+				"Tilemap validation failed: map=%d width=%d height=%d layers=%d tileset=%d name=%s",
+				map_number,
+				cm[map_number].map_width,
+				cm[map_number].map_height,
+				cm[map_number].map_layers,
+				cm[map_number].tile_set_index,
+				cm[map_number].name);
+			MAIN_add_to_log(line);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+
 
 void EDIT_setup (void)
 {
@@ -394,13 +424,56 @@ void EDIT_setup (void)
 	}
 	else
 	{
-		MAIN_add_to_log ("Loading tilesets from data files...");
-		TILESETS_load_game_data ();
+#ifdef ALLEGRO_LINUX
+		MAIN_add_to_log ("Linux compatibility mode: loading verbose map data...");
+
+		MAIN_add_to_log ("Loading tilesets from verbose files...");
+		TILESETS_load_all ();
 		MAIN_add_to_log ("\tOK!");
 
-		MAIN_add_to_log ("Loading tilemaps from data files...");
-		TILEMAPS_load_game_data ();
+		MAIN_add_to_log ("Loading tilemaps from verbose files...");
+		TILEMAPS_load_all ();
 		MAIN_add_to_log ("\tOK!");
+#else
+		MAIN_add_to_log ("Loading tilesets from data files...");
+		if (TILESETS_load_game_data())
+		{
+			MAIN_add_to_log ("\tOK!");
+
+			MAIN_add_to_log ("Loading tilemaps from data files...");
+			TILEMAPS_load_game_data ();
+			MAIN_add_to_log ("\tOK!");
+		}
+		else
+		{
+			MAIN_add_to_log ("\tFAILED! Falling back to verbose map data.");
+
+			MAIN_add_to_log ("Loading tilesets from verbose files...");
+			TILESETS_load_all ();
+			MAIN_add_to_log ("\tOK!");
+
+			MAIN_add_to_log ("Loading tilemaps from verbose files...");
+			TILEMAPS_load_all ();
+			MAIN_add_to_log ("\tOK!");
+		}
+#endif
+	}
+
+	if (!EDIT_tilemaps_have_valid_dimensions())
+	{
+		MAIN_add_to_log("Tilemaps had invalid dimensions after initial load. Reloading verbose tilemap files (non-destructive reset)...");
+		// Avoid freeing potentially corrupted pointers from a bad initial load.
+		cm = NULL;
+		number_of_tilemaps_loaded = 0;
+		TILEMAPS_load_all();
+
+		if (!EDIT_tilemaps_have_valid_dimensions())
+		{
+			OUTPUT_message("Tilemap load failed: invalid map dimensions after verbose reload.");
+			assert(0);
+		}
+
+		MAIN_add_to_log("\tOK!");
 	}
 
 	MAIN_draw_loading_picture ("LINKING ZONE TYPE INDEXES",30);
@@ -1254,5 +1327,3 @@ bool EDIT_gpl_list_menu (int x, int y, char *list_name , char *list_entry, bool 
 	return true;
 
 }
-
-

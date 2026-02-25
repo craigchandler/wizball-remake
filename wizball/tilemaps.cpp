@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 #include <math.h>
+#include <ctype.h>
 #include <allegro.h>
 
 #include "tilemaps.h" // Duh!
@@ -246,9 +247,19 @@ void TILEMAPS_save_editor_settings (void)
 
 int TILEMAPS_get_width (int map_index, bool in_pixels)
 {
+	if (cm == NULL || map_index < 0 || map_index >= number_of_tilemaps_loaded)
+	{
+		return 0;
+	}
+
 	if (in_pixels)
 	{
-		return (cm[map_index].map_width * ts[cm[map_index].tile_set_index].tilesize);
+		int tilesize = TILESETS_get_tilesize(cm[map_index].tile_set_index);
+		if (tilesize <= 0)
+		{
+			return 0;
+		}
+		return (cm[map_index].map_width * tilesize);
 	}
 	else
 	{
@@ -260,9 +271,19 @@ int TILEMAPS_get_width (int map_index, bool in_pixels)
 
 int TILEMAPS_get_height (int map_index, bool in_pixels)
 {
+	if (cm == NULL || map_index < 0 || map_index >= number_of_tilemaps_loaded)
+	{
+		return 0;
+	}
+
 	if (in_pixels)
 	{
-		return (cm[map_index].map_height * ts[cm[map_index].tile_set_index].tilesize);
+		int tilesize = TILESETS_get_tilesize(cm[map_index].tile_set_index);
+		if (tilesize <= 0)
+		{
+			return 0;
+		}
+		return (cm[map_index].map_height * tilesize);
 	}
 	else
 	{
@@ -429,6 +450,10 @@ void TILEMAPS_create_real_zone_sizes (void)
 	{
 		tileset_index = cm[tilemap_number].tile_set_index;
 		tile_size = TILESETS_get_tilesize (tileset_index);
+		if (tile_size <= 0)
+		{
+			tile_size = 0;
+		}
 
 		for (zone_number = 0; zone_number<cm[tilemap_number].zones; zone_number++)
 		{
@@ -2852,6 +2877,7 @@ void TILEMAPS_load_all (void)
 {
 	int start,end,i;
 	char filename[NAME_SIZE];
+	char extension[NAME_SIZE];
 	char description[MAX_LINE_SIZE];
 
 	number_of_tilemaps_loaded = 0;
@@ -2865,7 +2891,15 @@ void TILEMAPS_load_all (void)
 		sprintf(description,"LOADING TILEMAP : %s",filename);
 		MAIN_draw_loading_picture (description,20);
 
-		strcat(filename,GPL_what_is_list_extension ("TILEMAPS"));
+		strcpy(extension, GPL_what_is_list_extension("TILEMAPS"));
+#ifdef ALLEGRO_LINUX
+		// Asset files in this repo use lowercase .txt extensions on Linux.
+		for (char *p = extension; *p != '\0'; ++p)
+		{
+			*p = (char)tolower((unsigned char)*p);
+		}
+#endif
+		strcat(filename, extension);
 		TILEMAPS_load ( filename , TILEMAPS_create (false) ); // Load the map.
 	}
 }
@@ -2977,6 +3011,24 @@ bool TILEMAPS_confirm_links (void)
 
 		if (cm[t].tile_set_index == UNSET)
 		{
+			// Linux compatibility fallback: some legacy map files end up with corrupted
+			// default tileset strings. Use a deterministic valid tileset so gameplay can proceed.
+			if (number_of_tilesets_loaded > 0)
+			{
+				int fallback_index = t;
+				if (fallback_index < 0 || fallback_index >= number_of_tilesets_loaded)
+				{
+					fallback_index = 0;
+				}
+
+				cm[t].tile_set_index = fallback_index;
+				strcpy(cm[t].default_tile_set, TILESETS_get_name(fallback_index));
+
+				sprintf ( line , "'%s' FALLBACK TILESET APPLIED: '%s'.\n" , cm[t].name , cm[t].default_tile_set );
+				EDIT_add_line_to_report (line);
+			}
+			else
+			{
 			if (strcmp (cm[t].default_tile_set,"UNSET") == 0)
 			{
 				// Used to be Unset and still is - no worries...
@@ -2989,6 +3041,7 @@ bool TILEMAPS_confirm_links (void)
 				sprintf ( line , "'%s' CANNOT FIND TILESET '%s'.\n" , cm[t].name , cm[t].default_tile_set );
 				EDIT_add_line_to_report (line);
 				all_okay = false;
+			}
 			}
 		}
 		else
@@ -4916,8 +4969,13 @@ void TILEMAPS_use_conversion_table (int tilemap_number, int start_layer, int end
 
 int TILEMAPS_get_tilemap_sprite (int map_index)
 {
+	if (cm == NULL || map_index < 0 || map_index >= number_of_tilemaps_loaded)
+	{
+		return UNSET;
+	}
+
 	int tile_set_index = cm[map_index].tile_set_index;
-	return (ts[tile_set_index].tileset_image_index);
+	return TILESETS_get_sprite_index(tile_set_index);
 }
 
 

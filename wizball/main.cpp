@@ -11,6 +11,9 @@
 #endif
 
 #include <signal.h>
+#ifdef ALLEGRO_LINUX
+	#include <execinfo.h>
+#endif
 
 #include "string_size_constants.h"
 #include "parser.h"
@@ -60,12 +63,17 @@ int game_state;
 char project[MAX_NAME_SIZE] = ".";
 #else
 char project[MAX_NAME_SIZE] = "wizball";
+char pack_project[MAX_NAME_SIZE] = "";
+char pack_project[MAX_NAME_SIZE] = "";
+char pack_project[MAX_NAME_SIZE] = "";
+char pack_project[MAX_NAME_SIZE] = "";
 #endif
 #else // not OSX
 char project[MAX_NAME_SIZE] = "wizball";
 #endif
 */
 char project[MAX_NAME_SIZE] = "wizball";
+char pack_project[MAX_NAME_SIZE] = "";
 
 //char project[] = "kon_and_drderekdrs";
 char full_project_filename[FULL_PROJECT_NAME_LENGTH];
@@ -165,8 +173,6 @@ void close_callback()
 	}
 }
 
-
-
 char * MAIN_get_project_name(void)
 {
 #ifdef ALLEGRO_MACOSX
@@ -174,6 +180,17 @@ char * MAIN_get_project_name(void)
 	#else
 	return &project[0];
 	#endif
+}
+
+
+
+char * MAIN_get_pack_project_name(void)
+{
+	if (pack_project[0] != '\0')
+	{
+		return &pack_project[0];
+	}
+	return MAIN_get_project_name();
 }
 
 
@@ -228,7 +245,7 @@ void MAIN_debug_last_thing (char *message)
 
 		counter++;
 
-		if (counter>1000)
+		if (counter > 200000)
 		{
 			return;
 		}
@@ -303,8 +320,33 @@ char * MAIN_get_project_filename (char *filename, bool writeable)
 		}
 		return append_filename(full_project_filename,  dir, filename, sizeof(full_project_filename));
 	#else
+		// In -dat mode, prefer read-only resources from the selected pack/data dir
+		// (e.g. -datdir wizball/repacked), but fall back to the project dir if absent.
+		if (!writeable && load_from_dat_file)
+		{
+			const char *pack_dir = MAIN_get_pack_project_name();
+			if (strcmp(pack_dir, project) != 0)
+			{
+				char candidate[FULL_PROJECT_NAME_LENGTH];
+				FILE *probe;
+				append_filename(candidate, pack_dir, filename, sizeof(candidate));
+				probe = fopen(candidate, "rb");
+				if (probe != NULL)
+				{
+					fclose(probe);
+					return append_filename(full_project_filename, pack_dir, filename, sizeof(full_project_filename));
+				}
+			}
+		}
 		return append_filename(full_project_filename, project, filename, sizeof(full_project_filename));
 	#endif
+}
+
+
+
+char * MAIN_get_pack_filename (char *filename)
+{
+	return append_filename(full_project_filename, MAIN_get_pack_project_name(), filename, sizeof(full_project_filename));
 }
 
 
@@ -458,10 +500,10 @@ int game_main(void)
 				break;
 			}
 
+			frames_so_far++;
 			counter++;
 
 			draw = true;
-
 			game_trigger=0; // Decrement game count for next loop
 		}
 
@@ -544,6 +586,26 @@ int game_main(void)
 			OUTPUT_updatescreen();
 
 			frame_count++;
+
+			if (output_debug_information)
+			{
+				static int perf_log_last_second = -1;
+				int current_second = frames_so_far / 60;
+				if (current_second != perf_log_last_second)
+				{
+					char perf_line[MAX_LINE_SIZE];
+					sprintf(perf_line,
+						"PERF frame=%d fps=%d trigger=%d drawn=%d software=%d",
+						frames_so_far,
+						fps,
+						game_trigger,
+						total_entities_drawn,
+						software_mode_active ? 1 : 0);
+					MAIN_add_to_log(perf_line);
+					perf_log_last_second = current_second;
+				}
+			}
+
 			draw=false;
 		}
 		else 
@@ -712,7 +774,7 @@ void MAIN_load_project_settings_from_datafile (void)
 	char *pointer;
 	char filename[MAX_LINE_SIZE];
 
-	sprintf (filename,"%s\\data.dat#project_settings.txt",MAIN_get_project_name());
+	sprintf (filename,"%s\\data.dat#project_settings.txt",MAIN_get_pack_project_name());
 	fix_filename_slashes(filename);
 
 	sprintf (loading_screen_image_name,"");
@@ -916,7 +978,32 @@ void MAIN_load_project_settings (void)
 
 void MAIN_crash_signal_handler (int signal)
 {
+	FILE *fp = fopen("crash.log", "w");
+	if (fp != NULL)
+	{
+		fprintf(fp, "Signal: %d\n", signal);
+		fprintf(fp, "Where: %s\n", wheres_wally);
+#ifdef ALLEGRO_LINUX
+		void *stack[64];
+		int depth = backtrace(stack, 64);
+		char **symbols = backtrace_symbols(stack, depth);
+		if (symbols != NULL)
+		{
+			int i;
+			fputs("Backtrace:\n", fp);
+			for (i = 0; i < depth; i++)
+			{
+				fputs(symbols[i], fp);
+				fputc('\n', fp);
+			}
+			free(symbols);
+		}
+#endif
+		fclose(fp);
+	}
 
+	allegro_exit();
+	raise(signal);
 }
 
 
@@ -1054,7 +1141,7 @@ void MAIN_read_project_list (void)
 			project_counter++;
 
 		}
-#if defined(ALLEGRO_MACOSX) || !defined(ALLEGRO_WINDOWS)
+#if defined(ALLEGRO_MACOSX) || defined(ALLEGRO_LINUX)
 		while ( (dir_pointer = FILE_read_dir_entry (false)) != NULL);
 #else
 		while ( (dir_pointer = FILE_read_dir_entry (true)) != NULL);
@@ -1183,7 +1270,8 @@ void do_nothing_function (void)
 
 int main (int argc, char *argv[])
 {
-//	signal (SIGSEGV, MAIN_crash_signal_handler);
+	signal (SIGSEGV, MAIN_crash_signal_handler);
+	signal (SIGABRT, MAIN_crash_signal_handler);
 
 	#ifdef DEBUG_RAND_LOGGING
 	MAIN_reset_rand_log();
@@ -1198,13 +1286,45 @@ int main (int argc, char *argv[])
 #endif
 
 	int t;
+	bool force_dat_mode = false;
+	bool debug_requested = false;
+	char *dat_directory_override = NULL;
 
-	for (t=0; t<argc; t++)
+	for (t=1; t<argc; t++)
 	{
 		if (strcmp("-debug",argv[t]) == 0)
 		{
 			output_debug_information = true;
+			debug_requested = true;
 		}
+		else if (strcmp("-dat",argv[t]) == 0)
+		{
+			force_dat_mode = true;
+		}
+		else if (strcmp("-datdir", argv[t]) == 0)
+		{
+			if ((t + 1) < argc)
+			{
+				dat_directory_override = argv[t + 1];
+				t++;
+			}
+			else
+			{
+				OUTPUT_message("Missing argument after -datdir");
+				return 1;
+			}
+		}
+	}
+
+	if (dat_directory_override != NULL)
+	{
+		if (strlen(dat_directory_override) >= MAX_NAME_SIZE)
+		{
+			OUTPUT_message("Data directory path is too long for -datdir");
+			return 1;
+		}
+
+		strcpy(pack_project, dat_directory_override);
 	}
 
 #ifdef ALLEGRO_WINDOWS
@@ -1230,12 +1350,12 @@ int main (int argc, char *argv[])
 	
 	MAIN_read_project_list();
 
-	if (release_mode == true)
+	if (release_mode == true || force_dat_mode == true)
 	{
 		parse_all_data = false;
 		create_dat_file = false;
 		load_from_dat_file = true;
-		output_debug_information = false;
+		output_debug_information = debug_requested ? true : false;
 	}
 	else
 	{
