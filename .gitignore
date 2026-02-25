@@ -1,5 +1,6 @@
 # Build directories
 /build/
+/build_release/
 /build_asan/
 /cmake-build-*/
 
@@ -46,5 +47,22 @@ wizball/crash.log
 wizball/the_last_thing_i_did.txt
 wizball/OpenGL_Extension.txt
 wizball/fortify.log
+the_last_thing_i_did.txt
 logfile.txt
 crash.log
+
+# Runtime-generated game state and diagnostics
+wizball/wizball/config.txt
+wizball/wizball/hiscores.txt
+wizball/wizball/interaction_table.txt
+wizball/wizball/report.txt
+wizball/wizball/unlocked_tunes.sav
+wizball/wizball/waypoint_lookup_tables.txt
+
+# Regenerated packed data outputs
+wizball/wizball/data.dat
+wizball/wizball/gfx.dat
+wizball/wizball/sfx.dat
+wizball/wizball/stream.dat
+wizball/wizball/paths.dat
+wizball/wizball/repacked/
