@@ -169,7 +169,7 @@ void TILEMAPS_load_editor_settings (void)
 
 	char *pointer;
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename ("editor_settings.txt"),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback("editor_settings.txt");
 
 	if (file_pointer != NULL)
 	{
@@ -1456,7 +1456,7 @@ void TILEMAPS_load (char *filename , int tilemap_number)
 
 	append_filename(full_filename,"tilemaps", filename, sizeof(full_filename) );
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename (full_filename),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback(full_filename);
 
 	if (file_pointer != NULL)
 	{
@@ -2143,7 +2143,7 @@ void TILEMAPS_load_game_data (void)
 	int waypoint_number;
 	int i;
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename ("tilemaps.dat"),"rb");
+	FILE *file_pointer = FILE_open_project_case_fallback("tilemaps.dat", "rb");
 	
 	if (file_pointer != NULL)
 	{
@@ -2880,29 +2880,64 @@ void TILEMAPS_load_all (void)
 	int start,end,i;
 	char filename[NAME_SIZE];
 	char extension[NAME_SIZE];
+	char full_filename[TEXT_LINE_SIZE];
 	char description[MAX_LINE_SIZE];
+	FILE *probe_file = NULL;
+	char *dir_entry = NULL;
 
 	number_of_tilemaps_loaded = 0;
 
 	GPL_list_extents("TILEMAPS",&start,&end);
 
-	for (i=start; i<end ; i++)
+	if ((start != UNSET) && (end != UNSET))
 	{
-		strcpy(filename,GPL_what_is_word_name(i));
-
-		sprintf(description,"LOADING TILEMAP : %s",filename);
-		MAIN_draw_loading_picture (description,20);
-
-		strcpy(extension, GPL_what_is_list_extension("TILEMAPS"));
-#ifdef ALLEGRO_LINUX
-		// Asset files in this repo use lowercase .txt extensions on Linux.
-		for (char *p = extension; *p != '\0'; ++p)
+		for (i=start; i<end ; i++)
 		{
-			*p = (char)tolower((unsigned char)*p);
-		}
+			strcpy(filename,GPL_what_is_word_name(i));
+
+			sprintf(description,"LOADING TILEMAP : %s",filename);
+			MAIN_draw_loading_picture (description,20);
+
+			strcpy(extension, GPL_what_is_list_extension("TILEMAPS"));
+#ifdef ALLEGRO_LINUX
+			// Asset files in this repo use lowercase .txt extensions on Linux.
+			for (char *p = extension; *p != '\0'; ++p)
+			{
+				*p = (char)tolower((unsigned char)*p);
+			}
 #endif
-		strcat(filename, extension);
-		TILEMAPS_load ( filename , TILEMAPS_create (false) ); // Load the map.
+			strcat(filename, extension);
+
+			append_filename(full_filename, "tilemaps", filename, sizeof(full_filename));
+			probe_file = FILE_open_project_read_case_fallback(full_filename);
+			if (probe_file != NULL)
+			{
+				fclose(probe_file);
+				TILEMAPS_load(filename, TILEMAPS_create(false)); // Load the map.
+			}
+			else
+			{
+				sprintf(description, "Skipping missing tilemap source '%s'.", full_filename);
+				MAIN_add_to_log(description);
+			}
+		}
+	}
+
+	if (number_of_tilemaps_loaded == 0)
+	{
+		MAIN_add_to_log("No tilemaps loaded from GPL list. Falling back to tilemaps/ directory scan.");
+		dir_entry = FILE_open_dir(MAIN_get_project_filename("tilemaps"), ".txt", false);
+		if (dir_entry != NULL)
+		{
+			do
+			{
+				strcpy(filename, dir_entry);
+				sprintf(description, "LOADING TILEMAP : %s", filename);
+				MAIN_draw_loading_picture(description, 20);
+				TILEMAPS_load(filename, TILEMAPS_create(false));
+			}
+			while ( (dir_entry = FILE_read_dir_entry(false)) != NULL );
+		}
 	}
 }
 
@@ -5060,7 +5095,7 @@ void TILEMAPS_input_zone_flags_from_file (char *filename)
 	bool exit_loop = false;
 	bool can_exit = false;
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename (filename, true),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback(filename);
 
 	if (file_pointer != NULL)
 	{

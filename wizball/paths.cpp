@@ -20,6 +20,7 @@
 #include "output.h"
 #include "tilemaps.h"
 #include "tilesets.h"
+#include "file_stuff.h"
 #include "allegro.h"
 
 #include "fortify.h"
@@ -461,7 +462,7 @@ void PATHS_load (char *filename , int path_number)
 
 	append_filename (full_filename,"paths", filename, sizeof(full_filename) );
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename (full_filename),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback(full_filename);
 
 	if (file_pointer != NULL) // It's the path data.
 	{
@@ -627,6 +628,12 @@ void PATHS_load (char *filename , int path_number)
 		strtok(filename,"."); // Get rid of .txt extension...
 		strcpy ( pt[path_number].name , filename );
 		strcpy ( pt[path_number].old_name , filename );
+	}
+	else
+	{
+		char line[MAX_LINE_SIZE];
+		sprintf(line, "PATH load failed for '%s' (resolved '%s').", filename, full_filename);
+		MAIN_add_to_log(line);
 	}
 
 }
@@ -1088,6 +1095,26 @@ void PATHS_load_all (void)
 		else
 		{
 			PATHS_load (filename,path_number);
+		}
+
+		if ((pt[path_number].node_list_pointer == NULL) || (pt[path_number].nodes < 2))
+		{
+			char line[MAX_LINE_SIZE];
+			sprintf(line, "PATH '%s' invalid after load (nodes=%i). Creating fallback 2-node path.",
+			        filename, pt[path_number].nodes);
+			MAIN_add_to_log(line);
+
+			if (pt[path_number].node_list_pointer != NULL)
+			{
+				free(pt[path_number].node_list_pointer);
+				pt[path_number].node_list_pointer = NULL;
+			}
+			pt[path_number].nodes = 0;
+			PATHS_create_path_node(path_number, 0, 0);
+			PATHS_create_path_node(path_number, 32, 0);
+			pt[path_number].looped = false;
+			pt[path_number].loop_type = LOOP_TO_START;
+			pt[path_number].line_type = LINEAR;
 		}
 		
 		PATHS_calculate_path_bounding_box (path_number);
@@ -1563,6 +1590,21 @@ void PATHS_create_lookup_from_path (int path_number)
 	int line_type;
 
 	int speed_store[128];
+
+	if ((pt == NULL) || (path_number < 0) || (path_number >= number_of_paths_loaded))
+	{
+		MAIN_add_to_log("PATHS_create_lookup_from_path called with invalid path index.");
+		return;
+	}
+
+	if ((pt[path_number].node_list_pointer == NULL) || (pt[path_number].nodes < 2))
+	{
+		char line[MAX_LINE_SIZE];
+		sprintf(line, "PATH lookup skipped for invalid path index %i (nodes=%i).",
+		        path_number, pt[path_number].nodes);
+		MAIN_add_to_log(line);
+		return;
+	}
 
 	if (pt[path_number].looped == true)
 	{
@@ -3840,7 +3882,6 @@ bool PATHS_edit_paths (int state , bool overlay_display, int *current_cursor ,in
 	return override_main_editor;
 
 }
-
 
 
 

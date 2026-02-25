@@ -2587,7 +2587,7 @@ void SPAWNPOINTS_input_flags_from_file (char *filename)
 	bool exit_loop = false;
 	bool can_exit = false;
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename (filename, true),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback(filename);
 	
 	if (file_pointer != NULL)
 	{
@@ -2663,4 +2663,3 @@ void SPAWNPOINTS_input_flags_from_file (char *filename)
 		assert(0);
 	}
 }
-

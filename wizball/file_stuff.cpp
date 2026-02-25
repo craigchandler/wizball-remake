@@ -244,10 +244,114 @@ static bool match_ext(const char* filename, const char* ext)
   return strcasecmp(filename + flen - elen, ext) == 0;
 }
 
+static void lowercase_last_path_components(const char *in_path, char *out_path, size_t out_size, int components)
+{
+	size_t i;
+	size_t len;
+	int component_count = 0;
+	size_t start = 0;
+
+	if ((out_size == 0) || (in_path == NULL) || (out_path == NULL))
+	{
+		return;
+	}
+
+	strncpy(out_path, in_path, out_size - 1);
+	out_path[out_size - 1] = '\0';
+
+	len = strlen(out_path);
+	for (i = len; i > 0; i--)
+	{
+		if ((out_path[i - 1] == '/') || (out_path[i - 1] == '\\'))
+		{
+			component_count++;
+			if (component_count == components)
+			{
+				start = i;
+				break;
+			}
+		}
+	}
+
+	if (component_count < components)
+	{
+		start = 0;
+	}
+
+	for (i = start; i < len; i++)
+	{
+		out_path[i] = (char)tolower((unsigned char)out_path[i]);
+	}
+}
+
+FILE *FILE_open_case_fallback(const char *filename, const char *mode)
+{
+	FILE *file_pointer;
+
+	if ((filename == NULL) || (mode == NULL))
+	{
+		return NULL;
+	}
+
+	file_pointer = fopen(filename, mode);
+	if (file_pointer != NULL)
+	{
+		return file_pointer;
+	}
+
+#if defined(ALLEGRO_MACOSX) || defined(ALLEGRO_LINUX)
+	char lower_filename[TEXT_LINE_SIZE];
+
+	lowercase_last_path_components(filename, lower_filename, sizeof(lower_filename), 1);
+	if (strcmp(lower_filename, filename) != 0)
+	{
+		file_pointer = fopen(lower_filename, mode);
+		if (file_pointer != NULL)
+		{
+			return file_pointer;
+		}
+	}
+
+	lowercase_last_path_components(filename, lower_filename, sizeof(lower_filename), 2);
+	if (strcmp(lower_filename, filename) != 0)
+	{
+		file_pointer = fopen(lower_filename, mode);
+		if (file_pointer != NULL)
+		{
+			return file_pointer;
+		}
+	}
+#endif
+
+	return NULL;
+}
+
+FILE *FILE_open_read_case_fallback(const char *filename)
+{
+	return FILE_open_case_fallback(filename, "r");
+}
+
+FILE *FILE_open_project_case_fallback(const char *relative_filename, const char *mode)
+{
+	if (relative_filename == NULL)
+	{
+		return NULL;
+	}
+
+	return FILE_open_case_fallback(MAIN_get_project_filename((char *)relative_filename), mode);
+}
+
+FILE *FILE_open_project_read_case_fallback(const char *relative_filename)
+{
+	return FILE_open_project_case_fallback(relative_filename, "r");
+}
+
 
 
 char * FILE_open_dir (char *dirname, char *extension, bool capitalise)
 {
+	int found;
+
 	if (strcmp(dirname,"")!=0)
 	{
 		append_filename(caCurrentDir, dirname, "*.*", sizeof(caCurrentDir));
@@ -257,7 +361,19 @@ char * FILE_open_dir (char *dirname, char *extension, bool capitalise)
 		sprintf(caCurrentDir, "*.*");
 	}
 	strcpy(file_pattern, extension);
-	int found = al_findfirst(caCurrentDir, &finder, FA_ARCH);
+	found = al_findfirst(caCurrentDir, &finder, FA_ARCH);
+
+	if ((found != 0) && (strcmp(dirname, "") != 0))
+	{
+		char fallback_dir[NAME_SIZE];
+		lowercase_last_path_components(dirname, fallback_dir, sizeof(fallback_dir), 1);
+		if (strcmp(fallback_dir, dirname) != 0)
+		{
+			append_filename(caCurrentDir, fallback_dir, "*.*", sizeof(caCurrentDir));
+			found = al_findfirst(caCurrentDir, &finder, FA_ARCH);
+		}
+	}
+
 	while (found == 0) 
 	  {
 	    if (match_ext(finder.name, file_pattern))
@@ -345,4 +461,3 @@ char * FILE_read_dir_entry (bool capitalise)
 }
 
 #endif
-

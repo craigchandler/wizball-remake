@@ -57,6 +57,11 @@
 
 #include "fortify.h"
 
+static FILE *PARSER_fopen_project_read(char *relative_filename)
+{
+	return FILE_open_project_read_case_fallback(relative_filename);
+}
+
 char error_current_script[MAX_LINE_SIZE] = "LANGUAGE FILE";
 
 char aliases_from[MAX_ALIASES][NAME_SIZE];
@@ -780,7 +785,7 @@ void PARSER_read_script (char *filename, bool parsing_actual_script=false, bool 
 	// Clear the label list out.
 	PARSER_clear_word_list (label_list_index);
 
-	FILE *file_pointer = fopen (filename,"r");
+	FILE *file_pointer = FILE_open_read_case_fallback(filename);
 
 	if (file_pointer == NULL)
 	{
@@ -1087,7 +1092,7 @@ int PARSER_parse_list ( int line_number, int data_source, bool autonumber=false 
 		strcpy( filename , word_list[index].name );
 		strcat( filename , ".TXT" );
 	
-		file_pointer = fopen (MAIN_get_project_filename(filename),"r");
+		file_pointer = PARSER_fopen_project_read(filename);
 
 		if (file_pointer != NULL)
 		{
@@ -1183,7 +1188,7 @@ int PARSER_parse_list ( int line_number, int data_source, bool autonumber=false 
 		  strcat (filename , word_list[source_list_index].extension);
 			
 			// Then open it and read it just like with the SOURCE_FILE stuff
-			file_pointer = fopen (MAIN_get_project_filename(filename),"r");
+			file_pointer = PARSER_fopen_project_read(filename);
 
 			if (file_pointer != NULL)
 			{
@@ -1260,7 +1265,7 @@ int PARSER_parse_list ( int line_number, int data_source, bool autonumber=false 
 			strcat (filename , word_list[source_list_index].extension);
 			
 			// Then open it and read it just like with the SOURCE_FILE stuff
-			file_pointer = fopen (MAIN_get_project_filename(filename),"r");
+			file_pointer = PARSER_fopen_project_read(filename);
 
 			if (file_pointer != NULL)
 			{
@@ -3108,7 +3113,7 @@ void PARSER_load_full_script (void)
 	int line_length_table_size; // This is the list of how big each line in the script is (so it can be all malloc'd at once)
 	int data_table_size; // This is all the actual script data itself, a fairly large chunk of change.	
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename("scriptfile.tsl"),"rb");
+	FILE *file_pointer = FILE_open_project_case_fallback("scriptfile.tsl", "rb");
 
 	if (file_pointer != NULL)
 	{
@@ -3467,7 +3472,7 @@ void PARSER_parse_datatables ( int line_number )
 		strcat (filename , word_list[source_list_index].extension);
 		
 		// Then open it and read it just like with the SOURCE_FILE stuff
-		file_pointer = fopen (MAIN_get_project_filename(filename),"r");
+		file_pointer = PARSER_fopen_project_read(filename);
 
 		if (file_pointer != NULL)
 		{
@@ -3799,5 +3804,3 @@ bool PARSER_parse ( char *filename )
 	return false; // All okay, mum!
 
 }
-
-

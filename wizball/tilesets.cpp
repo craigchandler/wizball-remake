@@ -485,7 +485,7 @@ void TILESETS_load (char *filename, int tileset_number)
 
 	append_filename (full_filename, "tilesets", filename, sizeof(full_filename) );
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename (full_filename),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback(full_filename);
 
 	if (file_pointer != NULL)
 	{
@@ -980,7 +980,7 @@ bool TILESETS_load_game_data (void)
 	int tile_number;
 	int loaded_tilesets = 0;
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename ("tilesets.dat"),"rb");
+	FILE *file_pointer = FILE_open_project_case_fallback("tilesets.dat", "rb");
 	
 	if (file_pointer != NULL)
 	{

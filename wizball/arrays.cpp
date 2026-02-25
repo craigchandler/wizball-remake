@@ -14,6 +14,7 @@
 #include "scripting.h"
 #include "parser.h" // For the datatable struct.
 #include "math_stuff.h"
+#include "file_stuff.h"
 
 #include "fortify.h"
 
@@ -466,7 +467,7 @@ void ARRAY_load_datatables (void)
 	int index_number, i;
 	int data_offset;
 
-	FILE *fp = fopen(MAIN_get_project_filename("datatable.dat",false),"rb");
+	FILE *fp = FILE_open_project_case_fallback("datatable.dat", "rb");
 
 	int data_size;
 	bool swap_endian = false;

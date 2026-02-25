@@ -15,6 +15,7 @@
 #include "string_stuff.h"
 #include "textfiles.h"
 #include "main.h"
+#include "file_stuff.h"
 
 //#include "fortify.h"
 
@@ -2768,7 +2769,7 @@ void CONTROL_load_compressed_recorded_input_and_inflate (int player_number, char
 	sprintf (filename,"demos\\%s.dem",filename_pointer);
 	fix_filename_slashes(filename);
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename(filename, true),"rb");
+	FILE *file_pointer = FILE_open_project_case_fallback(filename, "rb");
 
 	if (file_pointer != NULL)
 	{
@@ -2951,7 +2952,7 @@ void CONTROL_load_recorded_input (int player_number, char *filename_pointer)
 
 	sprintf (filename,"%s.dem",filename_pointer);
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename(filename, true),"rb");
+	FILE *file_pointer = FILE_open_project_case_fallback(filename, "rb");
 
 	if (file_pointer != NULL)
 	{

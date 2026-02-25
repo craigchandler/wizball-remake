@@ -8,6 +8,7 @@
 #include "global_param_list.h"
 #include "main.h"
 #include "output.h"
+#include "file_stuff.h"
 #include "allegro.h"
 
 #include "fortify.h"
@@ -77,9 +78,9 @@ void TEXTFILE_load_text (void)
 			append_filename(filename, "TEXTFILES", filename, sizeof (filename) );
 			
 			// Then open it and read it just like with the SOURCE_FILE stuff
-			file_pointer = fopen (MAIN_get_project_filename(filename),"r");
+				file_pointer = FILE_open_project_read_case_fallback(filename);
 
-			if (file_pointer != NULL)
+				if (file_pointer != NULL)
 			{
 				while ( fgets ( file_text_line , TEXTFILE_SUPER_SIZE , file_pointer ) != NULL )
 				{
@@ -212,7 +213,7 @@ void TEXTFILE_load_compiled_text (void)
 {
 	char line[MAX_LINE_SIZE];
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename("cptf.txt"),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback("cptf.txt");
 
 	int counter;
 	
@@ -343,4 +344,3 @@ int TEXTFILE_get_line_length_by_index (int index)
 		return strlen (tx[index].line);
 	}
 }
-

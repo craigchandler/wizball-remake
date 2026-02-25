@@ -3378,7 +3378,7 @@ bool SCRIPTING_load_script ( char *filename )
 	int *pointer;
 	bool swap_endian = false;
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename(filename),"rb");
+	FILE *file_pointer = FILE_open_project_case_fallback(filename, "rb");
 
 	if (file_pointer == NULL)
 	{
@@ -10074,30 +10074,7 @@ void SCRIPTING_load_prefab (char *filename, int index)
 
 	FILE *file_pointer;
 
-	file_pointer = fopen(MAIN_get_project_filename(filename),"r");
-#ifdef ALLEGRO_LINUX
-	if (file_pointer == NULL)
-	{
-		// Legacy projects often have upper-case names in GPL but lower-case files on disk.
-		char lowercase_filename[MAX_LINE_SIZE];
-		int i = 0;
-
-		for (i=0; filename[i] != '\0' && i < MAX_LINE_SIZE-1; i++)
-		{
-			if (filename[i] >= 'A' && filename[i] <= 'Z')
-			{
-				lowercase_filename[i] = filename[i] - 'A' + 'a';
-			}
-			else
-			{
-				lowercase_filename[i] = filename[i];
-			}
-		}
-		lowercase_filename[i] = '\0';
-
-		file_pointer = fopen(MAIN_get_project_filename(lowercase_filename),"r");
-	}
-#endif
+	file_pointer = FILE_open_project_read_case_fallback(filename);
 
 	if (file_pointer != NULL)
 	{
@@ -10251,7 +10228,7 @@ void SCRIPTING_load_compiled_prefabs (void)
 {
 	int prefab_number, preset_number;
 
-	FILE *file_pointer = fopen(MAIN_get_project_filename("prefabs.dat"),"rb");
+	FILE *file_pointer = FILE_open_project_case_fallback("prefabs.dat", "rb");
 
 	if (file_pointer)
 	{
@@ -10883,7 +10860,7 @@ void SCRIPTING_input_entities_from_file (char *filename)
 	bool exit_loop = false;
 	bool can_exit = false;
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename (filename, true),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback(filename);
 	
 	if (file_pointer != NULL)
 	{
@@ -11264,7 +11241,7 @@ void SCRIPTING_input_flags_from_file (char *filename)
 	bool exit_loop = false;
 	bool can_exit = false;
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename (filename, true),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback(filename);
 	
 	if (file_pointer != NULL)
 	{
@@ -11340,7 +11317,7 @@ char *SCRIPTING_get_checksum_from_save_file (char *filename)
 
 	bool exit_loop = false;
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename (filename, true),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback(filename);
 
 	if (file_pointer != NULL)
 	{
@@ -11382,7 +11359,7 @@ char *SCRIPTING_generate_checkcode_for_save_file (char *filename)
 
 	bool exit_loop = false;
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename (filename, true),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback(filename);
 
 	if (file_pointer != NULL)
 	{
@@ -11468,7 +11445,7 @@ void SCRIPTING_load_save_file (int filename_text_tag)
 	strcat (filename,".SAV");
 	strupr (filename);
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename (filename, true),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback(filename);
 	
 	if (file_pointer == NULL)
 	{

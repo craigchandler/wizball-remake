@@ -12,6 +12,7 @@
 #include "textfiles.h"
 #include "output.h"
 #include "string_stuff.h"
+#include "file_stuff.h"
 
 #include "fortify.h"
 
@@ -213,7 +214,7 @@ bool HISCORES_load_hiscore_table (int filename_text_tag)
 
 	char *filename = TEXTFILE_get_line_by_index (filename_text_tag);
 
-	FILE *fp = fopen (MAIN_get_project_filename(filename, true),"r");
+	FILE *fp = FILE_open_project_read_case_fallback(filename);
 
 	int table_size = UNSET;
 	int name_size = UNSET;
@@ -546,7 +547,7 @@ void HISCORES_destroy_hiscores (void)
 
 void HISCORES_check_for_and_replace_upload_code_file (void)
 {
-	FILE *file_pointer = fopen (MAIN_get_project_filename("hiscore_upload_codes.txt", true),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback("hiscore_upload_codes.txt");
 
 	if (file_pointer == NULL)
 	{
@@ -615,6 +616,5 @@ void HISCORES_append_new_hiscore (int unique_id, int score)
 		assert(0);
 	}
 }
-
 
 

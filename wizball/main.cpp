@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <ctype.h>
 #include <allegro.h>
 
 #ifdef ALLEGRO_WINDOWS
@@ -88,6 +89,26 @@ int close_callback_signal = 0;
 char loading_screen_image_name[NAME_SIZE];
 int loading_screen_image_index = UNSET;
 int loading_screen_frame = UNSET;
+
+static bool MAIN_strings_equal_ignore_case(const char *a, const char *b)
+{
+	if ((a == NULL) || (b == NULL))
+	{
+		return false;
+	}
+
+	while ((*a != '\0') && (*b != '\0'))
+	{
+		if (tolower((unsigned char)*a) != tolower((unsigned char)*b))
+		{
+			return false;
+		}
+		a++;
+		b++;
+	}
+
+	return (*a == '\0') && (*b == '\0');
+}
 float loading_screen_scale = 1.0f;
 
 int native_resolution_screen_width = UNSET;
@@ -754,7 +775,7 @@ void MAIN_load_config (void)
 	bool exitmainloop = false;
 	char *pointer;
 	
-	FILE *file_pointer = fopen (MAIN_get_project_filename("config.txt", true),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback("config.txt");
 
 	if (file_pointer != NULL)
 	{
@@ -974,7 +995,7 @@ void MAIN_load_project_settings (void)
 
 	sprintf (loading_screen_image_name,"");
 	
-	FILE *file_pointer = fopen (MAIN_get_project_filename("project_settings.txt",false),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback("project_settings.txt");
 
 	if (file_pointer != NULL)
 	{
@@ -1067,12 +1088,21 @@ void MAIN_load_project_settings (void)
 
 
 
-void MAIN_crash_signal_handler (int signal)
+void MAIN_crash_signal_handler (int sig)
 {
+	static volatile sig_atomic_t handling_crash_signal = 0;
+	if (handling_crash_signal)
+	{
+		signal(sig, SIG_DFL);
+		raise(sig);
+		return;
+	}
+	handling_crash_signal = 1;
+
 	FILE *fp = fopen("crash.log", "w");
 	if (fp != NULL)
 	{
-		fprintf(fp, "Signal: %d\n", signal);
+		fprintf(fp, "Signal: %d\n", sig);
 		fprintf(fp, "Where: %s\n", wheres_wally);
 #ifdef ALLEGRO_LINUX
 		void *stack[64];
@@ -1094,7 +1124,8 @@ void MAIN_crash_signal_handler (int signal)
 	}
 
 	allegro_exit();
-	raise(signal);
+	signal(sig, SIG_DFL);
+	raise(sig);
 }
 
 
@@ -1361,8 +1392,12 @@ void do_nothing_function (void)
 
 int main (int argc, char *argv[])
 {
-	signal (SIGSEGV, MAIN_crash_signal_handler);
-	signal (SIGABRT, MAIN_crash_signal_handler);
+	const char *disable_crash_handler = getenv("WIZBALL_DISABLE_CRASH_HANDLER");
+	if ((disable_crash_handler == NULL) || (strcmp(disable_crash_handler, "1") != 0))
+	{
+		signal (SIGSEGV, MAIN_crash_signal_handler);
+		signal (SIGABRT, MAIN_crash_signal_handler);
+	}
 
 	#ifdef DEBUG_RAND_LOGGING
 	MAIN_reset_rand_log();
@@ -1380,6 +1415,8 @@ int main (int argc, char *argv[])
 	bool force_dat_mode = false;
 	bool debug_requested = false;
 	char *dat_directory_override = NULL;
+	bool rebuild_scripts_only = false;
+	char *rebuild_project_name = NULL;
 
 	for (t=1; t<argc; t++)
 	{
@@ -1426,6 +1463,20 @@ int main (int argc, char *argv[])
 				return 1;
 			}
 		}
+		else if (strcmp("-rebuildscripts", argv[t]) == 0)
+		{
+			if ((t + 1) < argc)
+			{
+				rebuild_scripts_only = true;
+				rebuild_project_name = argv[t + 1];
+				t++;
+			}
+			else
+			{
+				OUTPUT_message("Missing argument after -rebuildscripts");
+				return 1;
+			}
+		}
 	}
 
 	if (dat_directory_override != NULL)
@@ -1463,7 +1514,9 @@ int main (int argc, char *argv[])
 	allegro_init();
 	MAIN_add_to_log ("\tOK!");
 
-	set_close_button_callback (do_nothing_function);
+	#if !defined(ALLEGRO_LINUX)
+		set_close_button_callback (do_nothing_function);
+	#endif
 
 	MAIN_add_to_log ("Setting up control code...");
 	CONTROL_setup_everything();
@@ -1471,7 +1524,37 @@ int main (int argc, char *argv[])
 	
 	MAIN_read_project_list();
 
-	if (release_mode == true || force_dat_mode == true)
+	if (rebuild_scripts_only == true)
+	{
+		int project_index = UNSET;
+		for (t = 0; t < project_counter; t++)
+		{
+			if (MAIN_strings_equal_ignore_case(project_list[t].name, rebuild_project_name))
+			{
+				project_index = t;
+				break;
+			}
+		}
+
+		if (project_index == UNSET)
+		{
+			OUTPUT_message("Unknown project for -rebuildscripts.");
+			return 1;
+		}
+
+		if (strlen(rebuild_project_name) >= MAX_NAME_SIZE)
+		{
+			OUTPUT_message("Project name is too long for -rebuildscripts.");
+			return 1;
+		}
+
+		strcpy(project, rebuild_project_name);
+		parse_all_data = true;
+		create_dat_file = false;
+		load_from_dat_file = false;
+		output_debug_information = debug_requested ? true : false;
+	}
+	else if (release_mode == true || force_dat_mode == true)
 	{
 		parse_all_data = false;
 		create_dat_file = false;
@@ -1500,6 +1583,13 @@ int main (int argc, char *argv[])
 			assert(0);
 		}
 		MAIN_add_to_log ("\tOK!");
+	}
+
+	if (rebuild_scripts_only == true)
+	{
+		MAIN_add_to_log ("Rebuild-scripts mode complete. Exiting.");
+		allegro_exit();
+		return 0;
 	}
 
 	if (load_from_dat_file)
