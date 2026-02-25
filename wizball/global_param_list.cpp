@@ -6,6 +6,7 @@
 #include "output.h"
 #include "main.h"
 #include "string_stuff.h"
+#include "file_stuff.h"
 #include "allegro.h"
 
 #include "fortify.h"
@@ -619,7 +620,7 @@ void GPL_load_global_parameter_list(void)
 
 	char line[NAME_SIZE*2];
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename("gpl_list_size.txt"),"r");
+	FILE *file_pointer = FILE_open_project_read_case_fallback("gpl_list_size.txt");
 
 	if (file_pointer != NULL)
 	{
@@ -648,7 +649,7 @@ void GPL_load_global_parameter_list(void)
 		assert(0); // AARGH!
 	}
 
-	file_pointer = fopen (MAIN_get_project_filename("global_parameter_list.txt"),"r");
+	file_pointer = FILE_open_project_read_case_fallback("global_parameter_list.txt");
 
 	bool exitflag = false;
 	bool exitmainloop = false;
