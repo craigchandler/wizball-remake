@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
 option(WIZBALL_ENABLE_FMOD "Build with FMOD backend (requires FMOD headers/libs)" OFF)
+option(WIZBALL_ENABLE_ASAN "Build with AddressSanitizer (debug heap corruption)" OFF)
 
 find_path(ALLEGRO_INCLUDE_DIR allegro.h)
 find_library(ALLEGRO_LIBRARY NAMES alleg allegro)
@@ -73,6 +74,23 @@ endif()
 
 add_executable(wizball ${WIZBALL_SOURCES})
 
+if(UNIX AND NOT APPLE)
+  target_compile_definitions(wizball PRIVATE ALLEGRO_LINUX)
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  # Legacy codebase warning reductions so real portability issues are easier to see.
+  target_compile_options(wizball PRIVATE
+    -Wno-write-strings
+    -Wno-noexcept-type
+  )
+
+  if(WIZBALL_ENABLE_ASAN)
+    target_compile_options(wizball PRIVATE -fsanitize=address -fno-omit-frame-pointer -g)
+    target_link_options(wizball PRIVATE -fsanitize=address)
+  endif()
+endif()
+
 target_include_directories(wizball PRIVATE
   ${ALLEGRO_INCLUDE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/wizball
@@ -89,4 +107,18 @@ target_link_libraries(wizball PRIVATE
   ${OPENGL_LIBRARY}
   ${GLU_LIBRARY}
   m
+)
+
+add_custom_target(run_wizball_dat
+  COMMAND $<TARGET_FILE:wizball> -dat
+  DEPENDS wizball
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wizball
+  USES_TERMINAL
+)
+
+add_custom_target(run_wizball_dat_debug
+  COMMAND $<TARGET_FILE:wizball> -dat -debug
+  DEPENDS wizball
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wizball
+  USES_TERMINAL
 )
