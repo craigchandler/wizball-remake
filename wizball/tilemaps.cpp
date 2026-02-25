@@ -1768,6 +1768,8 @@ void TILEMAPS_load (char *filename , int tilemap_number)
 					{
 						spawn_point_number = atoi(pointer);
 						cm[tilemap_number].spawn_point_list_pointer[spawn_point_number].flag = 0;
+						cm[tilemap_number].spawn_point_list_pointer[spawn_point_number].last_fired = UNSET;
+						cm[tilemap_number].spawn_point_list_pointer[spawn_point_number].created_entity_index = UNSET;
 					}
 
 					pointer = STRING_end_of_string(line,"#UNIQUE IDENTIFIER NUMBER = ");
@@ -3054,6 +3056,8 @@ bool TILEMAPS_confirm_links (void)
 
 		for (i=0; i<cm[t].spawn_points ; i++)
 		{
+			cm[t].spawn_point_list_pointer[i].last_fired = UNSET;
+			cm[t].spawn_point_list_pointer[i].created_entity_index = UNSET;
 			cm[t].spawn_point_list_pointer[i].script_index = int (GPL_find_word_value ("SCRIPTS", cm[t].spawn_point_list_pointer[i].script_name) );
 
 			okay = true;

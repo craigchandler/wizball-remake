@@ -201,6 +201,8 @@ void SPAWNPOINTS_create_spawn_point (int tilemap_number , int x, int y , char *n
 	cm[tilemap_number].spawn_point_list_pointer[total].grabbed_status = NODE_UNSELECTED;
 
 	cm[tilemap_number].spawn_point_list_pointer[total].sleeping = false;
+	cm[tilemap_number].spawn_point_list_pointer[total].last_fired = UNSET;
+	cm[tilemap_number].spawn_point_list_pointer[total].created_entity_index = UNSET;
 
 	// GET NEW NAME HERE! REMEMBER TO INCLUDE MAP NAME IN NAME!
 
@@ -2661,5 +2663,4 @@ void SPAWNPOINTS_input_flags_from_file (char *filename)
 		assert(0);
 	}
 }
-
 

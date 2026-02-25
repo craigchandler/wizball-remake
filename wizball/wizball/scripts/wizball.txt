@@ -679,7 +679,7 @@ return
 
 	if getting_sucked_into_a_hole_flag = FALSE then
 
-		if collided_entity.COLLIDE_TYPE = ENT_TYPE_WARP_ZONE THEN
+		if collided_entity.COLLIDE_TYPE & ENT_TYPE_WARP_ZONE THEN
 			PLAY_SOUND wizball_warp_spin_up 255 CONST_SOUND_FREQUENCY
 
 			let warp_tube_id = collided_entity
@@ -1192,7 +1192,6 @@ set_global_flag (wizball_entity_id_flag,CONST_UNSET) // So they all stop looking
 	set_global_flag (player_bonus_pearl_count,current_pickup_count)
 
 	return
-
 
 
 
