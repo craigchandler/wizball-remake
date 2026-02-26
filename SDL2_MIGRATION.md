@@ -257,3 +257,10 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - 2026-02-26: Moved OpenGL version/extension string parsing into `PLATFORM_RENDERER_query_extensions()`; `OUTPUT_get_opengl_extensions()` now acts as a thin data owner/adapter.
 - 2026-02-26: Completed extension lookup centralization: `platform_renderer` now owns extension cache/query APIs (`is_extension_supported`, version/extension getters, clear), and `output.cpp` no longer maintains local extension-list state.
 - 2026-02-26: Removed legacy `OUTPUT` extension wrapper layer; setup and teardown now call `platform_renderer` extension APIs directly (`query`, `is_extension_supported`, `clear`).
+- 2026-02-26: Added SDL2 renderer bootstrap stub APIs to `platform_renderer` (`prepare_sdl2_stub`, `is_sdl2_stub_ready`) behind `WIZBALL_USE_SDL2`, plus centralized SDL-side cleanup path in renderer shutdown.
+- 2026-02-26: Added opt-in SDL2 per-frame mirror diagnostics in `platform_renderer` (`PLATFORM_RENDERER_mirror_from_current_backbuffer`) and wired it at the single present callsite in `OUTPUT_updatescreen()`; controlled by `WIZBALL_SDL2_STUB_BOOTSTRAP=1` plus `WIZBALL_SDL2_STUB_MIRROR=1`.
+- 2026-02-26: Cleaned redundant `output.h` extern declarations (removed duplicate `texture_combiner_available` declaration).
+- 2026-02-26: Wired SDL2 renderer stub seam into `OUTPUT_setup_allegro()` under `WIZBALL_USE_SDL2` with startup logging only (no SDL renderer/window creation yet).
+- 2026-02-26: Implemented opt-in real SDL2 stub bootstrap in `PLATFORM_RENDERER_prepare_sdl2_stub()` (hidden SDL window + renderer creation, accelerated then software fallback), gated by env `WIZBALL_SDL2_STUB_BOOTSTRAP=1`; Allegro remains active render path.
+- 2026-02-26: Added SDL2 stub diagnostics APIs (`is_sdl2_stub_enabled`, `get_sdl2_stub_status`) and startup log line now records enabled/ready/status in one message.
+- 2026-02-26: Added SDL2 stub self-test (`PLATFORM_RENDERER_run_sdl2_stub_self_test`) that performs one clear/present on hidden SDL renderer and reports pass/fail in startup diagnostics.

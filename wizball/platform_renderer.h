@@ -19,6 +19,12 @@ const char *PLATFORM_RENDERER_get_version_text(void);
 int PLATFORM_RENDERER_get_extension_count(void);
 const char *PLATFORM_RENDERER_get_extension_at(int index);
 void PLATFORM_RENDERER_clear_extensions(void);
+bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed);
+bool PLATFORM_RENDERER_is_sdl2_stub_ready(void);
+bool PLATFORM_RENDERER_is_sdl2_stub_enabled(void);
+bool PLATFORM_RENDERER_run_sdl2_stub_self_test(void);
+bool PLATFORM_RENDERER_mirror_from_current_backbuffer(int width, int height);
+const char *PLATFORM_RENDERER_get_sdl2_stub_status(void);
 void PLATFORM_RENDERER_shutdown(void);
 
 #endif

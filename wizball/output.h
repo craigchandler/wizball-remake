@@ -130,8 +130,6 @@ void OUTPUT_set_arbitrary_quad_from_base (int entity_index);
 extern int game_screen_width;
 extern int game_screen_height;
 
-extern bool texture_combiner_available;
-
 extern bool software_mode_active;
 
 extern bool enable_multi_texture_effects_ideally;
@@ -144,4 +142,3 @@ extern int number_of_windows;
 
 
 #endif
-

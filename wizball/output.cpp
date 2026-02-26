@@ -640,6 +640,9 @@ void OUTPUT_updatescreen (void)
 	}
 	else
 	{
+#ifdef WIZBALL_USE_SDL2
+		(void) PLATFORM_RENDERER_mirror_from_current_backbuffer(SCREEN_W, SCREEN_H);
+#endif
 		allegro_gl_flip();
 	}
 }
@@ -942,6 +945,19 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 	window_scale_multiplier = screen_multiplier;
 
 	float_window_scale_multiplier = float (screen_multiplier);
+
+#ifdef WIZBALL_USE_SDL2
+	bool sdl_stub_enabled = PLATFORM_RENDERER_is_sdl2_stub_enabled();
+	bool sdl_stub_ready = PLATFORM_RENDERER_prepare_sdl2_stub(game_screen_width, game_screen_height, windowed);
+	bool sdl_stub_self_test = false;
+	if (sdl_stub_ready)
+	{
+		sdl_stub_self_test = PLATFORM_RENDERER_run_sdl2_stub_self_test();
+	}
+	char sdl_stub_line[MAX_LINE_SIZE];
+	sprintf(sdl_stub_line, "SDL2 renderer stub: enabled=%d ready=%d self_test=%d status=%s", sdl_stub_enabled ? 1 : 0, sdl_stub_ready ? 1 : 0, sdl_stub_self_test ? 1 : 0, PLATFORM_RENDERER_get_sdl2_stub_status());
+	MAIN_add_to_log(sdl_stub_line);
+#endif
 
 	if (software_mode_active)
 	{
