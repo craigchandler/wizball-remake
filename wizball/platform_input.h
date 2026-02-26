@@ -10,4 +10,17 @@ int PLATFORM_INPUT_mouse_x(void);
 int PLATFORM_INPUT_mouse_y(void);
 int PLATFORM_INPUT_mouse_z(void);
 
+int PLATFORM_INPUT_install_joystick(void);
+int PLATFORM_INPUT_num_joysticks(void);
+int PLATFORM_INPUT_joystick_num_buttons(int port);
+int PLATFORM_INPUT_joystick_button_state(int port, int button);
+int PLATFORM_INPUT_joystick_num_sticks(int port);
+int PLATFORM_INPUT_joystick_stick_num_axes(int port, int stick);
+int PLATFORM_INPUT_joystick_axis_pos(int port, int stick, int axis);
+int PLATFORM_INPUT_joystick_stick_is_signed(int port, int stick);
+int PLATFORM_INPUT_joystick_needs_calibration(int port);
+const char *PLATFORM_INPUT_calibrate_joystick_name(int port);
+int PLATFORM_INPUT_calibrate_joystick(int port);
+void PLATFORM_INPUT_poll_joysticks(void);
+
 #endif

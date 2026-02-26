@@ -146,7 +146,7 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 
 - [~] Replace keyboard polling and key repeat logic.
 - [~] Replace mouse state and wheel handling.
-- [ ] Replace joystick/gamepad setup and readback.
+- [~] Replace joystick/gamepad setup and readback.
 - [ ] Preserve existing input recording/playback semantics.
 
 ### 5. Audio (FMOD -> SDL2)
@@ -238,3 +238,5 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - 2026-02-26: Added initial platform abstraction files (`platform.h/.cpp`) and routed wall-clock timing through `PLATFORM_get_wall_time_ms()`.
 - 2026-02-26: Verified both default build (`build`) and SDL2-enabled build (`build_sdl2`) compile.
 - 2026-02-26: Added `platform_input.h/.cpp` abstraction seam and routed keyboard/mouse polling in `control.cpp` through platform input helpers.
+- 2026-02-26: Extended `platform_input` seam to joystick install/calibration/count/state/axis polling and routed `control.cpp` joystick paths through shared helpers.
+- 2026-02-26: Verified both default build (`build`) and SDL2-enabled build (`build_sdl2`) compile after joystick abstraction pass.

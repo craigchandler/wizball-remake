@@ -507,7 +507,7 @@ float CONTROL_key_power (int scancode)
 
 bool CONTROL_joy_down (int port, int button)
 {
-	if ( (port >= num_joysticks) || (button >= joy[port].num_buttons) )
+	if ( (port >= PLATFORM_INPUT_num_joysticks()) || (button >= PLATFORM_INPUT_joystick_num_buttons(port)) )
 	{
 		// Button or port outside scope.
 		return false;
@@ -527,7 +527,7 @@ bool CONTROL_joy_down (int port, int button)
 
 bool CONTROL_joy_hit (int port, int button)
 {
-	if ( (port >= num_joysticks) || (button >= joy[port].num_buttons) )
+	if ( (port >= PLATFORM_INPUT_num_joysticks()) || (button >= PLATFORM_INPUT_joystick_num_buttons(port)) )
 	{
 		// Button or port outside scope.
 		return false;
@@ -547,7 +547,7 @@ bool CONTROL_joy_hit (int port, int button)
 
 bool CONTROL_joy_release (int port, int button)
 {
-	if ( (port >= num_joysticks) || (button >= joy[port].num_buttons) )
+	if ( (port >= PLATFORM_INPUT_num_joysticks()) || (button >= PLATFORM_INPUT_joystick_num_buttons(port)) )
 	{
 		// Button or port outside scope.
 		return false;
@@ -567,7 +567,7 @@ bool CONTROL_joy_release (int port, int button)
 
 bool CONTROL_joy_repeat (int port, int button, int initial_delay, int repeat_delay , bool ignore_hit)
 {
-	if ( (port >= num_joysticks) || (button >= joy[port].num_buttons) )
+	if ( (port >= PLATFORM_INPUT_num_joysticks()) || (button >= PLATFORM_INPUT_joystick_num_buttons(port)) )
 	{
 		// Button or port outside scope.
 		return false;
@@ -602,7 +602,7 @@ bool CONTROL_joy_repeat (int port, int button, int initial_delay, int repeat_del
 
 bool CONTROL_joy_double_click (int port, int button, int click_speed)
 {
-	if ( (port >= num_joysticks) || (button >= joy[port].num_buttons) )
+	if ( (port >= PLATFORM_INPUT_num_joysticks()) || (button >= PLATFORM_INPUT_joystick_num_buttons(port)) )
 	{
 		// Button or port outside scope.
 		return false;
@@ -635,7 +635,7 @@ bool CONTROL_joy_double_click (int port, int button, int click_speed)
 
 float CONTROL_joy_power (int port, int button)
 {
-	if ( (port >= num_joysticks) || (button >= joy[port].num_buttons) )
+	if ( (port >= PLATFORM_INPUT_num_joysticks()) || (button >= PLATFORM_INPUT_joystick_num_buttons(port)) )
 	{
 		// Button or port outside scope.
 		return false;
@@ -659,7 +659,7 @@ float CONTROL_joy_power (int port, int button)
 
 bool CONTROL_stick_down (int port, int stick, int axis, int side)
 {
-	if ( (port >= num_joysticks) || (stick >= joy[port].num_sticks) || (axis >= joy[port].stick[stick].num_axis) )
+	if ( (port >= PLATFORM_INPUT_num_joysticks()) || (stick >= PLATFORM_INPUT_joystick_num_sticks(port)) || (axis >= PLATFORM_INPUT_joystick_stick_num_axes(port,stick)) )
 	{
 		// Button or port outside scope.
 		return false;
@@ -679,7 +679,7 @@ bool CONTROL_stick_down (int port, int stick, int axis, int side)
 
 bool CONTROL_stick_hit (int port, int stick, int axis, int side)
 {
-	if ( (port >= num_joysticks) || (stick >= joy[port].num_sticks) || (axis >= joy[port].stick[stick].num_axis) )
+	if ( (port >= PLATFORM_INPUT_num_joysticks()) || (stick >= PLATFORM_INPUT_joystick_num_sticks(port)) || (axis >= PLATFORM_INPUT_joystick_stick_num_axes(port,stick)) )
 	{
 		// Button or port outside scope.
 		return false;
@@ -699,7 +699,7 @@ bool CONTROL_stick_hit (int port, int stick, int axis, int side)
 
 bool CONTROL_stick_release (int port, int stick, int axis, int side)
 {
-	if ( (port >= num_joysticks) || (stick >= joy[port].num_sticks) || (axis >= joy[port].stick[stick].num_axis) )
+	if ( (port >= PLATFORM_INPUT_num_joysticks()) || (stick >= PLATFORM_INPUT_joystick_num_sticks(port)) || (axis >= PLATFORM_INPUT_joystick_stick_num_axes(port,stick)) )
 	{
 		// Button or port outside scope.
 		return false;
@@ -719,7 +719,7 @@ bool CONTROL_stick_release (int port, int stick, int axis, int side)
 
 bool CONTROL_stick_repeat (int port, int stick, int axis, int side, int initial_delay, int repeat_delay , bool ignore_hit)
 {
-	if ( (port >= num_joysticks) || (stick >= joy[port].num_sticks) || (axis >= joy[port].stick[stick].num_axis) )
+	if ( (port >= PLATFORM_INPUT_num_joysticks()) || (stick >= PLATFORM_INPUT_joystick_num_sticks(port)) || (axis >= PLATFORM_INPUT_joystick_stick_num_axes(port,stick)) )
 	{
 		// Button or port outside scope.
 		return false;
@@ -754,7 +754,7 @@ bool CONTROL_stick_repeat (int port, int stick, int axis, int side, int initial_
 
 bool CONTROL_stick_double_click (int port, int stick, int axis, int side, int click_speed)
 {
-	if ( (port >= num_joysticks) || (stick >= joy[port].num_sticks) || (axis >= joy[port].stick[stick].num_axis) )
+	if ( (port >= PLATFORM_INPUT_num_joysticks()) || (stick >= PLATFORM_INPUT_joystick_num_sticks(port)) || (axis >= PLATFORM_INPUT_joystick_stick_num_axes(port,stick)) )
 	{
 		// Button or port outside scope.
 		return false;
@@ -787,7 +787,7 @@ bool CONTROL_stick_double_click (int port, int stick, int axis, int side, int cl
 
 float CONTROL_stick_power (int port, int stick, int axis, int side)
 {
-	if ( (port >= num_joysticks) || (stick >= joy[port].num_sticks) || (axis >= joy[port].stick[stick].num_axis) )
+	if ( (port >= PLATFORM_INPUT_num_joysticks()) || (stick >= PLATFORM_INPUT_joystick_num_sticks(port)) || (axis >= PLATFORM_INPUT_joystick_stick_num_axes(port,stick)) )
 	{
 		// Button or port outside scope.
 		return false;
@@ -1635,17 +1635,17 @@ void CONTROL_update_joypads (void)
 	// We also store how far any sticks are being pushed outside of the deadzone so you can poll that and
 	// use it to decide the speed or style of movement of a player.
 
-	poll_joystick();
+	PLATFORM_INPUT_poll_joysticks();
 
 	int port;
 	int button;
 
-	for (port=0; port<num_joysticks; port++)
+	for (port=0; port<PLATFORM_INPUT_num_joysticks(); port++)
 	{
-		for (button=0; button<joy[port].num_buttons ; button++)
+		for (button=0; button<PLATFORM_INPUT_joystick_num_buttons(port) ; button++)
 		{
 			pad_store[port][button].old_state = pad_store[port][button].current_state;
-			pad_store[port][button].current_state = joy[port].button[button].b;
+			pad_store[port][button].current_state = PLATFORM_INPUT_joystick_button_state(port,button);
 
 			if (pad_store[port][button].current_state != 0 ) // If a button is held down then increase the held time value...
 			{
@@ -1673,13 +1673,13 @@ void CONTROL_update_joypads (void)
 	int state_number;
 	float percent;
 
-	for (port=0; port<num_joysticks; port++)
+	for (port=0; port<PLATFORM_INPUT_num_joysticks(); port++)
 	{
-		for (stick=0; stick<joy[port].num_sticks ; stick++)
+		for (stick=0; stick<PLATFORM_INPUT_joystick_num_sticks(port) ; stick++)
 		{
-			for (axis=0; axis<joy[port].stick[stick].num_axis ; axis++)
+			for (axis=0; axis<PLATFORM_INPUT_joystick_stick_num_axes(port,stick) ; axis++)
 			{
-				result = joy[port].stick[stick].axis[axis].pos;
+				result = PLATFORM_INPUT_joystick_axis_pos(port,stick,axis);
 
 				stick_store[port][stick][axis][AXIS_POS_STATE].old_position = stick_store[port][stick][axis][AXIS_POS_STATE].current_position;
 				stick_store[port][stick][axis][AXIS_POS_STATE].current_position = result;
@@ -2066,9 +2066,9 @@ bool CONTROL_get_keypress (int player, int control, char *description, bool chec
 
 	if (joystick_setup_okay == true)
 	{
-		for (port=0; port<num_joysticks; port++)
+		for (port=0; port<PLATFORM_INPUT_num_joysticks(); port++)
 		{
-			for (button=0; button<joy[port].num_buttons ; button++)
+			for (button=0; button<PLATFORM_INPUT_joystick_num_buttons(port) ; button++)
 			{
 				if (CONTROL_joy_hit(port,button) == true)
 				{
@@ -2104,13 +2104,13 @@ bool CONTROL_get_keypress (int player, int control, char *description, bool chec
 			}
 		}
 
-		for (port=0; port<num_joysticks; port++)
+		for (port=0; port<PLATFORM_INPUT_num_joysticks(); port++)
 		{
-			for (stick=0; stick<joy[port].num_sticks ; stick++)
+			for (stick=0; stick<PLATFORM_INPUT_joystick_num_sticks(port) ; stick++)
 			{
-				for (axis=0; axis<joy[port].stick[stick].num_axis ; axis++)
+				for (axis=0; axis<PLATFORM_INPUT_joystick_stick_num_axes(port,stick) ; axis++)
 				{
-					int result = ( joy[port].stick[stick].axis[axis].pos );
+					int result = ( PLATFORM_INPUT_joystick_axis_pos(port,stick,axis) );
 
 					if ( result > default_axis_value [port][stick][axis].default_position + deadzone )
 					{
@@ -3302,11 +3302,11 @@ void CONTROL_get_default_stick_positions (void)
 
 	int lower,upper;
 
-	for (port=0; port<num_joysticks; port++)
+	for (port=0; port<PLATFORM_INPUT_num_joysticks(); port++)
 	{
-		for (stick=0; stick<joy[port].num_sticks ; stick++)
+		for (stick=0; stick<PLATFORM_INPUT_joystick_num_sticks(port) ; stick++)
 		{
-			if (joy[port].stick[stick].flags || JOYFLAG_SIGNED)
+			if (PLATFORM_INPUT_joystick_stick_is_signed(port,stick))
 			{
 				lower = -128;
 				upper = 128;
@@ -3317,9 +3317,9 @@ void CONTROL_get_default_stick_positions (void)
 				upper = 255;
 			}
 
-			for (axis=0; axis<joy[port].stick[stick].num_axis ; axis++)
+			for (axis=0; axis<PLATFORM_INPUT_joystick_stick_num_axes(port,stick) ; axis++)
 			{
-				result = joy[port].stick[stick].axis[axis].pos;
+				result = PLATFORM_INPUT_joystick_axis_pos(port,stick,axis);
 				result = MATH_round_to_nearest ( result, 128 );
 				default_axis_value [port][stick][axis].default_position = result;
 
@@ -3361,9 +3361,9 @@ void CONTROL_blank_joypad_input (void)
 	int port;
 	int button;
 
-	for (port=0; port<num_joysticks; port++)
+	for (port=0; port<PLATFORM_INPUT_num_joysticks(); port++)
 	{
-		for (button=0; port<joy[port].num_buttons; port++)
+		for (button=0; button<PLATFORM_INPUT_joystick_num_buttons(port); button++)
 		{
 			pad_store[port][button].analogue_offset = 0;
 			pad_store[port][button].current_state = 0;
@@ -3381,11 +3381,11 @@ void CONTROL_blank_joypad_input (void)
 	int axis;
 	int side;
 
-	for (port=0; port<num_joysticks; port++)
+	for (port=0; port<PLATFORM_INPUT_num_joysticks(); port++)
 	{
-		for (stick=0; stick<joy[port].num_sticks ; stick++)
+		for (stick=0; stick<PLATFORM_INPUT_joystick_num_sticks(port) ; stick++)
 		{
-			for (axis=0; axis<joy[port].stick[stick].num_axis ; axis++)
+			for (axis=0; axis<PLATFORM_INPUT_joystick_stick_num_axes(port,stick) ; axis++)
 			{
 				for (side=0; side< MAX_AXIS_STATES; side++)
 				{
@@ -3494,7 +3494,7 @@ int CONTROL_setup_joypad(void)
 	const char *msg;
 	char error_string[256];
 
-	if (install_joystick(JOY_TYPE_AUTODETECT) != 0)
+	if (PLATFORM_INPUT_install_joystick() != 0)
 	{
 		joystick_setup_okay = false;
 		set_gfx_mode(GFX_TEXT, 0, 0, 0, 0);
@@ -3507,16 +3507,16 @@ int CONTROL_setup_joypad(void)
 		joystick_setup_okay = true;
 	}
 
-	if (!num_joysticks)
+	if (!PLATFORM_INPUT_num_joysticks())
 	{
 //		set_gfx_mode(GFX_TEXT, 0, 0, 0, 0);
 //		OUTPUT_message("Error: joystick not found\n");
 //		return 1;
 	}
 
-	while (joy[0].flags & JOYFLAG_CALIBRATE)
+	while (PLATFORM_INPUT_joystick_needs_calibration(0))
 	{
-		msg = calibrate_joystick_name(0);
+		msg = PLATFORM_INPUT_calibrate_joystick_name(0);
 
 //		clear_bitmap(screen);
 
@@ -3526,7 +3526,7 @@ int CONTROL_setup_joypad(void)
 		if ((readkey()&0xFF) == 27)
 			return 0;
 
-		if (calibrate_joystick(0) != 0)
+		if (PLATFORM_INPUT_calibrate_joystick(0) != 0)
 		{
 			set_gfx_mode(GFX_TEXT, 0, 0, 0, 0);
 			OUTPUT_message("Error calibrating joystick!\n");

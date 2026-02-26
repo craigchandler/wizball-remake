@@ -41,3 +41,128 @@ int PLATFORM_INPUT_mouse_z(void)
 {
 	return mouse_z;
 }
+
+int PLATFORM_INPUT_install_joystick(void)
+{
+	return install_joystick(JOY_TYPE_AUTODETECT);
+}
+
+int PLATFORM_INPUT_num_joysticks(void)
+{
+	return num_joysticks;
+}
+
+int PLATFORM_INPUT_joystick_num_buttons(int port)
+{
+	if ((port < 0) || (port >= num_joysticks))
+	{
+		return 0;
+	}
+
+	return joy[port].num_buttons;
+}
+
+int PLATFORM_INPUT_joystick_button_state(int port, int button)
+{
+	if ((port < 0) || (port >= num_joysticks))
+	{
+		return 0;
+	}
+	if ((button < 0) || (button >= joy[port].num_buttons))
+	{
+		return 0;
+	}
+
+	return joy[port].button[button].b;
+}
+
+int PLATFORM_INPUT_joystick_num_sticks(int port)
+{
+	if ((port < 0) || (port >= num_joysticks))
+	{
+		return 0;
+	}
+
+	return joy[port].num_sticks;
+}
+
+int PLATFORM_INPUT_joystick_stick_num_axes(int port, int stick)
+{
+	if ((port < 0) || (port >= num_joysticks))
+	{
+		return 0;
+	}
+	if ((stick < 0) || (stick >= joy[port].num_sticks))
+	{
+		return 0;
+	}
+
+	return joy[port].stick[stick].num_axis;
+}
+
+int PLATFORM_INPUT_joystick_axis_pos(int port, int stick, int axis)
+{
+	if ((port < 0) || (port >= num_joysticks))
+	{
+		return 0;
+	}
+	if ((stick < 0) || (stick >= joy[port].num_sticks))
+	{
+		return 0;
+	}
+	if ((axis < 0) || (axis >= joy[port].stick[stick].num_axis))
+	{
+		return 0;
+	}
+
+	return joy[port].stick[stick].axis[axis].pos;
+}
+
+int PLATFORM_INPUT_joystick_stick_is_signed(int port, int stick)
+{
+	if ((port < 0) || (port >= num_joysticks))
+	{
+		return 0;
+	}
+	if ((stick < 0) || (stick >= joy[port].num_sticks))
+	{
+		return 0;
+	}
+
+	return ((joy[port].stick[stick].flags & JOYFLAG_SIGNED) != 0);
+}
+
+int PLATFORM_INPUT_joystick_needs_calibration(int port)
+{
+	if ((port < 0) || (port >= num_joysticks))
+	{
+		return 0;
+	}
+
+	return ((joy[port].flags & JOYFLAG_CALIBRATE) != 0);
+}
+
+const char *PLATFORM_INPUT_calibrate_joystick_name(int port)
+{
+	if ((port < 0) || (port >= num_joysticks))
+	{
+		return NULL;
+	}
+
+	return calibrate_joystick_name(port);
+}
+
+int PLATFORM_INPUT_calibrate_joystick(int port)
+{
+	if ((port < 0) || (port >= num_joysticks))
+	{
+		return -1;
+	}
+
+	return calibrate_joystick(port);
+}
+
+void PLATFORM_INPUT_poll_joysticks(void)
+{
+	poll_joystick();
+}
