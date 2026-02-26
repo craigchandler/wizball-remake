@@ -22,6 +22,7 @@
 #include "string_stuff.h"
 #include "global_param_list.h"
 #include "object_collision.h"
+#include "platform_window.h"
 
 #include "fortify.h"
 
@@ -996,9 +997,7 @@ void OUTPUT_write_opengl_extensions_to_file (void)
 
 void OUTPUT_setup_project_list (char *text)
 {
-	set_color_depth(32);
-	set_color_conversion(COLORCONV_TOTAL + COLORCONV_KEEP_TRANS);
-	set_gfx_mode(GFX_AUTODETECT_WINDOWED, 320, 240, 0, 0);
+	PLATFORM_WINDOW_set_windowed_mode(320, 240, 32);
 
 	clear_to_color(screen, makecol(255, 255, 255));
 	acquire_screen();
@@ -4788,6 +4787,5 @@ void OUTPUT_store_frame_info_in_entity_collision_including_scale (int *entity_po
 	entity_pointer [ENT_LOWER_WIDTH] = ((width-1) - pivot_x) + modifier;
 	entity_pointer [ENT_LOWER_HEIGHT] = ((height-1) - pivot_y) + modifier;
 }
-
 
 
