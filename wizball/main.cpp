@@ -31,6 +31,7 @@
 #include "file_stuff.h"
 #include "math_stuff.h"
 #include "platform.h"
+#include "platform_window.h"
 
 #ifdef ALLEGRO_WINDOWS
 	#include "direct.h"
@@ -1516,7 +1517,11 @@ int main (int argc, char *argv[])
 	}
 
 	MAIN_add_to_log ("Initialised Allegro...");
-	allegro_init();
+	if (PLATFORM_WINDOW_init() != 0)
+	{
+		MAIN_add_to_log ("\tFAILED!");
+		return 1;
+	}
 	MAIN_add_to_log ("\tOK!");
 
 	#if !defined(ALLEGRO_LINUX)
@@ -1571,7 +1576,7 @@ int main (int argc, char *argv[])
 		sprintf (project,MAIN_create_project_selector());
 
 		MAIN_add_to_log ("Setting graphics mode to text...");
-		set_gfx_mode(GFX_TEXT, 0, 0, 0, 0);
+		PLATFORM_WINDOW_set_text_mode();
 		MAIN_add_to_log ("\tOK!");
 	}
 
@@ -1593,7 +1598,7 @@ int main (int argc, char *argv[])
 	if (rebuild_scripts_only == true)
 	{
 		MAIN_add_to_log ("Rebuild-scripts mode complete. Exiting.");
-		allegro_exit();
+		PLATFORM_WINDOW_shutdown();
 		return 0;
 	}
 
@@ -1802,11 +1807,11 @@ int main (int argc, char *argv[])
 	#endif
 
 	MAIN_add_to_log ("Setting graphics mode to text...");
-	set_gfx_mode(GFX_TEXT, 0, 0, 0, 0);
+	PLATFORM_WINDOW_set_text_mode();
 	MAIN_add_to_log ("\tOK!");
 
 	MAIN_add_to_log ("Shutting down Allegro...");
-	allegro_exit();
+	PLATFORM_WINDOW_shutdown();
 	MAIN_add_to_log ("\tOK!");
 
 #ifdef ALLEGRO_WINDOWS

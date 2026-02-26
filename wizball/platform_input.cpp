@@ -190,7 +190,9 @@ void PLATFORM_INPUT_poll_joysticks(void)
 void PLATFORM_INPUT_pump_events(void)
 {
 #ifdef WIZBALL_USE_SDL2
-	if ((SDL_WasInit(0) & (SDL_INIT_VIDEO | SDL_INIT_EVENTS)) == 0)
+	// Only pump SDL events once SDL owns a video context/window.
+	// Running an SDL event loop alongside Allegro-owned windowing can interfere on some platforms.
+	if ((SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO) == 0)
 	{
 		return;
 	}

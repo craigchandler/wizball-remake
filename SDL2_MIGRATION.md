@@ -118,7 +118,7 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 ### 1. Platform Abstraction
 
 - [ ] Create `platform/` layer with interfaces for:
-- [ ] Window / context lifecycle
+- [~] Window / context lifecycle
 - [x] Timing / frame pacing / high-resolution clock
 - [~] Input state and events
 - [ ] File/path helpers
@@ -243,3 +243,5 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - 2026-02-26: Routed remaining input setup/read callsites (`install_keyboard`, `install_mouse`, `readkey`) through `platform_input` wrappers so `control.cpp` no longer directly calls Allegro input APIs.
 - 2026-02-26: Added SDL event pump seam (`PLATFORM_INPUT_pump_events`) with latched quit flag APIs and wired pump usage into game/editor outer loops.
 - 2026-02-26: Verified both default build (`build`) and SDL2-enabled build (`build_sdl2`) compile after event seam wiring.
+- 2026-02-26: Added `platform_window` lifecycle seam (`init`, `set_text_mode`, `shutdown`) and routed `main.cpp` startup/shutdown text-mode transitions through it.
+- 2026-02-26: Adjusted SDL event bridge safety: do not initialize SDL events during Allegro-owned windowing, and only pump SDL events when SDL video is initialized to avoid backend contention/regressions.
