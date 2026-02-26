@@ -803,8 +803,10 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 
 #ifdef WIZBALL_USE_SDL2
 	bool sdl_stub_enabled = PLATFORM_RENDERER_is_sdl2_stub_enabled();
+	bool sdl_native_sprites_enabled = PLATFORM_RENDERER_is_sdl2_native_sprite_enabled();
+	bool sdl_native_primary_enabled = PLATFORM_RENDERER_is_sdl2_native_primary_enabled();
 	char sdl_stub_line[MAX_LINE_SIZE];
-	sprintf(sdl_stub_line, "SDL2 renderer stub: enabled=%d lazy_init=1 status=%s", sdl_stub_enabled ? 1 : 0, PLATFORM_RENDERER_get_sdl2_stub_status());
+	sprintf(sdl_stub_line, "SDL2 renderer stub: enabled=%d native_sprites=%d native_primary=%d lazy_init=1 status=%s", sdl_stub_enabled ? 1 : 0, sdl_native_sprites_enabled ? 1 : 0, sdl_native_primary_enabled ? 1 : 0, PLATFORM_RENDERER_get_sdl2_stub_status());
 	MAIN_add_to_log(sdl_stub_line);
 #endif
 
@@ -3415,6 +3417,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 
 				case DRAW_MODE_TILEMAP:
+				{
 					#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 						MAIN_debug_last_thing ("DRAW_MODE_TILEMAP...");
 					#endif
@@ -3589,8 +3592,10 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 					break;
+				}
 
 				case DRAW_MODE_TILEMAP_LINE:
+				{
 					#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 						MAIN_debug_last_thing ("DRAW_MODE_TILEMAP_LINE...");
 					#endif
@@ -3758,6 +3763,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 					break;
+				}
 
 
 
@@ -3868,7 +3874,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 					right = entity_pointer[ENT_LOWER_WIDTH];
 					up = entity_pointer[ENT_UPPER_HEIGHT];
 					down = -entity_pointer[ENT_LOWER_HEIGHT];
-
 
 					PLATFORM_RENDERER_translatef(x,-y,0.0);
 

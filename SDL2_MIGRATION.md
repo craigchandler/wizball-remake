@@ -230,6 +230,35 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - [ ] `SDL_mixer` vs custom mixer
 - [ ] Keep `.dat` workflow as-is or replace over time
 
+## Progress Snapshot (2026-02-26)
+
+### Workstreams
+
+- Platform Abstraction: ~75%
+- Build System: ~85%
+- Rendering: ~65%
+- Input: ~80%
+- Audio (FMOD -> SDL): ~10%
+- File + Asset I/O: ~45%
+- Timing + Main Loop: ~55%
+- UI / Menus / Fonts: ~35%
+- Save/Data Compatibility: ~40%
+- Cleanup (remove Allegro/FMOD): ~10%
+
+### Milestones
+
+- M1 SDL2 Boot: ~95%
+- M2 SDL2 Visual Parity (Menu): ~70%
+- M3 SDL2 Audio Parity: ~5%
+- M4 First Playable Level: ~60%
+- M5 Decommission Allegro/FMOD: ~0-5%
+
+### Current Top Blockers
+
+- Make SDL renderer path truly primary (no GL mirror/fallback dependency).
+- Audio migration off FMOD.
+- Full parity validation pass (menu/gameplay, `-dat`/non-`-dat`, regression matrix).
+
 ## Change Log
 
 - 2026-02-26: Tracker created.
@@ -316,3 +345,45 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - 2026-02-26: Tightened texture-handle safety by removing raw-id fallback in `PLATFORM_RENDERER_resolve_gl_texture`; invalid/stale handles now resolve to 0 instead of silently binding unintended GL texture ids.
 - 2026-02-26: Aligned renderer API naming around texture handles (`texture_handle` params for bind/secondary-bind/textured-quad helpers) to reflect renderer-owned handle semantics and reduce accidental raw-GL-id assumptions ahead of SDL texture backend work.
 - 2026-02-26: Consolidated SDL stub env-flag parsing into a shared renderer helper and updated prepare/enable/mirror paths to use it, removing duplicated local env-check implementations.
+- 2026-02-26: Added first real SDL2 sprite-render path in `platform_renderer`: texture registry entries now optionally retain RGBA pixel payloads, lazily build `SDL_Texture` objects, and `PLATFORM_RENDERER_draw_textured_quad(...)` can render through SDL when `WIZBALL_SDL2_NATIVE_SPRITES=1` (with stub window active). `clear_backbuffer/present_frame` now also clear/present the SDL renderer in that mode.
+- 2026-02-26: Added startup diagnostics for native SDL sprite mode (`native_sprites=0/1`) in `OUTPUT_setup_allegro()` log output.
+- 2026-02-26: Added dedicated SDL-native gameplay-window sprite helper (`PLATFORM_RENDERER_draw_sdl_window_sprite`) that applies window transform coordinates into SDL space and draws from renderer texture handles.
+- 2026-02-26: Routed common `DRAW_MODE_SPRITE` path in `OUTPUT_draw_window_contents()` to emit SDL-native sprites for the non-rotated/non-scaled/non-multitexture/non-arbitrary-quad case, while preserving existing OpenGL rendering path for parity and fallback.
+- 2026-02-26: Expanded `PLATFORM_RENDERER_draw_sdl_window_sprite(...)` to support sprite-local scale, rotation (`SDL_RenderCopyEx`), UV-order flips, and explicit horizontal/vertical flip flags while preserving renderer-handle texture lookups.
+- 2026-02-26: Expanded SDL-native gameplay sprite candidate path in `OUTPUT_draw_window_contents()` to include primary rotate/scale, clip-frame, and flip variants (still excluding multitexture, arbitrary quads/perspective quads, and individual-vertex-colour alpha), increasing real SDL coverage during gameplay.
+- 2026-02-26: Added SDL-native tile emission in `DRAW_MODE_TILEMAP` and `DRAW_MODE_TILEMAP_LINE` loops, mapping tile positions into gameplay-window SDL coordinates and drawing per-tile sprite UVs through `PLATFORM_RENDERER_draw_sdl_window_sprite(...)` while preserving existing OpenGL draws for parity/fallback.
+- 2026-02-26: Added non-SDL build fallback for `PLATFORM_RENDERER_is_sdl2_native_sprite_enabled()` so default (non-`WIZBALL_USE_SDL2`) builds continue linking cleanly.
+- 2026-02-26: Added SDL-native primary-texture fallback draw inside the multitexture sprite branch (`OUTPUT_is_secondary_multitexture_active` path) for the non-arbitrary/non-secondary-transform subset, increasing SDL-visible gameplay coverage before full multitexture emulation.
+- 2026-02-26: Added SDL-native solid-rectangle helper (`PLATFORM_RENDERER_draw_sdl_window_solid_rect`) and routed `DRAW_MODE_SOLID_RECTANGLE` through it for non-rotated cases (including scale), while retaining GL draw path for parity.
+- 2026-02-26: Added renderer-side 2D transform/color tracking in `platform_renderer` (`set_window_transform`, `translatef`, `scalef`, `rotatef`, colour setters) and used it to emit SDL-native primitive draws for points/lines/line-loops/solid quads, increasing native coverage for starfield/line-driven gameplay effects while preserving GL paths.
+- 2026-02-26: Added SDL-native arbitrary textured quad helper (`PLATFORM_RENDERER_draw_sdl_bound_textured_quad_custom`) using `SDL_RenderGeometry` (when available) and wired it into non-perspective arbitrary-quad sprite branches (both non-multitexture and multitexture-primary fallback paths) to reduce remaining GL-only gameplay effects.
+- 2026-02-26: Added SDL-native rendering for coloured textured quad-array path (`PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array`) via `SDL_RenderGeometry` using renderer-bound texture tracking, improving coverage for individual-vertex-colour-alpha sprite effects.
+- 2026-02-26: Added SDL-native fallback in `PLATFORM_RENDERER_draw_bound_multitextured_quad_array` (primary layer `u0/v0` rendered via `SDL_RenderGeometry` with bound texture tracking), improving multitexture-effect visibility on SDL before full two-layer combiner parity.
+- 2026-02-26: Centralized additional SDL textured-quad coverage into renderer primitives by adding `SDL_RenderGeometry` fallback to `PLATFORM_RENDERER_draw_bound_textured_quad` and `PLATFORM_RENDERER_draw_bound_textured_quad_custom`, then removed redundant output-layer SDL duplicate draw injections from sprite/tilemap/solid-rectangle branches to avoid double-emission drift.
+- 2026-02-26: Added `WIZBALL_SDL2_NATIVE_PRIMARY=1` mode in `platform_renderer` (`PLATFORM_RENDERER_is_sdl2_native_primary_enabled`) to run SDL-native presentation without GL mirror fallback and skip `allegro_gl_flip()` for frame present, enabling explicit testing of SDL-as-primary output. Startup diagnostics now include `native_primary=0/1`.
+- 2026-02-26: Hardened native-primary experimentation by making newly-added core SDL quad-geometry fallback opt-in (`WIZBALL_SDL2_CORE_QUADS=1`) so default SDL-native test runs avoid unstable overdraw/garbage regressions while coverage work continues.
+- 2026-02-26: Added SDL-native fallback rendering for perspective textured quad helpers (`PLATFORM_RENDERER_draw_bound_perspective_textured_quad` and coloured variant) via `SDL_RenderGeometry`, reducing remaining GL-only gameplay effects in strict primary runs.
+- 2026-02-26: Restored strict `WIZBALL_SDL2_NATIVE_PRIMARY=1` semantics in frame present: strict mode now skips AllegroGL flip unless mirror fallback was actually used, while compat/non-strict modes continue mirroring for stability.
+- 2026-02-26: Removed `WIZBALL_SDL2_CORE_QUADS` gating from core textured-quad SDL fallback (`PLATFORM_RENDERER_draw_bound_textured_quad`), so strict-primary gameplay paths render without requiring optional core-quad diagnostics flags.
+- 2026-02-26: Improved strict-primary fallback gating by tracking textured native draws separately from primitive draws; strict mode mirror fallback now keys off textured coverage (`textured_draw_count`) to avoid false-positive “coverage complete” transitions that can produce flash-then-black output.
+- 2026-02-26: Added `WIZBALL_SDL2_GEOMETRY` gate (default off) for all `SDL_RenderGeometry` paths; strict-primary now prefers safer `RenderCopy/RenderCopyEx` textured draws unless geometry is explicitly enabled for targeted parity testing.
+- 2026-02-26: Added strict-primary safety override `WIZBALL_SDL2_NATIVE_PRIMARY_FORCE_NO_MIRROR=1`. By default, strict mode now keeps mirrored fallback active to avoid freeze/garbage transitions while native coverage remains incomplete; force flag enables explicit no-mirror strict testing.
+- 2026-02-26: Added non-geometry SDL fallbacks to custom textured-quad paths (`PLATFORM_RENDERER_draw_bound_textured_quad_custom` and `PLATFORM_RENDERER_draw_sdl_bound_textured_quad_custom`) by detecting axis-aligned transformed quads and using `SDL_RenderCopyEx`; `SDL_RenderGeometry` is now only used for non-axis-aligned cases when `WIZBALL_SDL2_GEOMETRY=1`.
+- 2026-02-26: Added axis-aligned `SDL_RenderCopyEx` fallbacks for quad-array helpers: `PLATFORM_RENDERER_draw_bound_multitextured_quad_array` (primary-layer fallback) and `PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array` (uniform-colour subset). Non-axis-aligned or per-vertex-colour-gradient cases still route to `SDL_RenderGeometry` when `WIZBALL_SDL2_GEOMETRY=1`.
+- 2026-02-26: Added axis-aligned `SDL_RenderCopyEx` fallbacks for perspective helper paths: `PLATFORM_RENDERER_draw_bound_perspective_textured_quad` and coloured variant (uniform-colour subset). True non-axis-aligned perspective cases remain on `SDL_RenderGeometry` and are gated by `WIZBALL_SDL2_GEOMETRY=1`.
+- 2026-02-26: Added `WIZBALL_SDL2_NATIVE_PRIMARY_AUTO_NO_MIRROR=1` mode: strict-primary now tracks a native-coverage streak (`draws>=128` and `textured>=16`) and only transitions away from mirror fallback after sustained coverage (120 consecutive frames). Existing `...FORCE_NO_MIRROR=1` remains available for hard no-mirror probes.
+- 2026-02-26: Hardened `AUTO_NO_MIRROR` gating with per-frame geometry-miss tracking: any draw path that would require `SDL_RenderGeometry` when geometry is disabled increments `geom_miss`, and strict auto mode now refuses no-mirror transition until `geom_miss==0` across sustained-coverage frames.
+- 2026-02-26: Added no-mirror transition cooldown (`180` frames) after any geometry miss/failure; `AUTO_NO_MIRROR` now requires both sustained coverage and cooldown expiry before re-attempting no-mirror, reducing transition oscillation/freezes during gameplay/menu state changes.
+- 2026-02-26: Made `AUTO_NO_MIRROR` conservative-by-design: qualification streak raised to 1800 frames, and any geometry miss now latches a session-level block (`blocked=1`) that prevents further auto no-mirror attempts in that run. This keeps sessions stable while unresolved no-geometry coverage gaps remain.
+- 2026-02-26: Added coarse non-geometry fallback inside `PLATFORM_RENDERER_try_sdl_geometry_textured(...)`: when geometry is disabled (or geometry render fails), renderer now attempts a bounding-quad `SDL_RenderCopyEx` approximation before counting a geometry miss. This reduces black/corruption risk and lowers `geom_miss` pressure while full non-geometry parity is still incomplete.
+- 2026-02-26: Marked approximation renders as `degraded` coverage and excluded them from no-mirror qualification (`coverage_good` now requires `degraded==0`). This prevents `AUTO_NO_MIRROR` from switching on frames relying on coarse geometry fallback approximations.
+- 2026-02-26: Added per-callsite geometry diagnostics (`hot_src=id(count)`) by tracking miss/degraded counters per geometry-origin draw path. Status text now surfaces the dominant source each frame to drive targeted elimination of remaining no-mirror blockers.
+- 2026-02-26: Improved coarse geometry fallback quality: before bounding-box blit, fallback now attempts a rotated-rectangle `SDL_RenderCopyEx` approximation when quad corners match an affine rectangle shape (dominant `hot_src=2` case). This reduces corruption risk for `BOUND_QUAD_CUSTOM` heavy frames.
+- 2026-02-26: Applied rotated-rectangle `RenderCopyEx` fallback directly in `draw_bound_textured_quad_custom` and `draw_sdl_bound_textured_quad_custom` before geometry-helper fallback, specifically to reduce `hot_src=2` degradation pressure in gameplay/menu transitions.
+- 2026-02-26: Expanded direct rotated-rectangle `RenderCopyEx` coverage in `draw_bound_textured_quad` (source `hot_src=1`) to attempt non-axis-aligned draws whenever width/height are valid, reducing dependency on shared degraded geometry fallback during menu/gameplay transitions.
+- 2026-02-26: Expanded direct rotated-rectangle `RenderCopyEx` coverage in perspective quad helpers (`draw_bound_perspective_textured_quad` and `draw_bound_coloured_perspective_textured_quad`) to try direct SDL draws for non-axis-aligned quads whenever width/height are valid, reducing `hot_src=6`/perspective degradation pressure before geometry fallback.
+- 2026-02-26: Switched strict auto primary transition to implementation-first behavior in `present_frame`: `WIZBALL_SDL2_NATIVE_PRIMARY_AUTO_NO_MIRROR=1` now allows no-mirror as soon as frame-level fallback health is good (`geom_miss==0` and degraded policy satisfied), removing dependency on draw-count/streak qualification gates.
+- 2026-02-26: Hardened renderer transform output for SDL paths by sanitizing `PLATFORM_RENDERER_transform_point(...)` results (fallback to input coordinates when non-finite or absurdly large), reducing `hot_src=1` miss bursts caused by invalid transformed coordinates poisoning non-axis quad draws.
+- 2026-02-26: Fixed a core coordinate-space bug in rotated SDL textured-quad paths (`draw_bound_textured_quad`, custom, perspective, coloured perspective, and SDL-custom variants): rotation/corner math now uses SDL-space vertex positions instead of GL-space transformed `y`, preventing off-screen/garbled output from mixed origin conventions.
+- 2026-02-26: Stabilized strict-auto primary transition behavior by keeping `allegro_gl_flip()` active when `WIZBALL_SDL2_NATIVE_PRIMARY_AUTO_NO_MIRROR=1` (unless force-no-mirror is set), so mirror fallback re-entry samples fresh GL frames instead of stale buffer content that produced frozen/garbled output.
+- 2026-02-26: Switched SDL geometry default to implementation-first for strict native-primary runs: if `WIZBALL_SDL2_GEOMETRY` is unset, geometry is now enabled automatically when `WIZBALL_SDL2_NATIVE_PRIMARY=1` and strict mode is on; explicit `WIZBALL_SDL2_GEOMETRY=0/1` still overrides. This prioritizes true quad fidelity over approximation in the SDL-primary path.
