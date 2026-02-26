@@ -1,5 +1,4 @@
 #include <allegro.h>
-#include <alleggl.h>
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
@@ -7,7 +6,6 @@
 #include <math.h>
 #include <ctype.h>
 
-#include "glext.h"
 #include "string_size_constants.h"
 #include "output.h"
 #include "file_stuff.h"
@@ -26,10 +24,6 @@
 #include "platform_renderer.h"
 
 #include "fortify.h"
-
-GLfloat ProjectionMatrix[16];
-
-
 
 typedef struct {
 	char name[NAME_SIZE];
@@ -51,7 +45,7 @@ typedef struct {
 
 typedef struct {
 	BITMAP *image;
-	GLuint texture;
+	unsigned int texture_handle;
 	int width;
 	int height;
 	int sprite_count;
@@ -87,33 +81,7 @@ typedef struct
 vertex_colour_struct entity_vertex_colours[MAX_ENTITIES];
 
 
-// This should not be needed for the Mac version as the opengl header you're using will hopefully
-// be better than the shitty 1.1 us Windows users have to use. It'll mean you have to change all
-// the "pglSecondaryColor3fEXT" to "glSecondaryColor3f" in the source, though.
-#ifdef ALLEGRO_MACOSX
-	typedef void (*PFNGLSECONDARYCOLOR3FEXTPROC) (GLfloat red, GLfloat green, GLfloat blue);
-#else
-	typedef void (APIENTRYP PFNGLSECONDARYCOLOR3FEXTPROC) (GLfloat red, GLfloat green, GLfloat blue);
-#endif
-PFNGLSECONDARYCOLOR3FEXTPROC pglSecondaryColor3fEXT = NULL;
-// Actually, you might be able to leave it...
-
-
-#ifdef ALLEGRO_MACOSX
-	typedef void (* PFNGLACTIVETEXTUREEXTPROC) (GLint texture_unit);
-#else
-	typedef void (APIENTRYP PFNGLACTIVETEXTUREEXTPROC) (GLint texture_unit);
-#endif
-PFNGLACTIVETEXTUREEXTPROC pglActiveTextureARB = NULL;
-
-
-//typedef void (APIENTRYP PFNGLTEXENVIARBPROC) (GLint target,GLint pname,GLint param);
-//PFNGLTEXENVIARBPROC pglTexEnviARB = NULL;
-
-
 float float_window_scale_multiplier;
-int opengl_major_version = 0;
-int opengl_minor_version = 0;
 
 rendering_status rs;
 
@@ -317,7 +285,7 @@ void OUTPUT_text (int x, int y, char *text, int r, int g, int b, int scale)
 			v2 = sp->v2;
 
 			PLATFORM_RENDERER_draw_textured_quad(
-				bmps[small_font_gfx].texture,
+				bmps[small_font_gfx].texture_handle,
 				legacy_text_r, legacy_text_g, legacy_text_b,
 				base_x + (pen_x * scale_multiplier), base_y, virtual_screen_height,
 				scaled_left, scaled_right, scaled_up, scaled_down,
@@ -772,44 +740,6 @@ bool OUTPUT_select_buffering_method (int buffering_method)
 
 
 
-void OUTPUT_write_opengl_extensions_to_file (void)
-{
-	FILE *file_pointer = fopen("OpenGL_Extension.txt","w");
-	int counter;
-
-	if (file_pointer!=NULL)
-	{
-		const char *version_text = PLATFORM_RENDERER_get_version_text();
-		if (version_text == NULL)
-		{
-			version_text = "UNKNOWN";
-		}
-
-		fputs(version_text,file_pointer);
-		fputs("\n\n",file_pointer);
-		
-		for (counter=0; counter<PLATFORM_RENDERER_get_extension_count(); counter++)
-		{
-			const char *ext = PLATFORM_RENDERER_get_extension_at(counter);
-			if (ext != NULL)
-			{
-				fputs(ext,file_pointer);
-			}
-			fputs("\n",file_pointer);
-		}
-
-		fputs("\n",file_pointer);
-		fclose(file_pointer);
-	}
-	else
-	{
-		OUTPUT_message("Cannot output Opengl Extension information!");
-		assert(0);
-	}
-}
-
-
-
 void OUTPUT_setup_project_list (char *text)
 {
 	PLATFORM_WINDOW_set_windowed_mode(320, 240, 32);
@@ -924,23 +854,32 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 		#ifdef ALLEGRO_MACOSX
 			if (result<0)
 			{
-				allegro_message("Error setting OpenGL graphics mode:\n%s\nAllegro GL error : %s\n",allegro_error, allegro_gl_error);
+				allegro_message("Error setting OpenGL graphics mode:\n%s\nAllegro GL error : %s\n",allegro_error, PLATFORM_RENDERER_get_allegro_gl_error_text());
 				exit(1);
 			}
 		#else
 			if (result)
 			{
-				allegro_message("Error setting OpenGL graphics mode:\n%s\n","Allegro GL error : %s\n",allegro_error, allegro_gl_error);
+				allegro_message("Error setting OpenGL graphics mode:\n%s\nAllegro GL error : %s\n",allegro_error, PLATFORM_RENDERER_get_allegro_gl_error_text());
 			}
 		#endif
+
+		// Apply common fixed-function OpenGL defaults for the current backbuffer + virtual scene size.
+		PLATFORM_RENDERER_apply_gl_defaults(SCREEN_W, SCREEN_H, virtual_screen_width, virtual_screen_height);
+
+		platform_renderer_caps caps;
+		if (!PLATFORM_RENDERER_query_and_build_caps(enable_multi_texture_effects_ideally, &caps))
+		{
+			assert(0);
+		}
 
 		/* Setup OpenGL like we want */
 
 		if (output_debug_information)
 		{
-			const char *gl_vendor = (const char *) glGetString(GL_VENDOR);
-			const char *gl_renderer = (const char *) glGetString(GL_RENDERER);
-			const char *gl_version = (const char *) glGetString(GL_VERSION);
+			const char *gl_vendor = PLATFORM_RENDERER_get_vendor_text();
+			const char *gl_renderer = PLATFORM_RENDERER_get_renderer_text();
+			const char *gl_version = PLATFORM_RENDERER_get_version_text();
 			char gl_line[MAX_LINE_SIZE];
 
 			sprintf(gl_line, "OpenGL vendor: %s", (gl_vendor != NULL) ? gl_vendor : "UNKNOWN");
@@ -951,36 +890,20 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 			MAIN_add_to_log(gl_line);
 		}
 
-		// Apply common fixed-function OpenGL defaults for the current backbuffer + virtual scene size.
-		PLATFORM_RENDERER_apply_gl_defaults(SCREEN_W, SCREEN_H, virtual_screen_width, virtual_screen_height, ProjectionMatrix);
-
-		// This just loads and dumps the list of extension the current version of opengl supports.
-		// It's use so we can see what version of opengl we're using is and disallow certain functions
-		// based on that.
-		if (!PLATFORM_RENDERER_query_extensions(&opengl_major_version, &opengl_minor_version))
-		{
-			assert(0);
-		}
-
 		// We output it, too. Uh-huh.
 		if (output_debug_information)
 		{
-			OUTPUT_write_opengl_extensions_to_file();
+			if (!PLATFORM_RENDERER_write_extensions_to_file("OpenGL_Extension.txt"))
+			{
+				OUTPUT_message("Cannot output Opengl Extension information!");
+				assert(0);
+			}
 		}
-
-		platform_renderer_caps caps = PLATFORM_RENDERER_build_caps(
-			enable_multi_texture_effects_ideally,
-			PLATFORM_RENDERER_is_extension_supported("GL_EXT_secondary_color") == true,
-			PLATFORM_RENDERER_is_extension_supported("GL_ARB_texture_env_combine") == true,
-			PLATFORM_RENDERER_is_extension_supported("GL_ARB_multitexture") == true,
-			opengl_major_version,
-			opengl_minor_version);
 
 		secondary_colour_available = caps.secondary_colour_available;
 		best_texture_combiner_available = caps.best_texture_combiner_available;
 		texture_combiner_available = caps.texture_combiner_available;
-		pglSecondaryColor3fEXT = (PFNGLSECONDARYCOLOR3FEXTPROC) caps.secondary_colour_proc;
-		pglActiveTextureARB = (PFNGLACTIVETEXTUREEXTPROC) caps.active_texture_proc;
+		PLATFORM_RENDERER_apply_caps(&caps);
 	}
 
 	PLATFORM_WINDOW_center_game_window();
@@ -1010,7 +933,7 @@ void OUTPUT_draw_sprite (int bitmap_number , int sprite_number, int x, int y, in
 		float down = - (sp->height - sp->pivot_y);
 
 		PLATFORM_RENDERER_draw_textured_quad(
-			bmps[bitmap_number].texture,
+			bmps[bitmap_number].texture_handle,
 			r, g, b,
 			x, virtual_screen_height - y, virtual_screen_height,
 			left, right, up, down,
@@ -1042,7 +965,7 @@ void OUTPUT_draw_masked_sprite (int bitmap_number , int sprite_number, int x, in
 		float down = - (sp->height - sp->pivot_y);
 
 		PLATFORM_RENDERER_draw_textured_quad(
-			bmps[bitmap_number].texture,
+			bmps[bitmap_number].texture_handle,
 			r, g, b,
 			x, virtual_screen_height - y, virtual_screen_height,
 			left, right, up, down,
@@ -1113,7 +1036,7 @@ void OUTPUT_draw_bitmap (int bitmap_number, int x, int y, int window)
 		float down = -bmps[bitmap_number].height;
 
 		PLATFORM_RENDERER_draw_textured_quad(
-			bmps[bitmap_number].texture,
+			bmps[bitmap_number].texture_handle,
 			255, 255, 255,
 			x, virtual_screen_height - (y + up - down), virtual_screen_height,
 			left, right, up, down,
@@ -1175,6 +1098,24 @@ static bool OUTPUT_is_valid_sprite_frame(int bitmap_number, int sprite_number)
 	}
 
 	return (sprite_number >= 0 && sprite_number < bmps[bitmap_number].sprite_count);
+}
+
+static bool OUTPUT_has_multitexture_flags(int opengl_booleans)
+{
+	return (opengl_booleans & (OPENGL_BOOLEAN_MULTITEXTURE_MASK | OPENGL_BOOLEAN_MULTITEXTURE_DOUBLE_MASK)) != 0;
+}
+
+static bool OUTPUT_is_double_multitexture_mode(int opengl_booleans)
+{
+	return (opengl_booleans & OPENGL_BOOLEAN_MULTITEXTURE_DOUBLE_MASK) != 0;
+}
+
+static bool OUTPUT_is_secondary_multitexture_active(bool texture_combiner_available, int opengl_booleans, int secondary_bitmap_number)
+{
+	return texture_combiner_available &&
+		(secondary_bitmap_number != UNSET) &&
+		OUTPUT_is_valid_bitmap_index(secondary_bitmap_number) &&
+		OUTPUT_has_multitexture_flags(opengl_booleans);
 }
 
 static void OUTPUT_fatal_exit(char *message)
@@ -1758,7 +1699,7 @@ int INPUT_load_bitmap (char *filename)
 			MAIN_debug_last_thing (debug_text);
 		#endif
 
-		bmps[total_bitmaps_loaded].texture = allegro_gl_make_masked_texture (bmps[total_bitmaps_loaded].image);
+		bmps[total_bitmaps_loaded].texture_handle = PLATFORM_RENDERER_create_masked_texture(bmps[total_bitmaps_loaded].image);
 
 		#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 			sprintf(debug_text,"Made masked texture.");
@@ -1867,7 +1808,7 @@ void OUTPUT_draw_sprite_scale (int bitmap_number, int sprite_number , int x , in
 		down *= scale;
 
 		PLATFORM_RENDERER_draw_textured_quad(
-			bmps[bitmap_number].texture,
+			bmps[bitmap_number].texture_handle,
 			r, g, b,
 			x, virtual_screen_height - y, virtual_screen_height,
 			left, right, up, down,
@@ -1906,7 +1847,7 @@ void OUTPUT_draw_sprite_scale_no_pivot (int bitmap_number, int sprite_number , i
 		down *= scale;
 
 		PLATFORM_RENDERER_draw_textured_quad(
-			bmps[bitmap_number].texture,
+			bmps[bitmap_number].texture_handle,
 			r, g, b,
 			x - left, virtual_screen_height - (y + up), virtual_screen_height,
 			left, right, up, down,
@@ -1999,40 +1940,23 @@ void OUTPUT_draw_arrow (int x1, int y1, int x2, int y2, int red, int green, int 
 
 
 
-void OUTPUT_set_texture_parameters (int opengl_booleans, int old_opengl_booleans)
+static void OUTPUT_apply_texture_parameters_from_flags(int opengl_booleans, int old_opengl_booleans, bool force_filter_apply = false)
 {
-	// This is called by the various draw mode types in order to make sure everything is set up nicely.
-	
-	if (opengl_booleans != old_opengl_booleans)
-	{
-		// This section only deals with turning on and off states.
+	bool filtered = (opengl_booleans & OPENGL_BOOLEAN_FILTERED) != 0;
+	bool old_filtered = (old_opengl_booleans & OPENGL_BOOLEAN_FILTERED) != 0;
+	bool state_changed = (opengl_booleans != old_opengl_booleans);
 
-		if ( !(opengl_booleans & OPENGL_BOOLEAN_FILTERED) && (old_opengl_booleans & OPENGL_BOOLEAN_FILTERED) )
-		{
-			// Turn off linear filtering
+	PLATFORM_RENDERER_apply_texture_parameters(filtered, old_filtered, state_changed, force_filter_apply);
+}
 
-			#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-				MAIN_debug_last_thing ("Turn Off Texture Filtering");
-			#endif
+static void OUTPUT_configure_secondary_multitexture_state(int opengl_booleans, int secondary_opengl_booleans, int &old_secondary_opengl_booleans)
+{
+	bool double_mask_mode = OUTPUT_is_double_multitexture_mode(opengl_booleans);
 
-			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-		}
-		else if ( (opengl_booleans & OPENGL_BOOLEAN_FILTERED) && !(old_opengl_booleans & OPENGL_BOOLEAN_FILTERED) )
-		{
-			// Turn on linear filtering
-
-			#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-				MAIN_debug_last_thing ("Turn On Texture Filtering");
-			#endif
-
-			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-		}
-	}
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	PLATFORM_RENDERER_prepare_multitexture_second_unit(double_mask_mode);
+	OUTPUT_apply_texture_parameters_from_flags(secondary_opengl_booleans, old_secondary_opengl_booleans);
+	old_secondary_opengl_booleans = secondary_opengl_booleans;
+	PLATFORM_RENDERER_finalize_multitexture_second_unit(double_mask_mode);
 }
 
 
@@ -2290,34 +2214,20 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 
 //	BITMAP *window_buffer = create_sub_bitmap (buffer , window_details[window_number].screen_x , window_details[window_number].screen_y , window_details[window_number].width, window_details[window_number].height );
 
-	if (wp->scaled_width > 0.0f)
-	{
-		if (wp->scaled_height > 0.0f)
-		{
-			glScissor ( left_window_transform_x , bottom_window_transform_y , wp->scaled_width * display_scale_x , wp->scaled_height * display_scale_y );
-		}
-		else
-		{
-			glScissor ( left_window_transform_x , bottom_window_transform_y + wp->scaled_height , wp->scaled_width * display_scale_x , -wp->scaled_height * display_scale_y );
-		}
-	}
-	else
-	{
-		if (wp->scaled_height > 0.0f)
-		{
-			glScissor ( left_window_transform_x + wp->scaled_width , bottom_window_transform_y , -wp->scaled_width * display_scale_x , wp->scaled_height * display_scale_y );
-		}
-		else
-		{
-			glScissor ( left_window_transform_x + wp->scaled_width , bottom_window_transform_y + wp->scaled_height , -wp->scaled_width * display_scale_x , -wp->scaled_height * display_scale_y );
-		}
-	}
+	PLATFORM_RENDERER_set_window_scissor(
+		left_window_transform_x,
+		bottom_window_transform_y,
+		wp->scaled_width,
+		wp->scaled_height,
+		display_scale_x,
+		display_scale_y,
+		1.0f);
 
 	#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 		MAIN_debug_last_thing ("Reset main colour to white...");
 	#endif
 
-	glColor4f( 1.0f , 1.0f , 1.0f , 1.0f);
+	PLATFORM_RENDERER_set_colour4f(1.0f, 1.0f, 1.0f, 1.0f);
 
 	if (window_details[window_number].skip_me_this_frame)
 	{
@@ -2333,18 +2243,16 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 	}
 	else
 	{
-		glDisable(GL_TEXTURE_2D);
+		PLATFORM_RENDERER_set_texture_enabled(false);
 
 		// Draw the collision grid at the correct resolution.
 
 		int col_grid_x_offset = window_x % collision_grid_size;
 		int col_grid_y_offset = window_y % collision_grid_size;
 
-		glLoadIdentity();
-		glTranslatef(left_window_transform_x,top_window_transform_y,0);
-		glScalef (total_scale_x,total_scale_y,0);
+		PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 
-		glColor3f(0.0f,0.0f,1.0f);
+		PLATFORM_RENDERER_set_colour3f(0.0f, 0.0f, 1.0f);
 
 		if (draw_world_collision == false)
 		{
@@ -2367,9 +2275,7 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 
 		for (z_ordering_list=0; z_ordering_list<z_ordering_list_size; z_ordering_list++)
 		{
-			glLoadIdentity();
-			glTranslatef(left_window_transform_x,top_window_transform_y,0);
-			glScalef (total_scale_x,total_scale_y,0);
+			PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 
 			current_entity = window_details[window_number].z_ordering_list_starts[z_ordering_list];
 
@@ -2377,9 +2283,7 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 			{
 				entity_pointer = &entity[current_entity][0];
 
-				glLoadIdentity();
-				glTranslatef(left_window_transform_x,top_window_transform_y,0);
-				glScalef (total_scale_x,total_scale_y,0);
+				PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 
 				if (draw_world_collision == true)
 				{
@@ -2392,9 +2296,9 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 					up = entity_pointer[ENT_UPPER_WORLD_HEIGHT];
 					down = -entity_pointer[ENT_LOWER_WORLD_HEIGHT];
 
-					glTranslatef(x,-y,0.0);
+					PLATFORM_RENDERER_translatef(x,-y,0.0);
 
-					glColor3f(0.0f,1.0f,0.0f);
+					PLATFORM_RENDERER_set_colour3f(0.0f, 1.0f, 0.0f);
 
 					{
 						const float loop_x[4] = { left, left, right, right };
@@ -2402,13 +2306,13 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 						PLATFORM_RENDERER_draw_line_loop_array(loop_x, loop_y, 4);
 					}
 
-					glColor3f(1.0f,1.0f,1.0f);
+					PLATFORM_RENDERER_set_colour3f(1.0f, 1.0f, 1.0f);
 
 					PLATFORM_RENDERER_draw_line(left, 0, right, 0);
 
 					PLATFORM_RENDERER_draw_line(0, up, 0, down);
 
-					glTranslatef(-x,y,0);
+					PLATFORM_RENDERER_translatef(-x,y,0);
 
 				}
 				else
@@ -2431,9 +2335,9 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 						up = entity_pointer[ENT_RADIUS];
 						down = -entity_pointer[ENT_RADIUS];
 
-						glTranslatef(x,-y,0.0);
+						PLATFORM_RENDERER_translatef(x,-y,0.0);
 
-						glColor3f(0.0f,1.0f,0.0f);
+						PLATFORM_RENDERER_set_colour3f(0.0f, 1.0f, 0.0f);
 
 						{
 							const float loop_x[8] = { left, left*0.707f, 0, right*0.707f, right, right*0.707f, 0, left*0.707f };
@@ -2441,13 +2345,13 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 							PLATFORM_RENDERER_draw_line_loop_array(loop_x, loop_y, 8);
 						}
 
-						glColor3f(1.0f,1.0f,1.0f);
+						PLATFORM_RENDERER_set_colour3f(1.0f, 1.0f, 1.0f);
 
 						PLATFORM_RENDERER_draw_line(left, 0, right, 0);
 
 						PLATFORM_RENDERER_draw_line(0, up, 0, down);
 
-						glTranslatef(-x,y,0);
+						PLATFORM_RENDERER_translatef(-x,y,0);
 						break;
 
 					case SHAPE_ROTATED_RECTANGLE:
@@ -2461,15 +2365,15 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 						up = entity_pointer[ENT_UPPER_HEIGHT];
 						down = -entity_pointer[ENT_LOWER_HEIGHT];
 
-						glTranslatef(x,-y,0.0);
+						PLATFORM_RENDERER_translatef(x,-y,0.0);
 
 						if (entity_pointer[ENT_COLLISION_SHAPE] == SHAPE_ROTATED_RECTANGLE)
 						{
 							rotate_angle = float (entity_pointer[ENT_OPENGL_ANGLE]) / 100.0f;
-							glRotatef (-rotate_angle , 0.0f, 0.0f, 1.0f);
+							PLATFORM_RENDERER_rotatef(-rotate_angle , 0.0f, 0.0f, 1.0f);
 						}
 
-						glColor3f(0.0f,1.0f,0.0f);
+						PLATFORM_RENDERER_set_colour3f(0.0f, 1.0f, 0.0f);
 
 						{
 							const float loop_x[4] = { left, left, right, right };
@@ -2477,7 +2381,7 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 							PLATFORM_RENDERER_draw_line_loop_array(loop_x, loop_y, 4);
 						}
 
-						glColor3f(1.0f,1.0f,1.0f);
+						PLATFORM_RENDERER_set_colour3f(1.0f, 1.0f, 1.0f);
 
 						PLATFORM_RENDERER_draw_line(left, 0, right, 0);
 
@@ -2485,10 +2389,10 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 
 						if (entity_pointer[ENT_COLLISION_SHAPE] == SHAPE_ROTATED_RECTANGLE)
 						{
-							glRotatef (rotate_angle , 0.0f, 0.0f, 1.0f);	
+							PLATFORM_RENDERER_rotatef(rotate_angle , 0.0f, 0.0f, 1.0f);	
 						}
 
-						glTranslatef(-x,y,0);
+						PLATFORM_RENDERER_translatef(-x,y,0);
 						break;
 
 					default:
@@ -2507,16 +2411,13 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 
 	}
 
-	glScissor ( 0 , 0 , game_screen_width , game_screen_height );
-
-	glDisable (GL_BLEND);
-	glDisable (GL_ALPHA_TEST);
-	glColor4f (1.0f, 1.0f, 1.0f, 1.0f);
-
-	if (window_details[window_number].secondary_window_colour == true)
-	{
-		glDisable(GL_COLOR_SUM);
-	}
+	PLATFORM_RENDERER_finish_textured_window_draw(
+		false,
+		false,
+		false,
+		window_details[window_number].secondary_window_colour == true,
+		game_screen_width,
+		game_screen_height);
 
 }
 
@@ -2539,6 +2440,9 @@ void OUTPUT_destroy_bitmap_and_sprite_containers (void)
 		free (bmps);
 		bmps = NULL;
 	}
+
+	// Keep renderer texture handle bookkeeping aligned with bitmap container teardown.
+	PLATFORM_RENDERER_reset_texture_registry();
 
 	total_bitmaps_loaded = 0;
 	total_bitmaps_allocated = 0;
@@ -2669,8 +2573,8 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 				MAIN_debug_last_thing ("Setting secondary colour...");
 			#endif
 
-			glEnable(GL_COLOR_SUM);
-			pglSecondaryColor3fEXT( float(wp->vertex_red)/256.0f , float(wp->vertex_green)/256.0f , float(wp->vertex_blue)/256.0f );
+			PLATFORM_RENDERER_set_colour_sum_enabled(true);
+			PLATFORM_RENDERER_set_secondary_colour( float(wp->vertex_red)/256.0f , float(wp->vertex_green)/256.0f , float(wp->vertex_blue)/256.0f );
 		}
 	}
 	else
@@ -2720,35 +2624,21 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 //	float_window_scale_multiplier
 
-	if (wp->scaled_width > 0.0f)
-	{
-		if (wp->scaled_height > 0.0f)
-		{
-			glScissor ( left_window_transform_x * float_window_scale_multiplier , bottom_window_transform_y * float_window_scale_multiplier , wp->scaled_width * display_scale_x * float_window_scale_multiplier, wp->scaled_height * display_scale_y * float_window_scale_multiplier );
-		}
-		else
-		{
-			glScissor ( left_window_transform_x * float_window_scale_multiplier , (bottom_window_transform_y + wp->scaled_height) * float_window_scale_multiplier , wp->scaled_width * display_scale_x * float_window_scale_multiplier , -wp->scaled_height * display_scale_y * float_window_scale_multiplier );
-		}
-	}
-	else
-	{
-		if (wp->scaled_height > 0.0f)
-		{
-			glScissor ( (left_window_transform_x + wp->scaled_width) * float_window_scale_multiplier , bottom_window_transform_y * float_window_scale_multiplier , -wp->scaled_width * display_scale_x * float_window_scale_multiplier , wp->scaled_height * display_scale_y * float_window_scale_multiplier );
-		}
-		else
-		{
-			glScissor ( (left_window_transform_x + wp->scaled_width) * float_window_scale_multiplier , (bottom_window_transform_y + wp->scaled_height) * float_window_scale_multiplier , -wp->scaled_width * display_scale_x * float_window_scale_multiplier , -wp->scaled_height * display_scale_y * float_window_scale_multiplier );
-		}
-	}
+	PLATFORM_RENDERER_set_window_scissor(
+		left_window_transform_x,
+		bottom_window_transform_y,
+		wp->scaled_width,
+		wp->scaled_height,
+		display_scale_x,
+		display_scale_y,
+		float_window_scale_multiplier);
 	// This restricts all drawing to the given area. Remember that co-ords start from the bottom left and go up-right!
 	
 	#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 		MAIN_debug_last_thing ("Reset main colour to white...");
 	#endif
 
-	glColor4f( 1.0f , 1.0f , 1.0f ,1.0f);
+	PLATFORM_RENDERER_set_colour4f(1.0f, 1.0f, 1.0f, 1.0f);
 
 	if (window_details[window_number].skip_me_this_frame)
 	{
@@ -2770,13 +2660,11 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 	}
 	else
 	{
-		glEnable (GL_TEXTURE_2D);
+		PLATFORM_RENDERER_prepare_textured_window_draw(texture_combiner_available);
 
 		for (z_ordering_list=0; z_ordering_list<z_ordering_list_size; z_ordering_list++)
 		{
-			glLoadIdentity();
-			glTranslatef(left_window_transform_x,top_window_transform_y,0);
-			glScalef (total_scale_x,total_scale_y,0);
+			PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 
 			current_entity = window_details[window_number].z_ordering_list_starts[z_ordering_list];
 
@@ -2830,20 +2718,15 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 					if (texture_combiner_available)
 					{
 						secondary_bitmap_number = entity_pointer[ENT_SECONDARY_SPRITE];
-						if ((secondary_bitmap_number != UNSET) && OUTPUT_is_valid_bitmap_index(secondary_bitmap_number) && (opengl_booleans & (OPENGL_BOOLEAN_MULTITEXTURE_MASK | OPENGL_BOOLEAN_MULTITEXTURE_DOUBLE_MASK) > 0))
+						if (OUTPUT_is_secondary_multitexture_active(texture_combiner_available, opengl_booleans, secondary_bitmap_number))
 					{
 						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 							MAIN_debug_last_thing ("About to set multi-texture sprite...");
 						#endif
-				
-						pglActiveTextureARB(GL_TEXTURE1);
 
-						if (old_secondary_bitmap_number == UNSET)
-						{
-							glEnable(GL_TEXTURE_2D);
-						}
-						glBindTexture(GL_TEXTURE_2D, bmps[secondary_bitmap_number].texture);
-						pglActiveTextureARB(GL_TEXTURE0);
+						PLATFORM_RENDERER_bind_secondary_texture(
+							bmps[secondary_bitmap_number].texture_handle,
+							old_secondary_bitmap_number == UNSET);
 
 						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 							MAIN_debug_last_thing ("Set multitexture sprite...");
@@ -2855,18 +2738,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("About to reset multitexture sprite...");
 						#endif
 
-						// If we had a multi-texture last frame then we need to first disable the second texture unit...
-						pglActiveTextureARB(GL_TEXTURE1);
-						glDisable(GL_TEXTURE_2D);
-						// Then restore the default modulation to the texture combiner.
-						pglActiveTextureARB(GL_TEXTURE0);
-						glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
-						glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_MODULATE);
-						glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_TEXTURE);
-						glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_RGB, GL_PRIMARY_COLOR);
-						glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_MODULATE);
-						glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, GL_TEXTURE);
-						glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_ALPHA, GL_PRIMARY_COLOR);
+						PLATFORM_RENDERER_disable_secondary_texture_and_restore_combiner();
 
 						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 							MAIN_debug_last_thing ("Reset multitexture sprite...");
@@ -2880,6 +2752,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 				#endif
 
 					bitmap_number = entity_pointer[ENT_SPRITE];
+					bool bitmap_changed = false;
 					if (!OUTPUT_is_valid_bitmap_index(bitmap_number))
 					{
 						current_entity = entity[current_entity][ENT_NEXT_WINDOW_ENT];
@@ -2887,39 +2760,15 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 					}
 					if ( (bitmap_number != old_bitmap_number) && (bitmap_number != UNSET) )
 					{
-						glBindTexture(GL_TEXTURE_2D, bmps[bitmap_number].texture);
+						bitmap_changed = true;
+						PLATFORM_RENDERER_bind_texture(bmps[bitmap_number].texture_handle);
 					}
-					old_bitmap_number = bitmap_number;
 
-				if ( (old_bitmap_number != bitmap_number) || (opengl_booleans != old_opengl_booleans) )
+				if (bitmap_changed || (opengl_booleans != old_opengl_booleans))
 				{
-					if (opengl_booleans & OPENGL_BOOLEAN_FILTERED)
-					{
-						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-							MAIN_debug_last_thing ("About to filter sprite...");
-						#endif
-
-						glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-						glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-
-						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-							MAIN_debug_last_thing ("Filtered sprite...");
-						#endif
-					}
-					else
-					{
-						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-							MAIN_debug_last_thing ("About to non-filter sprite...");
-						#endif
-
-						glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-						glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-
-						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-							MAIN_debug_last_thing ("Non-filtered sprite...");
-						#endif
-					}
+					OUTPUT_apply_texture_parameters_from_flags(opengl_booleans, old_opengl_booleans, bitmap_changed);
 				}
+				old_bitmap_number = bitmap_number;
 
 				if (opengl_booleans != old_opengl_booleans)
 				{
@@ -2931,9 +2780,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("Resetting Transform as previous entity was rotated and this one ain't.");
 						#endif
 
-						glLoadIdentity();
-						glTranslatef(left_window_transform_x,top_window_transform_y,0);
-						glScalef (total_scale_x,total_scale_y,0);
+						PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 					}
 					else if ( !(opengl_booleans & OPENGL_BOOLEAN_SCALE) && (old_opengl_booleans & OPENGL_BOOLEAN_SCALE) )
 					{
@@ -2943,9 +2790,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("Resetting Transform as previous entity was scaled and this one ain't.");
 						#endif
 
-						glLoadIdentity();
-						glTranslatef(left_window_transform_x,top_window_transform_y,0);
-						glScalef (total_scale_x,total_scale_y,0);
+						PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 					}
 
 					if ( !(opengl_booleans & OPENGL_BOOLEAN_BLEND_EITHER) && (old_opengl_booleans & OPENGL_BOOLEAN_BLEND_ADD) )
@@ -2956,7 +2801,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("Turn off blending.");
 						#endif
 
-						glDisable (GL_BLEND);
+						PLATFORM_RENDERER_set_blend_enabled(false);
 					}
 					else if ( (opengl_booleans & OPENGL_BOOLEAN_BLEND_ADD) && !(old_opengl_booleans & OPENGL_BOOLEAN_BLEND_ADD) )
 					{
@@ -2966,8 +2811,8 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("Turn on additive blending.");
 						#endif
 
-						glEnable (GL_BLEND);
-						glBlendFunc(GL_SRC_ALPHA,GL_ONE);
+						PLATFORM_RENDERER_set_blend_enabled(true);
+						PLATFORM_RENDERER_set_blend_mode_additive();
 					}
 					
 					if ( !(opengl_booleans & OPENGL_BOOLEAN_BLEND_EITHER) && (old_opengl_booleans & OPENGL_BOOLEAN_BLEND_MULTIPLY) )
@@ -2978,7 +2823,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("Turn off blending.");
 						#endif
 
-						glDisable (GL_BLEND);
+						PLATFORM_RENDERER_set_blend_enabled(false);
 					}
 					else if ( (opengl_booleans & OPENGL_BOOLEAN_BLEND_MULTIPLY) && !(old_opengl_booleans & OPENGL_BOOLEAN_BLEND_MULTIPLY) )
 					{
@@ -2988,8 +2833,8 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("Turn on multiplicative blending.");
 						#endif
 
-						glEnable (GL_BLEND);
-						glBlendFunc(GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+						PLATFORM_RENDERER_set_blend_enabled(true);
+						PLATFORM_RENDERER_set_blend_mode_alpha();
 					}
 					
 					if ( !(opengl_booleans & OPENGL_BOOLEAN_BLEND_EITHER) && (old_opengl_booleans & OPENGL_BOOLEAN_BLEND_SUBTRACT) )
@@ -3000,7 +2845,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("Turn off blending.");
 						#endif
 
-						glDisable (GL_BLEND);
+						PLATFORM_RENDERER_set_blend_enabled(false);
 					}
 					else if ( (opengl_booleans & OPENGL_BOOLEAN_BLEND_SUBTRACT) && !(old_opengl_booleans & OPENGL_BOOLEAN_BLEND_SUBTRACT) )
 					{
@@ -3010,8 +2855,8 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("Turn on subtractive blending.");
 						#endif
 
-						glEnable (GL_BLEND);
-						glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
+						PLATFORM_RENDERER_set_blend_enabled(true);
+						PLATFORM_RENDERER_set_blend_mode_subtractive();
 					}
 
 					if ( !(opengl_booleans & OPENGL_BOOLEAN_MASKED) && (old_opengl_booleans & OPENGL_BOOLEAN_MASKED) )
@@ -3022,7 +2867,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("Turn off masking.");
 						#endif
 
-						glDisable (GL_ALPHA_TEST);
+						PLATFORM_RENDERER_set_alpha_test_enabled(false);
 					}
 					else if ( (opengl_booleans & OPENGL_BOOLEAN_MASKED) && !(old_opengl_booleans & OPENGL_BOOLEAN_MASKED) )
 					{
@@ -3032,8 +2877,8 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("Turn on masking.");
 						#endif
 
-						glEnable (GL_ALPHA_TEST);
-						glAlphaFunc (GL_GREATER, 0.5f);
+						PLATFORM_RENDERER_set_alpha_test_enabled(true);
+						PLATFORM_RENDERER_set_alpha_func_greater(0.5f);
 					}
 
 					if (secondary_colour_available)
@@ -3046,8 +2891,8 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 								MAIN_debug_last_thing ("Turn off secondary colour.");
 							#endif
 
-							pglSecondaryColor3fEXT( 0.0f , 0.0f , 0.0f );
-							glDisable(GL_COLOR_SUM);
+							PLATFORM_RENDERER_set_secondary_colour( 0.0f , 0.0f , 0.0f );
+							PLATFORM_RENDERER_set_colour_sum_enabled(false);
 						}
 						else if ( (opengl_booleans & OPENGL_BOOLEAN_VERTEX_SECONDARY_COLOUR) && !(old_opengl_booleans & OPENGL_BOOLEAN_VERTEX_SECONDARY_COLOUR) )
 						{
@@ -3057,8 +2902,8 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 								MAIN_debug_last_thing ("Turn on secondary colour.");
 							#endif
 
-							pglSecondaryColor3fEXT( 0.0f , 0.0f , 0.0f );
-							glEnable(GL_COLOR_SUM);
+							PLATFORM_RENDERER_set_secondary_colour( 0.0f , 0.0f , 0.0f );
+							PLATFORM_RENDERER_set_colour_sum_enabled(true);
 						}
 					}
 
@@ -3070,7 +2915,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("Turn on secondary colour.");
 						#endif
 
-						glEnable(GL_COLOR_SUM);
+						PLATFORM_RENDERER_set_colour_sum_enabled(true);
 					}
 
 					if ( !(opengl_booleans & OPENGL_BOOLEAN_VERTEX_COLOUR) && (old_opengl_booleans & OPENGL_BOOLEAN_VERTEX_COLOUR) )
@@ -3081,7 +2926,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("Reset vertex colour to white.");
 						#endif
 
-						glColor4f(1.0f,1.0f,1.0f,1.0f);
+						PLATFORM_RENDERER_set_colour4f(1.0f, 1.0f, 1.0f, 1.0f);
 					}
 					
 					if ( !(opengl_booleans & OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA) && (old_opengl_booleans & OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA) )
@@ -3092,7 +2937,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("Reset vertex colour to white.");
 						#endif
 
-						glColor4f(1.0f,1.0f,1.0f,1.0f);
+						PLATFORM_RENDERER_set_colour4f(1.0f, 1.0f, 1.0f, 1.0f);
 					}
 				}
 
@@ -3104,7 +2949,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("Set secondary vertex colour.");
 						#endif
 
-						pglSecondaryColor3fEXT( float(entity_pointer[ENT_OPENGL_VERTEX_RED])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_GREEN])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_BLUE])/256.0f );
+						PLATFORM_RENDERER_set_secondary_colour( float(entity_pointer[ENT_OPENGL_VERTEX_RED])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_GREEN])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_BLUE])/256.0f );
 					}
 				}
 
@@ -3114,7 +2959,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						MAIN_debug_last_thing ("Set primary vertex colour.");
 					#endif
 
-					glColor4f( float(entity_pointer[ENT_OPENGL_VERTEX_RED])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_GREEN])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_BLUE])/256.0f , 1.0f);
+					PLATFORM_RENDERER_set_colour4f( float(entity_pointer[ENT_OPENGL_VERTEX_RED])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_GREEN])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_BLUE])/256.0f , 1.0f);
 				}
 
 				if (opengl_booleans & OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA)
@@ -3123,7 +2968,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						MAIN_debug_last_thing ("Set primary vertex colour and alpha.");
 					#endif
 
-					glColor4f( float(entity_pointer[ENT_OPENGL_VERTEX_RED])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_GREEN])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_BLUE])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_ALPHA])/256.0f );
+					PLATFORM_RENDERER_set_colour4f( float(entity_pointer[ENT_OPENGL_VERTEX_RED])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_GREEN])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_BLUE])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_ALPHA])/256.0f );
 				}
 
 				#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
@@ -3219,32 +3064,32 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							down += entity_pointer[ENT_CUT_SPRITE_BOTTOM_INDENTATION];
 						}
 
-						glTranslatef(x,-y,0.0);
+						PLATFORM_RENDERER_translatef(x,-y,0.0);
 
 						if (opengl_booleans & OPENGL_BOOLEAN_SECONDARY_SCALE)
 						{
 							scale_x_2 = float (entity_pointer[ENT_OPENGL_SECONDARY_SCALE_X]) / 10000.0f;
 							scale_y_2 = float (entity_pointer[ENT_OPENGL_SECONDARY_SCALE_Y]) / 10000.0f;
-							glScalef(scale_x_2,scale_y_2,1.0f);
+							PLATFORM_RENDERER_scalef(scale_x_2,scale_y_2,1.0f);
 						}
 
 						if (opengl_booleans & OPENGL_BOOLEAN_ROTATE)
 						{
 							rotate_angle = float (entity_pointer[ENT_OPENGL_ANGLE]) / 100.0f;
-							glRotatef (-rotate_angle , 0.0f, 0.0f, 1.0f);
+							PLATFORM_RENDERER_rotatef(-rotate_angle , 0.0f, 0.0f, 1.0f);
 						}
 
 						if (opengl_booleans & OPENGL_BOOLEAN_SCALE)
 						{
 							scale_x = float (entity_pointer[ENT_OPENGL_SCALE_X]) / 10000.0f;
 							scale_y = float (entity_pointer[ENT_OPENGL_SCALE_Y]) / 10000.0f;
-							glScalef(scale_x,scale_y,1.0f);
+							PLATFORM_RENDERER_scalef(scale_x,scale_y,1.0f);
 						}
 
 						if (opengl_booleans & OPENGL_BOOLEAN_SECONDARY_ROTATE)
 						{
 							rotate_angle_2 = float (entity_pointer[ENT_OPENGL_SECONDARY_ANGLE]) / 100.0f;
-							glRotatef (-rotate_angle_2 , 0.0f, 0.0f, 1.0f);
+							PLATFORM_RENDERER_rotatef(-rotate_angle_2 , 0.0f, 0.0f, 1.0f);
 						}
 
 						if (opengl_booleans & OPENGL_BOOLEAN_HORI_FLIPPED)
@@ -3261,7 +3106,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							v2 = temp_uv;
 						}
 
-							if ((texture_combiner_available == true) && OUTPUT_is_valid_bitmap_index(secondary_bitmap_number) && (opengl_booleans & (OPENGL_BOOLEAN_MULTITEXTURE_MASK | OPENGL_BOOLEAN_MULTITEXTURE_DOUBLE_MASK)))
+							if (OUTPUT_is_secondary_multitexture_active(texture_combiner_available, opengl_booleans, secondary_bitmap_number))
 							{
 								if (secondary_opengl_booleans & OPENGL_BOOLEAN_INTERPOLATED)
 								{
@@ -3335,56 +3180,14 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 								secondary_v2 -= secondary_sp->uv_pixel_size * float(entity_pointer[ENT_CUT_SPRITE_BOTTOM_INDENTATION]);
 							}
 
-							pglActiveTextureARB(GL_TEXTURE0);
-							OUTPUT_set_texture_parameters (opengl_booleans, old_opengl_booleans);
+							PLATFORM_RENDERER_set_active_texture_unit0();
+							OUTPUT_apply_texture_parameters_from_flags(opengl_booleans, old_opengl_booleans);
 
-							if (opengl_booleans & OPENGL_BOOLEAN_MULTITEXTURE_DOUBLE_MASK)
+							if (OUTPUT_has_multitexture_flags(opengl_booleans))
 							{
-								glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
-								glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_MODULATE);
-								glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_TEXTURE);
-								glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_RGB, GL_PRIMARY_COLOR);
-								glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_MODULATE);
-								glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, GL_TEXTURE);
-								glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_ALPHA, GL_PRIMARY_COLOR);
-
-								pglActiveTextureARB(GL_TEXTURE1);
-
 								secondary_opengl_booleans = entity_pointer[ENT_SECONDARY_OPENGL_BOOLEANS];
-								OUTPUT_set_texture_parameters (secondary_opengl_booleans, old_secondary_opengl_booleans);
-								old_secondary_opengl_booleans = secondary_opengl_booleans;
-
-								glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
-								glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_REPLACE);
-								glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_PREVIOUS);
-								glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_MODULATE);
-								glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, GL_TEXTURE);
-								glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_ALPHA, GL_PREVIOUS);
+								OUTPUT_configure_secondary_multitexture_state(opengl_booleans, secondary_opengl_booleans, old_secondary_opengl_booleans);
 							}
-							else if (opengl_booleans & OPENGL_BOOLEAN_MULTITEXTURE_MASK)
-							{
-								glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
-								glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_REPLACE); // For the RGB data we replace it...
-								glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_PREVIOUS); // ...with the incoming colour data (as set by glColor4f() or whatever)
-								glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_MODULATE); // For the Alpha data we use a modulation combiner (ie, imagine two values of 0.0f to 1.0f multiplied together to get a result between 0.0f and 1.0f)
-								glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, GL_TEXTURE); // The first alpha source is from the texture
-								glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_ALPHA, GL_PRIMARY_COLOR); // And the second is whatever the current alpha is (as set by glColor4f() or whatever)
-
-								pglActiveTextureARB(GL_TEXTURE1);
-
-								secondary_opengl_booleans = entity_pointer[ENT_SECONDARY_OPENGL_BOOLEANS];
-								OUTPUT_set_texture_parameters (secondary_opengl_booleans, old_secondary_opengl_booleans);
-								old_secondary_opengl_booleans = secondary_opengl_booleans;
-
-								glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
-								glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_MODULATE); // This time the texture is combined via modulation with the two arguments being...
-								glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_TEXTURE); // The RGB data from the texture.
-								glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_RGB, GL_PRIMARY_COLOR); // And the incoming colour (as set by glColor4f() or whatever).
-								glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_REPLACE); // The alpha information is overwritten, however...
-								glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, GL_PREVIOUS); // ...with the data from the previous texture unit.
-							}
-
-							pglActiveTextureARB(GL_TEXTURE0);
 
 							if ((opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_QUAD) == 0)
 							{
@@ -3442,8 +3245,8 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						}
 						else
 						{
-							pglActiveTextureARB(GL_TEXTURE0);
-							OUTPUT_set_texture_parameters (opengl_booleans, old_opengl_booleans);
+							PLATFORM_RENDERER_set_active_texture_unit0();
+							OUTPUT_apply_texture_parameters_from_flags(opengl_booleans, old_opengl_booleans);
 
 							if (opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA)
 							{
@@ -3581,25 +3384,25 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 						if (opengl_booleans & OPENGL_BOOLEAN_SECONDARY_ROTATE)
 						{
-							glRotatef (rotate_angle_2 , 0.0f, 0.0f, 1.0f);	
+							PLATFORM_RENDERER_rotatef(rotate_angle_2 , 0.0f, 0.0f, 1.0f);	
 						}
 
 						if (opengl_booleans & OPENGL_BOOLEAN_SCALE)
 						{
-							glScalef(1.0f/scale_x,1.0f/scale_y,1.0f);
+							PLATFORM_RENDERER_scalef(1.0f/scale_x,1.0f/scale_y,1.0f);
 						}
 
 						if (opengl_booleans & OPENGL_BOOLEAN_ROTATE)
 						{
-							glRotatef (rotate_angle , 0.0f, 0.0f, 1.0f);	
+							PLATFORM_RENDERER_rotatef(rotate_angle , 0.0f, 0.0f, 1.0f);	
 						}
 
 						if (opengl_booleans & OPENGL_BOOLEAN_SECONDARY_SCALE)
 						{
-							glScalef(1.0f/scale_x_2,1.0f/scale_y_2,1.0f);
+							PLATFORM_RENDERER_scalef(1.0f/scale_x_2,1.0f/scale_y_2,1.0f);
 						}
 
-						glTranslatef(-x,y,0);
+						PLATFORM_RENDERER_translatef(-x,y,0);
 					}
 					break;
 					
@@ -3616,7 +3419,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						MAIN_debug_last_thing ("DRAW_MODE_TILEMAP...");
 					#endif
 
-					OUTPUT_set_texture_parameters (opengl_booleans, old_opengl_booleans);
+					OUTPUT_apply_texture_parameters_from_flags(opengl_booleans, old_opengl_booleans);
 
 					map_number = entity_pointer[ENT_TILEMAP_NUMBER];
 					layer_number = entity_pointer[ENT_TILEMAP_LAYER];
@@ -3708,11 +3511,9 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 					next_line_transform_x = (end_bx - start_bx) * -tilesize;
 					next_line_transform_y = -tilesize;
 
-					glLoadIdentity();
-					glTranslatef(left_window_transform_x,top_window_transform_y,0);
-					glScalef (total_scale_x,total_scale_y,0);
+					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 
-					glTranslatef(tileset_drawing_start_offset_x,tileset_drawing_start_offset_y,0);
+					PLATFORM_RENDERER_translatef(tileset_drawing_start_offset_x,tileset_drawing_start_offset_y,0);
 					
 					// Get tile pivot data from the first tile.
 					sp = &bmps[tile_graphic].sprite_list[0];
@@ -3746,15 +3547,15 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 									opt_offset = opt_pointer + (map_line_pointer - map_pointer);
 									map_line_pointer += *opt_offset;
 									bx += *opt_offset;
-									glTranslatef(tilesize * *opt_offset,0,0);
+									PLATFORM_RENDERER_translatef(tilesize * *opt_offset,0,0);
 								}
 
-								glTranslatef(tilesize,0,0);
+								PLATFORM_RENDERER_translatef(tilesize,0,0);
 								
 								map_line_pointer++;
 							}
 							
-							glTranslatef(next_line_transform_x - (tilesize * (bx - end_bx)),next_line_transform_y,0);
+							PLATFORM_RENDERER_translatef(next_line_transform_x - (tilesize * (bx - end_bx)),next_line_transform_y,0);
 						}
 					}
 					else
@@ -3777,18 +3578,16 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 									PLATFORM_RENDERER_draw_bound_textured_quad(left, right, up, down, u1, v1, u2, v2);
 								}
 
-								glTranslatef(tilesize,0,0);
+								PLATFORM_RENDERER_translatef(tilesize,0,0);
 								
 								map_line_pointer++;
 							}
 
-							glTranslatef(next_line_transform_x,next_line_transform_y,0);
+							PLATFORM_RENDERER_translatef(next_line_transform_x,next_line_transform_y,0);
 						}
 					}
 
-					glLoadIdentity();
-					glTranslatef(left_window_transform_x,top_window_transform_y,0);
-					glScalef (total_scale_x,total_scale_y,0);
+					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 					break;
 
 				case DRAW_MODE_TILEMAP_LINE:
@@ -3803,7 +3602,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 					// Unlike tilemaps you can't manually specify where the tiles should be drawn from the map
 					// but rather it is inferred from the world_y of the entity and the window_x of the entity.
 
-					OUTPUT_set_texture_parameters (opengl_booleans, old_opengl_booleans);
+					OUTPUT_apply_texture_parameters_from_flags(opengl_booleans, old_opengl_booleans);
 
 					map_number = entity_pointer[ENT_TILEMAP_NUMBER];
 					layer_number = entity_pointer[ENT_TILEMAP_LAYER];
@@ -3891,11 +3690,9 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 					tileset_drawing_start_offset_x = -x_under;
 					tileset_drawing_start_offset_y = y_under;
 
-					glLoadIdentity();
-					glTranslatef(left_window_transform_x,top_window_transform_y,0);
-					glScalef (total_scale_x,total_scale_y,0);
+					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 
-					glTranslatef(tileset_drawing_start_offset_x,tileset_drawing_start_offset_y,0);
+					PLATFORM_RENDERER_translatef(tileset_drawing_start_offset_x,tileset_drawing_start_offset_y,0);
 					
 					// Get tile pivot data from the first tile.
 					sp = &bmps[tile_graphic].sprite_list[0];
@@ -3927,10 +3724,10 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 								opt_offset = opt_pointer + (map_line_pointer - map_pointer);
 								map_line_pointer += *opt_offset;
 								bx += *opt_offset;
-								glTranslatef(tilesize * *opt_offset,0,0);
+								PLATFORM_RENDERER_translatef(tilesize * *opt_offset,0,0);
 							}
 
-							glTranslatef(tilesize,0,0);
+							PLATFORM_RENDERER_translatef(tilesize,0,0);
 							
 							map_line_pointer++;
 						}
@@ -3953,15 +3750,13 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 								PLATFORM_RENDERER_draw_bound_textured_quad(left, right, up, down, u1, v1, u2, v2);
 							}
 
-							glTranslatef(tilesize,0,0);
+							PLATFORM_RENDERER_translatef(tilesize,0,0);
 							
 							map_line_pointer++;
 						}
 					}
 
-					glLoadIdentity();
-					glTranslatef(left_window_transform_x,top_window_transform_y,0);
-					glScalef (total_scale_x,total_scale_y,0);
+					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 					break;
 
 
@@ -3974,25 +3769,21 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						MAIN_debug_last_thing ("DRAW_MODE_STARFIELD...");
 					#endif
 
-					glLoadIdentity();
-					glTranslatef(left_window_transform_x,top_window_transform_y,0);
-					glScalef (total_scale_x,total_scale_y,0);
+					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 
 					if (entity_pointer[ENT_DRAW_OVERRIDE] == DRAW_OVERRIDE_NONE)
 					{
 						x = entity_pointer[ENT_WORLD_X] - window_x;
 						y = entity_pointer[ENT_WORLD_Y] - window_y;
-						glTranslatef(x,-y,0.0);
+						PLATFORM_RENDERER_translatef(x,-y,0.0);
 					}
 
-					glDisable(GL_TEXTURE_2D);
+					PLATFORM_RENDERER_set_texture_enabled(false);
 
 					OUTPUT_draw_starfield (entity_pointer[ENT_UNIQUE_ID]);
 
-					glEnable(GL_TEXTURE_2D);
-					glLoadIdentity();
-					glTranslatef(left_window_transform_x,top_window_transform_y,0);
-					glScalef (total_scale_x,total_scale_y,0);
+					PLATFORM_RENDERER_set_texture_enabled(true);
+					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 					break;
 
 				case DRAW_MODE_STARFIELD_LINES:
@@ -4000,25 +3791,21 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						MAIN_debug_last_thing ("DRAW_MODE_STARFIELD_LINES...");
 					#endif
 
-					glLoadIdentity();
-					glTranslatef(left_window_transform_x,top_window_transform_y,0);
-					glScalef (total_scale_x,total_scale_y,0);
+					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 
 					if (entity_pointer[ENT_DRAW_OVERRIDE] == DRAW_OVERRIDE_NONE)
 					{
 						x = entity_pointer[ENT_WORLD_X] - window_x;
 						y = entity_pointer[ENT_WORLD_Y] - window_y;
-						glTranslatef(x,-y,0.0);
+						PLATFORM_RENDERER_translatef(x,-y,0.0);
 					}
 					
-					glDisable(GL_TEXTURE_2D);
+					PLATFORM_RENDERER_set_texture_enabled(false);
 
 					OUTPUT_draw_starfield_lines (entity_pointer[ENT_UNIQUE_ID]);
 
-					glEnable(GL_TEXTURE_2D);
-					glLoadIdentity();
-					glTranslatef(left_window_transform_x,top_window_transform_y,0);
-					glScalef (total_scale_x,total_scale_y,0);
+					PLATFORM_RENDERER_set_texture_enabled(true);
+					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 					break;
 
 				case DRAW_MODE_STARFIELD_COLOUR:
@@ -4026,25 +3813,21 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						MAIN_debug_last_thing ("DRAW_MODE_STARFIELD_COLOUR...");
 					#endif
 
-					glLoadIdentity();
-					glTranslatef(left_window_transform_x,top_window_transform_y,0);
-					glScalef (total_scale_x,total_scale_y,0);
+					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 
 					if (entity_pointer[ENT_DRAW_OVERRIDE] == DRAW_OVERRIDE_NONE)
 					{
 						x = entity_pointer[ENT_WORLD_X] - window_x;
 						y = entity_pointer[ENT_WORLD_Y] - window_y;
-						glTranslatef(x,-y,0.0);
+						PLATFORM_RENDERER_translatef(x,-y,0.0);
 					}
 					
-					glDisable(GL_TEXTURE_2D);
+					PLATFORM_RENDERER_set_texture_enabled(false);
 
 					OUTPUT_draw_starfield_colour (entity_pointer[ENT_UNIQUE_ID]);
 
-					glEnable(GL_TEXTURE_2D);
-					glLoadIdentity();
-					glTranslatef(left_window_transform_x,top_window_transform_y,0);
-					glScalef (total_scale_x,total_scale_y,0);
+					PLATFORM_RENDERER_set_texture_enabled(true);
+					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 					break;
 
 				case DRAW_MODE_STARFIELD_COLOUR_LINES:
@@ -4052,25 +3835,21 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						MAIN_debug_last_thing ("DRAW_MODE_STARFIELD_COLOUR_LINES...");
 					#endif
 
-					glLoadIdentity();
-					glTranslatef(left_window_transform_x,top_window_transform_y,0);
-					glScalef (total_scale_x,total_scale_y,0);
+					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 
 					if (entity_pointer[ENT_DRAW_OVERRIDE] == DRAW_OVERRIDE_NONE)
 					{
 						x = entity_pointer[ENT_WORLD_X] - window_x;
 						y = entity_pointer[ENT_WORLD_Y] - window_y;
-						glTranslatef(x,-y,0.0);
+						PLATFORM_RENDERER_translatef(x,-y,0.0);
 					}
 					
-					glDisable(GL_TEXTURE_2D);
+					PLATFORM_RENDERER_set_texture_enabled(false);
 
 					OUTPUT_draw_starfield_colour_lines (entity_pointer[ENT_UNIQUE_ID]);
 
-					glEnable(GL_TEXTURE_2D);
-					glLoadIdentity();
-					glTranslatef(left_window_transform_x,top_window_transform_y,0);
-					glScalef (total_scale_x,total_scale_y,0);
+					PLATFORM_RENDERER_set_texture_enabled(true);
+					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 					break;
 
 				case DRAW_MODE_SOLID_RECTANGLE:
@@ -4078,9 +3857,9 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						MAIN_debug_last_thing ("DRAW_MODE_SOLID_RECTANGLE...");
 					#endif
 
-					glDisable(GL_TEXTURE_2D);
+					PLATFORM_RENDERER_set_texture_enabled(false);
 
-					OUTPUT_set_texture_parameters (opengl_booleans, old_opengl_booleans);
+					OUTPUT_apply_texture_parameters_from_flags(opengl_booleans, old_opengl_booleans);
 
 					x = entity_pointer[ENT_WORLD_X] - window_x;
 					y = entity_pointer[ENT_WORLD_Y] - window_y;
@@ -4091,36 +3870,36 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 					down = -entity_pointer[ENT_LOWER_HEIGHT];
 
 
-					glTranslatef(x,-y,0.0);
+					PLATFORM_RENDERER_translatef(x,-y,0.0);
 
 					if (opengl_booleans & OPENGL_BOOLEAN_ROTATE)
 					{
 						rotate_angle = float (entity_pointer[ENT_OPENGL_ANGLE]) / 100.0f;
-						glRotatef (-rotate_angle , 0.0f, 0.0f, 1.0f);
+						PLATFORM_RENDERER_rotatef(-rotate_angle , 0.0f, 0.0f, 1.0f);
 					}
 
 					if (opengl_booleans & OPENGL_BOOLEAN_SCALE)
 					{
 						scale_x = float (entity_pointer[ENT_OPENGL_SCALE_X]) / 10000.0f;
 						scale_y = float (entity_pointer[ENT_OPENGL_SCALE_Y]) / 10000.0f;
-						glScalef(scale_x,scale_y,1.0f);
+						PLATFORM_RENDERER_scalef(scale_x,scale_y,1.0f);
 					}
 
 					PLATFORM_RENDERER_draw_bound_solid_quad(left, right, up, down);
 
 					if (opengl_booleans & OPENGL_BOOLEAN_SCALE)
 					{
-						glScalef(1.0f/scale_x,1.0f/scale_y,1.0f);
+						PLATFORM_RENDERER_scalef(1.0f/scale_x,1.0f/scale_y,1.0f);
 					}
 
 					if (opengl_booleans & OPENGL_BOOLEAN_ROTATE)
 					{
-						glRotatef (rotate_angle , 0.0f, 0.0f, 1.0f);	
+						PLATFORM_RENDERER_rotatef(rotate_angle , 0.0f, 0.0f, 1.0f);	
 					}
 
-					glTranslatef(-x,y,0);
+					PLATFORM_RENDERER_translatef(-x,y,0);
 
-					glEnable(GL_TEXTURE_2D);
+					PLATFORM_RENDERER_set_texture_enabled(true);
 					break;
 
 				default:
@@ -4149,43 +3928,17 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 	}
 
-	if ((secondary_bitmap_number != UNSET) && (texture_combiner_available == true))
-	{
-		// If we had a multi-texture last frame then we need to first disable the second texture unit...
-		pglActiveTextureARB(GL_TEXTURE1);
-		glDisable(GL_TEXTURE_2D);
-		// Then restore the default modulation to the texture combiner.
-		pglActiveTextureARB(GL_TEXTURE0);
-		glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
-		glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_MODULATE);
-		glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_TEXTURE);
-		glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_RGB, GL_PRIMARY_COLOR);
-		glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_MODULATE);
-		glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, GL_TEXTURE);
-		glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_ALPHA, GL_PRIMARY_COLOR);
-	}
+	PLATFORM_RENDERER_finish_textured_window_draw(
+		texture_combiner_available,
+		old_secondary_bitmap_number != UNSET,
+		secondary_colour_available,
+		window_details[window_number].secondary_window_colour == true,
+		game_screen_width,
+		game_screen_height);
 
 	#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 		MAIN_debug_last_thing ("Elvis has left the building...");
 	#endif
-
-	if (secondary_colour_available)
-	{
-		// Reset secondary colour to black and turn it off.
-		pglSecondaryColor3fEXT( 0.0f , 0.0f , 0.0f );
-		glDisable(GL_COLOR_SUM);
-	}
-
-	glScissor ( 0 , 0 , game_screen_width , game_screen_height );
-
-	glDisable (GL_BLEND);
-	glDisable (GL_ALPHA_TEST);
-	glColor4f (1.0f, 1.0f, 1.0f, 1.0f);
-
-	if (window_details[window_number].secondary_window_colour == true)
-	{
-		glDisable(GL_COLOR_SUM);
-	}
 
 	return total_entities_drawn;
 }

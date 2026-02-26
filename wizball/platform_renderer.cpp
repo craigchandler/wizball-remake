@@ -27,8 +27,21 @@ static char *PLATFORM_RENDERER_dup_string(const char *text)
 }
 
 static char *platform_renderer_version_text = NULL;
+static char *platform_renderer_vendor_text = NULL;
+static char *platform_renderer_renderer_text = NULL;
 static int platform_renderer_extension_count = 0;
 static char **platform_renderer_extensions = NULL;
+typedef struct
+{
+	unsigned int gl_texture_id;
+} platform_renderer_texture_entry;
+static platform_renderer_texture_entry *platform_renderer_texture_entries = NULL;
+static int platform_renderer_texture_count = 0;
+static int platform_renderer_texture_capacity = 0;
+typedef void (APIENTRYP platform_active_texture_proc_t) (GLint texture_unit);
+static platform_active_texture_proc_t platform_renderer_active_texture_proc = NULL;
+typedef void (APIENTRYP platform_secondary_colour_proc_t) (GLfloat red, GLfloat green, GLfloat blue);
+static platform_secondary_colour_proc_t platform_renderer_secondary_colour_proc = NULL;
 #ifdef WIZBALL_USE_SDL2
 static SDL_Window *platform_renderer_sdl_window = NULL;
 static SDL_Renderer *platform_renderer_sdl_renderer = NULL;
@@ -67,7 +80,78 @@ static bool PLATFORM_RENDERER_env_enabled(const char *name)
 
 	return false;
 }
+
+static void PLATFORM_RENDERER_refresh_sdl_stub_env_flags(void)
+{
+	if (!platform_renderer_sdl_stub_checked_env)
+	{
+		platform_renderer_sdl_stub_enabled = PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_BOOTSTRAP");
+		platform_renderer_sdl_stub_checked_env = true;
+	}
+	if (!platform_renderer_sdl_stub_show_checked_env)
+	{
+		platform_renderer_sdl_stub_show_enabled = PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_SHOW");
+		platform_renderer_sdl_stub_show_checked_env = true;
+	}
+	if (!platform_renderer_sdl_stub_accel_checked_env)
+	{
+		platform_renderer_sdl_stub_accel_enabled = PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_ACCELERATED");
+		platform_renderer_sdl_stub_accel_checked_env = true;
+	}
+	if (!platform_renderer_sdl_mirror_checked_env)
+	{
+		platform_renderer_sdl_mirror_enabled = PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_MIRROR");
+		platform_renderer_sdl_mirror_checked_env = true;
+	}
+}
 #endif
+
+void PLATFORM_RENDERER_reset_texture_registry(void)
+{
+	free(platform_renderer_texture_entries);
+	platform_renderer_texture_entries = NULL;
+	platform_renderer_texture_count = 0;
+	platform_renderer_texture_capacity = 0;
+}
+
+static unsigned int PLATFORM_RENDERER_register_gl_texture(unsigned int gl_texture_id)
+{
+	if (gl_texture_id == 0)
+	{
+		return 0;
+	}
+
+	if (platform_renderer_texture_count == platform_renderer_texture_capacity)
+	{
+		int new_capacity = (platform_renderer_texture_capacity == 0) ? 128 : (platform_renderer_texture_capacity * 2);
+		platform_renderer_texture_entry *new_entries = (platform_renderer_texture_entry *) realloc(
+			platform_renderer_texture_entries,
+			sizeof(platform_renderer_texture_entry) * new_capacity);
+		if (new_entries == NULL)
+		{
+			return 0;
+		}
+
+		platform_renderer_texture_entries = new_entries;
+		platform_renderer_texture_capacity = new_capacity;
+	}
+
+	platform_renderer_texture_entries[platform_renderer_texture_count].gl_texture_id = gl_texture_id;
+	platform_renderer_texture_count++;
+
+	// Externally-visible texture ids become renderer-owned handles (1-based).
+	return (unsigned int) platform_renderer_texture_count;
+}
+
+static unsigned int PLATFORM_RENDERER_resolve_gl_texture(unsigned int texture_handle)
+{
+	if ((texture_handle >= 1) && (texture_handle <= (unsigned int) platform_renderer_texture_count))
+	{
+		return platform_renderer_texture_entries[texture_handle - 1].gl_texture_id;
+	}
+
+	return 0;
+}
 
 void PLATFORM_RENDERER_clear_extensions(void)
 {
@@ -83,6 +167,15 @@ void PLATFORM_RENDERER_clear_extensions(void)
 
 	free(platform_renderer_version_text);
 	platform_renderer_version_text = NULL;
+	free(platform_renderer_vendor_text);
+	platform_renderer_vendor_text = NULL;
+	free(platform_renderer_renderer_text);
+	platform_renderer_renderer_text = NULL;
+}
+
+const char *PLATFORM_RENDERER_get_allegro_gl_error_text(void)
+{
+	return allegro_gl_error;
 }
 
 void PLATFORM_RENDERER_clear_backbuffer(void)
@@ -248,6 +341,367 @@ void PLATFORM_RENDERER_draw_line_loop_array(const float *x, const float *y, int 
 	glEnd();
 }
 
+void PLATFORM_RENDERER_set_window_transform(float left_window_transform_x, float top_window_transform_y, float total_scale_x, float total_scale_y)
+{
+	glLoadIdentity();
+	glTranslatef(left_window_transform_x, top_window_transform_y, 0.0f);
+	glScalef(total_scale_x, total_scale_y, 0.0f);
+}
+
+void PLATFORM_RENDERER_set_colour3f(float r, float g, float b)
+{
+	glColor3f(r, g, b);
+}
+
+void PLATFORM_RENDERER_set_colour4f(float r, float g, float b, float a)
+{
+	glColor4f(r, g, b, a);
+}
+
+void PLATFORM_RENDERER_set_texture_enabled(bool enabled)
+{
+	if (enabled)
+	{
+		glEnable(GL_TEXTURE_2D);
+	}
+	else
+	{
+		glDisable(GL_TEXTURE_2D);
+	}
+}
+
+void PLATFORM_RENDERER_set_colour_sum_enabled(bool enabled)
+{
+	if (enabled)
+	{
+		glEnable(GL_COLOR_SUM);
+	}
+	else
+	{
+		glDisable(GL_COLOR_SUM);
+	}
+}
+
+void PLATFORM_RENDERER_bind_texture(unsigned int texture_handle)
+{
+	unsigned int resolved_texture_id = PLATFORM_RENDERER_resolve_gl_texture(texture_handle);
+	glBindTexture(GL_TEXTURE_2D, (GLuint) resolved_texture_id);
+}
+
+void PLATFORM_RENDERER_set_texture_filter(bool linear)
+{
+	if (linear)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	}
+	else
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	}
+}
+
+void PLATFORM_RENDERER_set_texture_wrap_repeat(void)
+{
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+}
+
+void PLATFORM_RENDERER_apply_texture_parameters(bool filtered, bool old_filtered, bool state_changed, bool force_filter_apply)
+{
+	if (force_filter_apply || (state_changed && (filtered != old_filtered)))
+	{
+		PLATFORM_RENDERER_set_texture_filter(filtered);
+	}
+
+	PLATFORM_RENDERER_set_texture_wrap_repeat();
+}
+
+void PLATFORM_RENDERER_set_active_texture_proc(void *proc)
+{
+	platform_renderer_active_texture_proc = (platform_active_texture_proc_t) proc;
+}
+
+bool PLATFORM_RENDERER_is_active_texture_available(void)
+{
+	return platform_renderer_active_texture_proc != NULL;
+}
+
+bool PLATFORM_RENDERER_set_active_texture_unit(int texture_unit)
+{
+	if (platform_renderer_active_texture_proc == NULL)
+	{
+		return false;
+	}
+
+	platform_renderer_active_texture_proc((GLint) texture_unit);
+	return true;
+}
+
+bool PLATFORM_RENDERER_set_active_texture_unit0(void)
+{
+	return PLATFORM_RENDERER_set_active_texture_unit(GL_TEXTURE0);
+}
+
+bool PLATFORM_RENDERER_set_active_texture_unit1(void)
+{
+	return PLATFORM_RENDERER_set_active_texture_unit(GL_TEXTURE1);
+}
+
+void PLATFORM_RENDERER_set_secondary_colour_proc(void *proc)
+{
+	platform_renderer_secondary_colour_proc = (platform_secondary_colour_proc_t) proc;
+}
+
+bool PLATFORM_RENDERER_set_secondary_colour(float r, float g, float b)
+{
+	if (platform_renderer_secondary_colour_proc == NULL)
+	{
+		return false;
+	}
+
+	platform_renderer_secondary_colour_proc((GLfloat) r, (GLfloat) g, (GLfloat) b);
+	return true;
+}
+
+void PLATFORM_RENDERER_set_blend_enabled(bool enabled)
+{
+	if (enabled)
+	{
+		glEnable(GL_BLEND);
+	}
+	else
+	{
+		glDisable(GL_BLEND);
+	}
+}
+
+void PLATFORM_RENDERER_set_blend_func(int src_factor, int dst_factor)
+{
+	glBlendFunc((GLenum) src_factor, (GLenum) dst_factor);
+}
+
+void PLATFORM_RENDERER_set_blend_mode_additive(void)
+{
+	PLATFORM_RENDERER_set_blend_func(GL_SRC_ALPHA, GL_ONE);
+}
+
+void PLATFORM_RENDERER_set_blend_mode_alpha(void)
+{
+	PLATFORM_RENDERER_set_blend_func(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+}
+
+void PLATFORM_RENDERER_set_blend_mode_subtractive(void)
+{
+	PLATFORM_RENDERER_set_blend_func(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
+}
+
+void PLATFORM_RENDERER_set_alpha_test_enabled(bool enabled)
+{
+	if (enabled)
+	{
+		glEnable(GL_ALPHA_TEST);
+	}
+	else
+	{
+		glDisable(GL_ALPHA_TEST);
+	}
+}
+
+void PLATFORM_RENDERER_set_alpha_func_greater(float threshold)
+{
+	glAlphaFunc(GL_GREATER, threshold);
+}
+
+void PLATFORM_RENDERER_set_scissor_rect(int x, int y, int width, int height)
+{
+	glScissor(x, y, width, height);
+}
+
+void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float bottom_window_transform_y, float scaled_width, float scaled_height, float display_scale_x, float display_scale_y, float window_scale_multiplier)
+{
+	float x = left_window_transform_x;
+	float y = bottom_window_transform_y;
+	float width = scaled_width * display_scale_x;
+	float height = scaled_height * display_scale_y;
+
+	if (scaled_width < 0.0f)
+	{
+		x += scaled_width;
+		width = -width;
+	}
+
+	if (scaled_height < 0.0f)
+	{
+		y += scaled_height;
+		height = -height;
+	}
+
+	PLATFORM_RENDERER_set_scissor_rect(
+		(int) (x * window_scale_multiplier),
+		(int) (y * window_scale_multiplier),
+		(int) (width * window_scale_multiplier),
+		(int) (height * window_scale_multiplier));
+}
+
+void PLATFORM_RENDERER_translatef(float x, float y, float z)
+{
+	glTranslatef(x, y, z);
+}
+
+void PLATFORM_RENDERER_scalef(float x, float y, float z)
+{
+	glScalef(x, y, z);
+}
+
+void PLATFORM_RENDERER_rotatef(float angle_degrees, float x, float y, float z)
+{
+	glRotatef(angle_degrees, x, y, z);
+}
+
+void PLATFORM_RENDERER_set_combiner_modulate_primary(void)
+{
+	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_MODULATE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_TEXTURE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_RGB, GL_PRIMARY_COLOR);
+	glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_MODULATE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, GL_TEXTURE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_ALPHA, GL_PRIMARY_COLOR);
+}
+
+void PLATFORM_RENDERER_set_combiner_replace_rgb_modulate_alpha_previous(void)
+{
+	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_REPLACE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_PREVIOUS);
+	glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_MODULATE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, GL_TEXTURE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_ALPHA, GL_PREVIOUS);
+}
+
+void PLATFORM_RENDERER_set_combiner_replace_rgb_modulate_alpha_primary(void)
+{
+	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_REPLACE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_PREVIOUS);
+	glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_MODULATE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, GL_TEXTURE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_ALPHA, GL_PRIMARY_COLOR);
+}
+
+void PLATFORM_RENDERER_set_combiner_modulate_rgb_replace_alpha_previous(void)
+{
+	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_MODULATE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_TEXTURE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_RGB, GL_PRIMARY_COLOR);
+	glTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_REPLACE);
+	glTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, GL_PREVIOUS);
+}
+
+void PLATFORM_RENDERER_bind_secondary_texture(unsigned int texture_handle, bool enable_second_unit_texturing)
+{
+	(void) PLATFORM_RENDERER_set_active_texture_unit1();
+
+	if (enable_second_unit_texturing)
+	{
+		PLATFORM_RENDERER_set_texture_enabled(true);
+	}
+
+	PLATFORM_RENDERER_bind_texture(texture_handle);
+	(void) PLATFORM_RENDERER_set_active_texture_unit0();
+}
+
+void PLATFORM_RENDERER_disable_secondary_texture_and_restore_combiner(void)
+{
+	(void) PLATFORM_RENDERER_set_active_texture_unit1();
+	PLATFORM_RENDERER_set_texture_enabled(false);
+	(void) PLATFORM_RENDERER_set_active_texture_unit0();
+	PLATFORM_RENDERER_set_combiner_modulate_primary();
+}
+
+void PLATFORM_RENDERER_prepare_multitexture_second_unit(bool double_mask_mode)
+{
+	if (double_mask_mode)
+	{
+		PLATFORM_RENDERER_set_combiner_modulate_primary();
+	}
+	else
+	{
+		PLATFORM_RENDERER_set_combiner_replace_rgb_modulate_alpha_primary();
+	}
+
+	(void) PLATFORM_RENDERER_set_active_texture_unit1();
+}
+
+void PLATFORM_RENDERER_finalize_multitexture_second_unit(bool double_mask_mode)
+{
+	if (double_mask_mode)
+	{
+		PLATFORM_RENDERER_set_combiner_replace_rgb_modulate_alpha_previous();
+	}
+	else
+	{
+		PLATFORM_RENDERER_set_combiner_modulate_rgb_replace_alpha_previous();
+	}
+
+	(void) PLATFORM_RENDERER_set_active_texture_unit0();
+}
+
+void PLATFORM_RENDERER_prepare_textured_window_draw(bool texture_combiner_available)
+{
+	if (PLATFORM_RENDERER_is_active_texture_available())
+	{
+		if (texture_combiner_available)
+		{
+			// Defensive frame-begin reset: ensure texture unit 1 starts disabled.
+			(void) PLATFORM_RENDERER_set_active_texture_unit1();
+			PLATFORM_RENDERER_set_texture_enabled(false);
+		}
+		(void) PLATFORM_RENDERER_set_active_texture_unit0();
+	}
+	if (texture_combiner_available)
+	{
+		PLATFORM_RENDERER_set_combiner_modulate_primary();
+	}
+
+	PLATFORM_RENDERER_set_texture_enabled(true);
+}
+
+void PLATFORM_RENDERER_finish_textured_window_draw(bool texture_combiner_available, bool had_secondary_texture, bool secondary_colour_available, bool secondary_window_colour, int game_screen_width, int game_screen_height)
+{
+	if (had_secondary_texture && texture_combiner_available)
+	{
+		// Disable secondary texture unit and restore default combiner mode.
+		(void) PLATFORM_RENDERER_set_active_texture_unit1();
+		PLATFORM_RENDERER_set_texture_enabled(false);
+		(void) PLATFORM_RENDERER_set_active_texture_unit0();
+		PLATFORM_RENDERER_set_combiner_modulate_primary();
+	}
+	else if (texture_combiner_available && PLATFORM_RENDERER_is_active_texture_available())
+	{
+		(void) PLATFORM_RENDERER_set_active_texture_unit0();
+	}
+
+	if (secondary_colour_available)
+	{
+		PLATFORM_RENDERER_set_secondary_colour(0.0f, 0.0f, 0.0f);
+		PLATFORM_RENDERER_set_colour_sum_enabled(false);
+	}
+
+	PLATFORM_RENDERER_set_scissor_rect(0, 0, game_screen_width, game_screen_height);
+	PLATFORM_RENDERER_set_blend_enabled(false);
+	PLATFORM_RENDERER_set_alpha_test_enabled(false);
+	PLATFORM_RENDERER_set_colour4f(1.0f, 1.0f, 1.0f, 1.0f);
+
+	if (secondary_window_colour)
+	{
+		PLATFORM_RENDERER_set_colour_sum_enabled(false);
+	}
+}
+
 void PLATFORM_RENDERER_draw_bound_multitextured_quad_array(const float *x, const float *y, const float *u0, const float *v0, const float *u1, const float *v1)
 {
 	int i;
@@ -326,10 +780,11 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 	glEnd();
 }
 
-void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_id, int r, int g, int b, float screen_x, float screen_y, int virtual_screen_height, float left, float right, float up, float down, float u1, float v1, float u2, float v2, bool alpha_test)
+void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, int g, int b, float screen_x, float screen_y, int virtual_screen_height, float left, float right, float up, float down, float u1, float v1, float u2, float v2, bool alpha_test)
 {
 	(void) virtual_screen_height;
-	glBindTexture(GL_TEXTURE_2D, (GLuint) texture_id);
+	unsigned int resolved_texture_id = PLATFORM_RENDERER_resolve_gl_texture(texture_handle);
+	glBindTexture(GL_TEXTURE_2D, (GLuint) resolved_texture_id);
 	glColor3f((float) r / 255.0f, (float) g / 255.0f, (float) b / 255.0f);
 	glLoadIdentity();
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -361,6 +816,12 @@ void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_id, int r, int g,
 	}
 
 	glDisable(GL_TEXTURE_2D);
+}
+
+unsigned int PLATFORM_RENDERER_create_masked_texture(BITMAP *image)
+{
+	unsigned int gl_texture_id = (unsigned int) allegro_gl_make_masked_texture(image);
+	return PLATFORM_RENDERER_register_gl_texture(gl_texture_id);
 }
 
 void PLATFORM_RENDERER_present_frame(int width, int height)
@@ -404,7 +865,7 @@ void PLATFORM_RENDERER_prepare_allegro_gl(bool windowed, int colour_depth)
 	}
 }
 
-void PLATFORM_RENDERER_apply_gl_defaults(int viewport_width, int viewport_height, int virtual_width, int virtual_height, float *projection_matrix_16)
+void PLATFORM_RENDERER_apply_gl_defaults(int viewport_width, int viewport_height, int virtual_width, int virtual_height)
 {
 	glEnable(GL_TEXTURE_2D);
 	glPolygonMode(GL_FRONT, GL_FILL);
@@ -417,11 +878,6 @@ void PLATFORM_RENDERER_apply_gl_defaults(int viewport_width, int viewport_height
 	glLoadIdentity();
 	glOrtho(0, virtual_width, 0, virtual_height, 0, 255);
 
-	if (projection_matrix_16 != NULL)
-	{
-		glGetFloatv(GL_PROJECTION_MATRIX, projection_matrix_16);
-	}
-
 	glMatrixMode(GL_MODELVIEW);
 }
 
@@ -429,12 +885,15 @@ platform_renderer_caps PLATFORM_RENDERER_build_caps(bool enable_multi_texture_ef
 {
 	platform_renderer_caps caps;
 
-	caps.secondary_colour_available = has_ext_secondary_color;
+	caps.secondary_colour_proc = allegro_gl_get_proc_address("glSecondaryColor3fEXT");
+	caps.active_texture_proc = allegro_gl_get_proc_address("glActiveTextureARB");
+
+	caps.secondary_colour_available = has_ext_secondary_color && (caps.secondary_colour_proc != NULL);
 
 	if (has_ext_texture_env_combine && has_ext_multitexture && (((opengl_major_version == 1) && (opengl_minor_version >= 3)) || (opengl_major_version > 1)))
 	{
 		caps.best_texture_combiner_available = true;
-		caps.texture_combiner_available = enable_multi_texture_effects_ideally ? true : false;
+		caps.texture_combiner_available = enable_multi_texture_effects_ideally && (caps.active_texture_proc != NULL);
 	}
 	else
 	{
@@ -442,10 +901,18 @@ platform_renderer_caps PLATFORM_RENDERER_build_caps(bool enable_multi_texture_ef
 		caps.texture_combiner_available = false;
 	}
 
-	caps.secondary_colour_proc = allegro_gl_get_proc_address("glSecondaryColor3fEXT");
-	caps.active_texture_proc = allegro_gl_get_proc_address("glActiveTextureARB");
-
 	return caps;
+}
+
+platform_renderer_caps PLATFORM_RENDERER_build_caps_for_current_context(bool enable_multi_texture_effects_ideally, int opengl_major_version, int opengl_minor_version)
+{
+	return PLATFORM_RENDERER_build_caps(
+		enable_multi_texture_effects_ideally,
+		PLATFORM_RENDERER_is_extension_supported("GL_EXT_secondary_color"),
+		PLATFORM_RENDERER_is_extension_supported("GL_ARB_texture_env_combine"),
+		PLATFORM_RENDERER_is_extension_supported("GL_ARB_multitexture"),
+		opengl_major_version,
+		opengl_minor_version);
 }
 
 bool PLATFORM_RENDERER_query_extensions(int *opengl_major_version, int *opengl_minor_version)
@@ -460,17 +927,22 @@ bool PLATFORM_RENDERER_query_extensions(int *opengl_major_version, int *opengl_m
 
 	PLATFORM_RENDERER_clear_extensions();
 
+	const char *vendor = (const char *) glGetString(GL_VENDOR);
+	const char *renderer = (const char *) glGetString(GL_RENDERER);
 	const char *version = (const char *) glGetString(GL_VERSION);
 	const char *extension_line = (const char *) glGetString(GL_EXTENSIONS);
 
-	if ((version == NULL) || (extension_line == NULL))
+	if ((vendor == NULL) || (renderer == NULL) || (version == NULL) || (extension_line == NULL))
 	{
 		return false;
 	}
 
+	platform_renderer_vendor_text = PLATFORM_RENDERER_dup_string(vendor);
+	platform_renderer_renderer_text = PLATFORM_RENDERER_dup_string(renderer);
 	platform_renderer_version_text = PLATFORM_RENDERER_dup_string(version);
-	if (platform_renderer_version_text == NULL)
+	if ((platform_renderer_vendor_text == NULL) || (platform_renderer_renderer_text == NULL) || (platform_renderer_version_text == NULL))
 	{
+		PLATFORM_RENDERER_clear_extensions();
 		return false;
 	}
 
@@ -545,6 +1017,39 @@ bool PLATFORM_RENDERER_query_extensions(int *opengl_major_version, int *opengl_m
 	return true;
 }
 
+bool PLATFORM_RENDERER_query_and_build_caps(bool enable_multi_texture_effects_ideally, platform_renderer_caps *out_caps)
+{
+	int opengl_major_version = 0;
+	int opengl_minor_version = 0;
+
+	if (out_caps == NULL)
+	{
+		return false;
+	}
+
+	if (!PLATFORM_RENDERER_query_extensions(&opengl_major_version, &opengl_minor_version))
+	{
+		return false;
+	}
+
+	*out_caps = PLATFORM_RENDERER_build_caps_for_current_context(
+		enable_multi_texture_effects_ideally,
+		opengl_major_version,
+		opengl_minor_version);
+	return true;
+}
+
+void PLATFORM_RENDERER_apply_caps(const platform_renderer_caps *caps)
+{
+	if (caps == NULL)
+	{
+		return;
+	}
+
+	PLATFORM_RENDERER_set_secondary_colour_proc(caps->secondary_colour_proc);
+	PLATFORM_RENDERER_set_active_texture_proc(caps->active_texture_proc);
+}
+
 bool PLATFORM_RENDERER_is_extension_supported(const char *extension)
 {
 	int i;
@@ -563,6 +1068,16 @@ bool PLATFORM_RENDERER_is_extension_supported(const char *extension)
 	}
 
 	return false;
+}
+
+const char *PLATFORM_RENDERER_get_vendor_text(void)
+{
+	return platform_renderer_vendor_text;
+}
+
+const char *PLATFORM_RENDERER_get_renderer_text(void)
+{
+	return platform_renderer_renderer_text;
 }
 
 const char *PLATFORM_RENDERER_get_version_text(void)
@@ -585,24 +1100,48 @@ const char *PLATFORM_RENDERER_get_extension_at(int index)
 	return platform_renderer_extensions[index];
 }
 
+bool PLATFORM_RENDERER_write_extensions_to_file(const char *path)
+{
+	if (path == NULL)
+	{
+		return false;
+	}
+
+	FILE *file_pointer = fopen(path, "w");
+	if (file_pointer == NULL)
+	{
+		return false;
+	}
+
+	const char *version_text = PLATFORM_RENDERER_get_version_text();
+	if (version_text == NULL)
+	{
+		version_text = "UNKNOWN";
+	}
+
+	fputs(version_text, file_pointer);
+	fputs("\n\n", file_pointer);
+
+	int counter;
+	for (counter = 0; counter < PLATFORM_RENDERER_get_extension_count(); counter++)
+	{
+		const char *ext = PLATFORM_RENDERER_get_extension_at(counter);
+		if (ext != NULL)
+		{
+			fputs(ext, file_pointer);
+		}
+		fputs("\n", file_pointer);
+	}
+
+	fputs("\n", file_pointer);
+	fclose(file_pointer);
+	return true;
+}
+
 bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 {
 #ifdef WIZBALL_USE_SDL2
-	if (!platform_renderer_sdl_stub_checked_env)
-	{
-		platform_renderer_sdl_stub_enabled = PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_BOOTSTRAP");
-		platform_renderer_sdl_stub_checked_env = true;
-	}
-	if (!platform_renderer_sdl_stub_show_checked_env)
-	{
-		platform_renderer_sdl_stub_show_enabled = PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_SHOW");
-		platform_renderer_sdl_stub_show_checked_env = true;
-	}
-	if (!platform_renderer_sdl_stub_accel_checked_env)
-	{
-		platform_renderer_sdl_stub_accel_enabled = PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_ACCELERATED");
-		platform_renderer_sdl_stub_accel_checked_env = true;
-	}
+	PLATFORM_RENDERER_refresh_sdl_stub_env_flags();
 
 	if (!platform_renderer_sdl_stub_enabled)
 	{
@@ -734,11 +1273,7 @@ bool PLATFORM_RENDERER_is_sdl2_stub_ready(void)
 bool PLATFORM_RENDERER_is_sdl2_stub_enabled(void)
 {
 #ifdef WIZBALL_USE_SDL2
-	if (!platform_renderer_sdl_stub_checked_env)
-	{
-		platform_renderer_sdl_stub_enabled = PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_BOOTSTRAP");
-		platform_renderer_sdl_stub_checked_env = true;
-	}
+	PLATFORM_RENDERER_refresh_sdl_stub_env_flags();
 	return platform_renderer_sdl_stub_enabled;
 #else
 	return false;
@@ -777,11 +1312,7 @@ bool PLATFORM_RENDERER_run_sdl2_stub_self_test(void)
 bool PLATFORM_RENDERER_mirror_from_current_backbuffer(int width, int height)
 {
 #ifdef WIZBALL_USE_SDL2
-	if (!platform_renderer_sdl_mirror_checked_env)
-	{
-		platform_renderer_sdl_mirror_enabled = PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_MIRROR");
-		platform_renderer_sdl_mirror_checked_env = true;
-	}
+	PLATFORM_RENDERER_refresh_sdl_stub_env_flags();
 
 	if (!platform_renderer_sdl_mirror_enabled)
 	{
@@ -888,6 +1419,7 @@ const char *PLATFORM_RENDERER_get_sdl2_stub_status(void)
 
 void PLATFORM_RENDERER_shutdown(void)
 {
+	PLATFORM_RENDERER_reset_texture_registry();
 #ifdef WIZBALL_USE_SDL2
 	if (platform_renderer_sdl_mirror_texture != NULL)
 	{
