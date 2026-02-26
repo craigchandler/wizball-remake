@@ -11,6 +11,7 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 option(WIZBALL_ENABLE_FMOD "Build with FMOD backend (requires FMOD headers/libs)" OFF)
 option(WIZBALL_ENABLE_ASAN "Build with AddressSanitizer (debug heap corruption)" OFF)
+option(WIZBALL_ENABLE_SDL2 "Enable SDL2 platform migration scaffolding" OFF)
 set(WIZBALL_DAT_TOOL "dat" CACHE STRING "Path/name of Allegro dat packing tool")
 
 find_path(ALLEGRO_INCLUDE_DIR allegro.h)
@@ -46,6 +47,8 @@ set(WIZBALL_SOURCES
   wizball/output.cpp
   wizball/parser.cpp
   wizball/particles.cpp
+  wizball/platform.cpp
+  wizball/platform_input.cpp
   wizball/paths.cpp
   wizball/report.cpp
   wizball/roomzones.cpp
@@ -98,10 +101,21 @@ else()
   list(APPEND WIZBALL_SOURCES wizball/sound_stub.cpp)
 endif()
 
+if(WIZBALL_ENABLE_SDL2)
+  find_package(SDL2 QUIET)
+  if(NOT SDL2_FOUND)
+    message(FATAL_ERROR "WIZBALL_ENABLE_SDL2 is ON, but SDL2 was not found.")
+  endif()
+endif()
+
 add_executable(wizball ${WIZBALL_SOURCES})
 
 if(UNIX AND NOT APPLE)
   target_compile_definitions(wizball PRIVATE ALLEGRO_LINUX)
+endif()
+
+if(WIZBALL_ENABLE_SDL2)
+  target_compile_definitions(wizball PRIVATE WIZBALL_USE_SDL2)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -125,6 +139,15 @@ target_include_directories(wizball PRIVATE
 if(WIZBALL_ENABLE_FMOD)
   target_include_directories(wizball PRIVATE ${FMOD_INCLUDE_DIR})
   target_link_libraries(wizball PRIVATE ${FMOD_LIBRARY})
+endif()
+
+if(WIZBALL_ENABLE_SDL2)
+  if(TARGET SDL2::SDL2)
+    target_link_libraries(wizball PRIVATE SDL2::SDL2)
+  else()
+    target_include_directories(wizball PRIVATE ${SDL2_INCLUDE_DIRS})
+    target_link_libraries(wizball PRIVATE ${SDL2_LIBRARIES})
+  endif()
 endif()
 
 target_link_libraries(wizball PRIVATE

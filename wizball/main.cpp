@@ -15,10 +15,6 @@
 #include <signal.h>
 #ifdef ALLEGRO_LINUX
 	#include <execinfo.h>
-	#include <sys/time.h>
-#endif
-#ifdef ALLEGRO_MACOSX
-	#include <sys/time.h>
 #endif
 
 #include "string_size_constants.h"
@@ -33,6 +29,7 @@
 #include "tilemaps.h"
 #include "file_stuff.h"
 #include "math_stuff.h"
+#include "platform.h"
 
 #ifdef ALLEGRO_WINDOWS
 	#include "direct.h"
@@ -321,13 +318,7 @@ END_OF_FUNCTION (TIMING_fps_handler);
 
 unsigned int MAIN_get_wall_time_ms(void)
 {
-#ifdef ALLEGRO_WINDOWS
-	return (unsigned int)GetTickCount();
-#else
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return (unsigned int)((tv.tv_sec * 1000) + (tv.tv_usec / 1000));
-#endif
+	return PLATFORM_get_wall_time_ms();
 }
 
 

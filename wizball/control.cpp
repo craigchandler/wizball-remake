@@ -16,6 +16,7 @@
 #include "textfiles.h"
 #include "main.h"
 #include "file_stuff.h"
+#include "platform_input.h"
 
 //#include "fortify.h"
 
@@ -1557,7 +1558,7 @@ void CONTROL_update_keyboard (void)
 	// state so that we can tell if the state's changed since the last poll. As long as it's
 	// held down we also increase a counter which can be used for keyrepeats.
 
-	poll_keyboard();
+	PLATFORM_INPUT_poll_keyboard();
 
 	int t;
 
@@ -1567,7 +1568,7 @@ void CONTROL_update_keyboard (void)
 	for (t=1; t<MAX_KEYS; t++)
 	{
 		key_store[t].old_state = key_store[t].current_state;
-		key_store[t].current_state = key[t];
+		key_store[t].current_state = PLATFORM_INPUT_key_state(t);
 
 		if ( key_store[t].current_state != 0 ) // If a key is held down then increase the held time value...
 		{
@@ -1747,14 +1748,14 @@ void CONTROL_update_joypads (void)
 
 void CONTROL_update_mouse (void)
 {
-	poll_mouse();
+	PLATFORM_INPUT_poll_mouse();
 
 	int button;
 
 	for (button=0; button<MOUSE_BUTTONS; button++)
 	{
 		mouse_button_store[button].old_state = mouse_button_store[button].current_state;
-		mouse_button_store[button].current_state = ((mouse_b & 1<<button) > 0);
+		mouse_button_store[button].current_state = ((PLATFORM_INPUT_mouse_buttons_mask() & 1<<button) > 0);
 
 		if ( mouse_button_store[button].current_state != 0 ) // If a button is held down then increase the repeat value...
 		{
@@ -1785,15 +1786,15 @@ void CONTROL_update_mouse (void)
 		switch (button)
 		{
 		case X_POS:
-			mouse_position_store[button].current_position = mouse_x;
+			mouse_position_store[button].current_position = PLATFORM_INPUT_mouse_x();
 			break;
 
 		case Y_POS:
-			mouse_position_store[button].current_position = mouse_y;
+			mouse_position_store[button].current_position = PLATFORM_INPUT_mouse_y();
 			break;
 
 		case Z_POS:
-			mouse_position_store[button].current_position = mouse_z;
+			mouse_position_store[button].current_position = PLATFORM_INPUT_mouse_z();
 			break;
 
 		default:

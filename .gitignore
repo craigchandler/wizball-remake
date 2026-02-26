@@ -3,6 +3,7 @@
 /build_release/
 /build_fmod/
 /build_asan/
+/build_sdl2/
 /cmake-build-*/
 
 # CMake/Ninja/Make artifacts
