@@ -29,6 +29,7 @@
 #include "object_collision.h"
 #include "particles.h"
 #include "world_collision.h"
+#include "platform_renderer.h"
 
 #include "fortify.h"
 
@@ -626,7 +627,7 @@ void EDIT_close_down (void)
 	MAIN_add_to_log ("\tOK!");
 
 	MAIN_add_to_log ("Destroying extension list...");
-	OUTPUT_destroyed_extension_list();
+	PLATFORM_RENDERER_clear_extensions();
 	MAIN_add_to_log ("\tOK!");
 
 	MAIN_add_to_log ("Destroying textfiles...");

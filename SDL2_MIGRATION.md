@@ -251,3 +251,9 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - 2026-02-26: Added `PLATFORM_WINDOW_set_software_game_mode()` and `PLATFORM_WINDOW_set_opengl_game_mode()` and routed `OUTPUT_setup_allegro()` display mode selection through `platform_window`.
 - 2026-02-26: Added `platform_renderer` seam and moved AllegroGL lifecycle configuration from `OUTPUT_setup_allegro()` into `PLATFORM_RENDERER_prepare_allegro_gl()`.
 - 2026-02-26: Added `PLATFORM_RENDERER_shutdown()` hook in `OUTPUT_shutdown()` for incremental renderer backend teardown migration.
+- 2026-02-26: Moved fixed-function GL default bootstrap (texture/scissor state, viewport, orthographic projection setup, projection matrix capture) into `PLATFORM_RENDERER_apply_gl_defaults()`.
+- 2026-02-26: Added renderer capability seam via `platform_renderer_caps` and `PLATFORM_RENDERER_build_caps()`, moving capability decisions and proc-address wiring out of `OUTPUT_setup_allegro()`.
+- 2026-02-26: Moved Windows game-window centering out of `output.cpp` into `PLATFORM_WINDOW_center_game_window()`.
+- 2026-02-26: Moved OpenGL version/extension string parsing into `PLATFORM_RENDERER_query_extensions()`; `OUTPUT_get_opengl_extensions()` now acts as a thin data owner/adapter.
+- 2026-02-26: Completed extension lookup centralization: `platform_renderer` now owns extension cache/query APIs (`is_extension_supported`, version/extension getters, clear), and `output.cpp` no longer maintains local extension-list state.
+- 2026-02-26: Removed legacy `OUTPUT` extension wrapper layer; setup and teardown now call `platform_renderer` extension APIs directly (`query`, `is_extension_supported`, `clear`).

@@ -1,5 +1,9 @@
 #include <allegro.h>
 #include <alleggl.h>
+#ifdef ALLEGRO_WINDOWS
+#include <winalleg.h>
+#include <windows.h>
+#endif
 #include "platform_window.h"
 
 int PLATFORM_WINDOW_init(void)
@@ -49,6 +53,24 @@ void PLATFORM_WINDOW_begin_text_screen(int red, int green, int blue)
 void PLATFORM_WINDOW_end_text_screen(void)
 {
 	release_screen();
+}
+
+void PLATFORM_WINDOW_center_game_window(void)
+{
+#ifdef ALLEGRO_WINDOWS
+	HWND hWindow = win_get_window();
+	HWND hDesktop = GetDesktopWindow();
+
+	RECT rcWindow, rcDesktop;
+
+	GetWindowRect(hWindow, &rcWindow);
+	GetWindowRect(hDesktop, &rcDesktop);
+
+	int x = (rcDesktop.right - (rcWindow.right - rcWindow.left)) / 2;
+	int y = (rcDesktop.bottom - (rcWindow.bottom - rcWindow.top)) / 2;
+
+	SetWindowPos(hWindow, NULL, x, y, 0, 0, SWP_NOSIZE);
+#endif
 }
 
 void PLATFORM_WINDOW_shutdown(void)

@@ -141,10 +141,7 @@ extern bool best_texture_combiner_available;
 
 extern int number_of_windows;
 
-void OUTPUT_destroyed_extension_list (void);
-
 
 
 #endif
-
 

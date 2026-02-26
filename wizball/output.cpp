@@ -84,21 +84,6 @@ typedef struct
 
 
 
-typedef struct
-{
-	char *extension;
-} extension_struct;
-
-
-
-typedef struct
-{
-	int extension_count;
-	extension_struct *extension_list;
-	char *version_text;
-} opengl_data_struct;
-
-
 vertex_colour_struct entity_vertex_colours[MAX_ENTITIES];
 
 
@@ -126,12 +111,9 @@ PFNGLACTIVETEXTUREEXTPROC pglActiveTextureARB = NULL;
 //PFNGLTEXENVIARBPROC pglTexEnviARB = NULL;
 
 
+float float_window_scale_multiplier;
 int opengl_major_version = 0;
 int opengl_minor_version = 0;
-
-float float_window_scale_multiplier;
-
-opengl_data_struct opengl_data;
 
 rendering_status rs;
 
@@ -862,112 +844,6 @@ bool OUTPUT_select_buffering_method (int buffering_method)
 
 
 
-bool OUTPUT_is_extension_supported (char *extension)
-{
-	int ext_number;
-
-	for (ext_number=0;ext_number<opengl_data.extension_count; ext_number++)
-	{
-		if (strcmp(extension,opengl_data.extension_list[ext_number].extension) == 0)
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-
-
-void OUTPUT_destroyed_extension_list (void)
-{
-	int counter;
-
-	for (counter=0; counter<opengl_data.extension_count; counter++)
-	{
-		if (opengl_data.extension_list[counter].extension != NULL)
-		{
-			free (opengl_data.extension_list[counter].extension);
-		}
-		else
-		{
-			assert(0);
-		}
-	}
-
-	if (opengl_data.version_text != NULL)
-	{
-		free (opengl_data.version_text);
-	}
-}
-
-
-
-void OUTPUT_get_opengl_extensions (void)
-{
-	char word[MAX_LINE_SIZE];
-
-	opengl_data.version_text = (char *) malloc (sizeof(char) * (strlen((char *) glGetString(GL_VERSION))+1));
-	strcpy (opengl_data.version_text, (char *) glGetString(GL_VERSION));
-
-	strcpy (word,opengl_data.version_text);
-
-	strtok (word," ");
-
-	char *pointer = strtok (word,".");
-	opengl_major_version = atoi (pointer);
-
-	pointer = strtok (NULL,".");
-	opengl_minor_version = atoi (pointer);
-
-	if (opengl_data.version_text == NULL)
-	{
-		assert(0);
-	}
-
-	int length = strlen((char *) glGetString(GL_EXTENSIONS)) + 1;
-	char *extensions = (char *) malloc (sizeof(char) * length);
-	strcpy(extensions, (char *) glGetString(GL_EXTENSIONS));
-
-	if (extensions==NULL)
-	{
-		assert(0);
-	}
-
-	STRING_strip_all_disposable (extensions);
-
-	int counter = 1; // Because even with no spaces, it means you have one extension (unless the string is empty).
-	int c;
-	
-	for(c=0; c<length; c++)
-	{
-		if (extensions[c] == ' ')
-		{
-			counter++;
-		}
-	}
-
-	opengl_data.extension_count = counter; 
-
-	opengl_data.extension_list = (extension_struct *) malloc (sizeof(extension_struct) * opengl_data.extension_count);
-
-	pointer = strtok(extensions," ");
-
-	counter = 0;
-
-	while (pointer != NULL)
-	{
-		opengl_data.extension_list[counter].extension = (char *) malloc (sizeof(char) * (strlen(pointer) + 1));
-		strcpy (opengl_data.extension_list[counter].extension, pointer);
-		counter++;
-		pointer = strtok(NULL," ");
-	}
-
-	free (extensions);
-}
-
-
-
 void OUTPUT_write_opengl_extensions_to_file (void)
 {
 	FILE *file_pointer = fopen("OpenGL_Extension.txt","w");
@@ -975,12 +851,22 @@ void OUTPUT_write_opengl_extensions_to_file (void)
 
 	if (file_pointer!=NULL)
 	{
-		fputs(opengl_data.version_text,file_pointer);
+		const char *version_text = PLATFORM_RENDERER_get_version_text();
+		if (version_text == NULL)
+		{
+			version_text = "UNKNOWN";
+		}
+
+		fputs(version_text,file_pointer);
 		fputs("\n\n",file_pointer);
 		
-		for (counter=0; counter<opengl_data.extension_count; counter++)
+		for (counter=0; counter<PLATFORM_RENDERER_get_extension_count(); counter++)
 		{
-			fputs(opengl_data.extension_list[counter].extension,file_pointer);
+			const char *ext = PLATFORM_RENDERER_get_extension_at(counter);
+			if (ext != NULL)
+			{
+				fputs(ext,file_pointer);
+			}
 			fputs("\n",file_pointer);
 		}
 
@@ -1130,51 +1016,16 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 			MAIN_add_to_log(gl_line);
 		}
 
-		// Textures? Yes please!
-		glEnable(GL_TEXTURE_2D);
-
-		// I don't want depth testing as I do all my own z-buffering in software and this'd fuck it up.
-//		glEnable(GL_DEPTH_TEST);
-
-		// Aw hell, it's been so long... What's this for?!
-		glPolygonMode(GL_FRONT, GL_FILL);
-
-		// Smooth shading, ta'.
-		glShadeModel(GL_SMOOTH);
-
-		glHint (GL_PERSPECTIVE_CORRECTION_HINT,GL_NICEST);
-
-		// As I use rectangular regions of the screen, I enable scissor testing which clips polygons to a screen region rather than a 3D space. Great for 2D!
-		glEnable(GL_SCISSOR_TEST);
-
-		// But this'll just get fucking ignored by some graphics cards anyway...
-		glLineWidth(1.0f);
-
-		// This makes sense...
-		glViewport(0, 0, SCREEN_W, SCREEN_H);
-
-		// Make it so we're frigging with the camera now...
-		glMatrixMode(GL_PROJECTION);
-
-		// Reset the matrix stack!
-		glLoadIdentity();
-		
-		// Orthographic projection for the win! No perspective for me!
-		glOrtho(0,virtual_screen_width,0,virtual_screen_height,0,255); // That 0,255 stuff is the depth of the scene, but I don't use it really.
-
-		/* Set culling mode - not that we have anything to cull */
-//		glEnable(GL_CULL_FACE);
-//		glFrontFace(GL_CCW);
-
-		glGetFloatv(GL_PROJECTION_MATRIX, ProjectionMatrix);
-
-		// And set the matrixmode to the model view so we're not faffing with the camera any more.
-		glMatrixMode(GL_MODELVIEW);
+		// Apply common fixed-function OpenGL defaults for the current backbuffer + virtual scene size.
+		PLATFORM_RENDERER_apply_gl_defaults(SCREEN_W, SCREEN_H, virtual_screen_width, virtual_screen_height, ProjectionMatrix);
 
 		// This just loads and dumps the list of extension the current version of opengl supports.
 		// It's use so we can see what version of opengl we're using is and disallow certain functions
 		// based on that.
-		OUTPUT_get_opengl_extensions ();
+		if (!PLATFORM_RENDERER_query_extensions(&opengl_major_version, &opengl_minor_version))
+		{
+			assert(0);
+		}
 
 		// We output it, too. Uh-huh.
 		if (output_debug_information)
@@ -1182,61 +1033,22 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 			OUTPUT_write_opengl_extensions_to_file();
 		}
 
-		// Do we have secondary colours? (this is a bit of an odd one which doesn't always get supported)
-		if (OUTPUT_is_extension_supported("GL_EXT_secondary_color") == true)
-		{
-			secondary_colour_available = true;
-		}
-		else
-		{
-			secondary_colour_available = false;
-		}
+		platform_renderer_caps caps = PLATFORM_RENDERER_build_caps(
+			enable_multi_texture_effects_ideally,
+			PLATFORM_RENDERER_is_extension_supported("GL_EXT_secondary_color") == true,
+			PLATFORM_RENDERER_is_extension_supported("GL_ARB_texture_env_combine") == true,
+			PLATFORM_RENDERER_is_extension_supported("GL_ARB_multitexture") == true,
+			opengl_major_version,
+			opengl_minor_version);
 
-		// This is the biggy, if we have OpenGL 1.3 then hopefully we'll have these, as they allow for some really nice effects.
-		if ( (OUTPUT_is_extension_supported ("GL_ARB_texture_env_combine") == true) && (OUTPUT_is_extension_supported("GL_ARB_multitexture") == true) && (((opengl_major_version==1) && (opengl_minor_version>=3)) || (opengl_major_version>1)) )
-		{
-			// Do we really want the nice effects? (this is for testing the alternate effects on decent machines)
-			if (enable_multi_texture_effects_ideally)
-			{
-				best_texture_combiner_available = true;
-				texture_combiner_available = true;
-			}
-			else
-			{
-				best_texture_combiner_available = true;
-				texture_combiner_available = false;
-			}	
-		}
-		else
-		{
-			best_texture_combiner_available = false;
-			texture_combiner_available = false;
-		}
-
-		// The version of AllegroGL I'm using automatically links in all the API calls for OpenGL, except it forgets this one so we have to do it manually.
-		pglSecondaryColor3fEXT = (PFNGLSECONDARYCOLOR3FEXTPROC) allegro_gl_get_proc_address ("glSecondaryColor3fEXT");
-
-		// And this one, too. Tsk!
-		pglActiveTextureARB = (PFNGLACTIVETEXTUREEXTPROC) allegro_gl_get_proc_address ("glActiveTextureARB");
+		secondary_colour_available = caps.secondary_colour_available;
+		best_texture_combiner_available = caps.best_texture_combiner_available;
+		texture_combiner_available = caps.texture_combiner_available;
+		pglSecondaryColor3fEXT = (PFNGLSECONDARYCOLOR3FEXTPROC) caps.secondary_colour_proc;
+		pglActiveTextureARB = (PFNGLACTIVETEXTUREEXTPROC) caps.active_texture_proc;
 	}
 
-	// Ew! MAC code! What Peter Hull wrote!
-	#ifdef ALLEGRO_WINDOWS
-		HWND hWindow = win_get_window();
-		HWND hDesktop = GetDesktopWindow();
-		
-		RECT rcWindow, rcDesktop;
- 
-		GetWindowRect(hWindow, &rcWindow); 
-		GetWindowRect(hDesktop, &rcDesktop);
-
-		int x,y;
-
-		x = (rcDesktop.right - (rcWindow.right-rcWindow.left)) / 2;
-		y = (rcDesktop.bottom - (rcWindow.bottom-rcWindow.top)) / 2;
-
-		SetWindowPos(hWindow,NULL,x,y,0,0,SWP_NOSIZE);
-	#endif
+	PLATFORM_WINDOW_center_game_window();
 }
 
 
