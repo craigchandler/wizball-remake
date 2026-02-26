@@ -245,3 +245,4 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - 2026-02-26: Verified both default build (`build`) and SDL2-enabled build (`build_sdl2`) compile after event seam wiring.
 - 2026-02-26: Added `platform_window` lifecycle seam (`init`, `set_text_mode`, `shutdown`) and routed `main.cpp` startup/shutdown text-mode transitions through it.
 - 2026-02-26: Adjusted SDL event bridge safety: do not initialize SDL events during Allegro-owned windowing, and only pump SDL events when SDL video is initialized to avoid backend contention/regressions.
+- 2026-02-26: Extended `platform` timing abstraction with timer install/callback/remove and sleep helpers, and routed `main.cpp` frame-timer/sleep callsites through these wrappers.

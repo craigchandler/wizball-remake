@@ -728,7 +728,7 @@ int game_main(void)
 		}
 		else 
 		{
-			rest(1);
+			PLATFORM_sleep_ms(1);
 		}
 
 	} while (exit_game == false);
@@ -1628,7 +1628,7 @@ int main (int argc, char *argv[])
 	}
 
 	MAIN_add_to_log ("Installing timer...");
-	install_timer();
+	PLATFORM_install_timer_system();
 	MAIN_add_to_log ("\tOK!");
 
 	if (load_from_dat_file)
@@ -1679,8 +1679,8 @@ int main (int argc, char *argv[])
 	LOCK_FUNCTION(TIMING_game_timer);
 	LOCK_FUNCTION(TIMING_fps_handler);
 
-	install_int (TIMING_fps_handler,1000);
-	install_int_ex (TIMING_game_timer,BPS_TO_TIMER(60));
+	PLATFORM_install_timer_callback_ms(TIMING_fps_handler,1000);
+	PLATFORM_install_timer_callback_bps(TIMING_game_timer,60);
 
 	MAIN_add_to_log ("\tOK!");
 
@@ -1797,8 +1797,8 @@ int main (int argc, char *argv[])
 	#endif
 
 	MAIN_add_to_log ("Removing frame counter...");
-	remove_int(TIMING_game_timer);
-	remove_int(TIMING_fps_handler);
+	PLATFORM_remove_timer_callback(TIMING_game_timer);
+	PLATFORM_remove_timer_callback(TIMING_fps_handler);
 	
 	MAIN_add_to_log ("\tOK!");
 

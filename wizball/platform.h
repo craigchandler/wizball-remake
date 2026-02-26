@@ -2,5 +2,10 @@
 #define _PLATFORM_H_
 
 unsigned int PLATFORM_get_wall_time_ms(void);
+int PLATFORM_install_timer_system(void);
+void PLATFORM_install_timer_callback_ms(void (*callback)(void), int ms);
+void PLATFORM_install_timer_callback_bps(void (*callback)(void), int bps);
+void PLATFORM_remove_timer_callback(void (*callback)(void));
+void PLATFORM_sleep_ms(int ms);
 
 #endif
