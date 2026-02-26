@@ -161,6 +161,208 @@ void PLATFORM_RENDERER_draw_circle(int x, int y, int radius, int r, int g, int b
 	}
 }
 
+void PLATFORM_RENDERER_draw_bound_solid_quad(float left, float right, float up, float down)
+{
+	glBegin(GL_QUADS);
+		glVertex2f(left, up);
+		glVertex2f(left, down);
+		glVertex2f(right, down);
+		glVertex2f(right, up);
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float up, float down, float u1, float v1, float u2, float v2)
+{
+	glBegin(GL_QUADS);
+		glTexCoord2f(u1, v1);
+		glVertex2f(left, up);
+		glTexCoord2f(u1, v2);
+		glVertex2f(left, down);
+		glTexCoord2f(u2, v2);
+		glVertex2f(right, down);
+		glTexCoord2f(u2, v1);
+		glVertex2f(right, up);
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2)
+{
+	glBegin(GL_QUADS);
+		glTexCoord2f(u1, v1);
+		glVertex2f(x0, y0);
+		glTexCoord2f(u1, v2);
+		glVertex2f(x1, y1);
+		glTexCoord2f(u2, v2);
+		glVertex2f(x2, y2);
+		glTexCoord2f(u2, v1);
+		glVertex2f(x3, y3);
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_point(float x, float y)
+{
+	glBegin(GL_POINTS);
+		glVertex2f(x, y);
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_coloured_point(float x, float y, float r, float g, float b)
+{
+	glBegin(GL_POINTS);
+		glColor3f(r, g, b);
+		glVertex2f(x, y);
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_line(float x1, float y1, float x2, float y2)
+{
+	glBegin(GL_LINES);
+		glVertex2f(x1, y1);
+		glVertex2f(x2, y2);
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_coloured_line(float x1, float y1, float x2, float y2, float r, float g, float b)
+{
+	glBegin(GL_LINES);
+		glColor3f(r, g, b);
+		glVertex2f(x1, y1);
+		glVertex2f(x2, y2);
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_line_loop_array(const float *x, const float *y, int count)
+{
+	int i;
+
+	if ((x == NULL) || (y == NULL) || (count < 2))
+	{
+		return;
+	}
+
+	glBegin(GL_LINE_LOOP);
+	for (i = 0; i < count; i++)
+	{
+		glVertex2f(x[i], y[i]);
+	}
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_bound_multitextured_quad_array(const float *x, const float *y, const float *u0, const float *v0, const float *u1, const float *v1)
+{
+	int i;
+
+	if ((x == NULL) || (y == NULL) || (u0 == NULL) || (v0 == NULL) || (u1 == NULL) || (v1 == NULL))
+	{
+		return;
+	}
+
+	glBegin(GL_QUADS);
+	for (i = 0; i < 4; i++)
+	{
+		glMultiTexCoord2f(GL_TEXTURE0, u0[i], v0[i]);
+		glMultiTexCoord2f(GL_TEXTURE1, u1[i], v1[i]);
+		glVertex2f(x[i], y[i]);
+	}
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(const float *x, const float *y, const float *u, const float *v, const float *r, const float *g, const float *b, const float *a)
+{
+	int i;
+
+	if ((x == NULL) || (y == NULL) || (u == NULL) || (v == NULL) || (r == NULL) || (g == NULL) || (b == NULL) || (a == NULL))
+	{
+		return;
+	}
+
+	glBegin(GL_QUADS);
+	for (i = 0; i < 4; i++)
+	{
+		glTexCoord2f(u[i], v[i]);
+		glColor4f(r[i], g[i], b[i], a[i]);
+		glVertex2f(x[i], y[i]);
+	}
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2, float q)
+{
+	glBegin(GL_QUADS);
+		glTexCoord4f(u1 * q, v1 * q, 0.0f, q);
+		glVertex2f(x0, y0);
+		glTexCoord2f(u1, v2);
+		glVertex2f(x1, y1);
+		glTexCoord2f(u2, v2);
+		glVertex2f(x2, y2);
+		glTexCoord4f(u2 * q, v1 * q, 0.0f, q);
+		glVertex2f(x3, y3);
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2, float q, const float *r, const float *g, const float *b, const float *a)
+{
+	if ((r == NULL) || (g == NULL) || (b == NULL) || (a == NULL))
+	{
+		return;
+	}
+
+	glBegin(GL_QUADS);
+		glColor4f(r[0], g[0], b[0], a[0]);
+		glTexCoord4f(u1 * q, v1 * q, 0.0f, q);
+		glVertex2f(x0, y0);
+
+		glColor4f(r[1], g[1], b[1], a[1]);
+		glTexCoord2f(u1, v2);
+		glVertex2f(x1, y1);
+
+		glColor4f(r[2], g[2], b[2], a[2]);
+		glTexCoord2f(u2, v2);
+		glVertex2f(x2, y2);
+
+		glColor4f(r[3], g[3], b[3], a[3]);
+		glTexCoord4f(u2 * q, v1 * q, 0.0f, q);
+		glVertex2f(x3, y3);
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_id, int r, int g, int b, float screen_x, float screen_y, int virtual_screen_height, float left, float right, float up, float down, float u1, float v1, float u2, float v2, bool alpha_test)
+{
+	(void) virtual_screen_height;
+	glBindTexture(GL_TEXTURE_2D, (GLuint) texture_id);
+	glColor3f((float) r / 255.0f, (float) g / 255.0f, (float) b / 255.0f);
+	glLoadIdentity();
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glEnable(GL_TEXTURE_2D);
+
+	if (alpha_test)
+	{
+		glEnable(GL_ALPHA_TEST);
+		glAlphaFunc(GL_GREATER, 0.5f);
+	}
+
+	glTranslatef((float) screen_x, (float) screen_y, 0.0f);
+
+	glBegin(GL_QUADS);
+		glTexCoord2f(u1, v1);
+		glVertex2f(left, up);
+		glTexCoord2f(u1, v2);
+		glVertex2f(left, down);
+		glTexCoord2f(u2, v2);
+		glVertex2f(right, down);
+		glTexCoord2f(u2, v1);
+		glVertex2f(right, up);
+	glEnd();
+
+	if (alpha_test)
+	{
+		glDisable(GL_ALPHA_TEST);
+	}
+
+	glDisable(GL_TEXTURE_2D);
+}
+
 void PLATFORM_RENDERER_present_frame(int width, int height)
 {
 #ifdef WIZBALL_USE_SDL2

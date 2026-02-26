@@ -279,25 +279,10 @@ void OUTPUT_text (int x, int y, char *text, int r, int g, int b, int scale)
 	}
 	else
 	{
-		glLoadIdentity();
-
-		glEnable(GL_TEXTURE_2D);
-
-		glBindTexture(GL_TEXTURE_2D, bmps[small_font_gfx].texture);
-		glColor3f( float(r)/256.0f , float(g)/256.0f , float(b)/256.0f );
-
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-
-		glEnable (GL_ALPHA_TEST);
-		glAlphaFunc (GL_GREATER, 0.5f);
-
 		int c;
 		int length = strlen(text);
-
-		glTranslatef(x,virtual_screen_height-y,0.0);
-
-		glScalef (float(scale)/10000.0f , float(scale)/10000.0f , 1.0f);
+		float scale_multiplier = float(scale) / 10000.0f;
+		float pen_x = 0.0f;
 
 		// Just get the basic sizes for the first letter as it'll be the same for the rest.
 
@@ -312,6 +297,15 @@ void OUTPUT_text (int x, int y, char *text, int r, int g, int b, int scale)
 		float right = sp->width - sp->pivot_x;
 		float up = sp->pivot_y;
 		float down = - (sp->height - sp->pivot_y);
+		float scaled_left = left * scale_multiplier;
+		float scaled_right = right * scale_multiplier;
+		float scaled_up = up * scale_multiplier;
+		float scaled_down = down * scale_multiplier;
+		float base_x = (float) x;
+		float base_y = (float) (virtual_screen_height - y);
+		int legacy_text_r = (r * 255) / 256;
+		int legacy_text_g = (g * 255) / 256;
+		int legacy_text_b = (b * 255) / 256;
 
 		for(c=0; c<length; c++)
 		{
@@ -322,23 +316,17 @@ void OUTPUT_text (int x, int y, char *text, int r, int g, int b, int scale)
 			v1 = sp->v1;
 			v2 = sp->v2;
 
-			glBegin(GL_QUADS);
-				glTexCoord2f(u1, v1);
-				glVertex2f( left, up);
-				glTexCoord2f(u1, v2);
-				glVertex2f( left, down);
-				glTexCoord2f(u2, v2);
-				glVertex2f( right, down);
-				glTexCoord2f(u2, v1);
-				glVertex2f( right, up);
-			glEnd();
+			PLATFORM_RENDERER_draw_textured_quad(
+				bmps[small_font_gfx].texture,
+				legacy_text_r, legacy_text_g, legacy_text_b,
+				base_x + (pen_x * scale_multiplier), base_y, virtual_screen_height,
+				scaled_left, scaled_right, scaled_up, scaled_down,
+				u1, v1, u2, v2,
+				true);
 
-			glTranslatef (right , 0.0f , 0.0f);
+			pen_x += right;
 
 		}
-
-		glDisable (GL_ALPHA_TEST);
-//		glDisable(GL_TEXTURE_2D);
 	}
 }
 
@@ -1009,15 +997,6 @@ void OUTPUT_draw_sprite (int bitmap_number , int sprite_number, int x, int y, in
 	}
 	else
 	{
-		glBindTexture(GL_TEXTURE_2D, bmps[bitmap_number].texture);
-		glColor3f( float(r)/255.0f , float(g)/255.0f , float(b)/255.0f );
-
-		glLoadIdentity();
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-
-		glEnable(GL_TEXTURE_2D);
-
 		sprite *sp = &bmps[bitmap_number].sprite_list[sprite_number];
 
 		float u1 = sp->u1;
@@ -1030,20 +1009,13 @@ void OUTPUT_draw_sprite (int bitmap_number , int sprite_number, int x, int y, in
 		float up = sp->pivot_y;
 		float down = - (sp->height - sp->pivot_y);
 
-		glTranslatef(x,virtual_screen_height-y,0.0);
-
-		glBegin(GL_QUADS);
-			glTexCoord2f(u1, v1);
-			glVertex2f( left, up);
-			glTexCoord2f(u1, v2);
-			glVertex2f( left, down);
-			glTexCoord2f(u2, v2);
-			glVertex2f( right, down);
-			glTexCoord2f(u2, v1);
-			glVertex2f( right, up);
-		glEnd();
-
-		glDisable(GL_TEXTURE_2D);
+		PLATFORM_RENDERER_draw_textured_quad(
+			bmps[bitmap_number].texture,
+			r, g, b,
+			x, virtual_screen_height - y, virtual_screen_height,
+			left, right, up, down,
+			u1, v1, u2, v2,
+			false);
 	}
 }
 
@@ -1057,19 +1029,6 @@ void OUTPUT_draw_masked_sprite (int bitmap_number , int sprite_number, int x, in
 	}
 	else
 	{
-		glBindTexture(GL_TEXTURE_2D, bmps[bitmap_number].texture);
-		
-		glColor3f( float(r)/255.0f , float(g)/255.0f , float(b)/255.0f );
-
-		glLoadIdentity();
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-
-		glEnable(GL_TEXTURE_2D);
-
-		glEnable (GL_ALPHA_TEST);
-		glAlphaFunc (GL_GREATER, 0.5f);
-
 		sprite *sp = &bmps[bitmap_number].sprite_list[sprite_number];
 
 		float u1 = sp->u1;
@@ -1082,21 +1041,13 @@ void OUTPUT_draw_masked_sprite (int bitmap_number , int sprite_number, int x, in
 		float up = sp->pivot_y;
 		float down = - (sp->height - sp->pivot_y);
 
-		glTranslatef(x,virtual_screen_height-y,0.0);
-
-		glBegin(GL_QUADS);
-			glTexCoord2f(u1, v1);
-			glVertex2f( left, up);
-			glTexCoord2f(u1, v2);
-			glVertex2f( left, down);
-			glTexCoord2f(u2, v2);
-			glVertex2f( right, down);
-			glTexCoord2f(u2, v1);
-			glVertex2f( right, up);
-		glEnd();
-		
-		glDisable (GL_ALPHA_TEST);
-		glDisable(GL_TEXTURE_2D);
+		PLATFORM_RENDERER_draw_textured_quad(
+			bmps[bitmap_number].texture,
+			r, g, b,
+			x, virtual_screen_height - y, virtual_screen_height,
+			left, right, up, down,
+			u1, v1, u2, v2,
+			true);
 	}
 }
 
@@ -1151,15 +1102,6 @@ void OUTPUT_draw_bitmap (int bitmap_number, int x, int y, int window)
 	}
 	else
 	{
-		glBindTexture(GL_TEXTURE_2D, bmps[bitmap_number].texture);
-		glColor3f( 1.0f , 1.0f , 1.0f );
-
-		glLoadIdentity();
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-
-		glEnable(GL_TEXTURE_2D);
-
 		float u1 = 0.0f;
 		float u2 = 1.0f;
 		float v1 = 0.0f;
@@ -1170,20 +1112,13 @@ void OUTPUT_draw_bitmap (int bitmap_number, int x, int y, int window)
 		float up = 0;
 		float down = -bmps[bitmap_number].height;
 
-		glTranslatef(x,virtual_screen_height-(y+up-down),0.0);
-
-		glBegin(GL_QUADS);
-			glTexCoord2f(u1, v1);
-			glVertex2f( left, up);
-			glTexCoord2f(u1, v2);
-			glVertex2f( left, down);
-			glTexCoord2f(u2, v2);
-			glVertex2f( right, down);
-			glTexCoord2f(u2, v1);
-			glVertex2f( right, up);
-		glEnd();
-
-		glDisable(GL_TEXTURE_2D);
+		PLATFORM_RENDERER_draw_textured_quad(
+			bmps[bitmap_number].texture,
+			255, 255, 255,
+			x, virtual_screen_height - (y + up - down), virtual_screen_height,
+			left, right, up, down,
+			u1, v1, u2, v2,
+			false);
 	}
 }
 
@@ -1914,18 +1849,6 @@ void OUTPUT_draw_sprite_scale (int bitmap_number, int sprite_number , int x , in
 	}
 	else
 	{
-		glBindTexture(GL_TEXTURE_2D, bmps[bitmap_number].texture);
-		glColor3f( float(r)/255.0f , float(g)/255.0f , float(b)/255.0f );
-
-		glLoadIdentity();
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-
-		glEnable(GL_TEXTURE_2D);
-
-		glEnable (GL_ALPHA_TEST);
-		glAlphaFunc (GL_GREATER, 0.5f);
-
 		sprite *sp = &bmps[bitmap_number].sprite_list[sprite_number];
 
 		float u1 = sp->u1;
@@ -1943,21 +1866,13 @@ void OUTPUT_draw_sprite_scale (int bitmap_number, int sprite_number , int x , in
 		up *= scale;
 		down *= scale;
 
-		glTranslatef(x,virtual_screen_height-y,0.0);
-		
-		glBegin(GL_QUADS);
-			glTexCoord2f(u1, v1);
-			glVertex2f( left, up);
-			glTexCoord2f(u1, v2);
-			glVertex2f( left, down);
-			glTexCoord2f(u2, v2);
-			glVertex2f( right, down);
-			glTexCoord2f(u2, v1);
-			glVertex2f( right, up);
-		glEnd();
-		
-		glDisable (GL_ALPHA_TEST);
-		glDisable(GL_TEXTURE_2D);
+		PLATFORM_RENDERER_draw_textured_quad(
+			bmps[bitmap_number].texture,
+			r, g, b,
+			x, virtual_screen_height - y, virtual_screen_height,
+			left, right, up, down,
+			u1, v1, u2, v2,
+			true);
 	}
 }
 
@@ -1973,18 +1888,6 @@ void OUTPUT_draw_sprite_scale_no_pivot (int bitmap_number, int sprite_number , i
 	}
 	else
 	{
-		glBindTexture(GL_TEXTURE_2D, bmps[bitmap_number].texture);
-		glColor3f( float(r)/255.0f , float(g)/255.0f , float(b)/255.0f );
-
-		glLoadIdentity();
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-
-		glEnable(GL_TEXTURE_2D);
-
-		glEnable (GL_ALPHA_TEST);
-		glAlphaFunc (GL_GREATER, 0.5f);
-
 		sprite *sp = &bmps[bitmap_number].sprite_list[sprite_number];
 
 		float u1 = sp->u1;
@@ -2002,21 +1905,13 @@ void OUTPUT_draw_sprite_scale_no_pivot (int bitmap_number, int sprite_number , i
 		up *= scale;
 		down *= scale;
 
-		glTranslatef(x-left,virtual_screen_height-(y+up),0.0);
-
-		glBegin(GL_QUADS);
-			glTexCoord2f(u1, v1);
-			glVertex2f( left, up);
-			glTexCoord2f(u1, v2);
-			glVertex2f( left, down);
-			glTexCoord2f(u2, v2);
-			glVertex2f( right, down);
-			glTexCoord2f(u2, v1);
-			glVertex2f( right, up);
-		glEnd();
-		
-		glDisable (GL_ALPHA_TEST);
-		glDisable(GL_TEXTURE_2D);
+		PLATFORM_RENDERER_draw_textured_quad(
+			bmps[bitmap_number].texture,
+			r, g, b,
+			x - left, virtual_screen_height - (y + up), virtual_screen_height,
+			left, right, up, down,
+			u1, v1, u2, v2,
+			true);
 	}
 
 }
@@ -2167,9 +2062,7 @@ void OUTPUT_draw_starfield (int starfield_id)
 
 	for (counter = 0; counter < star_count; counter++)
 	{
-		glBegin(GL_POINTS);
-			glVertex2f( sfp->x , -sfp->y);
-		glEnd();
+		PLATFORM_RENDERER_draw_point(sfp->x, -sfp->y);
 
 		sfp++;
 	}
@@ -2199,10 +2092,11 @@ void OUTPUT_draw_starfield_colour (int starfield_id)
 	{
 		ramp_entry = sfp->percentage_speed;
 
-		glBegin(GL_POINTS);
-			glColor3f ( scp->red_ramp[ramp_entry] , scp->green_ramp[ramp_entry] , scp->blue_ramp[ramp_entry] );
-			glVertex2f( sfp->x , -sfp->y);
-		glEnd();
+		PLATFORM_RENDERER_draw_coloured_point(
+			sfp->x, -sfp->y,
+			scp->red_ramp[ramp_entry],
+			scp->green_ramp[ramp_entry],
+			scp->blue_ramp[ramp_entry]);
 
 		sfp++;
 	}
@@ -2229,10 +2123,7 @@ void OUTPUT_draw_starfield_lines (int starfield_id)
 
 	for (counter = 0; counter < star_count; counter++)
 	{
-		glBegin(GL_LINES);
-			glVertex2f( sfp->x , -sfp->y);
-			glVertex2f( sfp->ox , -sfp->oy);
-		glEnd();
+		PLATFORM_RENDERER_draw_line(sfp->x, -sfp->y, sfp->ox, -sfp->oy);
 
 		sfp++;
 	}
@@ -2262,11 +2153,11 @@ void OUTPUT_draw_starfield_colour_lines (int starfield_id)
 	{
 		ramp_entry = sfp->percentage_speed;
 
-		glBegin(GL_LINES);
-			glColor3f ( scp->red_ramp[ramp_entry] , scp->green_ramp[ramp_entry] , scp->blue_ramp[ramp_entry] );
-			glVertex2f( sfp->x , -sfp->y);
-			glVertex2f( sfp->ox , -sfp->oy);
-		glEnd();
+		PLATFORM_RENDERER_draw_coloured_line(
+			sfp->x, -sfp->y, sfp->ox, -sfp->oy,
+			scp->red_ramp[ramp_entry],
+			scp->green_ramp[ramp_entry],
+			scp->blue_ramp[ramp_entry]);
 
 		sfp++;
 	}
@@ -2459,18 +2350,16 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 		{
 			for (x=0; x<window_details[window_number].width/total_scale_x; x+=collision_grid_size)
 			{
-				glBegin(GL_LINES);
-					glVertex2f( x-col_grid_x_offset, 0 );
-					glVertex2f( x-col_grid_x_offset, -window_details[window_number].height/total_scale_y );
-				glEnd();
+				PLATFORM_RENDERER_draw_line(
+					x-col_grid_x_offset, 0,
+					x-col_grid_x_offset, -window_details[window_number].height/total_scale_y);
 			}
 
 			for (y=0; y<window_details[window_number].height/total_scale_y; y+=collision_grid_size)
 			{
-				glBegin(GL_LINES);
-					glVertex2f( 0 , -(y-col_grid_y_offset) );
-					glVertex2f( window_details[window_number].width/total_scale_x , -(y-col_grid_y_offset) );
-				glEnd();
+				PLATFORM_RENDERER_draw_line(
+					0, -(y-col_grid_y_offset),
+					window_details[window_number].width/total_scale_x, -(y-col_grid_y_offset));
 			}
 		}
 
@@ -2507,24 +2396,17 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 
 					glColor3f(0.0f,1.0f,0.0f);
 
-					glBegin(GL_LINE_LOOP);
-						glVertex2f( left, up ); // Bottom left corner
-						glVertex2f( left, down ); //. Top left corner
-						glVertex2f( right, down ); // Top right corner
-						glVertex2f( right, up );  // Bottom right corner
-					glEnd();
+					{
+						const float loop_x[4] = { left, left, right, right };
+						const float loop_y[4] = { up, down, down, up };
+						PLATFORM_RENDERER_draw_line_loop_array(loop_x, loop_y, 4);
+					}
 
 					glColor3f(1.0f,1.0f,1.0f);
 
-					glBegin(GL_LINES);
-						glVertex2f( left, 0 );
-						glVertex2f( right, 0 );
-					glEnd();
+					PLATFORM_RENDERER_draw_line(left, 0, right, 0);
 
-					glBegin(GL_LINES);
-						glVertex2f( 0, up );
-						glVertex2f( 0, down );
-					glEnd();
+					PLATFORM_RENDERER_draw_line(0, up, 0, down);
 
 					glTranslatef(-x,y,0);
 
@@ -2553,28 +2435,17 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 
 						glColor3f(0.0f,1.0f,0.0f);
 
-						glBegin(GL_LINE_LOOP);
-							glVertex2f( left, 0 ); // Left
-							glVertex2f( left*0.707f, up*0.707f ); // Left
-							glVertex2f( 0, up ); // Up
-							glVertex2f( right*0.707f, up*0.707f ); // Left
-							glVertex2f( right, 0 ); // Right
-							glVertex2f( right*0.707f, down*0.707f ); // Left
-							glVertex2f( 0, down ); // Down
-							glVertex2f( left*0.707f, down*0.707f ); // Left
-						glEnd();
+						{
+							const float loop_x[8] = { left, left*0.707f, 0, right*0.707f, right, right*0.707f, 0, left*0.707f };
+							const float loop_y[8] = { 0, up*0.707f, up, up*0.707f, 0, down*0.707f, down, down*0.707f };
+							PLATFORM_RENDERER_draw_line_loop_array(loop_x, loop_y, 8);
+						}
 
 						glColor3f(1.0f,1.0f,1.0f);
 
-						glBegin(GL_LINES);
-							glVertex2f( left, 0 );
-							glVertex2f( right, 0 );
-						glEnd();
+						PLATFORM_RENDERER_draw_line(left, 0, right, 0);
 
-						glBegin(GL_LINES);
-							glVertex2f( 0, up );
-							glVertex2f( 0, down );
-						glEnd();
+						PLATFORM_RENDERER_draw_line(0, up, 0, down);
 
 						glTranslatef(-x,y,0);
 						break;
@@ -2600,24 +2471,17 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 
 						glColor3f(0.0f,1.0f,0.0f);
 
-						glBegin(GL_LINE_LOOP);
-							glVertex2f( left, up ); // Bottom left corner
-							glVertex2f( left, down ); //. Top left corner
-							glVertex2f( right, down ); // Top right corner
-							glVertex2f( right, up );  // Bottom right corner
-						glEnd();
+						{
+							const float loop_x[4] = { left, left, right, right };
+							const float loop_y[4] = { up, down, down, up };
+							PLATFORM_RENDERER_draw_line_loop_array(loop_x, loop_y, 4);
+						}
 
 						glColor3f(1.0f,1.0f,1.0f);
 
-						glBegin(GL_LINES);
-							glVertex2f( left, 0 );
-							glVertex2f( right, 0 );
-						glEnd();
+						PLATFORM_RENDERER_draw_line(left, 0, right, 0);
 
-						glBegin(GL_LINES);
-							glVertex2f( 0, up );
-							glVertex2f( 0, down );
-						glEnd();
+						PLATFORM_RENDERER_draw_line(0, up, 0, down);
 
 						if (entity_pointer[ENT_COLLISION_SHAPE] == SHAPE_ROTATED_RECTANGLE)
 						{
@@ -3526,43 +3390,23 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							{
 								if (opengl_booleans & OPENGL_BOOLEAN_ROTATE_CLOCKWISE)
 								{
-									glBegin(GL_QUADS);
-										glMultiTexCoord2f(GL_TEXTURE0, u1, v1);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u1, secondary_v1);
-										glVertex2f( right, up);
-
-										glMultiTexCoord2f(GL_TEXTURE0, u1, v2);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u1, secondary_v2);
-										glVertex2f( left, up);
-
-										glMultiTexCoord2f(GL_TEXTURE0, u2, v2);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u2, secondary_v2);
-										glVertex2f( left, down);
-
-										glMultiTexCoord2f(GL_TEXTURE0, u2, v1);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u2, secondary_v1);
-										glVertex2f( right, down);
-									glEnd();
+									const float quad_x[4] = { right, left, left, right };
+									const float quad_y[4] = { up, up, down, down };
+									const float quad_u0[4] = { u1, u1, u2, u2 };
+									const float quad_v0[4] = { v1, v2, v2, v1 };
+									const float quad_u1[4] = { secondary_u1, secondary_u1, secondary_u2, secondary_u2 };
+									const float quad_v1[4] = { secondary_v1, secondary_v2, secondary_v2, secondary_v1 };
+									PLATFORM_RENDERER_draw_bound_multitextured_quad_array(quad_x, quad_y, quad_u0, quad_v0, quad_u1, quad_v1);
 								}
 								else
 								{
-									glBegin(GL_QUADS);
-										glMultiTexCoord2f(GL_TEXTURE0, u1, v1);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u1, secondary_v1);
-										glVertex2f( left, up);
-
-										glMultiTexCoord2f(GL_TEXTURE0, u1, v2);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u1, secondary_v2);
-										glVertex2f( left, down);
-
-										glMultiTexCoord2f(GL_TEXTURE0, u2, v2);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u2, secondary_v2);
-										glVertex2f( right, down);
-
-										glMultiTexCoord2f(GL_TEXTURE0, u2, v1);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u2, secondary_v1);
-										glVertex2f( right, up);
-									glEnd();
+									const float quad_x[4] = { left, left, right, right };
+									const float quad_y[4] = { up, down, down, up };
+									const float quad_u0[4] = { u1, u1, u2, u2 };
+									const float quad_v0[4] = { v1, v2, v2, v1 };
+									const float quad_u1[4] = { secondary_u1, secondary_u1, secondary_u2, secondary_u2 };
+									const float quad_v1[4] = { secondary_v1, secondary_v2, secondary_v2, secondary_v1 };
+									PLATFORM_RENDERER_draw_bound_multitextured_quad_array(quad_x, quad_y, quad_u0, quad_v0, quad_u1, quad_v1);
 								}
 							}
 							else if (opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_QUAD)
@@ -3571,43 +3415,23 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 								if (opengl_booleans & OPENGL_BOOLEAN_ROTATE_CLOCKWISE)
 								{
-									glBegin(GL_QUADS);
-										glMultiTexCoord2f(GL_TEXTURE0, u1, v1);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u1, secondary_v1);
-										glVertex2f( aq_pointer->x[1], aq_pointer->y[1]);
-
-										glMultiTexCoord2f(GL_TEXTURE0, u1, v2);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u1, secondary_v2);
-										glVertex2f( aq_pointer->x[0], aq_pointer->y[0]);
-
-										glMultiTexCoord2f(GL_TEXTURE0, u2, v2);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u2, secondary_v2);
-										glVertex2f( aq_pointer->x[2], aq_pointer->y[2]);
-										
-										glMultiTexCoord2f(GL_TEXTURE0, u2, v1);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u2, secondary_v1);
-										glVertex2f( aq_pointer->x[3], aq_pointer->y[3]);
-									glEnd();
+									const float quad_x[4] = { aq_pointer->x[1], aq_pointer->x[0], aq_pointer->x[2], aq_pointer->x[3] };
+									const float quad_y[4] = { aq_pointer->y[1], aq_pointer->y[0], aq_pointer->y[2], aq_pointer->y[3] };
+									const float quad_u0[4] = { u1, u1, u2, u2 };
+									const float quad_v0[4] = { v1, v2, v2, v1 };
+									const float quad_u1[4] = { secondary_u1, secondary_u1, secondary_u2, secondary_u2 };
+									const float quad_v1[4] = { secondary_v1, secondary_v2, secondary_v2, secondary_v1 };
+									PLATFORM_RENDERER_draw_bound_multitextured_quad_array(quad_x, quad_y, quad_u0, quad_v0, quad_u1, quad_v1);
 								}
 								else
 								{
-									glBegin(GL_QUADS);
-										glMultiTexCoord2f(GL_TEXTURE0, u1, v1);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u1, secondary_v1);
-										glVertex2f( aq_pointer->x[0], aq_pointer->y[0]);
-
-										glMultiTexCoord2f(GL_TEXTURE0, u1, v1);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u1, secondary_v1);
-										glVertex2f( aq_pointer->x[2], aq_pointer->y[2]);
-
-										glMultiTexCoord2f(GL_TEXTURE0, u2, v2);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u2, secondary_v2);
-										glVertex2f( aq_pointer->x[3], aq_pointer->y[3]);
-										
-										glMultiTexCoord2f(GL_TEXTURE0, u2, v1);
-										glMultiTexCoord2f(GL_TEXTURE1, secondary_u2, secondary_v1);
-										glVertex2f( aq_pointer->x[1], aq_pointer->y[1]);
-									glEnd();
+									const float quad_x[4] = { aq_pointer->x[0], aq_pointer->x[2], aq_pointer->x[3], aq_pointer->x[1] };
+									const float quad_y[4] = { aq_pointer->y[0], aq_pointer->y[2], aq_pointer->y[3], aq_pointer->y[1] };
+									const float quad_u0[4] = { u1, u1, u2, u2 };
+									const float quad_v0[4] = { v1, v1, v2, v1 };
+									const float quad_u1[4] = { secondary_u1, secondary_u1, secondary_u2, secondary_u2 };
+									const float quad_v1[4] = { secondary_v1, secondary_v1, secondary_v2, secondary_v1 };
+									PLATFORM_RENDERER_draw_bound_multitextured_quad_array(quad_x, quad_y, quad_u0, quad_v0, quad_u1, quad_v1);
 								}
 							}
 							else if (opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD)
@@ -3629,37 +3453,27 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 								{
 									if (opengl_booleans & OPENGL_BOOLEAN_ROTATE_CLOCKWISE)
 									{
-										glBegin(GL_QUADS);
-											glTexCoord2f(u1, v1);
-											glColor4f(avc_pointer->red[1],avc_pointer->green[1],avc_pointer->blue[1],avc_pointer->alpha[1]);
-											glVertex2f( right, up);
-											glTexCoord2f(u1, v2);
-											glColor4f(avc_pointer->red[0],avc_pointer->green[0],avc_pointer->blue[0],avc_pointer->alpha[0]);
-											glVertex2f( left, up);
-											glTexCoord2f(u2, v2);
-											glColor4f(avc_pointer->red[2],avc_pointer->green[2],avc_pointer->blue[2],avc_pointer->alpha[2]);
-											glVertex2f( left, down);
-											glTexCoord2f(u2, v1);
-											glColor4f(avc_pointer->red[3],avc_pointer->green[3],avc_pointer->blue[3],avc_pointer->alpha[3]);
-											glVertex2f( right, down);
-										glEnd();
+										const float quad_x[4] = { right, left, left, right };
+										const float quad_y[4] = { up, up, down, down };
+										const float quad_u[4] = { u1, u1, u2, u2 };
+										const float quad_v[4] = { v1, v2, v2, v1 };
+										const float quad_r[4] = { avc_pointer->red[1], avc_pointer->red[0], avc_pointer->red[2], avc_pointer->red[3] };
+										const float quad_g[4] = { avc_pointer->green[1], avc_pointer->green[0], avc_pointer->green[2], avc_pointer->green[3] };
+										const float quad_b[4] = { avc_pointer->blue[1], avc_pointer->blue[0], avc_pointer->blue[2], avc_pointer->blue[3] };
+										const float quad_a[4] = { avc_pointer->alpha[1], avc_pointer->alpha[0], avc_pointer->alpha[2], avc_pointer->alpha[3] };
+										PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(quad_x, quad_y, quad_u, quad_v, quad_r, quad_g, quad_b, quad_a);
 									}
 									else
 									{
-										glBegin(GL_QUADS);
-											glTexCoord2f(u1, v1);
-											glColor4f(avc_pointer->red[0],avc_pointer->green[0],avc_pointer->blue[0],avc_pointer->alpha[0]);
-											glVertex2f( left, up);
-											glTexCoord2f(u1, v2);
-											glColor4f(avc_pointer->red[2],avc_pointer->green[2],avc_pointer->blue[2],avc_pointer->alpha[2]);
-											glVertex2f( left, down);
-											glTexCoord2f(u2, v2);
-											glColor4f(avc_pointer->red[3],avc_pointer->green[3],avc_pointer->blue[3],avc_pointer->alpha[3]);
-											glVertex2f( right, down);
-											glTexCoord2f(u2, v1);
-											glColor4f(avc_pointer->red[1],avc_pointer->green[1],avc_pointer->blue[1],avc_pointer->alpha[1]);
-											glVertex2f( right, up);
-										glEnd();
+										const float quad_x[4] = { left, left, right, right };
+										const float quad_y[4] = { up, down, down, up };
+										const float quad_u[4] = { u1, u1, u2, u2 };
+										const float quad_v[4] = { v1, v2, v2, v1 };
+										const float quad_r[4] = { avc_pointer->red[0], avc_pointer->red[2], avc_pointer->red[3], avc_pointer->red[1] };
+										const float quad_g[4] = { avc_pointer->green[0], avc_pointer->green[2], avc_pointer->green[3], avc_pointer->green[1] };
+										const float quad_b[4] = { avc_pointer->blue[0], avc_pointer->blue[2], avc_pointer->blue[3], avc_pointer->blue[1] };
+										const float quad_a[4] = { avc_pointer->alpha[0], avc_pointer->alpha[2], avc_pointer->alpha[3], avc_pointer->alpha[1] };
+										PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(quad_x, quad_y, quad_u, quad_v, quad_r, quad_g, quad_b, quad_a);
 									}
 								}
 								else if (opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_QUAD)
@@ -3668,37 +3482,27 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 									if (opengl_booleans & OPENGL_BOOLEAN_ROTATE_CLOCKWISE)
 									{
-										glBegin(GL_QUADS);
-											glTexCoord2f(u1, v1);
-											glColor4f(avc_pointer->red[1],avc_pointer->green[1],avc_pointer->blue[1],avc_pointer->alpha[1]);
-											glVertex2f( aq_pointer->x[1], aq_pointer->y[1]);
-											glTexCoord2f(u1, v2);
-											glColor4f(avc_pointer->red[0],avc_pointer->green[0],avc_pointer->blue[0],avc_pointer->alpha[0]);
-											glVertex2f( aq_pointer->x[0], aq_pointer->y[0]);
-											glTexCoord2f(u2, v2);
-											glColor4f(avc_pointer->red[2],avc_pointer->green[2],avc_pointer->blue[2],avc_pointer->alpha[2]);
-											glVertex2f( aq_pointer->x[2], aq_pointer->y[2]);
-											glTexCoord2f(u2, v1);
-											glColor4f(avc_pointer->red[3],avc_pointer->green[3],avc_pointer->blue[3],avc_pointer->alpha[3]);
-											glVertex2f( aq_pointer->x[3], aq_pointer->y[3]);
-										glEnd();
+										const float quad_x[4] = { aq_pointer->x[1], aq_pointer->x[0], aq_pointer->x[2], aq_pointer->x[3] };
+										const float quad_y[4] = { aq_pointer->y[1], aq_pointer->y[0], aq_pointer->y[2], aq_pointer->y[3] };
+										const float quad_u[4] = { u1, u1, u2, u2 };
+										const float quad_v[4] = { v1, v2, v2, v1 };
+										const float quad_r[4] = { avc_pointer->red[1], avc_pointer->red[0], avc_pointer->red[2], avc_pointer->red[3] };
+										const float quad_g[4] = { avc_pointer->green[1], avc_pointer->green[0], avc_pointer->green[2], avc_pointer->green[3] };
+										const float quad_b[4] = { avc_pointer->blue[1], avc_pointer->blue[0], avc_pointer->blue[2], avc_pointer->blue[3] };
+										const float quad_a[4] = { avc_pointer->alpha[1], avc_pointer->alpha[0], avc_pointer->alpha[2], avc_pointer->alpha[3] };
+										PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(quad_x, quad_y, quad_u, quad_v, quad_r, quad_g, quad_b, quad_a);
 									}
 									else
 									{
-										glBegin(GL_QUADS);
-											glTexCoord2f(u1, v1);
-											glColor4f(avc_pointer->red[0],avc_pointer->green[0],avc_pointer->blue[0],avc_pointer->alpha[0]);
-											glVertex2f( aq_pointer->x[0], aq_pointer->y[0]);
-											glTexCoord2f(u1, v2);
-											glColor4f(avc_pointer->red[2],avc_pointer->green[2],avc_pointer->blue[2],avc_pointer->alpha[2]);
-											glVertex2f( aq_pointer->x[2], aq_pointer->y[2]);
-											glTexCoord2f(u2, v2);
-											glColor4f(avc_pointer->red[3],avc_pointer->green[3],avc_pointer->blue[3],avc_pointer->alpha[3]);
-											glVertex2f( aq_pointer->x[3], aq_pointer->y[3]);
-											glTexCoord2f(u2, v1);
-											glColor4f(avc_pointer->red[1],avc_pointer->green[1],avc_pointer->blue[1],avc_pointer->alpha[1]);
-											glVertex2f( aq_pointer->x[1], aq_pointer->y[1]);
-										glEnd();
+										const float quad_x[4] = { aq_pointer->x[0], aq_pointer->x[2], aq_pointer->x[3], aq_pointer->x[1] };
+										const float quad_y[4] = { aq_pointer->y[0], aq_pointer->y[2], aq_pointer->y[3], aq_pointer->y[1] };
+										const float quad_u[4] = { u1, u1, u2, u2 };
+										const float quad_v[4] = { v1, v2, v2, v1 };
+										const float quad_r[4] = { avc_pointer->red[0], avc_pointer->red[2], avc_pointer->red[3], avc_pointer->red[1] };
+										const float quad_g[4] = { avc_pointer->green[0], avc_pointer->green[2], avc_pointer->green[3], avc_pointer->green[1] };
+										const float quad_b[4] = { avc_pointer->blue[0], avc_pointer->blue[2], avc_pointer->blue[3], avc_pointer->blue[1] };
+										const float quad_a[4] = { avc_pointer->alpha[0], avc_pointer->alpha[2], avc_pointer->alpha[3], avc_pointer->alpha[1] };
+										PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(quad_x, quad_y, quad_u, quad_v, quad_r, quad_g, quad_b, quad_a);
 									}
 								}
 								else if (opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD)
@@ -3706,24 +3510,17 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 									aq_pointer = &arbitrary_quads[current_entity];
 
 									line_length_ratio = aq_pointer->line_lengths[0] / aq_pointer->line_lengths[2];
-
-									glBegin(GL_QUADS);
-										glColor4f(avc_pointer->red[0],avc_pointer->green[0],avc_pointer->blue[0],avc_pointer->alpha[0]);
-										glTexCoord4f(u1*line_length_ratio, v1*line_length_ratio, 0, line_length_ratio);
-										glVertex2f( aq_pointer->x[0], aq_pointer->y[0]);
-										
-										glColor4f(avc_pointer->red[2],avc_pointer->green[2],avc_pointer->blue[2],avc_pointer->alpha[2]);
-										glTexCoord2f(u1, v2);
-										glVertex2f( aq_pointer->x[2], aq_pointer->y[2]);
-
-										glColor4f(avc_pointer->red[3],avc_pointer->green[3],avc_pointer->blue[3],avc_pointer->alpha[3]);
-										glTexCoord2f(u2, v2);
-										glVertex2f( aq_pointer->x[3], aq_pointer->y[3]);
-
-										glColor4f(avc_pointer->red[1],avc_pointer->green[1],avc_pointer->blue[1],avc_pointer->alpha[1]);
-										glTexCoord4f(u2*line_length_ratio, v1*line_length_ratio, 0, line_length_ratio);
-										glVertex2f( aq_pointer->x[1], aq_pointer->y[1]);
-									glEnd();
+									const float quad_r[4] = { avc_pointer->red[0], avc_pointer->red[2], avc_pointer->red[3], avc_pointer->red[1] };
+									const float quad_g[4] = { avc_pointer->green[0], avc_pointer->green[2], avc_pointer->green[3], avc_pointer->green[1] };
+									const float quad_b[4] = { avc_pointer->blue[0], avc_pointer->blue[2], avc_pointer->blue[3], avc_pointer->blue[1] };
+									const float quad_a[4] = { avc_pointer->alpha[0], avc_pointer->alpha[2], avc_pointer->alpha[3], avc_pointer->alpha[1] };
+									PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(
+										aq_pointer->x[0], aq_pointer->y[0],
+										aq_pointer->x[2], aq_pointer->y[2],
+										aq_pointer->x[3], aq_pointer->y[3],
+										aq_pointer->x[1], aq_pointer->y[1],
+										u1, v1, u2, v2, line_length_ratio,
+										quad_r, quad_g, quad_b, quad_a);
 								}
 							}
 							else
@@ -3732,29 +3529,16 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 								{
 									if (opengl_booleans & OPENGL_BOOLEAN_ROTATE_CLOCKWISE)
 									{
-										glBegin(GL_QUADS);
-											glTexCoord2f(u1, v1);
-											glVertex2f( right, up);
-											glTexCoord2f(u1, v2);
-											glVertex2f( left, up);
-											glTexCoord2f(u2, v2);
-											glVertex2f( left, down);
-											glTexCoord2f(u2, v1);
-											glVertex2f( right, down);
-										glEnd();
+										PLATFORM_RENDERER_draw_bound_textured_quad_custom(
+											right, up,
+											left, up,
+											left, down,
+											right, down,
+											u1, v1, u2, v2);
 									}
 									else
 									{
-										glBegin(GL_QUADS);
-											glTexCoord2f(u1, v1);
-											glVertex2f( left, up);
-											glTexCoord2f(u1, v2);
-											glVertex2f( left, down);
-											glTexCoord2f(u2, v2);
-											glVertex2f( right, down);
-											glTexCoord2f(u2, v1);
-											glVertex2f( right, up);
-										glEnd();
+										PLATFORM_RENDERER_draw_bound_textured_quad(left, right, up, down, u1, v1, u2, v2);
 									}
 								}
 								else if (opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_QUAD)
@@ -3763,29 +3547,21 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 									if (opengl_booleans & OPENGL_BOOLEAN_ROTATE_CLOCKWISE)
 									{
-										glBegin(GL_QUADS);
-											glTexCoord2f(u1, v1);
-											glVertex2f( aq_pointer->x[1], aq_pointer->y[1]);
-											glTexCoord2f(u1, v2);
-											glVertex2f( aq_pointer->x[0], aq_pointer->y[0]);
-											glTexCoord2f(u2, v2);
-											glVertex2f( aq_pointer->x[2], aq_pointer->y[2]);
-											glTexCoord2f(u2, v1);
-											glVertex2f( aq_pointer->x[3], aq_pointer->y[3]);
-										glEnd();
+										PLATFORM_RENDERER_draw_bound_textured_quad_custom(
+											aq_pointer->x[1], aq_pointer->y[1],
+											aq_pointer->x[0], aq_pointer->y[0],
+											aq_pointer->x[2], aq_pointer->y[2],
+											aq_pointer->x[3], aq_pointer->y[3],
+											u1, v1, u2, v2);
 									}
 									else
 									{
-										glBegin(GL_QUADS);
-											glTexCoord2f(u1, v1);
-											glVertex2f( aq_pointer->x[0], aq_pointer->y[0]);
-											glTexCoord2f(u1, v2);
-											glVertex2f( aq_pointer->x[2], aq_pointer->y[2]);
-											glTexCoord2f(u2, v2);
-											glVertex2f( aq_pointer->x[3], aq_pointer->y[3]);
-											glTexCoord2f(u2, v1);
-											glVertex2f( aq_pointer->x[1], aq_pointer->y[1]);
-										glEnd();
+										PLATFORM_RENDERER_draw_bound_textured_quad_custom(
+											aq_pointer->x[0], aq_pointer->y[0],
+											aq_pointer->x[2], aq_pointer->y[2],
+											aq_pointer->x[3], aq_pointer->y[3],
+											aq_pointer->x[1], aq_pointer->y[1],
+											u1, v1, u2, v2);
 									}
 								}
 								else if (opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD)
@@ -3793,17 +3569,12 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 									aq_pointer = &arbitrary_quads[current_entity];
 
 									line_length_ratio = aq_pointer->line_lengths[0] / aq_pointer->line_lengths[2];
-
-									glBegin(GL_QUADS);
-										glTexCoord4f(u1*line_length_ratio, v1*line_length_ratio, 0, line_length_ratio);
-										glVertex2f( aq_pointer->x[0], aq_pointer->y[0]);
-										glTexCoord2f(u1, v2);
-										glVertex2f( aq_pointer->x[2], aq_pointer->y[2]);
-										glTexCoord2f(u2, v2);
-										glVertex2f( aq_pointer->x[3], aq_pointer->y[3]);
-										glTexCoord4f(u2*line_length_ratio, v1*line_length_ratio, 0, line_length_ratio);
-										glVertex2f( aq_pointer->x[1], aq_pointer->y[1]);
-									glEnd();
+									PLATFORM_RENDERER_draw_bound_perspective_textured_quad(
+										aq_pointer->x[0], aq_pointer->y[0],
+										aq_pointer->x[2], aq_pointer->y[2],
+										aq_pointer->x[3], aq_pointer->y[3],
+										aq_pointer->x[1], aq_pointer->y[1],
+										u1, v1, u2, v2, line_length_ratio);
 								}
 							}
 						}
@@ -3968,16 +3739,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 									v1 = sp->v1;
 									v2 = sp->v2;
 
-									glBegin(GL_QUADS);
-										glTexCoord2f(u1, v1);
-										glVertex2f( left, up);
-										glTexCoord2f(u1, v2);
-										glVertex2f( left, down);
-										glTexCoord2f(u2, v2);
-										glVertex2f( right, down);
-										glTexCoord2f(u2, v1);
-										glVertex2f( right, up);
-									glEnd();
+									PLATFORM_RENDERER_draw_bound_textured_quad(left, right, up, down, u1, v1, u2, v2);
 								}
 								else
 								{
@@ -4012,16 +3774,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 									v1 = sp->v1;
 									v2 = sp->v2;
 
-									glBegin(GL_QUADS);
-										glTexCoord2f(u1, v1);
-										glVertex2f( left, up);
-										glTexCoord2f(u1, v2);
-										glVertex2f( left, down);
-										glTexCoord2f(u2, v2);
-										glVertex2f( right, down);
-										glTexCoord2f(u2, v1);
-										glVertex2f( right, up);
-									glEnd();
+									PLATFORM_RENDERER_draw_bound_textured_quad(left, right, up, down, u1, v1, u2, v2);
 								}
 
 								glTranslatef(tilesize,0,0);
@@ -4167,16 +3920,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 								v1 = sp->v1;
 								v2 = sp->v2;
 
-								glBegin(GL_QUADS);
-									glTexCoord2f(u1, v1);
-									glVertex2f( left, up);
-									glTexCoord2f(u1, v2);
-									glVertex2f( left, down);
-									glTexCoord2f(u2, v2);
-									glVertex2f( right, down);
-									glTexCoord2f(u2, v1);
-									glVertex2f( right, up);
-								glEnd();
+								PLATFORM_RENDERER_draw_bound_textured_quad(left, right, up, down, u1, v1, u2, v2);
 							}
 							else
 							{
@@ -4206,16 +3950,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 								v1 = sp->v1;
 								v2 = sp->v2;
 
-								glBegin(GL_QUADS);
-									glTexCoord2f(u1, v1);
-									glVertex2f( left, up);
-									glTexCoord2f(u1, v2);
-									glVertex2f( left, down);
-									glTexCoord2f(u2, v2);
-									glVertex2f( right, down);
-									glTexCoord2f(u2, v1);
-									glVertex2f( right, up);
-								glEnd();
+								PLATFORM_RENDERER_draw_bound_textured_quad(left, right, up, down, u1, v1, u2, v2);
 							}
 
 							glTranslatef(tilesize,0,0);
@@ -4371,12 +4106,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						glScalef(scale_x,scale_y,1.0f);
 					}
 
-					glBegin(GL_QUADS);
-						glVertex2f( left, up);
-						glVertex2f( left, down);
-						glVertex2f( right, down);
-						glVertex2f( right, up);
-					glEnd();
+					PLATFORM_RENDERER_draw_bound_solid_quad(left, right, up, down);
 
 					if (opengl_booleans & OPENGL_BOOLEAN_SCALE)
 					{
