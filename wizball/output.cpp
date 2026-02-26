@@ -999,9 +999,7 @@ void OUTPUT_setup_project_list (char *text)
 {
 	PLATFORM_WINDOW_set_windowed_mode(320, 240, 32);
 
-	clear_to_color(screen, makecol(255, 255, 255));
-	acquire_screen();
-	text_mode(-1);
+	PLATFORM_WINDOW_begin_text_screen(255, 255, 255);
 
 	int y=0;
 
@@ -1014,16 +1012,14 @@ void OUTPUT_setup_project_list (char *text)
 		pointer = strtok (NULL,"\n");
 	}
 
-	release_screen();
+	PLATFORM_WINDOW_end_text_screen();
 }
 
 
 
 void OUTPUT_setup_running_mode (void)
 {
-	clear_to_color(screen, makecol(255, 255, 255));
-	acquire_screen();
-	text_mode(-1);
+	PLATFORM_WINDOW_begin_text_screen(255, 255, 255);
 
 	char options[3][64]={
 		"1. Parse, debug, output datfiles.",
@@ -1040,7 +1036,7 @@ void OUTPUT_setup_running_mode (void)
 		y += 8;
 	}
 
-	release_screen();
+	PLATFORM_WINDOW_end_text_screen();
 }
 
 
@@ -1063,18 +1059,7 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 	if (software_mode_active)
 	{
 		// This is for when we have no hardware accelleration. Which is never, nowadays.
-
-		set_color_depth(colour_depth);
-		set_color_conversion(COLORCONV_TOTAL + COLORCONV_KEEP_TRANS);
-
-		if (windowed)
-		{
-			set_gfx_mode(GFX_AUTODETECT_WINDOWED, game_screen_width, game_screen_height, 0, 0);
-		}
-		else
-		{
-			set_gfx_mode(GFX_AUTODETECT_FULLSCREEN, game_screen_width, game_screen_height, 0, 0);
-		}
+		PLATFORM_WINDOW_set_software_game_mode(windowed, game_screen_width, game_screen_height, colour_depth);
 
 		// Try to set buffering method by trying each one in turn until you score a hit!
 
@@ -1126,12 +1111,8 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 			allegro_gl_set(AGL_SUGGEST, AGL_COLOR_DEPTH | AGL_DOUBLEBUFFER | AGL_RENDERMETHOD | AGL_Z_DEPTH | AGL_WINDOWED);
 		}
 
-		// This is for the software stuff...
-		set_color_depth(colour_depth);
-		set_color_conversion(COLORCONV_TOTAL + COLORCONV_KEEP_TRANS);
-
 		// And open our sexy OpenGL window! :)
-		result = set_gfx_mode(GFX_OPENGL, game_screen_width, game_screen_height, 0, 0);
+		result = PLATFORM_WINDOW_set_opengl_game_mode(game_screen_width, game_screen_height, colour_depth);
 
 		MAIN_add_to_log ("Setting up AllegroGL graphics & screen mode...");
 
@@ -4787,5 +4768,3 @@ void OUTPUT_store_frame_info_in_entity_collision_including_scale (int *entity_po
 	entity_pointer [ENT_LOWER_WIDTH] = ((width-1) - pivot_x) + modifier;
 	entity_pointer [ENT_LOWER_HEIGHT] = ((height-1) - pivot_y) + modifier;
 }
-
-

@@ -247,3 +247,5 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - 2026-02-26: Adjusted SDL event bridge safety: do not initialize SDL events during Allegro-owned windowing, and only pump SDL events when SDL video is initialized to avoid backend contention/regressions.
 - 2026-02-26: Extended `platform` timing abstraction with timer install/callback/remove and sleep helpers, and routed `main.cpp` frame-timer/sleep callsites through these wrappers.
 - 2026-02-26: Added `PLATFORM_WINDOW_set_windowed_mode(width,height,depth)` and routed `OUTPUT_setup_project_list()` display mode setup through `platform_window`.
+- 2026-02-26: Added `PLATFORM_WINDOW_begin_text_screen()/end_text_screen()` and routed both `OUTPUT_setup_project_list()` and `OUTPUT_setup_running_mode()` text screen prep through `platform_window`.
+- 2026-02-26: Added `PLATFORM_WINDOW_set_software_game_mode()` and `PLATFORM_WINDOW_set_opengl_game_mode()` and routed `OUTPUT_setup_allegro()` display mode selection through `platform_window`.

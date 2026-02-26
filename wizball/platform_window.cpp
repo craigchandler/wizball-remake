@@ -1,4 +1,5 @@
 #include <allegro.h>
+#include <alleggl.h>
 #include "platform_window.h"
 
 int PLATFORM_WINDOW_init(void)
@@ -16,6 +17,38 @@ int PLATFORM_WINDOW_set_windowed_mode(int width, int height, int colour_depth)
 	set_color_depth(colour_depth);
 	set_color_conversion(COLORCONV_TOTAL + COLORCONV_KEEP_TRANS);
 	return set_gfx_mode(GFX_AUTODETECT_WINDOWED, width, height, 0, 0);
+}
+
+int PLATFORM_WINDOW_set_software_game_mode(bool windowed, int width, int height, int colour_depth)
+{
+	set_color_depth(colour_depth);
+	set_color_conversion(COLORCONV_TOTAL + COLORCONV_KEEP_TRANS);
+
+	if (windowed)
+	{
+		return set_gfx_mode(GFX_AUTODETECT_WINDOWED, width, height, 0, 0);
+	}
+
+	return set_gfx_mode(GFX_AUTODETECT_FULLSCREEN, width, height, 0, 0);
+}
+
+int PLATFORM_WINDOW_set_opengl_game_mode(int width, int height, int colour_depth)
+{
+	set_color_depth(colour_depth);
+	set_color_conversion(COLORCONV_TOTAL + COLORCONV_KEEP_TRANS);
+	return set_gfx_mode(GFX_OPENGL, width, height, 0, 0);
+}
+
+void PLATFORM_WINDOW_begin_text_screen(int red, int green, int blue)
+{
+	clear_to_color(screen, makecol(red, green, blue));
+	acquire_screen();
+	text_mode(-1);
+}
+
+void PLATFORM_WINDOW_end_text_screen(void)
+{
+	release_screen();
 }
 
 void PLATFORM_WINDOW_shutdown(void)
