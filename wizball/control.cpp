@@ -3523,7 +3523,7 @@ int CONTROL_setup_joypad(void)
 //		textout_centre(screen, font, msg, SCREEN_W/2, 64, palette_color[255]);
 //		textout_centre(screen, font, "and press a key.", SCREEN_W/2, 80, palette_color[255]);
 
-		if ((readkey()&0xFF) == 27)
+		if (PLATFORM_INPUT_readkey_ascii() == 27)
 			return 0;
 
 		if (PLATFORM_INPUT_calibrate_joystick(0) != 0)
@@ -3546,7 +3546,7 @@ int CONTROL_setup_mouse(void)
 {
 	char error_string[256];
 
-	if (install_mouse() == -1)
+	if (PLATFORM_INPUT_install_mouse() == -1)
 	{
 		mouse_setup_okay = false;
 		set_gfx_mode(GFX_TEXT, 0, 0, 0, 0);
@@ -3569,7 +3569,7 @@ int CONTROL_setup_keyboard(void)
 {
 	char error_string[256];
 
-	if (install_keyboard() != 0)
+	if (PLATFORM_INPUT_install_keyboard() != 0)
 	{
 		keyboard_setup_okay = false;
 		set_gfx_mode(GFX_TEXT, 0, 0, 0, 0);

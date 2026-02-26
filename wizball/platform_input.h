@@ -3,12 +3,15 @@
 
 void PLATFORM_INPUT_poll_keyboard(void);
 int PLATFORM_INPUT_key_state(int scancode);
+int PLATFORM_INPUT_install_keyboard(void);
+int PLATFORM_INPUT_readkey_ascii(void);
 
 void PLATFORM_INPUT_poll_mouse(void);
 int PLATFORM_INPUT_mouse_buttons_mask(void);
 int PLATFORM_INPUT_mouse_x(void);
 int PLATFORM_INPUT_mouse_y(void);
 int PLATFORM_INPUT_mouse_z(void);
+int PLATFORM_INPUT_install_mouse(void);
 
 int PLATFORM_INPUT_install_joystick(void);
 int PLATFORM_INPUT_num_joysticks(void);

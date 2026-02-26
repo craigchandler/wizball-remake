@@ -17,6 +17,16 @@ int PLATFORM_INPUT_key_state(int scancode)
 	return key[scancode];
 }
 
+int PLATFORM_INPUT_install_keyboard(void)
+{
+	return install_keyboard();
+}
+
+int PLATFORM_INPUT_readkey_ascii(void)
+{
+	return (readkey() & 0xFF);
+}
+
 void PLATFORM_INPUT_poll_mouse(void)
 {
 	poll_mouse();
@@ -40,6 +50,11 @@ int PLATFORM_INPUT_mouse_y(void)
 int PLATFORM_INPUT_mouse_z(void)
 {
 	return mouse_z;
+}
+
+int PLATFORM_INPUT_install_mouse(void)
+{
+	return install_mouse();
 }
 
 int PLATFORM_INPUT_install_joystick(void)
