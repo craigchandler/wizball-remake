@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 #ifdef WIZBALL_USE_SDL2
 #include <SDL.h>
 #endif
@@ -38,6 +39,11 @@ static int platform_renderer_sdl_mirror_height = 0;
 static int platform_renderer_sdl_mirror_pitch = 0;
 static bool platform_renderer_sdl_stub_checked_env = false;
 static bool platform_renderer_sdl_stub_enabled = false;
+static bool platform_renderer_sdl_stub_show_checked_env = false;
+static bool platform_renderer_sdl_stub_show_enabled = false;
+static bool platform_renderer_sdl_stub_accel_checked_env = false;
+static bool platform_renderer_sdl_stub_accel_enabled = false;
+static bool platform_renderer_sdl_stub_self_test_done = false;
 static bool platform_renderer_sdl_mirror_checked_env = false;
 static bool platform_renderer_sdl_mirror_enabled = false;
 static bool platform_renderer_started_sdl_video = false;
@@ -77,6 +83,101 @@ void PLATFORM_RENDERER_clear_extensions(void)
 
 	free(platform_renderer_version_text);
 	platform_renderer_version_text = NULL;
+}
+
+void PLATFORM_RENDERER_clear_backbuffer(void)
+{
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void PLATFORM_RENDERER_draw_outline_rect(int x1, int y1, int x2, int y2, int r, int g, int b, int virtual_screen_height)
+{
+	glLoadIdentity();
+	glColor3f((float) r / 256.0f, (float) g / 256.0f, (float) b / 256.0f);
+	glDisable(GL_TEXTURE_2D);
+	glTranslatef((float) x1, (float) ((virtual_screen_height - 1) - y1), 0.0f);
+	glBegin(GL_LINE_LOOP);
+		glVertex2f(0.0f, 0.0f);
+		glVertex2f(0.0f, (float) (-(y2 - y1)));
+		glVertex2f((float) (x2 - x1), (float) (-(y2 - y1)));
+		glVertex2f((float) (x2 - x1), 0.0f);
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_filled_rect(int x1, int y1, int x2, int y2, int r, int g, int b, int virtual_screen_height)
+{
+	glLoadIdentity();
+	glColor3f((float) r / 256.0f, (float) g / 256.0f, (float) b / 256.0f);
+	glDisable(GL_TEXTURE_2D);
+	glTranslatef((float) x1, (float) ((virtual_screen_height - 1) - y1), 0.0f);
+	glBegin(GL_QUADS);
+		glVertex2f(0.0f, 0.0f);
+		glVertex2f(0.0f, (float) (-(y2 - y1)));
+		glVertex2f((float) (x2 - x1), (float) (-(y2 - y1)));
+		glVertex2f((float) (x2 - x1), 0.0f);
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_line(int x1, int y1, int x2, int y2, int r, int g, int b, int virtual_screen_height)
+{
+	glLoadIdentity();
+	glColor3f((float) r / 256.0f, (float) g / 256.0f, (float) b / 256.0f);
+	glDisable(GL_TEXTURE_2D);
+	glTranslatef((float) x1, (float) ((virtual_screen_height - 1) - y1), 0.0f);
+	glBegin(GL_LINES);
+		glVertex2f(0.0f, 0.0f);
+		glVertex2f((float) (x2 - x1), (float) (-(y2 - y1)));
+	glEnd();
+}
+
+void PLATFORM_RENDERER_draw_circle(int x, int y, int radius, int r, int g, int b, int virtual_screen_height, int resolution)
+{
+	float angle;
+	float step;
+
+	if (resolution <= 0)
+	{
+		return;
+	}
+
+	step = (2.0f * 3.14159265358979323846f) / (float) resolution;
+
+	glLoadIdentity();
+	glColor3f((float) r / 256.0f, (float) g / 256.0f, (float) b / 256.0f);
+	glDisable(GL_TEXTURE_2D);
+	glTranslatef((float) x, (float) ((virtual_screen_height - 1) - y), 0.0f);
+
+	for (angle = 0.0f; angle < (2.0f * 3.14159265358979323846f); angle += step)
+	{
+		float cx1 = (float) radius * cosf(angle);
+		float cy1 = (float) radius * sinf(angle);
+		float cx2 = (float) radius * cosf(angle + step);
+		float cy2 = (float) radius * sinf(angle + step);
+
+		glBegin(GL_LINES);
+			glVertex2f(cx1, cy1);
+			glVertex2f(cx2, cy2);
+		glEnd();
+	}
+}
+
+void PLATFORM_RENDERER_present_frame(int width, int height)
+{
+#ifdef WIZBALL_USE_SDL2
+	if (PLATFORM_RENDERER_is_sdl2_stub_enabled() && !PLATFORM_RENDERER_is_sdl2_stub_ready())
+	{
+		if (PLATFORM_RENDERER_prepare_sdl2_stub(width, height, true) && !platform_renderer_sdl_stub_self_test_done)
+		{
+			(void) PLATFORM_RENDERER_run_sdl2_stub_self_test();
+			platform_renderer_sdl_stub_self_test_done = true;
+		}
+	}
+	(void) PLATFORM_RENDERER_mirror_from_current_backbuffer(width, height);
+#else
+	(void) width;
+	(void) height;
+#endif
+	allegro_gl_flip();
 }
 
 void PLATFORM_RENDERER_prepare_allegro_gl(bool windowed, int colour_depth)
@@ -290,6 +391,16 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 		platform_renderer_sdl_stub_enabled = PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_BOOTSTRAP");
 		platform_renderer_sdl_stub_checked_env = true;
 	}
+	if (!platform_renderer_sdl_stub_show_checked_env)
+	{
+		platform_renderer_sdl_stub_show_enabled = PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_SHOW");
+		platform_renderer_sdl_stub_show_checked_env = true;
+	}
+	if (!platform_renderer_sdl_stub_accel_checked_env)
+	{
+		platform_renderer_sdl_stub_accel_enabled = PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_ACCELERATED");
+		platform_renderer_sdl_stub_accel_checked_env = true;
+	}
 
 	if (!platform_renderer_sdl_stub_enabled)
 	{
@@ -325,7 +436,7 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 		platform_renderer_started_sdl_video = true;
 	}
 
-	Uint32 window_flags = SDL_WINDOW_HIDDEN;
+	Uint32 window_flags = platform_renderer_sdl_stub_show_enabled ? SDL_WINDOW_SHOWN : SDL_WINDOW_HIDDEN;
 	if (windowed)
 	{
 		window_flags |= SDL_WINDOW_RESIZABLE;
@@ -350,12 +461,14 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 		return false;
 	}
 
-	platform_renderer_sdl_renderer = SDL_CreateRenderer(
-		platform_renderer_sdl_window,
-		-1,
-		SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-
-	if (platform_renderer_sdl_renderer == NULL)
+	if (platform_renderer_sdl_stub_accel_enabled)
+	{
+		platform_renderer_sdl_renderer = SDL_CreateRenderer(
+			platform_renderer_sdl_window,
+			-1,
+			SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	}
+	else
 	{
 		platform_renderer_sdl_renderer = SDL_CreateRenderer(
 			platform_renderer_sdl_window,
@@ -376,7 +489,28 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 		return false;
 	}
 
-	strcpy(platform_renderer_sdl_status, "SDL2 stub initialized (hidden window + renderer).");
+	if (platform_renderer_sdl_stub_show_enabled)
+	{
+		if (platform_renderer_sdl_stub_accel_enabled)
+		{
+			strcpy(platform_renderer_sdl_status, "SDL2 stub initialized (visible window + accelerated renderer).");
+		}
+		else
+		{
+			strcpy(platform_renderer_sdl_status, "SDL2 stub initialized (visible window + software renderer).");
+		}
+	}
+	else
+	{
+		if (platform_renderer_sdl_stub_accel_enabled)
+		{
+			strcpy(platform_renderer_sdl_status, "SDL2 stub initialized (hidden window + accelerated renderer).");
+		}
+		else
+		{
+			strcpy(platform_renderer_sdl_status, "SDL2 stub initialized (hidden window + software renderer).");
+		}
+	}
 	return true;
 #else
 	(void) width;
@@ -563,6 +697,7 @@ void PLATFORM_RENDERER_shutdown(void)
 	platform_renderer_sdl_mirror_width = 0;
 	platform_renderer_sdl_mirror_height = 0;
 	platform_renderer_sdl_mirror_pitch = 0;
+	platform_renderer_sdl_stub_self_test_done = false;
 
 	if (platform_renderer_sdl_renderer != NULL)
 	{

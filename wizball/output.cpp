@@ -235,20 +235,7 @@ void OUTPUT_rectangle (int x1, int y1, int x2, int y2, int r, int g, int b)
 	}
 	else
 	{
-		glLoadIdentity();
-
-		glColor3f( float(r)/256.0f , float(g)/256.0f , float(b)/256.0f);
-
-		glDisable(GL_TEXTURE_2D);
-
-		glTranslatef( x1 , (virtual_screen_height-1) - y1 , 0.0f );
-
-		glBegin(GL_LINE_LOOP);
-			glVertex2f( 0, 0); // Bottom left corner
-			glVertex2f( 0, -(y2-y1)); //. Top left corner
-			glVertex2f( x2-x1, -(y2-y1)); // Top right corner
-			glVertex2f( x2-x1, 0);  // Bottom right corner
-		glEnd();
+		PLATFORM_RENDERER_draw_outline_rect(x1, y1, x2, y2, r, g, b, virtual_screen_height);
 	}
 }
 
@@ -270,19 +257,7 @@ void OUTPUT_filled_rectangle (int x1, int y1, int x2, int y2, int r, int g, int 
 	}
 	else
 	{
-		glLoadIdentity();
-		glColor3f( float(r)/256.0f , float(g)/256.0f , float(b)/256.0f);
-
-		glDisable(GL_TEXTURE_2D);
-
-		glTranslatef( x1 , (virtual_screen_height-1) - y1 , 0.0f );
-
-		glBegin(GL_QUADS);
-			glVertex2f( 0, 0); // Bottom left corner
-			glVertex2f( 0, -(y2-y1)); //. Top left corner
-			glVertex2f( x2-x1, -(y2-y1)); // Top right corner
-			glVertex2f( x2-x1, 0);  // Bottom right corner
-		glEnd();
+		PLATFORM_RENDERER_draw_filled_rect(x1, y1, x2, y2, r, g, b, virtual_screen_height);
 	}
 	
 }
@@ -443,17 +418,7 @@ void OUTPUT_line (int x1 , int y1, int x2, int y2, int r, int g, int b)
 	}
 	else
 	{
-		glLoadIdentity();
-		glColor3f( float(r)/256.0f , float(g)/256.0f , float(b)/256.0f);
-
-		glDisable(GL_TEXTURE_2D);
-
-		glTranslatef( x1 , (virtual_screen_height-1) - y1 , 0.0f );
-
-		glBegin(GL_LINES);
-			glVertex2f( 0, 0);
-			glVertex2f( x2-x1, -(y2-y1));
-		glEnd();
+		PLATFORM_RENDERER_draw_line(x1, y1, x2, y2, r, g, b, virtual_screen_height);
 	}
 }
 
@@ -525,32 +490,7 @@ void OUTPUT_circle (int x , int y , int radius , int r, int g, int b)
 	}
 	else
 	{
-		glLoadIdentity();
-		glColor3f( float(r)/256.0f , float(g)/256.0f , float(b)/256.0f);
-
-		glDisable(GL_TEXTURE_2D);
-
-		glTranslatef( x , (virtual_screen_height-1) - y , 0.0f );
-
-		float angle;
-		float step = (2.0f * PI) / OPENGL_CIRCLE_RESOLUTION;
-
-		float cx1,cy1;
-		float cx2,cy2;
-
-		for (angle = 0; angle < (2.0f * PI) ; angle += step)
-		{
-			cx1 = float(radius) * float (cos(angle));
-			cy1 = float(radius) * float (sin(angle));
-
-			cx2 = float(radius) * float (cos(angle+step));
-			cy2 = float(radius) * float (sin(angle+step));
-
-			glBegin(GL_LINES);
-				glVertex2f( cx1, cy1);
-				glVertex2f( cx2, cy2);
-			glEnd();
-		}
+		PLATFORM_RENDERER_draw_circle(x, y, radius, r, g, b, virtual_screen_height, OPENGL_CIRCLE_RESOLUTION);
 	}
 }
 
@@ -571,7 +511,7 @@ void OUTPUT_clear_screen (void)
 	}
 	else
 	{
-		glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		PLATFORM_RENDERER_clear_backbuffer();
 	}
 }
 
@@ -640,10 +580,7 @@ void OUTPUT_updatescreen (void)
 	}
 	else
 	{
-#ifdef WIZBALL_USE_SDL2
-		(void) PLATFORM_RENDERER_mirror_from_current_backbuffer(SCREEN_W, SCREEN_H);
-#endif
-		allegro_gl_flip();
+		PLATFORM_RENDERER_present_frame(SCREEN_W, SCREEN_H);
 	}
 }
 
@@ -948,14 +885,8 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 
 #ifdef WIZBALL_USE_SDL2
 	bool sdl_stub_enabled = PLATFORM_RENDERER_is_sdl2_stub_enabled();
-	bool sdl_stub_ready = PLATFORM_RENDERER_prepare_sdl2_stub(game_screen_width, game_screen_height, windowed);
-	bool sdl_stub_self_test = false;
-	if (sdl_stub_ready)
-	{
-		sdl_stub_self_test = PLATFORM_RENDERER_run_sdl2_stub_self_test();
-	}
 	char sdl_stub_line[MAX_LINE_SIZE];
-	sprintf(sdl_stub_line, "SDL2 renderer stub: enabled=%d ready=%d self_test=%d status=%s", sdl_stub_enabled ? 1 : 0, sdl_stub_ready ? 1 : 0, sdl_stub_self_test ? 1 : 0, PLATFORM_RENDERER_get_sdl2_stub_status());
+	sprintf(sdl_stub_line, "SDL2 renderer stub: enabled=%d lazy_init=1 status=%s", sdl_stub_enabled ? 1 : 0, PLATFORM_RENDERER_get_sdl2_stub_status());
 	MAIN_add_to_log(sdl_stub_line);
 #endif
 
