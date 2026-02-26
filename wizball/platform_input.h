@@ -26,4 +26,8 @@ const char *PLATFORM_INPUT_calibrate_joystick_name(int port);
 int PLATFORM_INPUT_calibrate_joystick(int port);
 void PLATFORM_INPUT_poll_joysticks(void);
 
+void PLATFORM_INPUT_pump_events(void);
+int PLATFORM_INPUT_quit_requested(void);
+void PLATFORM_INPUT_clear_quit_requested(void);
+
 #endif

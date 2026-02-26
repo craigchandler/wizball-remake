@@ -23,6 +23,7 @@
 #include "main.h"
 #include "graphics.h"
 #include "control.h"
+#include "platform_input.h"
 #include "game.h"
 #include "new_editor.h"
 #include "tilesets.h"
@@ -434,6 +435,12 @@ int editor_main(void)
 	bool initialise = true;
 
 	do {
+		PLATFORM_INPUT_pump_events();
+		if (PLATFORM_INPUT_quit_requested())
+		{
+			exit_game = true;
+			PLATFORM_INPUT_clear_quit_requested();
+		}
 
 		// This will loop as long as the game timer trigger is >0.
 		// The stuff in here is fast as its just logic code with no rasterizing.
@@ -533,6 +540,13 @@ int game_main(void)
 	char word[MAX_LINE_SIZE];
 
 	do {
+		PLATFORM_INPUT_pump_events();
+		if (PLATFORM_INPUT_quit_requested())
+		{
+			close_callback();
+			PLATFORM_INPUT_clear_quit_requested();
+		}
+
 		// Keep simulation ticking at a fixed timer rate while rendering once per frame.
 		// A small cap prevents runaway catch-up when rendering stalls.
 		int logic_steps = 0;

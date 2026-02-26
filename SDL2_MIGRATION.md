@@ -241,3 +241,5 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - 2026-02-26: Extended `platform_input` seam to joystick install/calibration/count/state/axis polling and routed `control.cpp` joystick paths through shared helpers.
 - 2026-02-26: Verified both default build (`build`) and SDL2-enabled build (`build_sdl2`) compile after joystick abstraction pass.
 - 2026-02-26: Routed remaining input setup/read callsites (`install_keyboard`, `install_mouse`, `readkey`) through `platform_input` wrappers so `control.cpp` no longer directly calls Allegro input APIs.
+- 2026-02-26: Added SDL event pump seam (`PLATFORM_INPUT_pump_events`) with latched quit flag APIs and wired pump usage into game/editor outer loops.
+- 2026-02-26: Verified both default build (`build`) and SDL2-enabled build (`build_sdl2`) compile after event seam wiring.

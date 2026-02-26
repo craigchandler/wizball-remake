@@ -1,6 +1,11 @@
 #include <allegro.h>
+#ifdef WIZBALL_USE_SDL2
+#include <SDL.h>
+#endif
 
 #include "platform_input.h"
+
+static int platform_input_quit_requested = 0;
 
 void PLATFORM_INPUT_poll_keyboard(void)
 {
@@ -180,4 +185,34 @@ int PLATFORM_INPUT_calibrate_joystick(int port)
 void PLATFORM_INPUT_poll_joysticks(void)
 {
 	poll_joystick();
+}
+
+void PLATFORM_INPUT_pump_events(void)
+{
+#ifdef WIZBALL_USE_SDL2
+	if ((SDL_WasInit(0) & (SDL_INIT_VIDEO | SDL_INIT_EVENTS)) == 0)
+	{
+		return;
+	}
+
+	SDL_Event event;
+
+	while (SDL_PollEvent(&event))
+	{
+		if (event.type == SDL_QUIT)
+		{
+			platform_input_quit_requested = 1;
+		}
+	}
+#endif
+}
+
+int PLATFORM_INPUT_quit_requested(void)
+{
+	return platform_input_quit_requested;
+}
+
+void PLATFORM_INPUT_clear_quit_requested(void)
+{
+	platform_input_quit_requested = 0;
 }
