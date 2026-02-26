@@ -249,3 +249,5 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - 2026-02-26: Added `PLATFORM_WINDOW_set_windowed_mode(width,height,depth)` and routed `OUTPUT_setup_project_list()` display mode setup through `platform_window`.
 - 2026-02-26: Added `PLATFORM_WINDOW_begin_text_screen()/end_text_screen()` and routed both `OUTPUT_setup_project_list()` and `OUTPUT_setup_running_mode()` text screen prep through `platform_window`.
 - 2026-02-26: Added `PLATFORM_WINDOW_set_software_game_mode()` and `PLATFORM_WINDOW_set_opengl_game_mode()` and routed `OUTPUT_setup_allegro()` display mode selection through `platform_window`.
+- 2026-02-26: Added `platform_renderer` seam and moved AllegroGL lifecycle configuration from `OUTPUT_setup_allegro()` into `PLATFORM_RENDERER_prepare_allegro_gl()`.
+- 2026-02-26: Added `PLATFORM_RENDERER_shutdown()` hook in `OUTPUT_shutdown()` for incremental renderer backend teardown migration.

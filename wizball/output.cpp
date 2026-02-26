@@ -23,6 +23,7 @@
 #include "global_param_list.h"
 #include "object_collision.h"
 #include "platform_window.h"
+#include "platform_renderer.h"
 
 #include "fortify.h"
 
@@ -1082,34 +1083,8 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 	}
 	else
 	{
-		// Set it up!
-		install_allegro_gl();
-		allegro_gl_clear_settings();
-
-		// Set the colour depth to 16/32 or whatever!
-		allegro_gl_set(AGL_COLOR_DEPTH, colour_depth);
-		
-		// Set the z-buffer depth to 8-bit even though I don't use the z-buffer. Hrm. That's probably wasted memory... D'oh.
-		allegro_gl_set(AGL_Z_DEPTH, 8);
-
-		// Double-buffer, please, sir!
-		allegro_gl_set(AGL_DOUBLEBUFFER, 1);
-
-		// Hardware accellerated graphics please, sir!
-		allegro_gl_set(AGL_RENDERMETHOD, 1);
-
-		if (windowed)
-		{
-			allegro_gl_set(AGL_WINDOWED, TRUE);
-			// Suggest?! I FUCKING DEMAND!
-			allegro_gl_set(AGL_SUGGEST, AGL_COLOR_DEPTH | AGL_DOUBLEBUFFER | AGL_RENDERMETHOD | AGL_Z_DEPTH | AGL_WINDOWED);
-		}
-		else
-		{
-			allegro_gl_set(AGL_WINDOWED, FALSE);
-			// Suggest?! I FUCKING DEMAND! AGAIN!
-			allegro_gl_set(AGL_SUGGEST, AGL_COLOR_DEPTH | AGL_DOUBLEBUFFER | AGL_RENDERMETHOD | AGL_Z_DEPTH | AGL_WINDOWED);
-		}
+		// Configure AllegroGL renderer lifecycle in a platform seam.
+		PLATFORM_RENDERER_prepare_allegro_gl(windowed, colour_depth);
 
 		// And open our sexy OpenGL window! :)
 		result = PLATFORM_WINDOW_set_opengl_game_mode(game_screen_width, game_screen_height, colour_depth);
@@ -2339,6 +2314,8 @@ void OUTPUT_shutdown (void)
 	}
 
 	MAIN_add_to_log ("\tOK!");
+
+	PLATFORM_RENDERER_shutdown();
 }
 
 
