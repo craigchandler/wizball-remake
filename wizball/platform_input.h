@@ -30,4 +30,10 @@ void PLATFORM_INPUT_pump_events(void);
 int PLATFORM_INPUT_quit_requested(void);
 void PLATFORM_INPUT_clear_quit_requested(void);
 
+unsigned int PLATFORM_INPUT_debug_pump_count(void);
+unsigned int PLATFORM_INPUT_debug_event_count(void);
+unsigned int PLATFORM_INPUT_debug_window_event_count(void);
+unsigned int PLATFORM_INPUT_debug_keydown_event_count(void);
+unsigned int PLATFORM_INPUT_debug_quit_event_count(void);
+
 #endif

@@ -116,6 +116,9 @@ bool best_texture_combiner_available;
 bool enable_multi_texture_effects_ideally = true;
 
 bool secondary_colour_available;
+static bool output_sdl_effect_trace_checked_env = false;
+static bool output_sdl_effect_trace_enabled = false;
+static unsigned int output_sdl_effect_trace_frame_counter = 0;
 
 bool software_mode_active = false;
 
@@ -124,6 +127,32 @@ DATAFILE *sfx_dat = NULL;
 DATAFILE *gfx_dat = NULL;
 DATAFILE *stream_dat = NULL;
 DATAFILE *music_dat = NULL;
+
+static bool OUTPUT_env_enabled(const char *name)
+{
+	const char *value = getenv(name);
+	if (value == NULL)
+	{
+		return false;
+	}
+
+	if ((strcmp(value, "1") == 0) || (strcmp(value, "true") == 0) || (strcmp(value, "TRUE") == 0) || (strcmp(value, "yes") == 0) || (strcmp(value, "on") == 0))
+	{
+		return true;
+	}
+
+	return false;
+}
+
+static bool OUTPUT_is_sdl_effect_trace_enabled(void)
+{
+	if (!output_sdl_effect_trace_checked_env)
+	{
+		output_sdl_effect_trace_enabled = OUTPUT_env_enabled("WIZBALL_SDL2_EFFECT_TRACE");
+		output_sdl_effect_trace_checked_env = true;
+	}
+	return output_sdl_effect_trace_enabled;
+}
 
 void * INPUT_get_stream_data_pointer(char *object_name, int *data_length)
 {
@@ -866,41 +895,59 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 			}
 		#endif
 
-		// Apply common fixed-function OpenGL defaults for the current backbuffer + virtual scene size.
-		PLATFORM_RENDERER_apply_gl_defaults(SCREEN_W, SCREEN_H, virtual_screen_width, virtual_screen_height);
-
 		platform_renderer_caps caps;
-		if (!PLATFORM_RENDERER_query_and_build_caps(enable_multi_texture_effects_ideally, &caps))
-		{
-			assert(0);
-		}
-
-		/* Setup OpenGL like we want */
-
-		if (output_debug_information)
-		{
-			const char *gl_vendor = PLATFORM_RENDERER_get_vendor_text();
-			const char *gl_renderer = PLATFORM_RENDERER_get_renderer_text();
-			const char *gl_version = PLATFORM_RENDERER_get_version_text();
-			char gl_line[MAX_LINE_SIZE];
-
-			sprintf(gl_line, "OpenGL vendor: %s", (gl_vendor != NULL) ? gl_vendor : "UNKNOWN");
-			MAIN_add_to_log(gl_line);
-			sprintf(gl_line, "OpenGL renderer: %s", (gl_renderer != NULL) ? gl_renderer : "UNKNOWN");
-			MAIN_add_to_log(gl_line);
-			sprintf(gl_line, "OpenGL version: %s", (gl_version != NULL) ? gl_version : "UNKNOWN");
-			MAIN_add_to_log(gl_line);
-		}
-
-		// We output it, too. Uh-huh.
-		if (output_debug_information)
-		{
-			if (!PLATFORM_RENDERER_write_extensions_to_file("OpenGL_Extension.txt"))
+		memset(&caps, 0, sizeof(caps));
+	#ifdef WIZBALL_USE_SDL2
+			if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled())
 			{
-				OUTPUT_message("Cannot output Opengl Extension information!");
-				assert(0);
+				MAIN_add_to_log("SDL2 native mode active: skipping strict OpenGL defaults/caps/extensions.");
 			}
-		}
+			else
+	#endif
+			{
+				if (result == 0)
+				{
+					// Apply common fixed-function OpenGL defaults for the current backbuffer + virtual scene size.
+					PLATFORM_RENDERER_apply_gl_defaults(SCREEN_W, SCREEN_H, virtual_screen_width, virtual_screen_height);
+
+					if (!PLATFORM_RENDERER_query_and_build_caps(enable_multi_texture_effects_ideally, &caps))
+					{
+						MAIN_add_to_log("OpenGL capability query failed; continuing with minimal renderer capabilities.");
+						memset(&caps, 0, sizeof(caps));
+					}
+
+					/* Setup OpenGL like we want */
+
+					if (output_debug_information)
+					{
+						const char *gl_vendor = PLATFORM_RENDERER_get_vendor_text();
+						const char *gl_renderer = PLATFORM_RENDERER_get_renderer_text();
+						const char *gl_version = PLATFORM_RENDERER_get_version_text();
+						char gl_line[MAX_LINE_SIZE];
+
+						sprintf(gl_line, "OpenGL vendor: %s", (gl_vendor != NULL) ? gl_vendor : "UNKNOWN");
+						MAIN_add_to_log(gl_line);
+						sprintf(gl_line, "OpenGL renderer: %s", (gl_renderer != NULL) ? gl_renderer : "UNKNOWN");
+						MAIN_add_to_log(gl_line);
+						sprintf(gl_line, "OpenGL version: %s", (gl_version != NULL) ? gl_version : "UNKNOWN");
+						MAIN_add_to_log(gl_line);
+					}
+
+					// We output it, too. Uh-huh.
+					if (output_debug_information)
+					{
+						if (!PLATFORM_RENDERER_write_extensions_to_file("OpenGL_Extension.txt"))
+						{
+							MAIN_add_to_log("Cannot output OpenGL extension information; continuing.");
+						}
+					}
+				}
+				else
+				{
+					MAIN_add_to_log("OpenGL graphics mode failed; continuing without OpenGL capabilities.");
+					memset(&caps, 0, sizeof(caps));
+				}
+			}
 
 		secondary_colour_available = caps.secondary_colour_available;
 		best_texture_combiner_available = caps.best_texture_combiner_available;
@@ -1118,6 +1165,65 @@ static bool OUTPUT_is_secondary_multitexture_active(bool texture_combiner_availa
 		(secondary_bitmap_number != UNSET) &&
 		OUTPUT_is_valid_bitmap_index(secondary_bitmap_number) &&
 		OUTPUT_has_multitexture_flags(opengl_booleans);
+}
+
+static bool OUTPUT_draw_mode_requires_bitmap(int draw_mode)
+{
+	switch (draw_mode)
+	{
+		case DRAW_MODE_SPRITE:
+		case DRAW_MODE_TILEMAP:
+		case DRAW_MODE_TILEMAP_LINE:
+		case DRAW_MODE_TEXT:
+		case DRAW_MODE_HISCORE_ENTRY_NAME:
+		case DRAW_MODE_HISCORE_ENTRY_SCORE:
+			return true;
+		default:
+			return false;
+	}
+}
+
+static bool OUTPUT_window_queue_step(int window_number, int y_list, int *current_entity, int *step_counter)
+{
+	int next_entity;
+	static unsigned int cycle_log_counter = 0;
+
+	if ((current_entity == NULL) || (step_counter == NULL))
+	{
+		return false;
+	}
+
+	if ((*current_entity < 0) || (*current_entity >= MAX_ENTITIES))
+	{
+		return false;
+	}
+
+	next_entity = entity[*current_entity][ENT_NEXT_WINDOW_ENT];
+	(*step_counter)++;
+	if ((*step_counter) > MAX_ENTITIES)
+	{
+		if (cycle_log_counter < 64)
+		{
+			cycle_log_counter++;
+			fprintf(stderr, "[WINDOW-QUEUE] y-list cycle detected: window=%d y_list=%d start=%d\n", window_number, y_list, *current_entity);
+			fflush(stderr);
+		}
+		return false;
+	}
+
+	if (next_entity == *current_entity)
+	{
+		if (cycle_log_counter < 64)
+		{
+			cycle_log_counter++;
+			fprintf(stderr, "[WINDOW-QUEUE] self-loop detected: window=%d y_list=%d start=%d\n", window_number, y_list, *current_entity);
+			fflush(stderr);
+		}
+		return false;
+	}
+
+	*current_entity = next_entity;
+	return true;
 }
 
 static void OUTPUT_fatal_exit(char *message)
@@ -2032,6 +2138,16 @@ void OUTPUT_draw_starfield_colour (int starfield_id)
 
 void OUTPUT_draw_starfield_lines (int starfield_id)
 {
+	static bool starfield_lines_trace_checked_env = false;
+	static bool starfield_lines_trace_enabled = false;
+	static unsigned int starfield_lines_trace_counter = 0;
+
+	if (!starfield_lines_trace_checked_env)
+	{
+		starfield_lines_trace_enabled = OUTPUT_env_enabled("WIZBALL_SDL2_LINE_TRACE");
+		starfield_lines_trace_checked_env = true;
+	}
+
 	int starfield_number = PARTICLES_get_index_from_id (starfield_id);
 
 	if (starfields[starfield_number].in_use == false)
@@ -2044,6 +2160,20 @@ void OUTPUT_draw_starfield_lines (int starfield_id)
 	starfield_struct *sfp = &scp->stars[0];
 
 	int star_count = scp->number_of_stars;
+	if (starfield_lines_trace_enabled)
+	{
+		starfield_lines_trace_counter++;
+		if ((starfield_lines_trace_counter <= 200) || ((starfield_lines_trace_counter % 5000) == 0))
+		{
+			fprintf(stderr,
+				"[SDL2-SFLINES] n=%u id=%d idx=%d in_use=%d stars=%d\n",
+				starfield_lines_trace_counter,
+				starfield_id,
+				starfield_number,
+				scp->in_use ? 1 : 0,
+				star_count);
+		}
+	}
 
 	int counter;
 
@@ -2123,22 +2253,26 @@ void OUTPUT_list_all_window_contents (int look_for_script)
 			int z_ordering_list;
 			int z_ordering_list_size = wp->z_ordering_list_size;
 
-			for (z_ordering_list=0; z_ordering_list<z_ordering_list_size; z_ordering_list++)
-			{
-				current_entity = window_details[window_number].z_ordering_list_starts[z_ordering_list];
+				for (z_ordering_list=0; z_ordering_list<z_ordering_list_size; z_ordering_list++)
+				{
+					int queue_step_counter = 0;
+					current_entity = window_details[window_number].z_ordering_list_starts[z_ordering_list];
 
-				while (current_entity != UNSET)
+					while (current_entity != UNSET)
 				{
 					entity_pointer = &entity[current_entity][0];
 
-					if (entity_pointer[ENT_SCRIPT_NUMBER]==look_for_script)
-					{
-						counter++;
-					}
+						if (entity_pointer[ENT_SCRIPT_NUMBER]==look_for_script)
+						{
+							counter++;
+						}
 
-					current_entity = entity_pointer[ENT_NEXT_WINDOW_ENT];
+						if (!OUTPUT_window_queue_step(window_number, z_ordering_list, &current_entity, &queue_step_counter))
+						{
+							current_entity = UNSET;
+						}
+					}
 				}
-			}
 
 		}
 	}
@@ -2275,9 +2409,10 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 
 		int z_ordering_list;
 
-		for (z_ordering_list=0; z_ordering_list<z_ordering_list_size; z_ordering_list++)
-		{
-			PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
+			for (z_ordering_list=0; z_ordering_list<z_ordering_list_size; z_ordering_list++)
+			{
+				int queue_step_counter = 0;
+				PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 
 			current_entity = window_details[window_number].z_ordering_list_starts[z_ordering_list];
 
@@ -2398,14 +2533,41 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 						break;
 
 					default:
-						assert(0);
-						// Arse-candles!
+					{
+						static bool draw_mode_trace_checked_env = false;
+						static bool draw_mode_trace_enabled = false;
+						if (draw_mode_trace_checked_env == false)
+						{
+							const char *trace_value = getenv("WIZBALL_WINDOW_QUEUE_TRACE");
+							if ((trace_value != NULL) && (atoi(trace_value) != 0))
+							{
+								draw_mode_trace_enabled = true;
+							}
+							draw_mode_trace_checked_env = true;
+						}
+						if (draw_mode_trace_enabled)
+						{
+								fprintf(stderr,
+									"[OUTPUT] unknown draw mode: entity=%d mode=%d script=%d window=%d draw_order=%d alive=%d\n",
+									current_entity,
+									entity_pointer[ENT_DRAW_MODE],
+									entity_pointer[ENT_SCRIPT_NUMBER],
+									entity_pointer[ENT_WINDOW_NUMBER],
+									entity_pointer[ENT_DRAW_ORDER],
+									entity_pointer[ENT_ALIVE]);
+								fflush(stderr);
+							}
+						// Skip unknown modes in non-debug paths to avoid crashing while tracing queue corruption.
 						break;
+					}
 					}
 				}
 
-				current_entity = entity[current_entity][ENT_NEXT_WINDOW_ENT];
-			}
+					if (!OUTPUT_window_queue_step(window_number, z_ordering_list, &current_entity, &queue_step_counter))
+					{
+						current_entity = UNSET;
+					}
+				}
 
 			window_details[window_number].z_ordering_list_starts[z_ordering_list] = UNSET;
 			window_details[window_number].z_ordering_list_ends[z_ordering_list] = UNSET;
@@ -2522,6 +2684,25 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 	int tileset;
 	int tilesize;
 	int tile_graphic;
+	bool effect_trace_enabled = OUTPUT_is_sdl_effect_trace_enabled();
+	static bool window_geom_trace_checked_env = false;
+	static bool window_geom_trace_enabled = false;
+	static unsigned int window_geom_trace_frame_counter = 0;
+	int trace_total_entities = 0;
+	int trace_sprite_entities = 0;
+	int trace_multitexture_entities = 0;
+	int trace_double_mask_entities = 0;
+	int trace_secondary_colour_entities = 0;
+	int trace_arbitrary_quad_entities = 0;
+	int trace_arbitrary_perspective_entities = 0;
+	int trace_vertex_colour_alpha_entities = 0;
+	int trace_blend_add_entities = 0;
+	int trace_blend_multiply_entities = 0;
+	int trace_blend_subtract_entities = 0;
+	int trace_first_non_sprite_mode = UNSET;
+	int trace_first_non_sprite_script = UNSET;
+	int trace_first_non_sprite_entity = UNSET;
+	int trace_first_non_sprite_flags = 0;
 
 	int layer_number;
 
@@ -2532,6 +2713,32 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 	int draw_type;
 
 	int map_width,map_height;
+
+	if (!window_geom_trace_checked_env)
+	{
+		window_geom_trace_enabled = OUTPUT_env_enabled("WIZBALL_SDL2_WINDOW_GEOM_TRACE");
+		window_geom_trace_checked_env = true;
+	}
+
+	if (window_geom_trace_enabled && (window_number == 0))
+	{
+		window_geom_trace_frame_counter++;
+		if ((window_geom_trace_frame_counter % 60) == 0)
+		{
+			fprintf(
+				stderr,
+				"[SDL2-WGEOM] frame=%u win=%d scr=(%.2f,%.2f %dx%d) world=(%d,%d) scale=(%.4f,%.4f) scaled=(%.2f,%.2f) xform=(%.4f,%.4f) buffered=(%d,%d)-(%d,%d)\n",
+				window_geom_trace_frame_counter,
+				window_number,
+				wp->screen_x, wp->screen_y, wp->width, wp->height,
+				wp->current_x, wp->current_y,
+				wp->opengl_scale_x, wp->opengl_scale_y,
+				wp->scaled_width, wp->scaled_height,
+				wp->opengl_transform_x, wp->opengl_transform_y,
+				wp->buffered_tl_x, wp->buffered_tl_y, wp->buffered_br_x, wp->buffered_br_y
+			);
+		}
+	}
 
 	int window_x = wp->current_x;
 	int window_y = wp->current_y;
@@ -2664,9 +2871,10 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 	{
 		PLATFORM_RENDERER_prepare_textured_window_draw(texture_combiner_available);
 
-		for (z_ordering_list=0; z_ordering_list<z_ordering_list_size; z_ordering_list++)
-		{
-			PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
+			for (z_ordering_list=0; z_ordering_list<z_ordering_list_size; z_ordering_list++)
+			{
+				int queue_step_counter = 0;
+				PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 
 			current_entity = window_details[window_number].z_ordering_list_starts[z_ordering_list];
 
@@ -2685,6 +2893,27 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 					draw_type = entity_pointer[ENT_DRAW_MODE];
 					opengl_booleans = entity_pointer[ENT_OPENGL_BOOLEANS];
+					if (effect_trace_enabled)
+					{
+						trace_total_entities++;
+						if (draw_type == DRAW_MODE_SPRITE) trace_sprite_entities++;
+						if ((draw_type != DRAW_MODE_SPRITE) && (trace_first_non_sprite_mode == UNSET))
+						{
+							trace_first_non_sprite_mode = draw_type;
+							trace_first_non_sprite_script = entity_pointer[ENT_SCRIPT_NUMBER];
+							trace_first_non_sprite_entity = current_entity;
+							trace_first_non_sprite_flags = opengl_booleans;
+						}
+						if (OUTPUT_has_multitexture_flags(opengl_booleans)) trace_multitexture_entities++;
+						if (OUTPUT_is_double_multitexture_mode(opengl_booleans)) trace_double_mask_entities++;
+						if (opengl_booleans & OPENGL_BOOLEAN_VERTEX_SECONDARY_COLOUR) trace_secondary_colour_entities++;
+						if (opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_QUAD) trace_arbitrary_quad_entities++;
+						if (opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD) trace_arbitrary_perspective_entities++;
+						if (opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA) trace_vertex_colour_alpha_entities++;
+						if (opengl_booleans & OPENGL_BOOLEAN_BLEND_ADD) trace_blend_add_entities++;
+						if (opengl_booleans & OPENGL_BOOLEAN_BLEND_MULTIPLY) trace_blend_multiply_entities++;
+						if (opengl_booleans & OPENGL_BOOLEAN_BLEND_SUBTRACT) trace_blend_subtract_entities++;
+					}
 
 					#ifdef RETRENGINE_DEBUG_VERSION
 						if (draw_type == DRAW_MODE_SPRITE)
@@ -2755,11 +2984,32 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 					bitmap_number = entity_pointer[ENT_SPRITE];
 					bool bitmap_changed = false;
-					if (!OUTPUT_is_valid_bitmap_index(bitmap_number))
-					{
-						current_entity = entity[current_entity][ENT_NEXT_WINDOW_ENT];
-						continue;
-					}
+					const bool draw_mode_requires_bitmap = OUTPUT_draw_mode_requires_bitmap(draw_type);
+						if (draw_mode_requires_bitmap && !OUTPUT_is_valid_bitmap_index(bitmap_number))
+						{
+						if (OUTPUT_env_enabled("WIZBALL_SDL2_LINE_TRACE"))
+						{
+							static unsigned int bitmap_skip_trace_counter = 0;
+							bitmap_skip_trace_counter++;
+							if ((bitmap_skip_trace_counter <= 200) || ((bitmap_skip_trace_counter % 5000) == 0))
+							{
+								fprintf(
+									stderr,
+									"[SDL2-BMPSKIP] n=%u entity=%d mode=%d script=%d sprite=%d flags=0x%x\n",
+									bitmap_skip_trace_counter,
+									current_entity,
+									draw_type,
+									entity_pointer[ENT_SCRIPT_NUMBER],
+									bitmap_number,
+									opengl_booleans);
+							}
+						}
+							if (!OUTPUT_window_queue_step(window_number, z_ordering_list, &current_entity, &queue_step_counter))
+							{
+								current_entity = UNSET;
+							}
+							continue;
+						}
 					if ( (bitmap_number != old_bitmap_number) && (bitmap_number != UNSET) )
 					{
 						bitmap_changed = true;
@@ -3412,7 +3662,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 				case DRAW_MODE_INVISIBLE:
 					// Something was killed and recycled during the object to object collision phase and so
 					// is now blank. May as well let it sliiiiiide.
-					assert(0);
 					break;
 
 
@@ -3796,6 +4045,22 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 					#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 						MAIN_debug_last_thing ("DRAW_MODE_STARFIELD_LINES...");
 					#endif
+					if (OUTPUT_env_enabled("WIZBALL_SDL2_LINE_TRACE"))
+					{
+						static unsigned int starfield_lines_case_counter = 0;
+						starfield_lines_case_counter++;
+						if ((starfield_lines_case_counter <= 200) || ((starfield_lines_case_counter % 5000) == 0))
+						{
+							fprintf(
+								stderr,
+								"[SDL2-SFCASE] n=%u entity=%d script=%d uid=%d flags=0x%x\n",
+								starfield_lines_case_counter,
+								current_entity,
+								entity_pointer[ENT_SCRIPT_NUMBER],
+								entity_pointer[ENT_UNIQUE_ID],
+								opengl_booleans);
+						}
+					}
 
 					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 
@@ -3907,17 +4172,44 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 					PLATFORM_RENDERER_set_texture_enabled(true);
 					break;
 
-				default:
-					assert(0);
-					// Arse-candles!
-					break;
+					default:
+					{
+						static bool draw_mode_trace_checked_env = false;
+						static bool draw_mode_trace_enabled = false;
+						if (draw_mode_trace_checked_env == false)
+						{
+							const char *trace_value = getenv("WIZBALL_WINDOW_QUEUE_TRACE");
+							if ((trace_value != NULL) && (atoi(trace_value) != 0))
+							{
+								draw_mode_trace_enabled = true;
+							}
+							draw_mode_trace_checked_env = true;
+						}
+						if (draw_mode_trace_enabled)
+						{
+							fprintf(stderr,
+								"[OUTPUT] unknown draw mode: entity=%d mode=%d script=%d window=%d draw_order=%d alive=%d\n",
+								current_entity,
+								draw_type,
+								entity_pointer[ENT_SCRIPT_NUMBER],
+								entity_pointer[ENT_WINDOW_NUMBER],
+								entity_pointer[ENT_DRAW_ORDER],
+								entity_pointer[ENT_ALIVE]);
+							fflush(stderr);
+						}
+						// Arse-candles!
+						break;
+					}
 				}
 
 				#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 					MAIN_debug_last_thing ("Finished Switch...");
 				#endif
 
-				current_entity = entity[current_entity][ENT_NEXT_WINDOW_ENT];
+					if (!OUTPUT_window_queue_step(window_number, z_ordering_list, &current_entity, &queue_step_counter))
+					{
+						current_entity = UNSET;
+					}
 
 				old_opengl_booleans = opengl_booleans;
 			}
@@ -3944,6 +4236,31 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 	#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 		MAIN_debug_last_thing ("Elvis has left the building...");
 	#endif
+
+	if (effect_trace_enabled && (trace_total_entities > 0))
+	{
+		output_sdl_effect_trace_frame_counter++;
+		fprintf(
+			stderr,
+			"[SDL2-TRACE] frame=%u win=%d ents=%d sprite=%d mtex=%d double=%d sec_col=%d arb=%d persp=%d vcol_a=%d blend(add/mul/sub)=%d/%d/%d non_sprite(mode/script/entity/flags)=%d/%d/%d/0x%x\n",
+			output_sdl_effect_trace_frame_counter,
+			window_number,
+			trace_total_entities,
+			trace_sprite_entities,
+			trace_multitexture_entities,
+			trace_double_mask_entities,
+			trace_secondary_colour_entities,
+			trace_arbitrary_quad_entities,
+			trace_arbitrary_perspective_entities,
+			trace_vertex_colour_alpha_entities,
+			trace_blend_add_entities,
+			trace_blend_multiply_entities,
+			trace_blend_subtract_entities,
+			trace_first_non_sprite_mode,
+			trace_first_non_sprite_script,
+			trace_first_non_sprite_entity,
+			trace_first_non_sprite_flags);
+	}
 
 	return total_entities_drawn;
 }
