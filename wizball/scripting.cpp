@@ -118,6 +118,9 @@ int unique_program_trace_entity = UNSET;
 
 bool complete_trace_from_now_on = false;
 
+static int entity_window_queue_stamp[MAX_ENTITIES];
+static int entity_window_queue_epoch = 0;
+
 int just_created_entity = 0;
 	// This is the last entity which will be processed each frame
 
@@ -3025,6 +3028,31 @@ void SCRIPTING_add_entity_to_window (int entity_number)
 	int window_number;
 	int *ep = &entity[entity_number][0];
 	int y_ordering_list;
+	static int queue_guard_log_count = 0;
+
+	if ((entity_number < 0) || (entity_number >= MAX_ENTITIES))
+	{
+		return;
+	}
+
+	if (entity_window_queue_stamp[entity_number] == entity_window_queue_epoch)
+	{
+		if (queue_guard_log_count < 128)
+		{
+			char guard_line[MAX_LINE_SIZE];
+			queue_guard_log_count++;
+			snprintf(
+				guard_line,
+				sizeof(guard_line),
+				"WINDOW_QUEUE_GUARD stage=duplicate_insert ent=%d frame=%d",
+				entity_number,
+				frames_so_far);
+			MAIN_add_to_log(guard_line);
+			fprintf(stderr, "%s\n", guard_line);
+		}
+		return;
+	}
+	entity_window_queue_stamp[entity_number] = entity_window_queue_epoch;
 
 	#ifdef RETRENGINE_DEBUG_VERSION_ENTITY_DEBUG_FLAG_CHECKS
 	if (ep[ENT_DEBUG_FLAGS] & DEBUG_FLAG_STOP_WHEN_Y_SORTED)
@@ -9763,6 +9791,17 @@ bool SCRIPTING_process_entities (void)
 	bool list_guard_tripped = false;
 
 	char error_message[MAX_LINE_SIZE];
+
+	entity_window_queue_epoch++;
+	if (entity_window_queue_epoch <= 0)
+	{
+		int t;
+		entity_window_queue_epoch = 1;
+		for (t = 0; t < MAX_ENTITIES; t++)
+		{
+			entity_window_queue_stamp[t] = 0;
+		}
+	}
 
 	entity_id = first_processed_entity_in_list;
 
