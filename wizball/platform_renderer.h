@@ -94,6 +94,7 @@ bool PLATFORM_RENDERER_is_sdl2_stub_ready(void);
 bool PLATFORM_RENDERER_is_sdl2_stub_enabled(void);
 bool PLATFORM_RENDERER_is_sdl2_native_sprite_enabled(void);
 bool PLATFORM_RENDERER_is_sdl2_native_primary_enabled(void);
+bool PLATFORM_RENDERER_is_gl_enabled(void);
 bool PLATFORM_RENDERER_run_sdl2_stub_self_test(void);
 bool PLATFORM_RENDERER_mirror_from_current_backbuffer(int width, int height);
 const char *PLATFORM_RENDERER_get_sdl2_stub_status(void);

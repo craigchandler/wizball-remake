@@ -1713,6 +1713,13 @@ int main (int argc, char *argv[])
 		bool exit_intro = false;
 
 		do {
+			PLATFORM_INPUT_pump_events();
+			if (PLATFORM_INPUT_quit_requested())
+			{
+				close_callback();
+				PLATFORM_INPUT_clear_quit_requested();
+			}
+
 			// This will loop as long as the game timer trigger is >0.
 			// The stuff in here is fast as its just logic code with no rasterizing.
 			while ((game_trigger) && (draw == false))

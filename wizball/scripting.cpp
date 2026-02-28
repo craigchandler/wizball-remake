@@ -306,6 +306,124 @@ static bool SCRIPTING_is_valid_script_index(int script_number)
 	return (scr_lookup != NULL) && (script_number >= 0) && (script_number < total_scripts);
 }
 
+static bool scripting_loop_diag_checked_env = false;
+static bool scripting_loop_diag_enabled = false;
+static bool scripting_interpret_guard_checked_env = false;
+static int scripting_interpret_guard_limit = 250000;
+
+static bool SCRIPTING_is_loop_diag_enabled(void)
+{
+	if (!scripting_loop_diag_checked_env)
+	{
+		const char *env = getenv("WIZBALL_SCRIPT_LOOP_DIAG");
+		scripting_loop_diag_enabled = (env != NULL) &&
+			((strcmp(env, "1") == 0) ||
+			 (strcmp(env, "true") == 0) ||
+			 (strcmp(env, "TRUE") == 0) ||
+			 (strcmp(env, "yes") == 0) ||
+			 (strcmp(env, "on") == 0));
+		scripting_loop_diag_checked_env = true;
+	}
+
+	return scripting_loop_diag_enabled;
+}
+
+static int SCRIPTING_get_interpret_guard_limit(void)
+{
+	if (!scripting_interpret_guard_checked_env)
+	{
+		const char *env = getenv("WIZBALL_SCRIPT_INTERPRET_GUARD");
+		if ((env != NULL) && (env[0] != '\0'))
+		{
+			int value = atoi(env);
+			if (value < 1000)
+			{
+				value = 1000;
+			}
+			if (value > 5000000)
+			{
+				value = 5000000;
+			}
+			scripting_interpret_guard_limit = value;
+		}
+		scripting_interpret_guard_checked_env = true;
+	}
+
+	return scripting_interpret_guard_limit;
+}
+
+static void SCRIPTING_log_loop_guard_trip(const char *stage, int list_head, int current_entity, int iteration_count)
+{
+	char line[MAX_LINE_SIZE];
+	int probe = list_head;
+	int n;
+
+	if (stage == NULL)
+	{
+		stage = "unknown";
+	}
+
+	snprintf(
+		line,
+		sizeof(line),
+		"SCRIPT_LOOP_GUARD stage=%s frame=%d iter=%d head=%d current=%d",
+		stage,
+		frames_so_far,
+		iteration_count,
+		list_head,
+		current_entity);
+	MAIN_add_to_log(line);
+	fprintf(stderr, "%s\n", line);
+
+	if (!SCRIPTING_is_loop_diag_enabled())
+	{
+		return;
+	}
+
+	for (n = 0; (n < 48) && (probe != UNSET); n++)
+	{
+		int next_probe = UNSET;
+		int prev_probe = UNSET;
+		int alive = UNSET;
+		int script_number = UNSET;
+		const char *script_name = "UNSET";
+
+		if ((probe >= 0) && (probe < MAX_ENTITIES))
+		{
+			next_probe = entity[probe][ENT_NEXT_PROCESS_ENT];
+			prev_probe = entity[probe][ENT_PREV_PROCESS_ENT];
+			alive = entity[probe][ENT_ALIVE];
+			script_number = entity[probe][ENT_SCRIPT_NUMBER];
+			if ((script_number >= 0) && (script_number < script_count))
+			{
+				script_name = GPL_get_entry_name("SCRIPTS", script_number);
+			}
+		}
+
+		snprintf(
+			line,
+			sizeof(line),
+			"SCRIPT_LOOP_GUARD_NODE stage=%s n=%d id=%d next=%d prev=%d alive=%d script=%d(%s)",
+			stage,
+			n,
+			probe,
+			next_probe,
+			prev_probe,
+			alive,
+			script_number,
+			script_name);
+		MAIN_add_to_log(line);
+		fprintf(stderr, "%s\n", line);
+
+		if ((probe < 0) || (probe >= MAX_ENTITIES))
+		{
+			break;
+		}
+
+		probe = next_probe;
+	}
+}
+
 // This structure says where in the world collisions between entities take place. Because it's
 // obviously fairly processor intensive to collide loads of things together you can only have
 // one area in the game where that's happening. In something like a scrolling shooter you'd
@@ -2045,8 +2163,10 @@ void SCRIPTING_create_windows (int window_count)
 		window_details[window_number].screen_x = 0;
 		window_details[window_number].screen_y = 0;
 
-		window_details[window_number].new_opengl_scale_x = 1.0f;
-		window_details[window_number].new_opengl_scale_y = 1.0f;
+			window_details[window_number].new_opengl_scale_x = 1.0f;
+			window_details[window_number].new_opengl_scale_y = 1.0f;
+			window_details[window_number].fpos_x = 0.0f;
+			window_details[window_number].fpos_y = 0.0f;
 
 		window_details[window_number].new_width = 0;
 		window_details[window_number].new_height = 0;
@@ -2079,15 +2199,20 @@ void SCRIPTING_create_windows (int window_count)
 	number_of_windows = window_count;
 }
 
+static bool SCRIPTING_is_valid_window_index(int window_number)
+{
+	return (window_number >= 0) && (window_number < number_of_windows);
+}
+
 
 
 void SCRIPTING_set_up_window (int window_number, int screen_x, int screen_y, int width, int height, int buffer_size, int z_ordering_list_size, int y_ordering_resolution)
 {
 	// Sets up the buffers and stuff that the windows use, freeing old ones if necessary.
 
-	if (window_number < number_of_windows)
+	if (SCRIPTING_is_valid_window_index(window_number))
 	{
-		window_details[number_of_windows].active = false;
+		window_details[window_number].active = false;
 
 		window_details[window_number].buffer_size = buffer_size;
 		window_details[window_number].buffered_br_x = 0;
@@ -2112,6 +2237,12 @@ void SCRIPTING_set_up_window (int window_number, int screen_x, int screen_y, int
 		window_details[window_number].new_height = height;
 		window_details[window_number].width = width;
 		window_details[window_number].height = height;
+		window_details[window_number].new_opengl_scale_x = 1.0f;
+		window_details[window_number].new_opengl_scale_y = 1.0f;
+		window_details[window_number].opengl_scale_x = 1.0f;
+		window_details[window_number].opengl_scale_y = 1.0f;
+		window_details[window_number].fpos_x = 0.0f;
+		window_details[window_number].fpos_y = 0.0f;
 
 		window_details[window_number].vertex_red = 256;
 		window_details[window_number].vertex_green = 256;
@@ -2173,7 +2304,7 @@ void SCRIPTING_activate_window (int window_number)
 {
 	// Sets a boolean to true in the window allowing it to be drawn and stuff.
 
-	if (window_number < number_of_windows)
+	if (SCRIPTING_is_valid_window_index(window_number))
 	{
 		if ( (window_details[window_number].y_ordering_list_starts != NULL) && (window_details[window_number].y_ordering_list_ends != NULL) )
 		{
@@ -2212,6 +2343,13 @@ void SCRIPTING_deactivate_window (int window_number)
 	// Sets a boolean to false within the window so that it isn't accessed in any
 	// way (ie, it's buckets aren't opened up, nothing is added to it and it's not
 	// drawn.
+
+	if (!SCRIPTING_is_valid_window_index(window_number))
+	{
+		OUTPUT_message("Trying to deactivate a non-existant window number!");
+		assert(0);
+		return;
+	}
 
 	window_details[window_number].new_active = false;
 }
@@ -2294,6 +2432,8 @@ int SCRIPTING_add_window (int screen_x, int screen_y, int width, int height, int
 
 bool SCRIPTING_find_next_entity (void)
 {
+	int previous_dead_entity;
+
 	if (last_dead_entity_in_list != UNSET)
 	{
 		// Assign the last one on the dead stack to be the one used.
@@ -2301,10 +2441,14 @@ bool SCRIPTING_find_next_entity (void)
 
 		// Set the new last one on the dead stack to be the old last one's previous
 		// linked entity.
-		last_dead_entity_in_list = entity[last_dead_entity_in_list][ENT_PREV_PROCESS_ENT];
+		previous_dead_entity = entity[last_dead_entity_in_list][ENT_PREV_PROCESS_ENT];
+		last_dead_entity_in_list = previous_dead_entity;
 
 		// And destroy the link...
-		entity[last_dead_entity_in_list][ENT_NEXT_PROCESS_ENT] = UNSET;
+		if (previous_dead_entity != UNSET)
+		{
+			entity[previous_dead_entity][ENT_NEXT_PROCESS_ENT] = UNSET;
+		}
 
 		// And set it up...
 		SCRIPTING_setup_entity(just_created_entity);
@@ -2321,6 +2465,13 @@ bool SCRIPTING_find_next_entity (void)
 
 void SCRIPTING_set_window_scale (int window_number, int opengl_scale_x, int opengl_scale_y, int pos_x, int pos_y)
 {
+	if (!SCRIPTING_is_valid_window_index(window_number))
+	{
+		OUTPUT_message("Trying to set scale on a non-existant window number!");
+		assert(0);
+		return;
+	}
+
 	window_struct *wp = &window_details[window_number];
 
 	wp->fpos_x = float(pos_x) / 10000.0f;
@@ -2334,6 +2485,13 @@ void SCRIPTING_set_window_scale (int window_number, int opengl_scale_x, int open
 
 void SCRIPTING_enable_window_colour (int window_number)
 {
+	if (!SCRIPTING_is_valid_window_index(window_number))
+	{
+		OUTPUT_message("Trying to enable colour on a non-existant window number!");
+		assert(0);
+		return;
+	}
+
 	window_details[window_number].secondary_window_colour = true;
 }
 
@@ -2341,6 +2499,13 @@ void SCRIPTING_enable_window_colour (int window_number)
 
 void SCRIPTING_disable_window_colour (int window_number)
 {
+	if (!SCRIPTING_is_valid_window_index(window_number))
+	{
+		OUTPUT_message("Trying to disable colour on a non-existant window number!");
+		assert(0);
+		return;
+	}
+
 	window_details[window_number].secondary_window_colour = false;
 }
 
@@ -2348,6 +2513,13 @@ void SCRIPTING_disable_window_colour (int window_number)
 
 void SCRIPTING_set_window_colour (int window_number, int vertex_red, int vertex_green, int vertex_blue)
 {
+	if (!SCRIPTING_is_valid_window_index(window_number))
+	{
+		OUTPUT_message("Trying to set colour on a non-existant window number!");
+		assert(0);
+		return;
+	}
+
 	window_struct *wp = &window_details[window_number];
 
 	wp->vertex_red = vertex_red;
@@ -2359,6 +2531,13 @@ void SCRIPTING_set_window_colour (int window_number, int vertex_red, int vertex_
 
 void SCRIPTING_screen_position_window (int window_number, int screen_x, int screen_y, int width, int height)
 {
+	if (!SCRIPTING_is_valid_window_index(window_number))
+	{
+		OUTPUT_message("Trying to position a non-existant window number!");
+		assert(0);
+		return;
+	}
+
 	window_struct *wp = &window_details[window_number];
 
 	wp->new_screen_x = float(screen_x);
@@ -2371,6 +2550,13 @@ void SCRIPTING_screen_position_window (int window_number, int screen_x, int scre
 
 void SCRIPTING_get_screen_window_position (int window_number, int *screen_x, int *screen_y, int *width, int *height)
 {
+	if (!SCRIPTING_is_valid_window_index(window_number))
+	{
+		OUTPUT_message("Trying to query a non-existant window number!");
+		assert(0);
+		return;
+	}
+
 	window_struct *wp = &window_details[window_number];
 
 	*screen_x = int(wp->new_screen_x);
@@ -2383,6 +2569,13 @@ void SCRIPTING_get_screen_window_position (int window_number, int *screen_x, int
 
 void SCRIPTING_map_position_window (int window_number, int x, int y)
 {
+	if (!SCRIPTING_is_valid_window_index(window_number))
+	{
+		OUTPUT_message("Trying to map-position a non-existant window number!");
+		assert(0);
+		return;
+	}
+
 	window_details[window_number].new_x = x;
 	window_details[window_number].new_y = y;
 }
@@ -2391,6 +2584,13 @@ void SCRIPTING_map_position_window (int window_number, int x, int y)
 
 void SCRIPTING_get_map_window_position (int window_number, int *x, int *y)
 {
+	if (!SCRIPTING_is_valid_window_index(window_number))
+	{
+		OUTPUT_message("Trying to query map-position on a non-existant window number!");
+		assert(0);
+		return;
+	}
+
 	*x = window_details[window_number].new_x;
 	*y = window_details[window_number].new_y;
 }
@@ -2919,9 +3119,25 @@ void SCRIPTING_move_window_y_queue_to_z_queue (int window_number)
 	int y_ordering_list_size = window_details[window_number].y_ordering_list_size;
 	int z_ordering_list;
 	int z_ordering_list_size = window_details[window_number].z_ordering_list_size;
+	const int chain_guard_limit = MAX_ENTITIES + 16;
+	static int guard_log_count = 0;
+	static int queue_visit_stamp[MAX_ENTITIES];
+	static int queue_visit_epoch = 0;
+
+	queue_visit_epoch++;
+	if (queue_visit_epoch <= 0)
+	{
+		int t;
+		queue_visit_epoch = 1;
+		for (t = 0; t < MAX_ENTITIES; t++)
+		{
+			queue_visit_stamp[t] = 0;
+		}
+	}
 
 	for (y_ordering_list=0; y_ordering_list<y_ordering_list_size; y_ordering_list++)
 	{
+		int chain_guard = 0;
 		current_entity = window_details[window_number].y_ordering_list_starts[y_ordering_list];
 
 		if (current_entity != UNSET)
@@ -2932,6 +3148,69 @@ void SCRIPTING_move_window_y_queue_to_z_queue (int window_number)
 
 		while (current_entity != UNSET)
 		{
+			bool inserted_into_z_list = false;
+
+			chain_guard++;
+			if (chain_guard > chain_guard_limit)
+			{
+				if (guard_log_count < 128)
+				{
+					char guard_line[MAX_LINE_SIZE];
+					guard_log_count++;
+					snprintf(
+						guard_line,
+						sizeof(guard_line),
+						"WINDOW_QUEUE_GUARD stage=y_to_z window=%d y_list=%d current=%d frame=%d",
+						window_number,
+						y_ordering_list,
+						current_entity,
+						frames_so_far);
+					MAIN_add_to_log(guard_line);
+					fprintf(stderr, "%s\n", guard_line);
+				}
+				break;
+			}
+
+			if ((current_entity < 0) || (current_entity >= MAX_ENTITIES))
+			{
+				if (guard_log_count < 128)
+				{
+					char guard_line[MAX_LINE_SIZE];
+					guard_log_count++;
+					snprintf(
+						guard_line,
+						sizeof(guard_line),
+						"WINDOW_QUEUE_INVALID stage=y_to_z window=%d y_list=%d current=%d frame=%d",
+						window_number,
+						y_ordering_list,
+						current_entity,
+						frames_so_far);
+					MAIN_add_to_log(guard_line);
+					fprintf(stderr, "%s\n", guard_line);
+				}
+				break;
+			}
+			if (queue_visit_stamp[current_entity] == queue_visit_epoch)
+			{
+				if (guard_log_count < 128)
+				{
+					char guard_line[MAX_LINE_SIZE];
+					guard_log_count++;
+					snprintf(
+						guard_line,
+						sizeof(guard_line),
+						"WINDOW_QUEUE_GUARD stage=y_cycle window=%d y_list=%d current=%d frame=%d",
+						window_number,
+						y_ordering_list,
+						current_entity,
+						frames_so_far);
+					MAIN_add_to_log(guard_line);
+					fprintf(stderr, "%s\n", guard_line);
+				}
+				break;
+			}
+			queue_visit_stamp[current_entity] = queue_visit_epoch;
+
 			cep = &entity[current_entity][0];
 
 			#ifdef RETRENGINE_DEBUG_VERSION_ENTITY_DEBUG_FLAG_CHECKS
@@ -2942,10 +3221,29 @@ void SCRIPTING_move_window_y_queue_to_z_queue (int window_number)
 			#endif
 
 			next_entity = cep[ENT_NEXT_WINDOW_ENT];
+			if (next_entity == current_entity)
+			{
+				if (guard_log_count < 128)
+				{
+					char guard_line[MAX_LINE_SIZE];
+					guard_log_count++;
+					snprintf(
+						guard_line,
+						sizeof(guard_line),
+						"WINDOW_QUEUE_SELF_LOOP stage=next_window window=%d y_list=%d ent=%d frame=%d",
+						window_number,
+						y_ordering_list,
+						current_entity,
+						frames_so_far);
+					MAIN_add_to_log(guard_line);
+					fprintf(stderr, "%s\n", guard_line);
+				}
+				next_entity = UNSET;
+			}
 
 			z_ordering_list = cep[ENT_DRAW_ORDER];
 
-			if (z_ordering_list < z_ordering_list_size)
+			if ((z_ordering_list >= 0) && (z_ordering_list < z_ordering_list_size))
 			{
 				if (window_details[window_number].z_ordering_list_ends[z_ordering_list] == UNSET)
 				{
@@ -2954,6 +3252,7 @@ void SCRIPTING_move_window_y_queue_to_z_queue (int window_number)
 
 					window_details[window_number].z_ordering_list_starts[z_ordering_list] = current_entity;
 					window_details[window_number].z_ordering_list_ends[z_ordering_list] = current_entity;
+					inserted_into_z_list = true;
 				}
 				else
 				{
@@ -2962,21 +3261,92 @@ void SCRIPTING_move_window_y_queue_to_z_queue (int window_number)
 					cep[ENT_NEXT_WINDOW_ENT] = UNSET;
 
 					window_details[window_number].z_ordering_list_ends[z_ordering_list] = current_entity;
+					inserted_into_z_list = true;
 				}
 			}
 
-			while (cep[ENT_DRAW_BUDDY] != UNSET)
+			if (inserted_into_z_list)
 			{
-				// Hurrah! It has a draw buddy. We don't need to recalculate the z-order list as it'll
-				// be the same one and we know it has at least one thing in it, so this is pretty easy...
-				current_entity = cep[ENT_DRAW_BUDDY];
-				cep = &entity[current_entity][0];
+				int buddy_guard = 0;
+				while (cep[ENT_DRAW_BUDDY] != UNSET)
+				{
+					int buddy_entity = cep[ENT_DRAW_BUDDY];
+					buddy_guard++;
+					if (buddy_guard > chain_guard_limit)
+					{
+						if (guard_log_count < 128)
+						{
+							char guard_line[MAX_LINE_SIZE];
+							guard_log_count++;
+							snprintf(
+								guard_line,
+								sizeof(guard_line),
+								"WINDOW_QUEUE_GUARD stage=draw_buddy window=%d y_list=%d ent=%d buddy=%d frame=%d",
+								window_number,
+								y_ordering_list,
+								current_entity,
+								buddy_entity,
+								frames_so_far);
+							MAIN_add_to_log(guard_line);
+							fprintf(stderr, "%s\n", guard_line);
+						}
+						break;
+					}
+					if ((buddy_entity < 0) || (buddy_entity >= MAX_ENTITIES) || (buddy_entity == current_entity))
+					{
+						if (guard_log_count < 128)
+						{
+							char guard_line[MAX_LINE_SIZE];
+							guard_log_count++;
+							snprintf(
+								guard_line,
+								sizeof(guard_line),
+								"WINDOW_QUEUE_INVALID stage=draw_buddy window=%d y_list=%d ent=%d buddy=%d frame=%d",
+								window_number,
+								y_ordering_list,
+								current_entity,
+								buddy_entity,
+								frames_so_far);
+							MAIN_add_to_log(guard_line);
+							fprintf(stderr, "%s\n", guard_line);
+						}
+						cep[ENT_DRAW_BUDDY] = UNSET;
+						break;
+					}
+					if (queue_visit_stamp[buddy_entity] == queue_visit_epoch)
+					{
+						if (guard_log_count < 128)
+						{
+							char guard_line[MAX_LINE_SIZE];
+							guard_log_count++;
+							snprintf(
+								guard_line,
+								sizeof(guard_line),
+								"WINDOW_QUEUE_GUARD stage=draw_buddy_cycle window=%d y_list=%d ent=%d buddy=%d frame=%d",
+								window_number,
+								y_ordering_list,
+								current_entity,
+								buddy_entity,
+								frames_so_far);
+							MAIN_add_to_log(guard_line);
+							fprintf(stderr, "%s\n", guard_line);
+						}
+						cep[ENT_DRAW_BUDDY] = UNSET;
+						break;
+					}
+					queue_visit_stamp[buddy_entity] = queue_visit_epoch;
+
+					// Hurrah! It has a draw buddy. We don't need to recalculate the z-order list as it'll
+					// be the same one and we know it has at least one thing in it, so this is pretty easy...
+					current_entity = buddy_entity;
+					cep = &entity[current_entity][0];
 
 				cep[ENT_PREV_WINDOW_ENT] = window_details[window_number].z_ordering_list_ends[z_ordering_list];
 				entity[cep[ENT_PREV_WINDOW_ENT]][ENT_NEXT_WINDOW_ENT] = current_entity;
 				cep[ENT_NEXT_WINDOW_ENT] = UNSET;
 
-				window_details[window_number].z_ordering_list_ends[z_ordering_list] = current_entity;
+					window_details[window_number].z_ordering_list_ends[z_ordering_list] = current_entity;
+				}
 			}
 
 			current_entity = next_entity;
@@ -4852,6 +5222,7 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 		int result_i; // For math and comparative operations.
 
 		bool finished = false;
+		int interpret_loop_guard = 0;
 
 		int status = 0;
 
@@ -4884,6 +5255,40 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 
 			while (finished == false)
 			{
+				interpret_loop_guard++;
+				if (interpret_loop_guard > SCRIPTING_get_interpret_guard_limit())
+				{
+					char guard_line[MAX_LINE_SIZE];
+					int script_number = entity_pointer[ENT_SCRIPT_NUMBER];
+					const char *script_name = "UNSET";
+
+					if ((script_number >= 0) && (script_number < script_count))
+					{
+						script_name = GPL_get_entry_name("SCRIPTS", script_number);
+					}
+
+					snprintf(
+						guard_line,
+						sizeof(guard_line),
+						"SCRIPT_INTERPRET_GUARD frame=%d entity=%d script=%d(%s) line=%d alive=%d wait=%d over=%d guard=%d",
+						frames_so_far,
+						entity_id,
+						script_number,
+						script_name,
+						line_number,
+						entity_pointer[ENT_ALIVE],
+						entity_pointer[ENT_WAIT_COUNTER],
+						over_ride_line,
+						interpret_loop_guard);
+					MAIN_add_to_log(guard_line);
+					fprintf(stderr, "%s\n", guard_line);
+
+					/* Force the offender out of the process list to avoid frame hard-lock. */
+					SCRIPTING_limbo_entity(entity_id);
+					finished = true;
+					break;
+				}
+
 				instruction = scr[line_number].script_line_pointer[scr[line_number].command_instruction_index].data_value;
 				scripting_kill_source_entity = entity_id;
 				scripting_kill_source_line = line_number;
@@ -9353,6 +9758,9 @@ bool SCRIPTING_process_entities (void)
 	int entity_id,next_entity_id;
 	int *entity_pointer;
 	int bitshift;
+	const int list_guard_limit = MAX_ENTITIES + 16;
+	int list_iteration_guard = 0;
+	bool list_guard_tripped = false;
 
 	char error_message[MAX_LINE_SIZE];
 
@@ -9375,6 +9783,14 @@ bool SCRIPTING_process_entities (void)
 
 	while (entity_id != UNSET)
 	{
+		list_iteration_guard++;
+		if (list_iteration_guard > list_guard_limit)
+		{
+			SCRIPTING_log_loop_guard_trip("move_entities", first_processed_entity_in_list, entity_id, list_iteration_guard);
+			list_guard_tripped = true;
+			break;
+		}
+
 		entity_pointer = &entity[entity_id][0];
 
 		global_next_entity = entity_pointer [ENT_NEXT_PROCESS_ENT];
@@ -9429,6 +9845,10 @@ bool SCRIPTING_process_entities (void)
 
 		entity_id = global_next_entity;
 	}
+	if (list_guard_tripped)
+	{
+		return true;
+	}
 
 	// Go through the entities again, only this time purely for script processing.
 	#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
@@ -9436,6 +9856,7 @@ bool SCRIPTING_process_entities (void)
 	#endif
 
 	entity_id = first_processed_entity_in_list;
+	list_iteration_guard = 0;
 
 	int window_number;
 
@@ -9444,6 +9865,14 @@ bool SCRIPTING_process_entities (void)
 
 	while (entity_id != UNSET)
 	{
+		list_iteration_guard++;
+		if (list_iteration_guard > list_guard_limit)
+		{
+			SCRIPTING_log_loop_guard_trip("script_entities", first_processed_entity_in_list, entity_id, list_iteration_guard);
+			list_guard_tripped = true;
+			break;
+		}
+
 		entity_pointer = &entity[entity_id][0];
 
 		global_next_entity = entity_pointer [ENT_NEXT_PROCESS_ENT];
@@ -9515,6 +9944,10 @@ bool SCRIPTING_process_entities (void)
 		previous_entity = entity_id;
 		entity_id = global_next_entity;
 	}
+	if (list_guard_tripped)
+	{
+		return true;
+	}
 
 	global_next_entity = UNSET;
 
@@ -9555,9 +9988,18 @@ bool SCRIPTING_process_entities (void)
 	// We then stuff all the objects into the collision buffer in their correct locations.
 
 	entity_id = first_processed_entity_in_list;
+	list_iteration_guard = 0;
 
 	while (entity_id != UNSET)
 	{
+		list_iteration_guard++;
+		if (list_iteration_guard > list_guard_limit)
+		{
+			SCRIPTING_log_loop_guard_trip("collision_bucket_fill", first_processed_entity_in_list, entity_id, list_iteration_guard);
+			list_guard_tripped = true;
+			break;
+		}
+
 		entity_pointer = &entity[entity_id][0];
 
 		next_entity_id = entity_pointer [ENT_NEXT_PROCESS_ENT];
@@ -9574,6 +10016,10 @@ bool SCRIPTING_process_entities (void)
 		}
 
 		entity_id = next_entity_id;
+	}
+	if (list_guard_tripped)
+	{
+		return true;
 	}
 
 	#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
@@ -9615,8 +10061,17 @@ bool SCRIPTING_process_entities (void)
 		int first_wizball_window_br_y = UNSET;
 
 		entity_id = first_processed_entity_in_list;
+		list_iteration_guard = 0;
 		while (entity_id != UNSET)
 		{
+			list_iteration_guard++;
+			if (list_iteration_guard > list_guard_limit)
+			{
+				SCRIPTING_log_loop_guard_trip("focus_scan", first_processed_entity_in_list, entity_id, list_iteration_guard);
+				list_guard_tripped = true;
+				break;
+			}
+
 			entity_pointer = &entity[entity_id][0];
 			if (entity_pointer[ENT_ALIVE] >= JUST_BORN)
 			{
@@ -9691,6 +10146,10 @@ bool SCRIPTING_process_entities (void)
 				}
 			}
 			entity_id = entity_pointer[ENT_NEXT_PROCESS_ENT];
+		}
+		if (list_guard_tripped)
+		{
+			return true;
 		}
 
 		static int last_focus_wizball = -1;

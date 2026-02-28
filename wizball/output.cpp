@@ -154,6 +154,79 @@ static bool OUTPUT_is_sdl_effect_trace_enabled(void)
 	return output_sdl_effect_trace_enabled;
 }
 
+static void OUTPUT_sanitize_window_transform_values(
+	int window_number,
+	const char *context,
+	float *left_window_transform_x,
+	float *top_window_transform_y,
+	float *total_scale_x,
+	float *total_scale_y)
+{
+	static unsigned int transform_sanitize_counter = 0;
+	const float min_abs_scale = 0.0001f;
+	bool corrected = false;
+	float raw_left;
+	float raw_top;
+	float raw_scale_x;
+	float raw_scale_y;
+
+	if ((left_window_transform_x == NULL) ||
+		(top_window_transform_y == NULL) ||
+		(total_scale_x == NULL) ||
+		(total_scale_y == NULL))
+	{
+		return;
+	}
+
+	raw_left = *left_window_transform_x;
+	raw_top = *top_window_transform_y;
+	raw_scale_x = *total_scale_x;
+	raw_scale_y = *total_scale_y;
+
+	if (!isfinite(*left_window_transform_x))
+	{
+		*left_window_transform_x = 0.0f;
+		corrected = true;
+	}
+	if (!isfinite(*top_window_transform_y))
+	{
+		*top_window_transform_y = 0.0f;
+		corrected = true;
+	}
+	if (!isfinite(*total_scale_x) || (fabsf(*total_scale_x) < min_abs_scale))
+	{
+		*total_scale_x = 1.0f;
+		corrected = true;
+	}
+	if (!isfinite(*total_scale_y) || (fabsf(*total_scale_y) < min_abs_scale))
+	{
+		*total_scale_y = 1.0f;
+		corrected = true;
+	}
+
+	if (corrected)
+	{
+		transform_sanitize_counter++;
+		if ((transform_sanitize_counter <= 200) || ((transform_sanitize_counter % 1000) == 0))
+		{
+			fprintf(
+				stderr,
+				"[OUTPUT-TRANSFORM] n=%u window=%d context=%s raw_left=%.3f raw_top=%.3f raw_scale=%.6f,%.6f fixed_left=%.3f fixed_top=%.3f fixed_scale=%.6f,%.6f\n",
+				transform_sanitize_counter,
+				window_number,
+				(context != NULL) ? context : "-",
+				raw_left,
+				raw_top,
+				raw_scale_x,
+				raw_scale_y,
+				*left_window_transform_x,
+				*top_window_transform_y,
+				*total_scale_x,
+				*total_scale_y);
+		}
+	}
+}
+
 void * INPUT_get_stream_data_pointer(char *object_name, int *data_length)
 {
 	DATAFILE *data_pointer = find_datafile_object(stream_dat, object_name);
@@ -565,7 +638,14 @@ void OUTPUT_updatescreen (void)
 	}
 	else
 	{
-		PLATFORM_RENDERER_present_frame(SCREEN_W, SCREEN_H);
+		int present_width = SCREEN_W;
+		int present_height = SCREEN_H;
+		if (!PLATFORM_RENDERER_is_gl_enabled())
+		{
+			present_width = game_screen_width;
+			present_height = game_screen_height;
+		}
+		PLATFORM_RENDERER_present_frame(present_width, present_height);
 	}
 }
 
@@ -865,80 +945,83 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 	}
 	else
 	{
-		// Configure AllegroGL renderer lifecycle in a platform seam.
-		PLATFORM_RENDERER_prepare_allegro_gl(windowed, colour_depth);
-
-		// And open our sexy OpenGL window! :)
-		result = PLATFORM_WINDOW_set_opengl_game_mode(game_screen_width, game_screen_height, colour_depth);
-
-		MAIN_add_to_log ("Setting up AllegroGL graphics & screen mode...");
-
-		if (result == 0)
-		{
-			MAIN_add_to_log ("\tOK!");
-		}
-		else
-		{
-			MAIN_add_to_log ("\tFAILED!");
-		}
-
-		#ifdef ALLEGRO_MACOSX
-			if (result<0)
-			{
-				allegro_message("Error setting OpenGL graphics mode:\n%s\nAllegro GL error : %s\n",allegro_error, PLATFORM_RENDERER_get_allegro_gl_error_text());
-				exit(1);
-			}
-		#else
-			if (result)
-			{
-				allegro_message("Error setting OpenGL graphics mode:\n%s\nAllegro GL error : %s\n",allegro_error, PLATFORM_RENDERER_get_allegro_gl_error_text());
-			}
-		#endif
-
 		platform_renderer_caps caps;
 		memset(&caps, 0, sizeof(caps));
-	#ifdef WIZBALL_USE_SDL2
-			if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled())
+		if (PLATFORM_RENDERER_is_gl_enabled())
+		{
+			// Configure AllegroGL renderer lifecycle in a platform seam.
+			PLATFORM_RENDERER_prepare_allegro_gl(windowed, colour_depth);
+
+			// And open our sexy OpenGL window! :)
+			result = PLATFORM_WINDOW_set_opengl_game_mode(game_screen_width, game_screen_height, colour_depth);
+
+			MAIN_add_to_log ("Setting up AllegroGL graphics & screen mode...");
+
+			if (result == 0)
 			{
-				MAIN_add_to_log("SDL2 native mode active: skipping strict OpenGL defaults/caps/extensions.");
+				MAIN_add_to_log ("\tOK!");
 			}
 			else
-	#endif
 			{
+				MAIN_add_to_log ("\tFAILED!");
+			}
+
+			#ifdef ALLEGRO_MACOSX
+				if (result<0)
+				{
+					allegro_message("Error setting OpenGL graphics mode:\n%s\nAllegro GL error : %s\n",allegro_error, PLATFORM_RENDERER_get_allegro_gl_error_text());
+					exit(1);
+				}
+			#else
+				if (result)
+				{
+					allegro_message("Error setting OpenGL graphics mode:\n%s\nAllegro GL error : %s\n",allegro_error, PLATFORM_RENDERER_get_allegro_gl_error_text());
+				}
+			#endif
+
 				if (result == 0)
 				{
-					// Apply common fixed-function OpenGL defaults for the current backbuffer + virtual scene size.
+					// Always initialize legacy GL defaults when GL is enabled, even in SDL-native test mode.
 					PLATFORM_RENDERER_apply_gl_defaults(SCREEN_W, SCREEN_H, virtual_screen_width, virtual_screen_height);
 
-					if (!PLATFORM_RENDERER_query_and_build_caps(enable_multi_texture_effects_ideally, &caps))
+		#ifdef WIZBALL_USE_SDL2
+					if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled())
 					{
-						MAIN_add_to_log("OpenGL capability query failed; continuing with minimal renderer capabilities.");
-						memset(&caps, 0, sizeof(caps));
+						MAIN_add_to_log("SDL2 native mode active: OpenGL defaults applied; skipping GL caps/extensions query.");
 					}
-
-					/* Setup OpenGL like we want */
-
-					if (output_debug_information)
+					else
+		#endif
 					{
-						const char *gl_vendor = PLATFORM_RENDERER_get_vendor_text();
-						const char *gl_renderer = PLATFORM_RENDERER_get_renderer_text();
-						const char *gl_version = PLATFORM_RENDERER_get_version_text();
-						char gl_line[MAX_LINE_SIZE];
-
-						sprintf(gl_line, "OpenGL vendor: %s", (gl_vendor != NULL) ? gl_vendor : "UNKNOWN");
-						MAIN_add_to_log(gl_line);
-						sprintf(gl_line, "OpenGL renderer: %s", (gl_renderer != NULL) ? gl_renderer : "UNKNOWN");
-						MAIN_add_to_log(gl_line);
-						sprintf(gl_line, "OpenGL version: %s", (gl_version != NULL) ? gl_version : "UNKNOWN");
-						MAIN_add_to_log(gl_line);
-					}
-
-					// We output it, too. Uh-huh.
-					if (output_debug_information)
-					{
-						if (!PLATFORM_RENDERER_write_extensions_to_file("OpenGL_Extension.txt"))
+						if (!PLATFORM_RENDERER_query_and_build_caps(enable_multi_texture_effects_ideally, &caps))
 						{
-							MAIN_add_to_log("Cannot output OpenGL extension information; continuing.");
+							MAIN_add_to_log("OpenGL capability query failed; continuing with minimal renderer capabilities.");
+							memset(&caps, 0, sizeof(caps));
+						}
+
+						/* Setup OpenGL like we want */
+
+						if (output_debug_information)
+						{
+							const char *gl_vendor = PLATFORM_RENDERER_get_vendor_text();
+							const char *gl_renderer = PLATFORM_RENDERER_get_renderer_text();
+							const char *gl_version = PLATFORM_RENDERER_get_version_text();
+							char gl_line[MAX_LINE_SIZE];
+
+							sprintf(gl_line, "OpenGL vendor: %s", (gl_vendor != NULL) ? gl_vendor : "UNKNOWN");
+							MAIN_add_to_log(gl_line);
+							sprintf(gl_line, "OpenGL renderer: %s", (gl_renderer != NULL) ? gl_renderer : "UNKNOWN");
+							MAIN_add_to_log(gl_line);
+							sprintf(gl_line, "OpenGL version: %s", (gl_version != NULL) ? gl_version : "UNKNOWN");
+							MAIN_add_to_log(gl_line);
+						}
+
+						// We output it, too. Uh-huh.
+						if (output_debug_information)
+						{
+							if (!PLATFORM_RENDERER_write_extensions_to_file("OpenGL_Extension.txt"))
+							{
+								MAIN_add_to_log("Cannot output OpenGL extension information; continuing.");
+							}
 						}
 					}
 				}
@@ -948,6 +1031,18 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 					memset(&caps, 0, sizeof(caps));
 				}
 			}
+		#ifdef WIZBALL_USE_SDL2
+		else
+		{
+			MAIN_add_to_log("SDL2 native mode active: OpenGL window disabled.");
+			if (!PLATFORM_RENDERER_prepare_sdl2_stub(game_screen_width, game_screen_height, windowed))
+			{
+				char sdl_bootstrap_line[MAX_LINE_SIZE];
+				sprintf(sdl_bootstrap_line, "SDL2 native mode bootstrap failed: %s", PLATFORM_RENDERER_get_sdl2_stub_status());
+				MAIN_add_to_log(sdl_bootstrap_line);
+			}
+		}
+		#endif
 
 		secondary_colour_available = caps.secondary_colour_available;
 		best_texture_combiner_available = caps.best_texture_combiner_available;
@@ -955,7 +1050,10 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 		PLATFORM_RENDERER_apply_caps(&caps);
 	}
 
-	PLATFORM_WINDOW_center_game_window();
+	if (software_mode_active || PLATFORM_RENDERER_is_gl_enabled())
+	{
+		PLATFORM_WINDOW_center_game_window();
+	}
 }
 
 
@@ -2345,6 +2443,13 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 
 	total_scale_x = window_scale_x * display_scale_x;
 	total_scale_y = window_scale_y * display_scale_y;
+	OUTPUT_sanitize_window_transform_values(
+		window_number,
+		"collision",
+		&left_window_transform_x,
+		&top_window_transform_y,
+		&total_scale_x,
+		&total_scale_y);
 
 	int collision_grid_size = 1<<collision_bitshift;
 
