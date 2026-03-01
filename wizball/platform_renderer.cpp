@@ -52,14 +52,8 @@ static unsigned int platform_renderer_last_bound_texture_handle = 0;
 typedef void (*platform_active_texture_proc_t) (int texture_unit);
 static platform_active_texture_proc_t platform_renderer_active_texture_proc = NULL;
 typedef void (*platform_secondary_colour_proc_t) (float red, float green, float blue);
-static platform_secondary_colour_proc_t platform_renderer_secondary_colour_proc = NULL;
 static SDL_Window *platform_renderer_sdl_window = NULL;
 static SDL_Renderer *platform_renderer_sdl_renderer = NULL;
-static SDL_Texture *platform_renderer_sdl_mirror_texture = NULL;
-static unsigned char *platform_renderer_sdl_mirror_pixels = NULL;
-static int platform_renderer_sdl_mirror_width = 0;
-static int platform_renderer_sdl_mirror_height = 0;
-static int platform_renderer_sdl_mirror_pitch = 0;
 static bool platform_renderer_sdl_stub_show_checked_env = false;
 static bool platform_renderer_sdl_stub_show_enabled = false;
 static bool platform_renderer_sdl_stub_accel_checked_env = false;
@@ -73,7 +67,6 @@ static bool platform_renderer_sdl_core_quads_enabled = false;
 static bool platform_renderer_sdl_geometry_checked_env = false;
 static bool platform_renderer_sdl_geometry_enabled = false;
 static bool platform_renderer_sdl_status_stderr_enabled = false;
-static bool platform_renderer_sdl_status_stderr_throttle_enabled = true;
 static bool platform_renderer_sdl_native_test_mode_enabled = false;
 static int platform_renderer_sdl_no_mirror_min_draws = 24;
 static int platform_renderer_sdl_no_mirror_min_textured = 16;
@@ -154,17 +147,12 @@ static int platform_renderer_present_width = 0;
 static int platform_renderer_present_height = 0;
 static bool platform_renderer_started_sdl_video = false;
 static char platform_renderer_sdl_status[256] = "SDL2 stub not checked.";
-static char platform_renderer_sdl_last_printed_status[512] = "";
-static int platform_renderer_sdl_status_print_tick = 0;
 static unsigned int platform_renderer_sdl_sprite_trace_counter = 0;
 static bool platform_renderer_sdl_subtractive_texture_supported = true;
 static bool platform_renderer_sdl_subtractive_texture_support_checked = false;
 static bool platform_renderer_sdl_multiply_texture_supported = true;
 static bool platform_renderer_sdl_multiply_texture_support_checked = false;
-static unsigned int platform_renderer_sdl_image_trace_counter = 0;
 static bool platform_renderer_sdl_diag_verbose_enabled = false;
-static unsigned int platform_renderer_sdl_draw_skip_log_counter = 0;
-static unsigned int platform_renderer_sdl_draw_skip_force_log_counter = 0;
 static unsigned int platform_renderer_sdl_present_frame_counter = 0;
 static int platform_renderer_prev_sdl_draw_count = 0;
 static int platform_renderer_prev_sdl_textured_count = 0;
@@ -251,87 +239,6 @@ static void PLATFORM_RENDERER_log_native_draw_transition(
 
 static bool PLATFORM_RENDERER_env_enabled(const char *name);
 
-static bool PLATFORM_RENDERER_should_submit_legacy_draws(void)
-{
-	return false;
-}
-
-static void PLATFORM_RENDERER_diag_log(const char *tag, const char *message)
-{
-	if (!platform_renderer_sdl_diag_verbose_enabled)
-	{
-		return;
-	}
-
-	if ((tag == NULL) || (message == NULL))
-	{
-		return;
-	}
-
-
-	fflush(stderr);
-}
-
-static bool PLATFORM_RENDERER_image_trace_enabled(void)
-{
-	return false;
-}
-
-static void PLATFORM_RENDERER_image_trace(const char *fmt, ...)
-{
-	va_list args;
-
-	if (!PLATFORM_RENDERER_image_trace_enabled())
-	{
-		return;
-	}
-
-	platform_renderer_sdl_image_trace_counter++;
-	if ((platform_renderer_sdl_image_trace_counter > 4000u) &&
-		((platform_renderer_sdl_image_trace_counter % 500u) != 0u))
-	{
-		return;
-	}
-
-
-	va_start(args, fmt);
-
-	va_end(args);
-	fputc('\n', stderr);
-	fflush(stderr);
-}
-
-static void PLATFORM_RENDERER_diag_log_draw_skip(const char *context, const char *reason, unsigned int texture_handle)
-{
-	if ((reason != NULL) &&
-		((strcmp(reason, "invalid-texture-handle") == 0) ||
-		 (strcmp(reason, "build-sdl-texture-failed") == 0) ||
-		 (strcmp(reason, "rgba-pixels-missing") == 0) ||
-		 (strcmp(reason, "entry-or-renderer-null") == 0)))
-	{
-		platform_renderer_sdl_draw_skip_force_log_counter++;
-		if (platform_renderer_sdl_draw_skip_force_log_counter <= 120)
-		{
-
-			fflush(stderr);
-		}
-	}
-
-	if (!platform_renderer_sdl_diag_verbose_enabled)
-	{
-		return;
-	}
-
-	platform_renderer_sdl_draw_skip_log_counter++;
-	if ((platform_renderer_sdl_draw_skip_log_counter > 600) && ((platform_renderer_sdl_draw_skip_log_counter % 2000) != 0))
-	{
-		return;
-	}
-
-
-	fflush(stderr);
-}
-
 static bool PLATFORM_RENDERER_env_enabled(const char *name)
 {
 	const char *value = getenv(name);
@@ -349,38 +256,12 @@ static bool PLATFORM_RENDERER_env_enabled(const char *name)
 	return false;
 }
 
-static bool PLATFORM_RENDERER_is_sdl_sprite_trace_enabled(void)
-{
-	return false;
-}
-
-static bool PLATFORM_RENDERER_is_sdl_deep_trace_enabled(void)
-{
-	return false;
-}
-
-static bool PLATFORM_RENDERER_should_force_subtractive_mod_path(void)
-{
-	/*
-	 * In SAFE_GL_OFF we run fully native SDL in strict/no-mirror mode.
-	 * Some SDL renderer backends report custom subtractive blend support but
-	 * still produce rectangular matte artefacts on masked subtractive sprites.
-	 * Force the stable alpha-weighted inverted-texture MOD path in this mode.
-	 */
-	return platform_renderer_legacy_safe_off_enabled;
-}
-
 static bool PLATFORM_RENDERER_using_subtractive_mod_fallback(void)
 {
 	if (!platform_renderer_blend_enabled ||
 		(platform_renderer_blend_mode != PLATFORM_RENDERER_BLEND_MODE_SUBTRACT))
 	{
 		return false;
-	}
-
-	if (PLATFORM_RENDERER_should_force_subtractive_mod_path())
-	{
-		return true;
 	}
 
 	return
@@ -399,65 +280,6 @@ static bool PLATFORM_RENDERER_using_multiply_blend_fallback(void)
 	return
 		platform_renderer_sdl_multiply_texture_support_checked &&
 		(!platform_renderer_sdl_multiply_texture_supported);
-}
-
-static void PLATFORM_RENDERER_trace_sdl_sprite_draw(
-	const char *tag,
-	const platform_renderer_texture_entry *entry,
-	const SDL_Rect *src_rect,
-	const SDL_Rect *dst_rect,
-	SDL_RendererFlip flip,
-	int vertex_count)
-{
-	if (!PLATFORM_RENDERER_is_sdl_sprite_trace_enabled())
-	{
-		return;
-	}
-
-	platform_renderer_sdl_sprite_trace_counter++;
-	if ((platform_renderer_sdl_sprite_trace_counter > 800) && ((platform_renderer_sdl_sprite_trace_counter % 2000) != 0))
-	{
-		return;
-	}
-
-	{
-		SDL_BlendMode texture_blend = SDL_BLENDMODE_NONE;
-		Uint8 mod_r = 0;
-		Uint8 mod_g = 0;
-		Uint8 mod_b = 0;
-		Uint8 mod_a = 0;
-		int src_x = -1;
-		int src_y = -1;
-		int src_w = -1;
-		int src_h = -1;
-		int dst_x = -1;
-		int dst_y = -1;
-		int dst_w = -1;
-		int dst_h = -1;
-
-		if ((entry != NULL) && (entry->sdl_texture != NULL))
-		{
-			(void) SDL_GetTextureBlendMode(entry->sdl_texture, &texture_blend);
-			(void) SDL_GetTextureColorMod(entry->sdl_texture, &mod_r, &mod_g, &mod_b);
-			(void) SDL_GetTextureAlphaMod(entry->sdl_texture, &mod_a);
-		}
-		if (src_rect != NULL)
-		{
-			src_x = src_rect->x;
-			src_y = src_rect->y;
-			src_w = src_rect->w;
-			src_h = src_rect->h;
-		}
-		if (dst_rect != NULL)
-		{
-			dst_x = dst_rect->x;
-			dst_y = dst_rect->y;
-			dst_w = dst_rect->w;
-			dst_h = dst_rect->h;
-		}
-
-
-	}
 }
 
 static void PLATFORM_RENDERER_refresh_sdl_stub_env_flags(void)
@@ -481,7 +303,6 @@ static void PLATFORM_RENDERER_refresh_sdl_stub_env_flags(void)
 	platform_renderer_sdl_native_primary_allow_degraded_no_mirror_enabled = false;
 	platform_renderer_sdl_core_quads_enabled = true;
 	platform_renderer_sdl_status_stderr_enabled = false;
-	platform_renderer_sdl_status_stderr_throttle_enabled = true;
 	platform_renderer_sdl_native_test_mode_enabled = false;
 	platform_renderer_sdl_no_mirror_min_draws = 24;
 	platform_renderer_sdl_no_mirror_min_textured = 16;
@@ -500,18 +321,6 @@ static void PLATFORM_RENDERER_refresh_sdl_stub_env_flags(void)
 		}
 		platform_renderer_sdl_geometry_checked_env = true;
 	}
-}
-
-bool PLATFORM_RENDERER_is_sdl2_native_sprite_enabled(void)
-{
-	PLATFORM_RENDERER_refresh_sdl_stub_env_flags();
-	return true;
-}
-
-bool PLATFORM_RENDERER_is_sdl2_native_primary_enabled(void)
-{
-	PLATFORM_RENDERER_refresh_sdl_stub_env_flags();
-	return true;
 }
 
 static bool PLATFORM_RENDERER_is_sdl_geometry_enabled(void)
@@ -570,12 +379,7 @@ static bool PLATFORM_RENDERER_sync_sdl_render_target_size(int width, int height)
 
 	(void) SDL_RenderSetViewport(platform_renderer_sdl_renderer, NULL);
 	(void) SDL_RenderSetClipRect(platform_renderer_sdl_renderer, NULL);
-#if SDL_VERSION_ATLEAST(2, 0, 5)
 	(void) SDL_RenderSetIntegerScale(platform_renderer_sdl_renderer, SDL_FALSE);
-	if (SDL_RenderSetLogicalSize(platform_renderer_sdl_renderer, 0, 0) != 0)
-	{
-		PLATFORM_RENDERER_diag_log("SDL2-DIAG", SDL_GetError());
-	}
 	{
 		int out_w = 0;
 		int out_h = 0;
@@ -593,18 +397,9 @@ static bool PLATFORM_RENDERER_sync_sdl_render_target_size(int width, int height)
 		}
 		platform_renderer_sdl_scale_x = sx;
 		platform_renderer_sdl_scale_y = sy;
-		if (SDL_RenderSetScale(platform_renderer_sdl_renderer, sx, sy) != 0)
-		{
-			PLATFORM_RENDERER_diag_log("SDL2-DIAG", SDL_GetError());
-		}
 	}
 
 	return true;
-}
-
-static bool PLATFORM_RENDERER_should_force_software_renderer_for_side_by_side(void)
-{
-	return false;
 }
 
 static float PLATFORM_RENDERER_convert_v_to_sdl(float v)
@@ -798,7 +593,6 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(SDL_Texture *te
 				}
 				return true;
 			}
-			PLATFORM_RENDERER_diag_log("SDL2-DIAG", SDL_GetError());
 		}
 	}
 
@@ -845,7 +639,6 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(SDL_Texture *te
 		}
 		return true;
 	}
-	PLATFORM_RENDERER_diag_log("SDL2-DIAG", SDL_GetError());
 
 	return false;
 }
@@ -908,14 +701,12 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 				geom_bounds.h = (int) (max_y - min_y);
 				if (geom_bounds.w <= 0) geom_bounds.w = 1;
 				if (geom_bounds.h <= 0) geom_bounds.h = 1;
-				PLATFORM_RENDERER_trace_sdl_sprite_draw("render-geometry-forced-colour", NULL, NULL, NULL, SDL_FLIP_NONE, vertex_count);
 				platform_renderer_sdl_native_draw_count++;
 				platform_renderer_sdl_native_textured_draw_count++;
 				PLATFORM_RENDERER_note_sdl_draw_source(source_id);
 				PLATFORM_RENDERER_record_sdl_source_bounds_rect(source_id, &geom_bounds);
 				return true;
 			}
-			PLATFORM_RENDERER_diag_log("SDL2-DIAG", SDL_GetError());
 		}
 
 		if (texture == NULL)
@@ -924,13 +715,10 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 			// This preserves coloured/perspective primitives used by UI/gameplay layers.
 			if (SDL_RenderGeometry(platform_renderer_sdl_renderer, NULL, work_vertices, vertex_count, indices, index_count) == 0)
 			{
-				PLATFORM_RENDERER_trace_sdl_sprite_draw("geom-disabled-untextured", NULL, NULL, NULL, SDL_FLIP_NONE, vertex_count);
 				platform_renderer_sdl_native_draw_count++;
 				return true;
 			}
-			PLATFORM_RENDERER_diag_log("SDL2-DIAG", SDL_GetError());
 		}
-		PLATFORM_RENDERER_trace_sdl_sprite_draw("geom-disabled-fallback", NULL, NULL, NULL, SDL_FLIP_NONE, vertex_count);
 		if (PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(texture, work_vertices, vertex_count, indices, index_count, source_id))
 		{
 			return true;
@@ -972,16 +760,13 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 		geom_bounds.h = (int) (max_y - min_y);
 		if (geom_bounds.w <= 0) geom_bounds.w = 1;
 		if (geom_bounds.h <= 0) geom_bounds.h = 1;
-		PLATFORM_RENDERER_trace_sdl_sprite_draw("render-geometry", NULL, NULL, NULL, SDL_FLIP_NONE, vertex_count);
 		platform_renderer_sdl_native_draw_count++;
 		platform_renderer_sdl_native_textured_draw_count++;
 		PLATFORM_RENDERER_note_sdl_draw_source(source_id);
 		PLATFORM_RENDERER_record_sdl_source_bounds_rect(source_id, &geom_bounds);
 		return true;
 	}
-	PLATFORM_RENDERER_diag_log("SDL2-DIAG", SDL_GetError());
 
-	PLATFORM_RENDERER_trace_sdl_sprite_draw("render-geometry-fallback", NULL, NULL, NULL, SDL_FLIP_NONE, vertex_count);
 	if (PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(texture, work_vertices, vertex_count, indices, index_count, source_id))
 	{
 		return true;
@@ -999,49 +784,15 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 	return false;
 }
 
-static void PLATFORM_RENDERER_maybe_print_sdl_status_stderr(const char *status_text)
-{
-	PLATFORM_RENDERER_refresh_sdl_stub_env_flags();
-	if (!platform_renderer_sdl_status_stderr_enabled)
-	{
-		return;
-	}
-
-	if (status_text == NULL)
-	{
-		return;
-	}
-
-	if (strcmp(status_text, platform_renderer_sdl_last_printed_status) == 0)
-	{
-		return;
-	}
-
-	platform_renderer_sdl_status_print_tick++;
-	if (platform_renderer_sdl_status_stderr_throttle_enabled && ((platform_renderer_sdl_status_print_tick % 30) != 0))
-	{
-		return;
-	}
-
-	strncpy(platform_renderer_sdl_last_printed_status, status_text, sizeof(platform_renderer_sdl_last_printed_status) - 1);
-	platform_renderer_sdl_last_printed_status[sizeof(platform_renderer_sdl_last_printed_status) - 1] = '\0';
-
-}
-
 static bool PLATFORM_RENDERER_build_sdl_texture_from_entry(platform_renderer_texture_entry *entry)
 {
 	if ((entry == NULL) || (platform_renderer_sdl_renderer == NULL))
 	{
-		PLATFORM_RENDERER_diag_log_draw_skip("build-sdl-texture", "entry-or-renderer-null", 0);
 		return false;
 	}
 
 	if ((entry->sdl_texture != NULL) || (entry->sdl_rgba_pixels == NULL) || (entry->width <= 0) || (entry->height <= 0))
 	{
-		if ((entry->sdl_texture == NULL) && (entry->sdl_rgba_pixels == NULL))
-		{
-			PLATFORM_RENDERER_diag_log_draw_skip("build-sdl-texture", "rgba-pixels-missing", 0);
-		}
 		return entry->sdl_texture != NULL;
 	}
 
@@ -1054,13 +805,11 @@ static bool PLATFORM_RENDERER_build_sdl_texture_from_entry(platform_renderer_tex
 
 	if (entry->sdl_texture == NULL)
 	{
-		PLATFORM_RENDERER_diag_log("SDL2-DIAG", SDL_GetError());
 		return false;
 	}
 
 	if (SDL_UpdateTexture(entry->sdl_texture, NULL, entry->sdl_rgba_pixels, entry->width * 4) != 0)
 	{
-		PLATFORM_RENDERER_diag_log("SDL2-DIAG", SDL_GetError());
 		SDL_DestroyTexture(entry->sdl_texture);
 		entry->sdl_texture = NULL;
 		return false;
@@ -1214,7 +963,7 @@ static SDL_Texture *PLATFORM_RENDERER_get_effective_texture_for_current_blend(pl
 
 	if (platform_renderer_blend_enabled &&
 		(platform_renderer_blend_mode == PLATFORM_RENDERER_BLEND_MODE_SUBTRACT) &&
-		(PLATFORM_RENDERER_should_force_subtractive_mod_path() ||
+		(platform_renderer_legacy_safe_off_enabled ||
 		 (platform_renderer_sdl_subtractive_texture_support_checked &&
 		  (!platform_renderer_sdl_subtractive_texture_supported))))
 	{
@@ -1831,14 +1580,6 @@ static void PLATFORM_RENDERER_apply_sdl_texture_blend_mode(SDL_Texture *texture)
 		}
 		case PLATFORM_RENDERER_BLEND_MODE_SUBTRACT:
 		{
-			if (PLATFORM_RENDERER_should_force_subtractive_mod_path())
-			{
-				platform_renderer_sdl_subtractive_texture_support_checked = true;
-				platform_renderer_sdl_subtractive_texture_supported = false;
-				(void) SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_MOD);
-				break;
-			}
-
 			SDL_BlendMode subtract_mode = SDL_ComposeCustomBlendMode(
 				SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE_MINUS_SRC_COLOR, SDL_BLENDOPERATION_ADD,
 				SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD);
@@ -1866,8 +1607,6 @@ static void PLATFORM_RENDERER_apply_sdl_texture_blend_mode(SDL_Texture *texture)
 			break;
 	}
 }
-#endif
-
 
 void PLATFORM_RENDERER_reset_texture_registry(void)
 {
@@ -1910,7 +1649,7 @@ static bool PLATFORM_RENDERER_try_capture_legacy_texture_rgba(unsigned int legac
 
 static unsigned int PLATFORM_RENDERER_register_legacy_texture(unsigned int legacy_texture_id, BITMAP *image)
 {
-	bool require_nonzero_legacy_texture = PLATFORM_RENDERER_should_submit_legacy_draws();
+	bool require_nonzero_legacy_texture = false;
 	if ((legacy_texture_id == 0) && require_nonzero_legacy_texture)
 	{
 		return 0;
@@ -2066,32 +1805,6 @@ static unsigned int PLATFORM_RENDERER_register_legacy_texture(unsigned int legac
 				 * indexed assets. This bypasses palette-state ambiguity in software
 				 * conversion paths and keeps SDL-primary rendering consistent with GL.
 				 */
-				if ((image_depth <= 8) && (legacy_texture_id != 0u))
-				{
-					if (PLATFORM_RENDERER_try_capture_legacy_texture_rgba(legacy_texture_id, image_width, image_height, rgba_pixels))
-					{
-						if (PLATFORM_RENDERER_is_sdl_deep_trace_enabled())
-						{
-							static unsigned int gl_capture_counter = 0;
-							gl_capture_counter++;
-							if ((gl_capture_counter <= 200u) || ((gl_capture_counter % 1000u) == 0u))
-							{
-
-							}
-						}
-					}
-				}
-
-				if (PLATFORM_RENDERER_is_sdl_sprite_trace_enabled())
-				{
-					static unsigned int texture_trace_counter = 0;
-					texture_trace_counter++;
-					if ((texture_trace_counter <= 300) || ((texture_trace_counter % 1000) == 0))
-					{
-
-					}
-				}
-
 				platform_renderer_texture_entries[platform_renderer_texture_count].sdl_rgba_pixels = rgba_pixels;
 				platform_renderer_texture_entries[platform_renderer_texture_count].width = image_width;
 			platform_renderer_texture_entries[platform_renderer_texture_count].height = image_height;
@@ -2176,11 +1889,6 @@ static unsigned int PLATFORM_RENDERER_normalize_texture_handle(unsigned int text
 	return 0;
 }
 
-static platform_renderer_texture_entry *PLATFORM_RENDERER_get_last_bound_texture_entry(void)
-{
-	return PLATFORM_RENDERER_get_texture_entry(platform_renderer_last_bound_texture_handle);
-}
-
 void PLATFORM_RENDERER_clear_backbuffer(void)
 {
 	platform_renderer_clear_backbuffer_calls_since_present++;
@@ -2226,7 +1934,7 @@ void PLATFORM_RENDERER_clear_backbuffer(void)
 	platform_renderer_legacy_diag_first_error_code = 0;
 	platform_renderer_legacy_diag_error_count_frame = 0;
 	snprintf(platform_renderer_legacy_diag_first_error_stage, sizeof(platform_renderer_legacy_diag_first_error_stage), "-");
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready())
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
 		(void) SDL_SetRenderDrawColor(platform_renderer_sdl_renderer, 0, 0, 0, 255);
 		(void) SDL_RenderClear(platform_renderer_sdl_renderer);
@@ -2235,7 +1943,7 @@ void PLATFORM_RENDERER_clear_backbuffer(void)
 
 void PLATFORM_RENDERER_draw_outline_rect(int x1, int y1, int x2, int y2, int r, int g, int b, int virtual_screen_height)
 {
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready())
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
 		int left = (x1 < x2) ? x1 : x2;
 		int right = (x1 > x2) ? x1 : x2;
@@ -2276,7 +1984,7 @@ void PLATFORM_RENDERER_draw_outline_rect(int x1, int y1, int x2, int y2, int r, 
 
 void PLATFORM_RENDERER_draw_filled_rect(int x1, int y1, int x2, int y2, int r, int g, int b, int virtual_screen_height)
 {
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready())
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
 		int left = (x1 < x2) ? x1 : x2;
 		int right = (x1 > x2) ? x1 : x2;
@@ -2317,7 +2025,7 @@ void PLATFORM_RENDERER_draw_filled_rect(int x1, int y1, int x2, int y2, int r, i
 
 void PLATFORM_RENDERER_draw_line(int x1, int y1, int x2, int y2, int r, int g, int b, int virtual_screen_height)
 {
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready())
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
 		int sx1 = x1;
 		int sy1 = y1;
@@ -2349,7 +2057,7 @@ void PLATFORM_RENDERER_draw_circle(int x, int y, int radius, int r, int g, int b
 
 	step = (2.0f * 3.14159265358979323846f) / (float) resolution;
 
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready())
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
 		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
 		(void) SDL_SetRenderDrawColor(
@@ -2378,7 +2086,7 @@ void PLATFORM_RENDERER_draw_circle(int x, int y, int radius, int r, int g, int b
 
 void PLATFORM_RENDERER_draw_bound_solid_quad(float left, float right, float up, float down)
 {
-	if (platform_renderer_sdl_core_quads_enabled && PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	if (platform_renderer_sdl_core_quads_enabled && true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 		float tx0;
 		float ty0;
@@ -2416,21 +2124,10 @@ void PLATFORM_RENDERER_draw_bound_solid_quad(float left, float right, float up, 
 void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float up, float down, float u1, float v1, float u2, float v2)
 {
 	static unsigned int sdl_bound_colour_diag_counter = 0;
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
-		PLATFORM_RENDERER_image_trace(
-			"bound_quad begin tex=%u blend_en=%d blend_mode=%d rgba=%.3f,%.3f,%.3f,%.3f quad=[%.2f,%.2f,%.2f,%.2f] uv=[%.4f,%.4f,%.4f,%.4f]",
-			platform_renderer_last_bound_texture_handle,
-			platform_renderer_blend_enabled ? 1 : 0,
-			platform_renderer_blend_mode,
-			platform_renderer_current_colour_r,
-			platform_renderer_current_colour_g,
-			platform_renderer_current_colour_b,
-			platform_renderer_current_colour_a,
-			left, right, up, down,
-			u1, v1, u2, v2);
 #if SDL_VERSION_ATLEAST(2, 0, 18)
-		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_last_bound_texture_entry();
+		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(platform_renderer_last_bound_texture_handle);
 		if (entry != NULL)
 		{
 			if (PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
@@ -2506,13 +2203,6 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 						(tx_min > (float) vp_w) ||
 						(sy_max < 0.0f) ||
 						(sy_min > (float) vp_h);
-					PLATFORM_RENDERER_image_trace(
-						"bound_quad xform tex=%u gl=[%.2f..%.2f,%.2f..%.2f] sdl_y=[%.2f..%.2f] vp=%dx%d offscreen=%d",
-						platform_renderer_last_bound_texture_handle,
-						tx_min, tx_max, ty_min, ty_max,
-						sy_min, sy_max,
-						vp_w, vp_h,
-						offscreen ? 1 : 0);
 				}
 				is_axis_aligned =
 					(fabsf(tx[0] - tx[1]) < axis_eps) &&
@@ -2572,10 +2262,6 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 						(Uint8) mod_r, (Uint8) mod_g, (Uint8) mod_b, (Uint8) mod_a,
 						PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD))
 					{
-						PLATFORM_RENDERER_image_trace(
-							"bound_quad wrap_draw tex=%u dst=%d,%d,%d,%d",
-							platform_renderer_last_bound_texture_handle,
-							dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h);
 						return;
 					}
 					{
@@ -2588,11 +2274,6 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 							{
 								const float cov_current = PLATFORM_RENDERER_estimate_alpha_coverage(entry, &src_rect);
 								const float cov_alt = PLATFORM_RENDERER_estimate_alpha_coverage(entry, &src_rect_no_vflip);
-								PLATFORM_RENDERER_image_trace(
-									"bound_quad uv_diag tex=%u src=%d,%d,%d,%d cov=%.3f alt_src=%d,%d,%d,%d alt_cov=%.3f",
-									platform_renderer_last_bound_texture_handle,
-									src_rect.x, src_rect.y, src_rect.w, src_rect.h, cov_current,
-									src_rect_no_vflip.x, src_rect_no_vflip.y, src_rect_no_vflip.w, src_rect_no_vflip.h, cov_alt);
 							}
 						}
 
@@ -2620,7 +2301,6 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 
 						if (PLATFORM_RENDERER_try_sdl_geometry_textured(draw_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD))
 						{
-							PLATFORM_RENDERER_image_trace("bound_quad geom_ok tex=%u", platform_renderer_last_bound_texture_handle);
 							PLATFORM_RENDERER_record_sdl_source_bounds_rect(PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD, &dst_rect);
 						}
 						else if (PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, v1, u2, v2, &src_rect))
@@ -2644,22 +2324,8 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 							{
 								platform_renderer_sdl_native_draw_count++;
 								platform_renderer_sdl_native_textured_draw_count++;
-								PLATFORM_RENDERER_image_trace(
-									"bound_quad copyex_ok tex=%u src=%d,%d,%d,%d dst=%d,%d,%d,%d flip=%d",
-									platform_renderer_last_bound_texture_handle,
-									src_rect.x, src_rect.y, src_rect.w, src_rect.h,
-									dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h,
-									(int) copy_flip);
 								PLATFORM_RENDERER_record_sdl_source_bounds_rect(PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD, &dst_rect);
 							}
-							else
-							{
-								PLATFORM_RENDERER_image_trace("bound_quad copyex_fail tex=%u err=%s", platform_renderer_last_bound_texture_handle, SDL_GetError());
-							}
-						}
-						else
-						{
-							PLATFORM_RENDERER_image_trace("bound_quad src_rect_invalid tex=%u", platform_renderer_last_bound_texture_handle);
 						}
 					}
 				}
@@ -2715,52 +2381,23 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 							{
 								platform_renderer_sdl_native_draw_count++;
 								platform_renderer_sdl_native_textured_draw_count++;
-								PLATFORM_RENDERER_image_trace(
-									"bound_quad persp_copyex_ok tex=%u src=%d,%d,%d,%d dst=%d,%d,%d,%d flip=%d",
-									platform_renderer_last_bound_texture_handle,
-									src_rect.x, src_rect.y, src_rect.w, src_rect.h,
-									dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h,
-									(int) copy_flip);
 								PLATFORM_RENDERER_record_sdl_source_bounds_rect(PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD, &dst_rect);
-							}
-							else
-							{
-								PLATFORM_RENDERER_image_trace("bound_quad persp_copyex_fail tex=%u err=%s", platform_renderer_last_bound_texture_handle, SDL_GetError());
 							}
 						}
 					}
 				}
 			}
-			else
-			{
-				PLATFORM_RENDERER_image_trace("bound_quad build_sdl_texture_failed tex=%u", platform_renderer_last_bound_texture_handle);
-			}
 		}
-		else
-		{
-			PLATFORM_RENDERER_image_trace("bound_quad entry_null tex=%u", platform_renderer_last_bound_texture_handle);
-		}
-	}
 #endif
+	}
 }
 
 void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2)
 {
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
-		PLATFORM_RENDERER_image_trace(
-			"bound_quad_custom begin tex=%u blend_en=%d blend_mode=%d rgba=%.3f,%.3f,%.3f,%.3f xy=[%.2f,%.2f|%.2f,%.2f|%.2f,%.2f|%.2f,%.2f] uv=[%.4f,%.4f,%.4f,%.4f]",
-			platform_renderer_last_bound_texture_handle,
-			platform_renderer_blend_enabled ? 1 : 0,
-			platform_renderer_blend_mode,
-			platform_renderer_current_colour_r,
-			platform_renderer_current_colour_g,
-			platform_renderer_current_colour_b,
-			platform_renderer_current_colour_a,
-			x0, y0, x1, y1, x2, y2, x3, y3,
-			u1, v1, u2, v2);
 #if SDL_VERSION_ATLEAST(2, 0, 18)
-		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_last_bound_texture_entry();
+		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(platform_renderer_last_bound_texture_handle);
 		if (entry != NULL)
 		{
 			if (PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
@@ -2975,30 +2612,20 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 							{
 								platform_renderer_sdl_native_draw_count++;
 								platform_renderer_sdl_native_textured_draw_count++;
-								PLATFORM_RENDERER_image_trace(
-									"bound_quad_custom copyex_ok tex=%u src=%d,%d,%d,%d dst=%d,%d,%d,%d flip=%d",
-									platform_renderer_last_bound_texture_handle,
-									src_rect.x, src_rect.y, src_rect.w, src_rect.h,
-									dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h,
-									(int) copy_flip);
 								PLATFORM_RENDERER_record_sdl_source_bounds_rect(PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD_CUSTOM, &dst_rect);
-							}
-							else
-							{
-								PLATFORM_RENDERER_image_trace("bound_quad_custom copyex_fail tex=%u err=%s", platform_renderer_last_bound_texture_handle, SDL_GetError());
 							}
 						}
 					}
 				}
 			}
 		}
-	}
 #endif
+	}
 }
 
 void PLATFORM_RENDERER_draw_point(float x, float y)
 {
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 		float tx;
 		float ty;
@@ -3018,7 +2645,7 @@ void PLATFORM_RENDERER_draw_point(float x, float y)
 
 void PLATFORM_RENDERER_draw_coloured_point(float x, float y, float r, float g, float b)
 {
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 		float tx;
 		float ty;
@@ -3034,7 +2661,7 @@ void PLATFORM_RENDERER_draw_coloured_point(float x, float y, float r, float g, f
 
 void PLATFORM_RENDERER_draw_line(float x1, float y1, float x2, float y2)
 {
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 		float tx1;
 		float ty1;
@@ -3057,7 +2684,7 @@ void PLATFORM_RENDERER_draw_line(float x1, float y1, float x2, float y2)
 
 void PLATFORM_RENDERER_draw_coloured_line(float x1, float y1, float x2, float y2, float r, float g, float b)
 {
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 		float tx1;
 		float ty1;
@@ -3082,7 +2709,7 @@ void PLATFORM_RENDERER_draw_line_loop_array(const float *x, const float *y, int 
 	{
 		return;
 	}
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
 		PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(
@@ -3142,41 +2769,12 @@ void PLATFORM_RENDERER_set_colour4f(float r, float g, float b, float a)
 	platform_renderer_current_colour_a = a;
 }
 
-void PLATFORM_RENDERER_set_texture_enabled(bool enabled)
-{
-	(void) enabled;
-}
-
-void PLATFORM_RENDERER_set_colour_sum_enabled(bool enabled)
-{
-	(void) enabled;
-}
-
 void PLATFORM_RENDERER_bind_texture(unsigned int texture_handle)
 {
 	unsigned int resolved_texture_id = PLATFORM_RENDERER_resolve_legacy_texture(texture_handle);
 	unsigned int normalized_texture_handle = PLATFORM_RENDERER_normalize_texture_handle(texture_handle);
 	(void) resolved_texture_id;
 	platform_renderer_last_bound_texture_handle = normalized_texture_handle;
-}
-
-void PLATFORM_RENDERER_set_texture_filter(bool linear)
-{
-	(void) linear;
-}
-
-void PLATFORM_RENDERER_set_texture_wrap_repeat(void)
-{
-}
-
-void PLATFORM_RENDERER_apply_texture_parameters(bool filtered, bool old_filtered, bool state_changed, bool force_filter_apply)
-{
-	if (force_filter_apply || (state_changed && (filtered != old_filtered)))
-	{
-		PLATFORM_RENDERER_set_texture_filter(filtered);
-	}
-
-	PLATFORM_RENDERER_set_texture_wrap_repeat();
 }
 
 void PLATFORM_RENDERER_set_active_texture_proc(void *proc)
@@ -3189,76 +2787,30 @@ bool PLATFORM_RENDERER_is_active_texture_available(void)
 	return platform_renderer_active_texture_proc != NULL;
 }
 
-bool PLATFORM_RENDERER_set_active_texture_unit(int texture_unit)
-{
-	(void) texture_unit;
-	return false;
-}
-
-void PLATFORM_RENDERER_set_secondary_colour_proc(void *proc)
-{
-	platform_renderer_secondary_colour_proc = (platform_secondary_colour_proc_t) proc;
-}
-
-bool PLATFORM_RENDERER_set_secondary_colour(float r, float g, float b)
-{
-	(void) r;
-	(void) g;
-	(void) b;
-	return false;
-}
 
 void PLATFORM_RENDERER_set_blend_enabled(bool enabled)
 {
 	platform_renderer_blend_enabled = enabled;
 }
 
-void PLATFORM_RENDERER_set_blend_func(int src_factor, int dst_factor)
-{
-	(void) src_factor;
-	(void) dst_factor;
-}
-
 void PLATFORM_RENDERER_set_blend_mode_additive(void)
 {
-	PLATFORM_RENDERER_set_blend_func(0, 1);
 	platform_renderer_blend_mode = PLATFORM_RENDERER_BLEND_MODE_ADD;
 }
 
 void PLATFORM_RENDERER_set_blend_mode_multiply(void)
 {
-	PLATFORM_RENDERER_set_blend_func(0, 0);
 	platform_renderer_blend_mode = PLATFORM_RENDERER_BLEND_MODE_MULTIPLY;
 }
 
 void PLATFORM_RENDERER_set_blend_mode_alpha(void)
 {
-	PLATFORM_RENDERER_set_blend_func(0, 0);
 	platform_renderer_blend_mode = PLATFORM_RENDERER_BLEND_MODE_ALPHA;
 }
 
 void PLATFORM_RENDERER_set_blend_mode_subtractive(void)
 {
-	PLATFORM_RENDERER_set_blend_func(0, 0);
 	platform_renderer_blend_mode = PLATFORM_RENDERER_BLEND_MODE_SUBTRACT;
-}
-
-void PLATFORM_RENDERER_set_alpha_test_enabled(bool enabled)
-{
-	(void) enabled;
-}
-
-void PLATFORM_RENDERER_set_alpha_func_greater(float threshold)
-{
-	(void) threshold;
-}
-
-void PLATFORM_RENDERER_set_scissor_rect(int x, int y, int width, int height)
-{
-	(void) x;
-	(void) y;
-	(void) width;
-	(void) height;
 }
 
 void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float bottom_window_transform_y, float scaled_width, float scaled_height, float display_scale_x, float display_scale_y, float window_scale_multiplier)
@@ -3279,12 +2831,6 @@ void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float b
 		y += scaled_height;
 		height = -height;
 	}
-
-	PLATFORM_RENDERER_set_scissor_rect(
-		(int) (x * window_scale_multiplier),
-		(int) (y * window_scale_multiplier),
-		(int) (width * window_scale_multiplier),
-		(int) (height * window_scale_multiplier));
 
 	if ((platform_renderer_sdl_renderer != NULL) && (platform_renderer_present_height > 0))
 	{
@@ -3406,100 +2952,14 @@ void PLATFORM_RENDERER_rotatef(float angle_degrees, float x, float y, float z)
 	}
 }
 
-void PLATFORM_RENDERER_set_combiner_modulate_primary(void)
-{
-}
-
-void PLATFORM_RENDERER_set_combiner_replace_rgb_modulate_alpha_previous(void)
-{
-}
-
-void PLATFORM_RENDERER_set_combiner_replace_rgb_modulate_alpha_primary(void)
-{
-}
-
-void PLATFORM_RENDERER_set_combiner_modulate_rgb_replace_alpha_previous(void)
-{
-}
-
-void PLATFORM_RENDERER_bind_secondary_texture(unsigned int texture_handle, bool enable_second_unit_texturing)
-{
-	(void) texture_handle;
-	(void) enable_second_unit_texturing;
-}
-
-void PLATFORM_RENDERER_disable_secondary_texture_and_restore_combiner(void)
-{
-	(void) PLATFORM_RENDERER_set_active_texture_unit(1);
-	PLATFORM_RENDERER_set_texture_enabled(false);
-	(void) PLATFORM_RENDERER_set_active_texture_unit(0);
-	PLATFORM_RENDERER_set_combiner_modulate_primary();
-}
-
-void PLATFORM_RENDERER_prepare_multitexture_second_unit(bool double_mask_mode)
-{
-	(void) double_mask_mode;
-}
-
-void PLATFORM_RENDERER_finalize_multitexture_second_unit(bool double_mask_mode)
-{
-	(void) double_mask_mode;
-}
-
-void PLATFORM_RENDERER_prepare_textured_window_draw(bool texture_combiner_available)
-{
-	if (PLATFORM_RENDERER_is_active_texture_available())
-	{
-		if (texture_combiner_available)
-		{
-			// Defensive frame-begin reset: ensure texture unit 1 starts disabled.
-			(void) PLATFORM_RENDERER_set_active_texture_unit(1);
-			PLATFORM_RENDERER_set_texture_enabled(false);
-		}
-		(void) PLATFORM_RENDERER_set_active_texture_unit(0);
-	}
-	if (texture_combiner_available)
-	{
-		PLATFORM_RENDERER_set_combiner_modulate_primary();
-	}
-
-	PLATFORM_RENDERER_set_texture_enabled(true);
-}
-
 void PLATFORM_RENDERER_finish_textured_window_draw(bool texture_combiner_available, bool had_secondary_texture, bool secondary_colour_available, bool secondary_window_colour, int game_screen_width, int game_screen_height)
 {
-	if (had_secondary_texture && texture_combiner_available)
-	{
-		// Disable secondary texture unit and restore default combiner mode.
-		(void) PLATFORM_RENDERER_set_active_texture_unit(1);
-		PLATFORM_RENDERER_set_texture_enabled(false);
-		(void) PLATFORM_RENDERER_set_active_texture_unit(0);
-		PLATFORM_RENDERER_set_combiner_modulate_primary();
-	}
-	else if (texture_combiner_available && PLATFORM_RENDERER_is_active_texture_available())
-	{
-		(void) PLATFORM_RENDERER_set_active_texture_unit(0);
-	}
-
-	if (secondary_colour_available)
-	{
-		PLATFORM_RENDERER_set_secondary_colour(0.0f, 0.0f, 0.0f);
-		PLATFORM_RENDERER_set_colour_sum_enabled(false);
-	}
-
-	PLATFORM_RENDERER_set_scissor_rect(0, 0, game_screen_width, game_screen_height);
 	if (platform_renderer_sdl_renderer != NULL)
 	{
 		(void) SDL_RenderSetClipRect(platform_renderer_sdl_renderer, NULL);
 	}
 	PLATFORM_RENDERER_set_blend_enabled(false);
-	PLATFORM_RENDERER_set_alpha_test_enabled(false);
 	PLATFORM_RENDERER_set_colour4f(1.0f, 1.0f, 1.0f, 1.0f);
-
-	if (secondary_window_colour)
-	{
-		PLATFORM_RENDERER_set_colour_sum_enabled(false);
-	}
 }
 
 void PLATFORM_RENDERER_draw_bound_multitextured_quad_array(const float *x, const float *y, const float *u0, const float *v0, const float *u1, const float *v1)
@@ -3510,10 +2970,10 @@ void PLATFORM_RENDERER_draw_bound_multitextured_quad_array(const float *x, const
 	{
 		return;
 	}
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 #if SDL_VERSION_ATLEAST(2, 0, 18)
-		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_last_bound_texture_entry();
+		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(platform_renderer_last_bound_texture_handle);
 		if (entry != NULL)
 		{
 			if (PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
@@ -3651,10 +3111,10 @@ void PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(const float *x, c
 	{
 		return;
 	}
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 #if SDL_VERSION_ATLEAST(2, 0, 18)
-		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_last_bound_texture_entry();
+		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(platform_renderer_last_bound_texture_handle);
 		if (entry != NULL)
 		{
 			if (PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
@@ -3796,10 +3256,10 @@ void PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(const float *x, c
 
 void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2, float q)
 {
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 #if SDL_VERSION_ATLEAST(2, 0, 18)
-		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_last_bound_texture_entry();
+		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(platform_renderer_last_bound_texture_handle);
 		if (entry != NULL)
 		{
 			if (PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
@@ -4092,10 +3552,10 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 	{
 		return;
 	}
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 #if SDL_VERSION_ATLEAST(2, 0, 18)
-		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_last_bound_texture_entry();
+		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(platform_renderer_last_bound_texture_handle);
 		if (entry != NULL)
 		{
 			if (PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
@@ -4450,7 +3910,7 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, int g, int b, float screen_x, float screen_y, int virtual_screen_height, float left, float right, float up, float down, float u1, float v1, float u2, float v2, bool alpha_test)
 {
 	static unsigned int sdl_quad_colour_diag_counter = 0;
-	if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready())
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
 		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(texture_handle);
 		if (entry != NULL)
@@ -4460,7 +3920,6 @@ void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, in
 				SDL_Texture *draw_texture = PLATFORM_RENDERER_get_effective_texture_for_current_blend(entry);
 				if (draw_texture == NULL)
 				{
-					PLATFORM_RENDERER_diag_log_draw_skip("draw-textured-quad", "effective-texture-null", texture_handle);
 					return;
 				}
 				float x0 = screen_x + left;
@@ -4504,7 +3963,6 @@ void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, in
 
 				if (!PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, v1, u2, v2, &src_rect))
 				{
-					PLATFORM_RENDERER_diag_log_draw_skip("draw-textured-quad", "src-rect-invalid", texture_handle);
 				}
 				else
 				{
@@ -4541,20 +3999,8 @@ void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, in
 						platform_renderer_sdl_native_draw_count++;
 						platform_renderer_sdl_native_textured_draw_count++;
 					}
-					else
-					{
-						PLATFORM_RENDERER_diag_log("SDL2-DIAG", SDL_GetError());
-					}
 				}
 			}
-			else
-			{
-				PLATFORM_RENDERER_diag_log_draw_skip("draw-textured-quad", "build-sdl-texture-failed", texture_handle);
-			}
-		}
-		else
-		{
-			PLATFORM_RENDERER_diag_log_draw_skip("draw-textured-quad", "invalid-texture-handle", texture_handle);
 		}
 	}
 	(void) virtual_screen_height;
@@ -4562,33 +4008,28 @@ void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, in
 
 void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r, int g, int b, int a, float entity_x, float entity_y, float left, float right, float up, float down, float u1, float v1, float u2, float v2, float left_window_transform_x, float top_window_transform_y, float total_scale_x, float total_scale_y, float sprite_scale_x, float sprite_scale_y, float sprite_rotation_degrees, bool sprite_flip_x, bool sprite_flip_y)
 {
-	if (!(PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready()))
+	if (!(true && PLATFORM_RENDERER_is_sdl2_stub_ready()))
 	{
-		PLATFORM_RENDERER_diag_log_draw_skip("draw-sdl-window-sprite", "native-or-stub-disabled", texture_handle);
 		return;
 	}
 
 	platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(texture_handle);
 	if (entry == NULL)
 	{
-		PLATFORM_RENDERER_diag_log_draw_skip("draw-sdl-window-sprite", "invalid-texture-handle", texture_handle);
 		return;
 	}
 	if (!PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
 	{
-		PLATFORM_RENDERER_diag_log_draw_skip("draw-sdl-window-sprite", "build-sdl-texture-failed", texture_handle);
 		return;
 	}
 	SDL_Texture *draw_texture = PLATFORM_RENDERER_get_effective_texture_for_current_blend(entry);
 	if (draw_texture == NULL)
 	{
-		PLATFORM_RENDERER_diag_log_draw_skip("draw-sdl-window-sprite", "effective-texture-null", texture_handle);
 		return;
 	}
 
 	if (platform_renderer_present_height <= 0)
 	{
-		PLATFORM_RENDERER_diag_log_draw_skip("draw-sdl-window-sprite", "present-height-invalid", texture_handle);
 		return;
 	}
 
@@ -4613,20 +4054,7 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 	SDL_Rect src_rect;
 	if (!PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, v1, u2, v2, &src_rect))
 	{
-		PLATFORM_RENDERER_diag_log_draw_skip("draw-sdl-window-sprite", "src-rect-invalid", texture_handle);
 		return;
-	}
-	if (PLATFORM_RENDERER_is_sdl_deep_trace_enabled())
-	{
-		static unsigned int sdl_direct_sample_diag_counter = 0;
-		sdl_direct_sample_diag_counter++;
-		if ((sdl_direct_sample_diag_counter <= 120u) || ((sdl_direct_sample_diag_counter % 1000u) == 0u))
-		{
-			float avg_r, avg_g, avg_b, avg_a;
-			float cov = PLATFORM_RENDERER_estimate_alpha_coverage(entry, &src_rect);
-			PLATFORM_RENDERER_estimate_rect_colour_stats(entry, &src_rect, &avg_r, &avg_g, &avg_b, &avg_a);
-
-		}
 	}
 
 	SDL_Rect dst_rect;
@@ -4708,10 +4136,6 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 			platform_renderer_sdl_native_textured_draw_count++;
 			copied = true;
 		}
-		else
-		{
-			PLATFORM_RENDERER_diag_log("SDL2-DIAG", SDL_GetError());
-		}
 
 		/* Geometry fallback only if copy path fails. */
 		if (!copied)
@@ -4753,10 +4177,6 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 		{
 			static unsigned int sdl_window_sprite_miss_counter = 0;
 			sdl_window_sprite_miss_counter++;
-			if ((sdl_window_sprite_miss_counter <= 200u) || ((sdl_window_sprite_miss_counter % 2000u) == 0u))
-			{
-
-			}
 		}
 	}
 
@@ -4786,7 +4206,7 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite_src(unsigned int texture_handle, i
 	float origin_y_gl;
 	float origin_y_sdl;
 
-	if (!(PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready()))
+	if (!(true && PLATFORM_RENDERER_is_sdl2_stub_ready()))
 	{
 		return;
 	}
@@ -4906,28 +4326,6 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite_src(unsigned int texture_handle, i
 			{
 				src_rect = a_rect;
 			}
-
-			if (PLATFORM_RENDERER_is_sdl_deep_trace_enabled())
-			{
-				static unsigned int sdl_direct_src_pick_counter = 0;
-				sdl_direct_src_pick_counter++;
-				if ((sdl_direct_src_pick_counter <= 120u) || ((sdl_direct_src_pick_counter % 1000u) == 0u))
-				{
-
-				}
-			}
-		}
-	}
-	if (PLATFORM_RENDERER_is_sdl_deep_trace_enabled())
-	{
-		static unsigned int sdl_direct_src_sample_diag_counter = 0;
-		sdl_direct_src_sample_diag_counter++;
-		if ((sdl_direct_src_sample_diag_counter <= 120u) || ((sdl_direct_src_sample_diag_counter % 1000u) == 0u))
-		{
-			float avg_r, avg_g, avg_b, avg_a;
-			float cov = PLATFORM_RENDERER_estimate_alpha_coverage(entry, &src_rect);
-			PLATFORM_RENDERER_estimate_rect_colour_stats(entry, &src_rect, &avg_r, &avg_g, &avg_b, &avg_a);
-
 		}
 	}
 
@@ -4986,7 +4384,7 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite_src(unsigned int texture_handle, i
 
 void PLATFORM_RENDERER_draw_sdl_window_solid_rect(int r, int g, int b, float entity_x, float entity_y, float left, float right, float up, float down, float left_window_transform_x, float top_window_transform_y, float total_scale_x, float total_scale_y, float rect_scale_x, float rect_scale_y)
 {
-	if (!(PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready()))
+	if (!(true && PLATFORM_RENDERER_is_sdl2_stub_ready()))
 	{
 		return;
 	}
@@ -5043,7 +4441,7 @@ void PLATFORM_RENDERER_draw_sdl_window_solid_rect(int r, int g, int b, float ent
 
 void PLATFORM_RENDERER_draw_sdl_bound_textured_quad_custom(unsigned int texture_handle, float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2)
 {
-	if (!(PLATFORM_RENDERER_is_sdl2_native_sprite_enabled() && PLATFORM_RENDERER_is_sdl2_stub_ready()))
+	if (!(true && PLATFORM_RENDERER_is_sdl2_stub_ready()))
 	{
 		return;
 	}
@@ -5127,7 +4525,7 @@ static void PLATFORM_RENDERER_compare_legacy_and_sdl_outputs(int width, int heig
 
 void PLATFORM_RENDERER_present_frame(int width, int height)
 {
-	bool can_submit_legacy = PLATFORM_RENDERER_should_submit_legacy_draws();
+	bool can_submit_legacy = false;
 	bool should_flip_legacy_output = can_submit_legacy;
 	static unsigned int sdl_present_debug_counter = 0;
 	PLATFORM_RENDERER_refresh_sdl_stub_env_flags();
@@ -5141,7 +4539,7 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 		(void) PLATFORM_RENDERER_sync_sdl_render_target_size(width, height);
 	}
 	bool native_primary_strict = platform_renderer_sdl_native_primary_strict_enabled;
-	bool native_primary_requested = PLATFORM_RENDERER_is_sdl2_native_primary_enabled();
+	bool native_primary_requested = true;
 	bool native_primary = native_primary_requested && native_primary_strict;
 	bool native_primary_force_no_mirror = platform_renderer_sdl_native_primary_force_no_mirror_enabled;
 	bool native_primary_auto_no_mirror = platform_renderer_sdl_native_primary_auto_no_mirror_enabled;
@@ -5167,10 +4565,6 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 		native_primary_strict = true;
 		native_primary_force_no_mirror = true;
 		no_legacy_present_log_counter++;
-		if ((no_legacy_present_log_counter <= 3) || ((no_legacy_present_log_counter % 300) == 0))
-		{
-				PLATFORM_RENDERER_diag_log("SDL2-DIAG", "Native primary only mode active; forcing no-mirror present.");
-		}
 	}
 	if (!platform_renderer_sdl_mode_info_logged)
 	{
@@ -5227,7 +4621,7 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 			(platform_renderer_sdl_native_coverage_streak >= platform_renderer_legacy_safe_off_required_streak))
 		{
 			platform_renderer_legacy_submission_mode_enabled = false;
-			can_submit_legacy = PLATFORM_RENDERER_should_submit_legacy_draws();
+			can_submit_legacy = false;
 			platform_renderer_legacy_safe_off_latched = true;
 			platform_renderer_sdl_mode_info_logged = false;
 
@@ -5270,7 +4664,7 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 			if (platform_renderer_legacy_safe_off_regression_streak >= platform_renderer_legacy_safe_off_rollback_streak)
 			{
 				platform_renderer_legacy_submission_mode_enabled = true;
-				can_submit_legacy = PLATFORM_RENDERER_should_submit_legacy_draws();
+				can_submit_legacy = false;
 				platform_renderer_legacy_safe_off_latched = false;
 				platform_renderer_legacy_safe_off_regression_streak = 0;
 				platform_renderer_sdl_native_coverage_streak = 0;
@@ -5296,49 +4690,42 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 	}
 	if (!native_primary)
 	{
-			PLATFORM_RENDERER_diag_log("SDL2-DIAG", "Present requested mirror fallback because native_primary=false.");
-		(void) PLATFORM_RENDERER_mirror_from_current_backbuffer(width, height);
 		used_mirror_fallback = true;
 	}
 		else if ((!native_primary_strict) || !allow_no_mirror_this_frame)
 	{
 		// Default primary mode remains safe: mirror while migration coverage is incomplete.
-		PLATFORM_RENDERER_diag_log("SDL2-DIAG", "Present requested mirror fallback because strict coverage gate was not met.");
 		if (!platform_renderer_sdl_native_test_mode_enabled)
 		{
-			(void) PLATFORM_RENDERER_mirror_from_current_backbuffer(width, height);
 			used_mirror_fallback = true;
 		}
 	}
 	if (PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
-		if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled())
+		if (platform_renderer_sdl_native_draw_count < native_primary_min_draws_for_no_mirror)
 		{
-			if (platform_renderer_sdl_native_draw_count < native_primary_min_draws_for_no_mirror)
+			if (native_primary)
 			{
-				if (native_primary)
+				if (native_primary_force_no_mirror)
 				{
-					if (native_primary_force_no_mirror)
-					{
-						snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL2 strict no-mirror forced: draws=%d textured=%d geom_miss=%d degraded=%d allow_degraded=%d hot_src=%d(%d) streak=%d cooldown=%d blocked=%d.", platform_renderer_sdl_native_draw_count, platform_renderer_sdl_native_textured_draw_count, platform_renderer_sdl_geometry_fallback_miss_count, platform_renderer_sdl_geometry_degraded_count, allow_degraded_for_transition ? 1 : 0, geom_hot_source, geom_hot_count, platform_renderer_sdl_native_coverage_streak, platform_renderer_sdl_no_mirror_cooldown_frames, platform_renderer_sdl_no_mirror_blocked_for_session ? 1 : 0);
-					}
-					else if (native_primary_auto_no_mirror)
-					{
-						snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL2 strict auto no-mirror: fallback=%d draws=%d textured=%d geom_miss=%d degraded=%d allow_degraded=%d hot_src=%d(%d) streak=%d/%d cooldown=%d blocked=%d.", used_mirror_fallback ? 1 : 0, platform_renderer_sdl_native_draw_count, platform_renderer_sdl_native_textured_draw_count, platform_renderer_sdl_geometry_fallback_miss_count, platform_renderer_sdl_geometry_degraded_count, allow_degraded_for_transition ? 1 : 0, geom_hot_source, geom_hot_count, platform_renderer_sdl_native_coverage_streak, native_primary_required_streak_frames, platform_renderer_sdl_no_mirror_cooldown_frames, platform_renderer_sdl_no_mirror_blocked_for_session ? 1 : 0);
-					}
-					else
-					{
-						snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL2 strict-primary safe mode: mirrored fallback active. draws=%d textured=%d geom_miss=%d degraded=%d hot_src=%d(%d) streak=%d.", platform_renderer_sdl_native_draw_count, platform_renderer_sdl_native_textured_draw_count, platform_renderer_sdl_geometry_fallback_miss_count, platform_renderer_sdl_geometry_degraded_count, geom_hot_source, geom_hot_count, platform_renderer_sdl_native_coverage_streak);
-					}
+					snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL2 strict no-mirror forced: draws=%d textured=%d geom_miss=%d degraded=%d allow_degraded=%d hot_src=%d(%d) streak=%d cooldown=%d blocked=%d.", platform_renderer_sdl_native_draw_count, platform_renderer_sdl_native_textured_draw_count, platform_renderer_sdl_geometry_fallback_miss_count, platform_renderer_sdl_geometry_degraded_count, allow_degraded_for_transition ? 1 : 0, geom_hot_source, geom_hot_count, platform_renderer_sdl_native_coverage_streak, platform_renderer_sdl_no_mirror_cooldown_frames, platform_renderer_sdl_no_mirror_blocked_for_session ? 1 : 0);
 				}
-				else if (native_primary_requested)
+				else if (native_primary_auto_no_mirror)
 				{
-					snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL2 native primary requested (compat mode); using mirrored fallback (draws=%d textured=%d geom_miss=%d degraded=%d hot_src=%d(%d)).", platform_renderer_sdl_native_draw_count, platform_renderer_sdl_native_textured_draw_count, platform_renderer_sdl_geometry_fallback_miss_count, platform_renderer_sdl_geometry_degraded_count, geom_hot_source, geom_hot_count);
+					snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL2 strict auto no-mirror: fallback=%d draws=%d textured=%d geom_miss=%d degraded=%d allow_degraded=%d hot_src=%d(%d) streak=%d/%d cooldown=%d blocked=%d.", used_mirror_fallback ? 1 : 0, platform_renderer_sdl_native_draw_count, platform_renderer_sdl_native_textured_draw_count, platform_renderer_sdl_geometry_fallback_miss_count, platform_renderer_sdl_geometry_degraded_count, allow_degraded_for_transition ? 1 : 0, geom_hot_source, geom_hot_count, platform_renderer_sdl_native_coverage_streak, native_primary_required_streak_frames, platform_renderer_sdl_no_mirror_cooldown_frames, platform_renderer_sdl_no_mirror_blocked_for_session ? 1 : 0);
 				}
 				else
 				{
-					snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL2 native sprites enabled; currently no native draw-path calls this frame (showing mirror fallback).");
+					snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL2 strict-primary safe mode: mirrored fallback active. draws=%d textured=%d geom_miss=%d degraded=%d hot_src=%d(%d) streak=%d.", platform_renderer_sdl_native_draw_count, platform_renderer_sdl_native_textured_draw_count, platform_renderer_sdl_geometry_fallback_miss_count, platform_renderer_sdl_geometry_degraded_count, geom_hot_source, geom_hot_count, platform_renderer_sdl_native_coverage_streak);
 				}
+			}
+			else if (native_primary_requested)
+			{
+				snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL2 native primary requested (compat mode); using mirrored fallback (draws=%d textured=%d geom_miss=%d degraded=%d hot_src=%d(%d)).", platform_renderer_sdl_native_draw_count, platform_renderer_sdl_native_textured_draw_count, platform_renderer_sdl_geometry_fallback_miss_count, platform_renderer_sdl_geometry_degraded_count, geom_hot_source, geom_hot_count);
+			}
+			else
+			{
+				snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL2 native sprites enabled; currently no native draw-path calls this frame (showing mirror fallback).");
 			}
 		}
 		if (native_primary && !used_mirror_fallback)
@@ -5378,7 +4765,6 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 		}
 		}
 	}
-		PLATFORM_RENDERER_maybe_print_sdl_status_stderr(platform_renderer_sdl_status);
 	if (native_primary)
 	{
 		// Keep end-of-frame flip active in strict auto mode so mirror-fallback
@@ -5473,19 +4859,9 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 		return false;
 	}
 
-	if (platform_renderer_sdl_stub_accel_enabled)
+		if (platform_renderer_sdl_stub_accel_enabled)
 	{
 		bool force_software_renderer = false;
-		if (PLATFORM_RENDERER_should_force_software_renderer_for_side_by_side())
-		{
-			/*
-				 * Side-by-side native test mode may involve multiple renderer backends
-				 * during startup. Force SDL software renderer to
-				 * avoid backend GL context contention across windows regardless of
-				 * init ordering.
-			 */
-			force_software_renderer = true;
-		}
 		platform_renderer_sdl_renderer_software_forced = force_software_renderer;
 		if (force_software_renderer)
 		{
@@ -5526,7 +4902,7 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 
 	{
 		SDL_RendererInfo renderer_info;
-		bool force_software_now = PLATFORM_RENDERER_should_force_software_renderer_for_side_by_side();
+		bool force_software_now = false;
 		bool renderer_backend_is_gpu = false;
 		if (SDL_GetRendererInfo(platform_renderer_sdl_renderer, &renderer_info) == 0)
 		{
@@ -5648,14 +5024,6 @@ bool PLATFORM_RENDERER_run_sdl2_stub_self_test(void)
 	return true;
 }
 
-bool PLATFORM_RENDERER_mirror_from_current_backbuffer(int width, int height)
-{
-	(void) width;
-	(void) height;
-	strcpy(platform_renderer_sdl_status, "SDL2 mirror disabled (GL path removed).");
-	return false;
-}
-
 const char *PLATFORM_RENDERER_get_sdl2_stub_status(void)
 {
 	return platform_renderer_sdl_status;
@@ -5664,16 +5032,6 @@ const char *PLATFORM_RENDERER_get_sdl2_stub_status(void)
 void PLATFORM_RENDERER_shutdown(void)
 {
 	PLATFORM_RENDERER_reset_texture_registry();
-	if (platform_renderer_sdl_mirror_texture != NULL)
-	{
-		SDL_DestroyTexture(platform_renderer_sdl_mirror_texture);
-		platform_renderer_sdl_mirror_texture = NULL;
-	}
-	free(platform_renderer_sdl_mirror_pixels);
-	platform_renderer_sdl_mirror_pixels = NULL;
-	platform_renderer_sdl_mirror_width = 0;
-	platform_renderer_sdl_mirror_height = 0;
-	platform_renderer_sdl_mirror_pitch = 0;
 	platform_renderer_sdl_stub_self_test_done = false;
 
 	if (platform_renderer_sdl_renderer != NULL)

@@ -1049,8 +1049,8 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 	float_window_scale_multiplier = float (screen_multiplier);
 
 	bool sdl_stub_enabled = PLATFORM_RENDERER_is_sdl2_stub_enabled();
-	bool sdl_native_sprites_enabled = PLATFORM_RENDERER_is_sdl2_native_sprite_enabled();
-	bool sdl_native_primary_enabled = PLATFORM_RENDERER_is_sdl2_native_primary_enabled();
+	bool sdl_native_sprites_enabled = true;
+	bool sdl_native_primary_enabled = true;
 	bool sdl_primary_active = PLATFORM_RENDERER_is_sdl2_stub_enabled();
 	char sdl_stub_line[MAX_LINE_SIZE];
 	sprintf(sdl_stub_line, "SDL2 renderer stub: enabled=%d native_sprites=%d native_primary=%d sdl_primary=%d lazy_init=1 status=%s", sdl_stub_enabled ? 1 : 0, sdl_native_sprites_enabled ? 1 : 0, sdl_native_primary_enabled ? 1 : 0, sdl_primary_active ? 1 : 0, PLATFORM_RENDERER_get_sdl2_stub_status());
@@ -1090,7 +1090,6 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 		secondary_colour_available = false;
 		best_texture_combiner_available = false;
 		texture_combiner_available = false;
-		PLATFORM_RENDERER_set_secondary_colour_proc(NULL);
 		PLATFORM_RENDERER_set_active_texture_proc(NULL);
 	}
 
@@ -2210,18 +2209,14 @@ static void OUTPUT_apply_texture_parameters_from_flags(int opengl_booleans, int 
 	bool filtered = (opengl_booleans & OPENGL_BOOLEAN_FILTERED) != 0;
 	bool old_filtered = (old_opengl_booleans & OPENGL_BOOLEAN_FILTERED) != 0;
 	bool state_changed = (opengl_booleans != old_opengl_booleans);
-
-	PLATFORM_RENDERER_apply_texture_parameters(filtered, old_filtered, state_changed, force_filter_apply);
 }
 
 static void OUTPUT_configure_secondary_multitexture_state(int opengl_booleans, int secondary_opengl_booleans, int &old_secondary_opengl_booleans)
 {
 	bool double_mask_mode = OUTPUT_is_double_multitexture_mode(opengl_booleans);
 
-	PLATFORM_RENDERER_prepare_multitexture_second_unit(double_mask_mode);
 	OUTPUT_apply_texture_parameters_from_flags(secondary_opengl_booleans, old_secondary_opengl_booleans);
 	old_secondary_opengl_booleans = secondary_opengl_booleans;
-	PLATFORM_RENDERER_finalize_multitexture_second_unit(double_mask_mode);
 }
 
 
@@ -2543,8 +2538,6 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 	}
 	else
 	{
-		PLATFORM_RENDERER_set_texture_enabled(false);
-
 		// Draw the collision grid at the correct resolution.
 
 		int col_grid_x_offset = window_x % collision_grid_size;
@@ -2945,9 +2938,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 			#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 				MAIN_debug_last_thing ("Setting secondary colour...");
 			#endif
-
-			PLATFORM_RENDERER_set_colour_sum_enabled(true);
-			PLATFORM_RENDERER_set_secondary_colour( float(wp->vertex_red)/256.0f , float(wp->vertex_green)/256.0f , float(wp->vertex_blue)/256.0f );
 		}
 	}
 	else
@@ -3033,8 +3023,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 	}
 	else
 	{
-		PLATFORM_RENDERER_prepare_textured_window_draw(texture_combiner_available);
-
 			for (z_ordering_list=0; z_ordering_list<z_ordering_list_size; z_ordering_list++)
 			{
 				int queue_step_counter = 0;
@@ -3166,9 +3154,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							MAIN_debug_last_thing ("About to set multi-texture sprite...");
 						#endif
 
-						PLATFORM_RENDERER_bind_secondary_texture(
-							bmps[secondary_bitmap_number].texture_handle,
-							old_secondary_bitmap_number == UNSET);
 
 						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 							MAIN_debug_last_thing ("Set multitexture sprite...");
@@ -3179,8 +3164,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 							MAIN_debug_last_thing ("About to reset multitexture sprite...");
 						#endif
-
-						PLATFORM_RENDERER_disable_secondary_texture_and_restore_combiner();
 
 						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 							MAIN_debug_last_thing ("Reset multitexture sprite...");
@@ -3329,8 +3312,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 							MAIN_debug_last_thing ("Turn off masking.");
 						#endif
-
-						PLATFORM_RENDERER_set_alpha_test_enabled(false);
 					}
 					else if ( (opengl_booleans & OPENGL_BOOLEAN_MASKED) && !(old_opengl_booleans & OPENGL_BOOLEAN_MASKED) )
 					{
@@ -3339,9 +3320,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 							MAIN_debug_last_thing ("Turn on masking.");
 						#endif
-
-						PLATFORM_RENDERER_set_alpha_test_enabled(true);
-						PLATFORM_RENDERER_set_alpha_func_greater(0.5f);
 					}
 
 					if (secondary_colour_available)
@@ -3353,9 +3331,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 								MAIN_debug_last_thing ("Turn off secondary colour.");
 							#endif
-
-							PLATFORM_RENDERER_set_secondary_colour( 0.0f , 0.0f , 0.0f );
-							PLATFORM_RENDERER_set_colour_sum_enabled(false);
 						}
 						else if ( (opengl_booleans & OPENGL_BOOLEAN_VERTEX_SECONDARY_COLOUR) && !(old_opengl_booleans & OPENGL_BOOLEAN_VERTEX_SECONDARY_COLOUR) )
 						{
@@ -3364,9 +3339,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 								MAIN_debug_last_thing ("Turn on secondary colour.");
 							#endif
-
-							PLATFORM_RENDERER_set_secondary_colour( 0.0f , 0.0f , 0.0f );
-							PLATFORM_RENDERER_set_colour_sum_enabled(true);
 						}
 					}
 
@@ -3377,8 +3349,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 							MAIN_debug_last_thing ("Turn on secondary colour.");
 						#endif
-
-						PLATFORM_RENDERER_set_colour_sum_enabled(true);
 					}
 
 					if ( !(opengl_booleans & OPENGL_BOOLEAN_VERTEX_COLOUR) && (old_opengl_booleans & OPENGL_BOOLEAN_VERTEX_COLOUR) )
@@ -3411,8 +3381,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 							MAIN_debug_last_thing ("Set secondary vertex colour.");
 						#endif
-
-						PLATFORM_RENDERER_set_secondary_colour( float(entity_pointer[ENT_OPENGL_VERTEX_RED])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_GREEN])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_BLUE])/256.0f );
 					}
 				}
 
@@ -3746,7 +3714,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 								secondary_v2 -= secondary_sp->uv_pixel_size * float(entity_pointer[ENT_CUT_SPRITE_BOTTOM_INDENTATION]);
 							}
 
-							PLATFORM_RENDERER_set_active_texture_unit(0);
 							OUTPUT_apply_texture_parameters_from_flags(opengl_booleans, old_opengl_booleans);
 
 							if (OUTPUT_has_multitexture_flags(opengl_booleans))
@@ -3811,7 +3778,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						}
 						else
 						{
-							PLATFORM_RENDERER_set_active_texture_unit(0);
 							OUTPUT_apply_texture_parameters_from_flags(opengl_booleans, old_opengl_booleans);
 
 							if (opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA)
@@ -4347,11 +4313,8 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						PLATFORM_RENDERER_translatef(x,-y,0.0);
 					}
 
-					PLATFORM_RENDERER_set_texture_enabled(false);
-
 					OUTPUT_draw_starfield (entity_pointer[ENT_UNIQUE_ID]);
 
-					PLATFORM_RENDERER_set_texture_enabled(true);
 					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 					break;
 
@@ -4384,12 +4347,9 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						y = entity_pointer[ENT_WORLD_Y] - window_y;
 						PLATFORM_RENDERER_translatef(x,-y,0.0);
 					}
-					
-					PLATFORM_RENDERER_set_texture_enabled(false);
 
 					OUTPUT_draw_starfield_lines (entity_pointer[ENT_UNIQUE_ID]);
 
-					PLATFORM_RENDERER_set_texture_enabled(true);
 					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 					break;
 
@@ -4406,12 +4366,9 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						y = entity_pointer[ENT_WORLD_Y] - window_y;
 						PLATFORM_RENDERER_translatef(x,-y,0.0);
 					}
-					
-					PLATFORM_RENDERER_set_texture_enabled(false);
 
 					OUTPUT_draw_starfield_colour (entity_pointer[ENT_UNIQUE_ID]);
 
-					PLATFORM_RENDERER_set_texture_enabled(true);
 					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 					break;
 
@@ -4428,12 +4385,9 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						y = entity_pointer[ENT_WORLD_Y] - window_y;
 						PLATFORM_RENDERER_translatef(x,-y,0.0);
 					}
-					
-					PLATFORM_RENDERER_set_texture_enabled(false);
 
 					OUTPUT_draw_starfield_colour_lines (entity_pointer[ENT_UNIQUE_ID]);
 
-					PLATFORM_RENDERER_set_texture_enabled(true);
 					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 					break;
 
@@ -4441,8 +4395,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 					#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 						MAIN_debug_last_thing ("DRAW_MODE_SOLID_RECTANGLE...");
 					#endif
-
-					PLATFORM_RENDERER_set_texture_enabled(false);
 
 					OUTPUT_apply_texture_parameters_from_flags(opengl_booleans, old_opengl_booleans);
 
@@ -4482,8 +4434,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 					}
 
 					PLATFORM_RENDERER_translatef(-x,y,0);
-
-					PLATFORM_RENDERER_set_texture_enabled(true);
 					break;
 
 					default:
