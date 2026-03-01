@@ -11,7 +11,8 @@ start
 	let world_x = parent.world_x
 	let world_y = parent.world_y
 
-	let opengl_vertex_alpha = matriarch.opengl_vertex_alpha
+	// Follow the logo manager directly so hide/show tracks SLEEP_LOGO/WAKE_LOGO reliably.
+	let opengl_vertex_alpha = parent.opengl_vertex_alpha
 
 	set_private_co_ords
 end

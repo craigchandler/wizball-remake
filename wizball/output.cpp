@@ -139,6 +139,7 @@ static bool output_sdl_script_trace_checked_env = false;
 static bool output_sdl_script_trace_enabled = false;
 static char output_sdl_script_trace_filter[NAME_SIZE] = {0};
 static unsigned int output_sdl_script_trace_counter = 0;
+static int output_cached_main_menu_logo_section_script = UNSET;
 
 bool software_mode_active = false;
 
@@ -278,6 +279,15 @@ static bool OUTPUT_is_script_trace_match(const char *script_name)
 	}
 
 	return OUTPUT_contains_case_insensitive(script_name, output_sdl_script_trace_filter);
+}
+
+static int OUTPUT_get_main_menu_logo_section_script(void)
+{
+	if (output_cached_main_menu_logo_section_script == UNSET)
+	{
+		output_cached_main_menu_logo_section_script = GPL_find_word_value("SCRIPTS", "MAIN_MENU_LOGO_SECTION");
+	}
+	return output_cached_main_menu_logo_section_script;
 }
 
 static void OUTPUT_sanitize_window_transform_values(
@@ -3171,6 +3181,18 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 					draw_type = entity_pointer[ENT_DRAW_MODE];
 					opengl_booleans = entity_pointer[ENT_OPENGL_BOOLEANS];
+					int effective_vertex_alpha = entity_pointer[ENT_OPENGL_VERTEX_ALPHA];
+					const int logo_section_script = OUTPUT_get_main_menu_logo_section_script();
+					if (entity_pointer[ENT_SCRIPT_NUMBER] == logo_section_script)
+					{
+						int parent_entity = entity_pointer[ENT_PARENT];
+						if ((parent_entity >= 0) &&
+							(parent_entity < MAX_ENTITIES) &&
+							(entity[parent_entity][ENT_ALIVE] > DEAD))
+						{
+							effective_vertex_alpha = entity[parent_entity][ENT_OPENGL_VERTEX_ALPHA];
+						}
+					}
 					{
 						int script_number = entity_pointer[ENT_SCRIPT_NUMBER];
 						const char *script_name = "UNSET";
@@ -3203,7 +3225,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 								entity_pointer[ENT_OPENGL_VERTEX_RED],
 								entity_pointer[ENT_OPENGL_VERTEX_GREEN],
 								entity_pointer[ENT_OPENGL_VERTEX_BLUE],
-								entity_pointer[ENT_OPENGL_VERTEX_ALPHA]);
+								effective_vertex_alpha);
 						}
 					}
 					if (effect_trace_enabled)
@@ -3533,7 +3555,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						MAIN_debug_last_thing ("Set primary vertex colour and alpha.");
 					#endif
 
-					PLATFORM_RENDERER_set_colour4f( float(entity_pointer[ENT_OPENGL_VERTEX_RED])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_GREEN])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_BLUE])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_ALPHA])/256.0f );
+					PLATFORM_RENDERER_set_colour4f( float(entity_pointer[ENT_OPENGL_VERTEX_RED])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_GREEN])/256.0f , float(entity_pointer[ENT_OPENGL_VERTEX_BLUE])/256.0f , float(effective_vertex_alpha)/256.0f );
 				}
 
 				#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
@@ -3636,6 +3658,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						 * has been more robust for transformed/animated entities.
 						 */
 						if (PLATFORM_RENDERER_is_sdl_primary_active() &&
+							OUTPUT_env_enabled("WIZBALL_SDL2_DIRECT_SPRITE_PATH") &&
 							(!(opengl_booleans & OPENGL_BOOLEAN_BLEND_EITHER)) &&
 							!(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_QUAD) &&
 							!(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD) &&
@@ -3670,7 +3693,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							}
 							if (opengl_booleans & OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA)
 							{
-								sprite_a = entity_pointer[ENT_OPENGL_VERTEX_ALPHA];
+								sprite_a = effective_vertex_alpha;
 								if (sprite_a < 0) sprite_a = 0; else if (sprite_a > 255) sprite_a = 255;
 							}
 							if (opengl_booleans & OPENGL_BOOLEAN_CLIP_FRAME)

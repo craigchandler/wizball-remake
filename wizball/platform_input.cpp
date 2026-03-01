@@ -65,6 +65,18 @@ static SDL_Scancode PLATFORM_INPUT_map_allegro_scancode_to_sdl(int scancode)
 	case KEY_DOWN: return SDL_SCANCODE_DOWN;
 	case KEY_LEFT: return SDL_SCANCODE_LEFT;
 	case KEY_RIGHT: return SDL_SCANCODE_RIGHT;
+	case KEY_F1: return SDL_SCANCODE_F1;
+	case KEY_F2: return SDL_SCANCODE_F2;
+	case KEY_F3: return SDL_SCANCODE_F3;
+	case KEY_F4: return SDL_SCANCODE_F4;
+	case KEY_F5: return SDL_SCANCODE_F5;
+	case KEY_F6: return SDL_SCANCODE_F6;
+	case KEY_F7: return SDL_SCANCODE_F7;
+	case KEY_F8: return SDL_SCANCODE_F8;
+	case KEY_F9: return SDL_SCANCODE_F9;
+	case KEY_F10: return SDL_SCANCODE_F10;
+	case KEY_F11: return SDL_SCANCODE_F11;
+	case KEY_F12: return SDL_SCANCODE_F12;
 
 	case KEY_LSHIFT: return SDL_SCANCODE_LSHIFT;
 	case KEY_RSHIFT: return SDL_SCANCODE_RSHIFT;

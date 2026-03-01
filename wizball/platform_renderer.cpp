@@ -2336,8 +2336,14 @@ static void PLATFORM_RENDERER_apply_sdl_draw_blend_mode(void)
 			break;
 		case PLATFORM_RENDERER_BLEND_MODE_MULTIPLY:
 		{
+			/*
+			 * Alpha-aware multiply:
+			 *   out_rgb = src_rgb * dst_rgb + dst_rgb * (1 - src_a)
+			 * This keeps classic multiply look for opaque texels while ensuring
+			 * masked/transparent texels do not stamp matte colour (pink/black boxes).
+			 */
 			SDL_BlendMode multiply_mode = SDL_ComposeCustomBlendMode(
-				SDL_BLENDFACTOR_DST_COLOR, SDL_BLENDFACTOR_ZERO, SDL_BLENDOPERATION_ADD,
+				SDL_BLENDFACTOR_DST_COLOR, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD,
 				SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ZERO, SDL_BLENDOPERATION_ADD);
 			if (SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, multiply_mode) != 0)
 			{
@@ -2383,14 +2389,6 @@ static Uint8 PLATFORM_RENDERER_get_sdl_texture_alpha_mod(Uint8 requested_alpha)
 	 */
 	if (!platform_renderer_blend_enabled)
 	{
-		return 255;
-	}
-	if (platform_renderer_blend_mode == PLATFORM_RENDERER_BLEND_MODE_MULTIPLY)
-	{
-		/*
-		 * GL multiply path (DST_COLOR, ZERO) does not use source alpha.
-		 * Keep equivalent behavior in both native and fallback multiply paths.
-		 */
 		return 255;
 	}
 	return requested_alpha;
@@ -2447,8 +2445,12 @@ static void PLATFORM_RENDERER_apply_sdl_texture_blend_mode(SDL_Texture *texture)
 			break;
 		case PLATFORM_RENDERER_BLEND_MODE_MULTIPLY:
 		{
+			/*
+			 * Alpha-aware multiply matching draw path.
+			 * Prevents transparent key-colour texels from contributing their RGB.
+			 */
 			SDL_BlendMode multiply_mode = SDL_ComposeCustomBlendMode(
-				SDL_BLENDFACTOR_DST_COLOR, SDL_BLENDFACTOR_ZERO, SDL_BLENDOPERATION_ADD,
+				SDL_BLENDFACTOR_DST_COLOR, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD,
 				SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ZERO, SDL_BLENDOPERATION_ADD);
 			platform_renderer_sdl_multiply_texture_support_checked = true;
 				if (SDL_SetTextureBlendMode(texture, multiply_mode) != 0)
@@ -2749,10 +2751,14 @@ static unsigned int PLATFORM_RENDERER_register_gl_texture(unsigned int gl_textur
 							{
 								alpha_zero_black_rgb_count++;
 							}
-							/* Preserve source RGB even when masked/transparent. */
-							rgba_pixels[index + 0] = (unsigned char) pixel_r;
-							rgba_pixels[index + 1] = (unsigned char) pixel_g;
-							rgba_pixels[index + 2] = (unsigned char) pixel_b;
+							/*
+							 * For colour-keyed transparent texels, force RGB to black.
+							 * Keeping palette key RGB (often pink in index 0) can leak
+							 * through linear filtering and appear as pink squares/halos.
+							 */
+							rgba_pixels[index + 0] = 0u;
+							rgba_pixels[index + 1] = 0u;
+							rgba_pixels[index + 2] = 0u;
 							rgba_pixels[index + 3] = 0u;
 						}
 					else
