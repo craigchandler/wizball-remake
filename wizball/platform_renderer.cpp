@@ -61,13 +61,9 @@ static bool platform_renderer_sdl_stub_accel_enabled = false;
 static bool platform_renderer_sdl_stub_self_test_done = false;
 static bool platform_renderer_sdl_native_primary_strict_enabled = false;
 static bool platform_renderer_sdl_native_primary_force_no_mirror_enabled = false;
-static bool platform_renderer_sdl_native_primary_auto_no_mirror_enabled = false;
-static bool platform_renderer_sdl_native_primary_allow_degraded_no_mirror_enabled = false;
 static bool platform_renderer_sdl_core_quads_enabled = false;
 static bool platform_renderer_sdl_geometry_checked_env = false;
 static bool platform_renderer_sdl_geometry_enabled = false;
-static bool platform_renderer_sdl_status_stderr_enabled = false;
-static bool platform_renderer_sdl_native_test_mode_enabled = false;
 static int platform_renderer_sdl_no_mirror_min_draws = 24;
 static int platform_renderer_sdl_no_mirror_min_textured = 16;
 static int platform_renderer_sdl_no_mirror_required_streak = 30;
@@ -103,7 +99,6 @@ static bool platform_renderer_legacy_submission_mode_checked_env = false;
 static bool platform_renderer_legacy_submission_mode_enabled = true;
 static bool platform_renderer_legacy_submission_mode_forced_on = false;
 static bool platform_renderer_legacy_submission_mode_forced_off = false;
-static bool platform_renderer_legacy_safe_off_enabled = false;
 static bool platform_renderer_legacy_safe_off_latched = false;
 static bool platform_renderer_legacy_safe_off_start_submission_off = false;
 static int platform_renderer_legacy_safe_off_required_streak = 240;
@@ -299,11 +294,7 @@ static void PLATFORM_RENDERER_refresh_sdl_stub_env_flags(void)
 	}
 	platform_renderer_sdl_native_primary_strict_enabled = true;
 	platform_renderer_sdl_native_primary_force_no_mirror_enabled = true;
-	platform_renderer_sdl_native_primary_auto_no_mirror_enabled = false;
-	platform_renderer_sdl_native_primary_allow_degraded_no_mirror_enabled = false;
 	platform_renderer_sdl_core_quads_enabled = true;
-	platform_renderer_sdl_status_stderr_enabled = false;
-	platform_renderer_sdl_native_test_mode_enabled = false;
 	platform_renderer_sdl_no_mirror_min_draws = 24;
 	platform_renderer_sdl_no_mirror_min_textured = 16;
 	platform_renderer_sdl_no_mirror_required_streak = 30;
@@ -963,8 +954,7 @@ static SDL_Texture *PLATFORM_RENDERER_get_effective_texture_for_current_blend(pl
 
 	if (platform_renderer_blend_enabled &&
 		(platform_renderer_blend_mode == PLATFORM_RENDERER_BLEND_MODE_SUBTRACT) &&
-		(platform_renderer_legacy_safe_off_enabled ||
-		 (platform_renderer_sdl_subtractive_texture_support_checked &&
+		((platform_renderer_sdl_subtractive_texture_support_checked &&
 		  (!platform_renderer_sdl_subtractive_texture_supported))))
 	{
 		SDL_Texture *inverted = PLATFORM_RENDERER_build_sdl_inverted_texture_from_entry(entry);
@@ -4542,12 +4532,10 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 	bool native_primary_requested = true;
 	bool native_primary = native_primary_requested && native_primary_strict;
 	bool native_primary_force_no_mirror = platform_renderer_sdl_native_primary_force_no_mirror_enabled;
-	bool native_primary_auto_no_mirror = platform_renderer_sdl_native_primary_auto_no_mirror_enabled;
-	bool allow_degraded_for_transition = platform_renderer_sdl_native_primary_allow_degraded_no_mirror_enabled;
 	bool coverage_good_this_frame =
 		(platform_renderer_sdl_native_textured_draw_count > 0) &&
 		(platform_renderer_sdl_geometry_fallback_miss_count == 0) &&
-		(allow_degraded_for_transition || (platform_renderer_sdl_geometry_degraded_count == 0));
+		((platform_renderer_sdl_geometry_degraded_count == 0));
 	bool allow_no_mirror_this_frame = false;
 	bool used_mirror_fallback = false;
 	int geom_hot_source = PLATFORM_RENDERER_GEOM_SRC_NONE;
@@ -4606,8 +4594,7 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 		{
 			platform_renderer_sdl_native_coverage_streak = 0;
 		}
-		if (platform_renderer_legacy_safe_off_enabled &&
-			!platform_renderer_legacy_submission_mode_forced_on &&
+		if (!platform_renderer_legacy_submission_mode_forced_on &&
 			!platform_renderer_legacy_submission_mode_forced_off &&
 			!platform_renderer_legacy_safe_off_latched &&
 			can_submit_legacy &&
@@ -4626,8 +4613,7 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 			platform_renderer_sdl_mode_info_logged = false;
 
 		}
-		if (platform_renderer_legacy_safe_off_enabled &&
-			!platform_renderer_legacy_submission_mode_forced_on &&
+		if (!platform_renderer_legacy_submission_mode_forced_on &&
 			!platform_renderer_legacy_submission_mode_forced_off &&
 			!platform_renderer_legacy_safe_off_latched)
 		{
@@ -4638,8 +4624,7 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 
 			}
 		}
-		if (platform_renderer_legacy_safe_off_enabled &&
-			!platform_renderer_legacy_submission_mode_forced_on &&
+		if (!platform_renderer_legacy_submission_mode_forced_on &&
 			!platform_renderer_legacy_submission_mode_forced_off &&
 			platform_renderer_legacy_safe_off_latched &&
 			!can_submit_legacy)
@@ -4676,7 +4661,7 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 		{
 			allow_no_mirror_this_frame = true;
 		}
-	else if (native_primary && native_primary_auto_no_mirror && !platform_renderer_sdl_no_mirror_blocked_for_session && (platform_renderer_sdl_no_mirror_cooldown_frames == 0) && coverage_good_this_frame)
+	else if (native_primary && !platform_renderer_sdl_no_mirror_blocked_for_session && (platform_renderer_sdl_no_mirror_cooldown_frames == 0) && coverage_good_this_frame)
 	{
 		allow_no_mirror_this_frame = true;
 	}
@@ -4695,10 +4680,7 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 		else if ((!native_primary_strict) || !allow_no_mirror_this_frame)
 	{
 		// Default primary mode remains safe: mirror while migration coverage is incomplete.
-		if (!platform_renderer_sdl_native_test_mode_enabled)
-		{
-			used_mirror_fallback = true;
-		}
+		used_mirror_fallback = true;
 	}
 	if (PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
@@ -4708,11 +4690,7 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 			{
 				if (native_primary_force_no_mirror)
 				{
-					snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL2 strict no-mirror forced: draws=%d textured=%d geom_miss=%d degraded=%d allow_degraded=%d hot_src=%d(%d) streak=%d cooldown=%d blocked=%d.", platform_renderer_sdl_native_draw_count, platform_renderer_sdl_native_textured_draw_count, platform_renderer_sdl_geometry_fallback_miss_count, platform_renderer_sdl_geometry_degraded_count, allow_degraded_for_transition ? 1 : 0, geom_hot_source, geom_hot_count, platform_renderer_sdl_native_coverage_streak, platform_renderer_sdl_no_mirror_cooldown_frames, platform_renderer_sdl_no_mirror_blocked_for_session ? 1 : 0);
-				}
-				else if (native_primary_auto_no_mirror)
-				{
-					snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL2 strict auto no-mirror: fallback=%d draws=%d textured=%d geom_miss=%d degraded=%d allow_degraded=%d hot_src=%d(%d) streak=%d/%d cooldown=%d blocked=%d.", used_mirror_fallback ? 1 : 0, platform_renderer_sdl_native_draw_count, platform_renderer_sdl_native_textured_draw_count, platform_renderer_sdl_geometry_fallback_miss_count, platform_renderer_sdl_geometry_degraded_count, allow_degraded_for_transition ? 1 : 0, geom_hot_source, geom_hot_count, platform_renderer_sdl_native_coverage_streak, native_primary_required_streak_frames, platform_renderer_sdl_no_mirror_cooldown_frames, platform_renderer_sdl_no_mirror_blocked_for_session ? 1 : 0);
+					snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL2 strict no-mirror forced: draws=%d textured=%d geom_miss=%d degraded=%d allow_degraded=%d hot_src=%d(%d) streak=%d cooldown=%d blocked=%d.", platform_renderer_sdl_native_draw_count, platform_renderer_sdl_native_textured_draw_count, platform_renderer_sdl_geometry_fallback_miss_count, platform_renderer_sdl_geometry_degraded_count, 0, geom_hot_source, geom_hot_count, platform_renderer_sdl_native_coverage_streak, platform_renderer_sdl_no_mirror_cooldown_frames, platform_renderer_sdl_no_mirror_blocked_for_session ? 1 : 0);
 				}
 				else
 				{
@@ -4734,25 +4712,6 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 		}
 			{
 				const bool should_present_sdl = true;
-				if (platform_renderer_sdl_native_test_mode_enabled)
-				{
-
-					PLATFORM_RENDERER_log_native_draw_transition(
-						platform_renderer_sdl_present_frame_counter,
-						platform_renderer_prev_sdl_draw_count,
-						platform_renderer_prev_sdl_textured_count,
-						platform_renderer_prev_legacy_draw_count,
-					platform_renderer_prev_legacy_textured_count,
-					platform_renderer_sdl_native_draw_count,
-					platform_renderer_sdl_native_textured_draw_count,
-					platform_renderer_legacy_draw_count,
-					platform_renderer_legacy_textured_draw_count);
-
-					platform_renderer_prev_sdl_draw_count = platform_renderer_sdl_native_draw_count;
-					platform_renderer_prev_sdl_textured_count = platform_renderer_sdl_native_textured_draw_count;
-					platform_renderer_prev_legacy_draw_count = platform_renderer_legacy_draw_count;
-					platform_renderer_prev_legacy_textured_count = platform_renderer_legacy_textured_draw_count;
-				}
 				platform_renderer_sdl_present_frame_counter++;
 			if (should_present_sdl)
 			{
@@ -4769,7 +4728,7 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 	{
 		// Keep end-of-frame flip active in strict auto mode so mirror-fallback
 		// transitions always sample a fresh frame instead of stale buffer content.
-		if (can_submit_legacy && native_primary_auto_no_mirror && !native_primary_force_no_mirror)
+		if (can_submit_legacy && !native_primary_force_no_mirror)
 		{
 			should_flip_legacy_output = true;
 		}
@@ -4778,7 +4737,7 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 				should_flip_legacy_output = can_submit_legacy && used_mirror_fallback;
 			}
 		}
-		if (platform_renderer_sdl_native_test_mode_enabled && platform_renderer_sdl_stub_show_enabled && can_submit_legacy)
+		if (platform_renderer_sdl_stub_show_enabled && can_submit_legacy)
 		{
 			/*
 			 * Keep the final flip at the canonical end-of-frame position when SDL is

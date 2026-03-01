@@ -2470,23 +2470,8 @@ void OUTPUT_draw_window_collision_contents (int window_number, bool draw_world_c
 	float window_scale_x,window_scale_y;
 	float total_scale_x,total_scale_y;
 
-//	if (game_screen_width != virtual_screen_width)
-//	{
-//		display_scale_x = game_screen_width/virtual_screen_width;
-//	}
-//	else
-	{
-		display_scale_x = 1.0f;
-	}
-
-//	if (game_screen_height != virtual_screen_height)
-//	{
-//		display_scale_y = game_screen_height/virtual_screen_height;
-//	}
-//	else
-	{
-		display_scale_y = 1.0f;
-	}
+	display_scale_x = 1.0f;
+	display_scale_y = 1.0f;
 
 	float left_window_transform_x = (wp->screen_x + wp->opengl_transform_x) * display_scale_x;
 	float bottom_window_transform_y = virtual_screen_height - ( (wp->screen_y + wp->opengl_transform_y + wp->scaled_height) * display_scale_y);
