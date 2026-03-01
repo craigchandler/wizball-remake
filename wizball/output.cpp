@@ -3635,12 +3635,8 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						 * standard sprites. It does not depend on bound-texture state and
 						 * has been more robust for transformed/animated entities.
 						 */
-						bool sdl_multiply_fallback_direct_sprite =
-							PLATFORM_RENDERER_is_sdl_multiply_fallback_active() &&
-							(opengl_booleans & OPENGL_BOOLEAN_BLEND_MULTIPLY) &&
-							!(opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA);
 						if (PLATFORM_RENDERER_is_sdl_primary_active() &&
-							((!(opengl_booleans & OPENGL_BOOLEAN_BLEND_EITHER)) || sdl_multiply_fallback_direct_sprite) &&
+							(!(opengl_booleans & OPENGL_BOOLEAN_BLEND_EITHER)) &&
 							!(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_QUAD) &&
 							!(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD) &&
 							!(opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA) &&

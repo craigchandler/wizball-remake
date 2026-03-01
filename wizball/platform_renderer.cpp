@@ -2457,10 +2457,10 @@ static void PLATFORM_RENDERER_apply_sdl_texture_blend_mode(SDL_Texture *texture)
 					platform_renderer_sdl_multiply_texture_supported = false;
 					if (!sdl_multiply_texture_warned)
 					{
-						fprintf(stderr, "[SDL2-DIAG] custom multiply texture blend unsupported, using COPY fallback: %s\n", SDL_GetError());
+						fprintf(stderr, "[SDL2-DIAG] custom multiply texture blend unsupported, using ALPHA fallback: %s\n", SDL_GetError());
 						sdl_multiply_texture_warned = true;
 					}
-					(void) SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_NONE);
+					(void) SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 				}
 			else
 			{
