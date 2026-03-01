@@ -11,17 +11,12 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 option(WIZBALL_ENABLE_FMOD "Build with FMOD backend (requires FMOD headers/libs)" OFF)
 option(WIZBALL_ENABLE_ASAN "Build with AddressSanitizer (debug heap corruption)" OFF)
-option(WIZBALL_ENABLE_SDL2 "Enable SDL2 platform migration scaffolding" OFF)
 set(WIZBALL_DAT_TOOL "dat" CACHE STRING "Path/name of Allegro dat packing tool")
 
 find_path(ALLEGRO_INCLUDE_DIR allegro.h)
 find_library(ALLEGRO_LIBRARY NAMES alleg allegro)
-find_library(ALLEGGL_LIBRARY NAMES alleggl)
-find_library(OPENGL_LIBRARY NAMES GL OpenGL)
-find_library(GLU_LIBRARY NAMES GLU)
-
-if(NOT ALLEGRO_INCLUDE_DIR OR NOT ALLEGRO_LIBRARY OR NOT ALLEGGL_LIBRARY OR NOT OPENGL_LIBRARY OR NOT GLU_LIBRARY)
-  message(FATAL_ERROR "Missing required deps. Need Allegro4 (headers + lib), AllegroGL, OpenGL and GLU.")
+if(NOT ALLEGRO_INCLUDE_DIR OR NOT ALLEGRO_LIBRARY)
+  message(FATAL_ERROR "Missing required deps. Need Allegro4 (headers + lib).")
 endif()
 
 set(WIZBALL_SOURCES
@@ -100,32 +95,24 @@ if(WIZBALL_ENABLE_FMOD)
   endif()
 
   list(APPEND WIZBALL_SOURCES wizball/sound.cpp)
-elseif(WIZBALL_ENABLE_SDL2)
-  list(APPEND WIZBALL_SOURCES wizball/sound_sdl.cpp)
 else()
-  list(APPEND WIZBALL_SOURCES wizball/sound_stub.cpp)
+  list(APPEND WIZBALL_SOURCES wizball/sound_sdl.cpp)
 endif()
 
-if(WIZBALL_ENABLE_SDL2)
-  find_package(SDL2 QUIET)
-  if(NOT SDL2_FOUND)
-    message(FATAL_ERROR "WIZBALL_ENABLE_SDL2 is ON, but SDL2 was not found.")
-  endif()
+find_package(SDL2 QUIET)
+if(NOT SDL2_FOUND)
+  message(FATAL_ERROR "SDL2 was not found.")
+endif()
 
-  find_package(SDL2_mixer QUIET)
-  if(NOT SDL2_mixer_FOUND)
-    message(FATAL_ERROR "WIZBALL_ENABLE_SDL2 is ON, but SDL2_mixer was not found.")
-  endif()
+find_package(SDL2_mixer QUIET)
+if(NOT SDL2_mixer_FOUND)
+  message(FATAL_ERROR "SDL2_mixer was not found.")
 endif()
 
 add_executable(wizball ${WIZBALL_SOURCES})
 
 if(UNIX AND NOT APPLE)
   target_compile_definitions(wizball PRIVATE ALLEGRO_LINUX)
-endif()
-
-if(WIZBALL_ENABLE_SDL2)
-  target_compile_definitions(wizball PRIVATE WIZBALL_USE_SDL2)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
@@ -151,29 +138,25 @@ if(WIZBALL_ENABLE_FMOD)
   target_link_libraries(wizball PRIVATE ${FMOD_LIBRARY})
 endif()
 
-if(WIZBALL_ENABLE_SDL2)
-  if(TARGET SDL2::SDL2)
-    target_link_libraries(wizball PRIVATE SDL2::SDL2)
-  else()
-    target_include_directories(wizball PRIVATE ${SDL2_INCLUDE_DIRS})
-    target_link_libraries(wizball PRIVATE ${SDL2_LIBRARIES})
-  endif()
+if(TARGET SDL2::SDL2)
+  target_link_libraries(wizball PRIVATE SDL2::SDL2)
+else()
+  target_include_directories(wizball PRIVATE ${SDL2_INCLUDE_DIRS})
+  target_link_libraries(wizball PRIVATE ${SDL2_LIBRARIES})
+endif()
 
-  if(TARGET SDL2_mixer::SDL2_mixer)
-    target_link_libraries(wizball PRIVATE SDL2_mixer::SDL2_mixer)
-  else()
-    target_include_directories(wizball PRIVATE ${SDL2_MIXER_INCLUDE_DIRS})
-    target_link_libraries(wizball PRIVATE ${SDL2_MIXER_LIBRARIES})
-  endif()
+if(TARGET SDL2_mixer::SDL2_mixer)
+  target_link_libraries(wizball PRIVATE SDL2_mixer::SDL2_mixer)
+else()
+  target_include_directories(wizball PRIVATE ${SDL2_MIXER_INCLUDE_DIRS})
+  target_link_libraries(wizball PRIVATE ${SDL2_MIXER_LIBRARIES})
 endif()
 
 target_link_libraries(wizball PRIVATE
   ${ALLEGRO_LIBRARY}
-  ${ALLEGGL_LIBRARY}
-  ${OPENGL_LIBRARY}
-  ${GLU_LIBRARY}
   m
 )
+
 
 add_custom_target(run_wizball_dat
   COMMAND $<TARGET_FILE:wizball> -dat

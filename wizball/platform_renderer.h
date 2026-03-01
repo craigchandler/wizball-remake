@@ -3,31 +3,6 @@
 
 typedef struct BITMAP BITMAP;
 
-typedef struct
-{
-	bool secondary_colour_available;
-	bool best_texture_combiner_available;
-	bool texture_combiner_available;
-	void *secondary_colour_proc;
-	void *active_texture_proc;
-} platform_renderer_caps;
-
-void PLATFORM_RENDERER_prepare_allegro_gl(bool windowed, int colour_depth);
-void PLATFORM_RENDERER_apply_gl_defaults(int viewport_width, int viewport_height, int virtual_width, int virtual_height);
-platform_renderer_caps PLATFORM_RENDERER_build_caps(bool enable_multi_texture_effects_ideally, bool has_ext_secondary_color, bool has_ext_texture_env_combine, bool has_ext_multitexture, int opengl_major_version, int opengl_minor_version);
-platform_renderer_caps PLATFORM_RENDERER_build_caps_for_current_context(bool enable_multi_texture_effects_ideally, int opengl_major_version, int opengl_minor_version);
-bool PLATFORM_RENDERER_query_extensions(int *opengl_major_version, int *opengl_minor_version);
-bool PLATFORM_RENDERER_query_and_build_caps(bool enable_multi_texture_effects_ideally, platform_renderer_caps *out_caps);
-void PLATFORM_RENDERER_apply_caps(const platform_renderer_caps *caps);
-bool PLATFORM_RENDERER_is_extension_supported(const char *extension);
-const char *PLATFORM_RENDERER_get_vendor_text(void);
-const char *PLATFORM_RENDERER_get_renderer_text(void);
-const char *PLATFORM_RENDERER_get_version_text(void);
-int PLATFORM_RENDERER_get_extension_count(void);
-const char *PLATFORM_RENDERER_get_extension_at(int index);
-bool PLATFORM_RENDERER_write_extensions_to_file(const char *path);
-void PLATFORM_RENDERER_clear_extensions(void);
-const char *PLATFORM_RENDERER_get_allegro_gl_error_text(void);
 void PLATFORM_RENDERER_clear_backbuffer(void);
 void PLATFORM_RENDERER_present_frame(int width, int height);
 void PLATFORM_RENDERER_draw_outline_rect(int x1, int y1, int x2, int y2, int r, int g, int b, int virtual_screen_height);
@@ -96,8 +71,6 @@ bool PLATFORM_RENDERER_is_sdl2_stub_ready(void);
 bool PLATFORM_RENDERER_is_sdl2_stub_enabled(void);
 bool PLATFORM_RENDERER_is_sdl2_native_sprite_enabled(void);
 bool PLATFORM_RENDERER_is_sdl2_native_primary_enabled(void);
-bool PLATFORM_RENDERER_is_gl_enabled(void);
-bool PLATFORM_RENDERER_is_gl_submission_enabled(void);
 bool PLATFORM_RENDERER_is_sdl_primary_active(void);
 bool PLATFORM_RENDERER_is_sdl_multiply_fallback_active(void);
 bool PLATFORM_RENDERER_run_sdl2_stub_self_test(void);

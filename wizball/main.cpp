@@ -335,7 +335,6 @@ void MAIN_configure_linux_vblank_environment(void)
 
 	char line[MAX_LINE_SIZE];
 	const char *mesa_vblank = getenv("vblank_mode");
-	const char *nvidia_vblank = getenv("__GL_SYNC_TO_VBLANK");
 
 	if (mesa_vblank == NULL)
 	{
@@ -348,16 +347,6 @@ void MAIN_configure_linux_vblank_environment(void)
 		MAIN_add_to_log(line);
 	}
 
-	if (nvidia_vblank == NULL)
-	{
-		setenv("__GL_SYNC_TO_VBLANK", "0", 0);
-		MAIN_add_to_log("Set env __GL_SYNC_TO_VBLANK=0 (NVIDIA swap sync disable hint).");
-	}
-	else
-	{
-		sprintf(line, "Keep existing env __GL_SYNC_TO_VBLANK=%s", nvidia_vblank);
-		MAIN_add_to_log(line);
-	}
 #endif
 }
 

@@ -626,9 +626,8 @@ void EDIT_close_down (void)
 	OUTPUT_destroy_bitmap_and_sprite_containers();
 	MAIN_add_to_log ("\tOK!");
 
-	MAIN_add_to_log ("Destroying extension list...");
-	PLATFORM_RENDERER_clear_extensions();
-	MAIN_add_to_log ("\tOK!");
+		MAIN_add_to_log ("Destroying renderer state...");
+		MAIN_add_to_log ("\tOK!");
 
 	MAIN_add_to_log ("Destroying textfiles...");
 	TEXTFILE_destroy ();

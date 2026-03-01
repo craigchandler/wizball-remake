@@ -1,5 +1,4 @@
 #include <allegro.h>
-#include <alleggl.h>
 #ifdef ALLEGRO_WINDOWS
 #include <winalleg.h>
 #include <windows.h>
@@ -40,7 +39,7 @@ int PLATFORM_WINDOW_set_opengl_game_mode(int width, int height, int colour_depth
 {
 	set_color_depth(colour_depth);
 	set_color_conversion(COLORCONV_TOTAL + COLORCONV_KEEP_TRANS);
-	return set_gfx_mode(GFX_OPENGL, width, height, 0, 0);
+	return set_gfx_mode(GFX_AUTODETECT_WINDOWED, width, height, 0, 0);
 }
 
 void PLATFORM_WINDOW_begin_text_screen(int red, int green, int blue)

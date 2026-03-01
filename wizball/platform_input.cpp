@@ -1,7 +1,5 @@
 #include <allegro.h>
-#ifdef WIZBALL_USE_SDL2
 #include <SDL.h>
-#endif
 
 #include "platform_input.h"
 
@@ -12,7 +10,6 @@ static unsigned int platform_input_debug_window_event_count = 0;
 static unsigned int platform_input_debug_keydown_event_count = 0;
 static unsigned int platform_input_debug_quit_event_count = 0;
 
-#ifdef WIZBALL_USE_SDL2
 static SDL_Scancode PLATFORM_INPUT_map_allegro_scancode_to_sdl(int scancode)
 {
 	switch (scancode)
@@ -89,7 +86,6 @@ static SDL_Scancode PLATFORM_INPUT_map_allegro_scancode_to_sdl(int scancode)
 		return SDL_SCANCODE_UNKNOWN;
 	}
 }
-#endif
 
 void PLATFORM_INPUT_poll_keyboard(void)
 {
@@ -108,7 +104,6 @@ int PLATFORM_INPUT_key_state(int scancode)
 		return key[scancode];
 	}
 
-#ifdef WIZBALL_USE_SDL2
 	// When SDL owns focus (visible SDL stub), Allegro key[] may not update.
 	// Fall back to SDL keyboard state for mapped Allegro scancodes.
 	if ((SDL_WasInit(SDL_INIT_VIDEO) & SDL_INIT_VIDEO) != 0)
@@ -120,7 +115,6 @@ int PLATFORM_INPUT_key_state(int scancode)
 			return 1;
 		}
 	}
-#endif
 
 	return 0;
 }
@@ -292,7 +286,6 @@ void PLATFORM_INPUT_poll_joysticks(void)
 
 void PLATFORM_INPUT_pump_events(void)
 {
-#ifdef WIZBALL_USE_SDL2
 	platform_input_debug_pump_count++;
 	// Only pump SDL events once SDL owns a video context/window.
 	// Running an SDL event loop alongside Allegro-owned windowing can interfere on some platforms.
@@ -325,7 +318,6 @@ void PLATFORM_INPUT_pump_events(void)
 			platform_input_debug_keydown_event_count++;
 		}
 	}
-#endif
 }
 
 int PLATFORM_INPUT_quit_requested(void)

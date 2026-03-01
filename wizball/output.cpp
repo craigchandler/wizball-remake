@@ -119,7 +119,6 @@ bool secondary_colour_available;
 static bool output_sdl_effect_trace_checked_env = false;
 static bool output_sdl_effect_trace_enabled = false;
 
-#ifdef WIZBALL_USE_SDL2
 static void OUTPUT_prepare_sdl_stub_bootstrap(bool windowed)
 {
 	if (!PLATFORM_RENDERER_is_sdl2_stub_enabled())
@@ -133,7 +132,6 @@ static void OUTPUT_prepare_sdl_stub_bootstrap(bool windowed)
 		MAIN_add_to_log(sdl_bootstrap_line);
 	}
 }
-#endif
 static unsigned int output_sdl_effect_trace_frame_counter = 0;
 static bool output_sdl_script_trace_checked_env = false;
 static bool output_sdl_script_trace_enabled = false;
@@ -1050,7 +1048,6 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 
 	float_window_scale_multiplier = float (screen_multiplier);
 
-#ifdef WIZBALL_USE_SDL2
 	bool sdl_stub_enabled = PLATFORM_RENDERER_is_sdl2_stub_enabled();
 	bool sdl_native_sprites_enabled = PLATFORM_RENDERER_is_sdl2_native_sprite_enabled();
 	bool sdl_native_primary_enabled = PLATFORM_RENDERER_is_sdl2_native_primary_enabled();
@@ -1058,7 +1055,6 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 	char sdl_stub_line[MAX_LINE_SIZE];
 	sprintf(sdl_stub_line, "SDL2 renderer stub: enabled=%d native_sprites=%d native_primary=%d sdl_primary=%d lazy_init=1 status=%s", sdl_stub_enabled ? 1 : 0, sdl_native_sprites_enabled ? 1 : 0, sdl_native_primary_enabled ? 1 : 0, sdl_primary_active ? 1 : 0, PLATFORM_RENDERER_get_sdl2_stub_status());
 	MAIN_add_to_log(sdl_stub_line);
-#endif
 
 	if (software_mode_active)
 	{
@@ -1086,139 +1082,19 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 	}
 	else
 	{
-		platform_renderer_caps caps;
-		memset(&caps, 0, sizeof(caps));
-		if (PLATFORM_RENDERER_is_gl_enabled())
-		{
-			// Configure AllegroGL renderer lifecycle in a platform seam.
-			PLATFORM_RENDERER_prepare_allegro_gl(windowed, colour_depth);
+		MAIN_add_to_log("SDL2 renderer mode active.");
+		set_color_depth(colour_depth);
+		set_color_conversion(COLORCONV_TOTAL + COLORCONV_KEEP_TRANS);
+		OUTPUT_prepare_sdl_stub_bootstrap(windowed);
 
-			// And open our sexy OpenGL window! :)
-			result = PLATFORM_WINDOW_set_opengl_game_mode(game_screen_width, game_screen_height, colour_depth);
-
-			MAIN_add_to_log ("Setting up AllegroGL graphics & screen mode...");
-
-			if (result == 0)
-			{
-				MAIN_add_to_log ("\tOK!");
-			}
-			else
-			{
-				MAIN_add_to_log ("\tFAILED!");
-			}
-
-			#ifdef ALLEGRO_MACOSX
-				if (result<0)
-				{
-					allegro_message("Error setting OpenGL graphics mode:\n%s\nAllegro GL error : %s\n",allegro_error, PLATFORM_RENDERER_get_allegro_gl_error_text());
-					exit(1);
-				}
-			#else
-				if (result)
-				{
-					allegro_message("Error setting OpenGL graphics mode:\n%s\nAllegro GL error : %s\n",allegro_error, PLATFORM_RENDERER_get_allegro_gl_error_text());
-				}
-			#endif
-
-				if (result == 0)
-				{
-#ifdef WIZBALL_USE_SDL2
-					OUTPUT_prepare_sdl_stub_bootstrap(windowed);
-#endif
-					/*
-					 * Initialize GL defaults only when GL submission is active.
-					 * SDL-primary/no-submit mode should avoid additional GL state coupling.
-					 */
-					if (PLATFORM_RENDERER_is_gl_submission_enabled())
-					{
-						PLATFORM_RENDERER_apply_gl_defaults(SCREEN_W, SCREEN_H, virtual_screen_width, virtual_screen_height);
-					}
-					else
-					{
-						MAIN_add_to_log("SDL2 native mode active: skipping GL default-state init (submission disabled).");
-					}
-
-					if (!PLATFORM_RENDERER_query_and_build_caps(enable_multi_texture_effects_ideally, &caps))
-					{
-						MAIN_add_to_log("OpenGL capability query failed; continuing with minimal renderer capabilities.");
-						memset(&caps, 0, sizeof(caps));
-					}
-
-#ifdef WIZBALL_USE_SDL2
-					if (PLATFORM_RENDERER_is_sdl_primary_active())
-					{
-						MAIN_add_to_log("SDL2 native mode active: GL submission disabled; using minimal GL caps.");
-					}
-#endif
-					/* Setup OpenGL like we want */
-
-					if (output_debug_information && !PLATFORM_RENDERER_is_sdl_primary_active())
-					{
-						const char *gl_vendor = PLATFORM_RENDERER_get_vendor_text();
-						const char *gl_renderer = PLATFORM_RENDERER_get_renderer_text();
-						const char *gl_version = PLATFORM_RENDERER_get_version_text();
-						char gl_line[MAX_LINE_SIZE];
-
-						sprintf(gl_line, "OpenGL vendor: %s", (gl_vendor != NULL) ? gl_vendor : "UNKNOWN");
-						MAIN_add_to_log(gl_line);
-						sprintf(gl_line, "OpenGL renderer: %s", (gl_renderer != NULL) ? gl_renderer : "UNKNOWN");
-						MAIN_add_to_log(gl_line);
-						sprintf(gl_line, "OpenGL version: %s", (gl_version != NULL) ? gl_version : "UNKNOWN");
-						MAIN_add_to_log(gl_line);
-					}
-
-					// We output it, too. Uh-huh.
-					if (output_debug_information && !PLATFORM_RENDERER_is_sdl_primary_active())
-					{
-						if (!PLATFORM_RENDERER_write_extensions_to_file("OpenGL_Extension.txt"))
-						{
-							MAIN_add_to_log("Cannot output OpenGL extension information; continuing.");
-						}
-					}
-				}
-				else
-				{
-					MAIN_add_to_log("OpenGL graphics mode failed; continuing without OpenGL capabilities.");
-					memset(&caps, 0, sizeof(caps));
-#ifdef WIZBALL_USE_SDL2
-					if (PLATFORM_RENDERER_is_sdl2_stub_enabled())
-					{
-						MAIN_add_to_log("SDL2 native mode fallback: bootstrapping SDL stub after GL mode failure.");
-						OUTPUT_prepare_sdl_stub_bootstrap(windowed);
-					}
-#endif
-				}
-			}
-		#ifdef WIZBALL_USE_SDL2
-		else
-		{
-			MAIN_add_to_log("SDL2 native mode active: OpenGL window disabled.");
-			/*
-			 * In pure SDL2 mode the AllegroGL window path (which normally calls
-			 * set_color_depth / set_gfx_mode) is skipped entirely.  Allegro's
-			 * default color depth is 8-bit, so any dat-file bitmaps loaded after
-			 * this point would be up-converted to 8-bit palettised surfaces.
-			 * Because no meaningful palette is active at that point every pixel
-			 * comes out black, producing the all-black title screen.
-			 *
-			 * Force Allegro's internal color depth to the game's target depth
-			 * (typically 32-bit) so dat-file BMPs are loaded as true-colour
-			 * surfaces whose RGB data SDL can read correctly.
-			 */
-			set_color_depth(colour_depth);
-			set_color_conversion(COLORCONV_TOTAL + COLORCONV_KEEP_TRANS);
-			OUTPUT_prepare_sdl_stub_bootstrap(windowed);
-		}
-		#endif
-
-		secondary_colour_available = caps.secondary_colour_available;
-		best_texture_combiner_available = caps.best_texture_combiner_available;
-		texture_combiner_available = caps.texture_combiner_available;
-		PLATFORM_RENDERER_apply_caps(&caps);
+		secondary_colour_available = false;
+		best_texture_combiner_available = false;
+		texture_combiner_available = false;
+		PLATFORM_RENDERER_set_secondary_colour_proc(NULL);
+		PLATFORM_RENDERER_set_active_texture_proc(NULL);
 	}
 
 	if (software_mode_active ||
-		PLATFORM_RENDERER_is_gl_enabled() ||
 		PLATFORM_RENDERER_is_sdl2_stub_enabled())
 	{
 		PLATFORM_WINDOW_center_game_window();
@@ -3651,7 +3527,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							down += entity_pointer[ENT_CUT_SPRITE_BOTTOM_INDENTATION];
 						}
 
-#ifdef WIZBALL_USE_SDL2
 						/*
 						 * In pure SDL mode, prefer the explicit window-sprite path for
 						 * standard sprites. It does not depend on bound-texture state and
@@ -3754,7 +3629,6 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 								break;
 						}
-#endif
 
 						PLATFORM_RENDERER_translatef(x,-y,0.0);
 
