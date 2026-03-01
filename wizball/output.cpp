@@ -118,6 +118,22 @@ bool enable_multi_texture_effects_ideally = true;
 bool secondary_colour_available;
 static bool output_sdl_effect_trace_checked_env = false;
 static bool output_sdl_effect_trace_enabled = false;
+
+#ifdef WIZBALL_USE_SDL2
+static void OUTPUT_prepare_sdl_stub_bootstrap(bool windowed)
+{
+	if (!PLATFORM_RENDERER_is_sdl2_stub_enabled())
+	{
+		return;
+	}
+	if (!PLATFORM_RENDERER_prepare_sdl2_stub(game_screen_width, game_screen_height, windowed))
+	{
+		char sdl_bootstrap_line[MAX_LINE_SIZE];
+		sprintf(sdl_bootstrap_line, "SDL2 native mode bootstrap failed: %s", PLATFORM_RENDERER_get_sdl2_stub_status());
+		MAIN_add_to_log(sdl_bootstrap_line);
+	}
+}
+#endif
 static unsigned int output_sdl_effect_trace_frame_counter = 0;
 static bool output_sdl_script_trace_checked_env = false;
 static bool output_sdl_script_trace_enabled = false;
@@ -131,6 +147,45 @@ DATAFILE *sfx_dat = NULL;
 DATAFILE *gfx_dat = NULL;
 DATAFILE *stream_dat = NULL;
 DATAFILE *music_dat = NULL;
+
+static void OUTPUT_apply_first_palette_from_datafile(const char *label, DATAFILE *df)
+{
+	DATAFILE *entry;
+
+	if (df == NULL)
+	{
+		return;
+	}
+
+	entry = df;
+	while ((entry != NULL) && (entry->type != DAT_END))
+	{
+		if ((entry->type == DAT_PALETTE) && (entry->dat != NULL))
+		{
+			int i;
+			int non_black = 0;
+			RGB *pal = (RGB *) entry->dat;
+			set_palette(pal);
+			for (i = 0; i < PAL_SIZE; i++)
+			{
+				if ((pal[i].r != 0) || (pal[i].g != 0) || (pal[i].b != 0))
+				{
+					non_black++;
+				}
+			}
+			fprintf(
+				stderr,
+				"[SDL2-PALETTE] src=%s non_black=%d p0=%d,%d,%d p1=%d,%d,%d p15=%d,%d,%d\n",
+				(label != NULL) ? label : "?",
+				non_black,
+				(int) pal[0].r, (int) pal[0].g, (int) pal[0].b,
+				(int) pal[1].r, (int) pal[1].g, (int) pal[1].b,
+				(int) pal[15].r, (int) pal[15].g, (int) pal[15].b);
+			return;
+		}
+		entry++;
+	}
+}
 
 static bool OUTPUT_env_enabled(const char *name)
 {
@@ -322,6 +377,7 @@ bool INPUT_load_datafile (void)
 
 	if (data_dat != NULL)
 	{
+		OUTPUT_apply_first_palette_from_datafile("data.dat", data_dat);
 		return true;
 	}
 	else
@@ -338,6 +394,9 @@ void INPUT_load_media_datafiles (void)
 	gfx_dat = load_datafile(MAIN_get_pack_filename("gfx.dat"));
 	stream_dat = load_datafile(MAIN_get_pack_filename("stream.dat"));
 	music_dat = load_datafile(MAIN_get_pack_filename("music.dat"));
+
+	/* Keep active palette synced to gfx assets for indexed DAT bitmaps. */
+	OUTPUT_apply_first_palette_from_datafile("gfx.dat", gfx_dat);
 }
 
 
@@ -711,7 +770,7 @@ void OUTPUT_updatescreen (void)
 	{
 		int present_width = SCREEN_W;
 		int present_height = SCREEN_H;
-		if (!PLATFORM_RENDERER_is_gl_enabled())
+		if (PLATFORM_RENDERER_is_sdl_primary_active())
 		{
 			present_width = game_screen_width;
 			present_height = game_screen_height;
@@ -985,8 +1044,9 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 	bool sdl_stub_enabled = PLATFORM_RENDERER_is_sdl2_stub_enabled();
 	bool sdl_native_sprites_enabled = PLATFORM_RENDERER_is_sdl2_native_sprite_enabled();
 	bool sdl_native_primary_enabled = PLATFORM_RENDERER_is_sdl2_native_primary_enabled();
+	bool sdl_primary_active = PLATFORM_RENDERER_is_sdl_primary_active();
 	char sdl_stub_line[MAX_LINE_SIZE];
-	sprintf(sdl_stub_line, "SDL2 renderer stub: enabled=%d native_sprites=%d native_primary=%d lazy_init=1 status=%s", sdl_stub_enabled ? 1 : 0, sdl_native_sprites_enabled ? 1 : 0, sdl_native_primary_enabled ? 1 : 0, PLATFORM_RENDERER_get_sdl2_stub_status());
+	sprintf(sdl_stub_line, "SDL2 renderer stub: enabled=%d native_sprites=%d native_primary=%d sdl_primary=%d lazy_init=1 status=%s", sdl_stub_enabled ? 1 : 0, sdl_native_sprites_enabled ? 1 : 0, sdl_native_primary_enabled ? 1 : 0, sdl_primary_active ? 1 : 0, PLATFORM_RENDERER_get_sdl2_stub_status());
 	MAIN_add_to_log(sdl_stub_line);
 #endif
 
@@ -1052,47 +1112,57 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 
 				if (result == 0)
 				{
-					// Always initialize legacy GL defaults when GL is enabled, even in SDL-native test mode.
-					PLATFORM_RENDERER_apply_gl_defaults(SCREEN_W, SCREEN_H, virtual_screen_width, virtual_screen_height);
-
-		#ifdef WIZBALL_USE_SDL2
-					if (PLATFORM_RENDERER_is_sdl2_native_sprite_enabled())
+#ifdef WIZBALL_USE_SDL2
+					OUTPUT_prepare_sdl_stub_bootstrap(windowed);
+#endif
+					/*
+					 * Initialize GL defaults only when GL submission is active.
+					 * SDL-primary/no-submit mode should avoid additional GL state coupling.
+					 */
+					if (PLATFORM_RENDERER_is_gl_submission_enabled())
 					{
-						MAIN_add_to_log("SDL2 native mode active: OpenGL defaults applied; skipping GL caps/extensions query.");
+						PLATFORM_RENDERER_apply_gl_defaults(SCREEN_W, SCREEN_H, virtual_screen_width, virtual_screen_height);
 					}
 					else
-		#endif
 					{
-						if (!PLATFORM_RENDERER_query_and_build_caps(enable_multi_texture_effects_ideally, &caps))
+						MAIN_add_to_log("SDL2 native mode active: skipping GL default-state init (submission disabled).");
+					}
+
+					if (!PLATFORM_RENDERER_query_and_build_caps(enable_multi_texture_effects_ideally, &caps))
+					{
+						MAIN_add_to_log("OpenGL capability query failed; continuing with minimal renderer capabilities.");
+						memset(&caps, 0, sizeof(caps));
+					}
+
+#ifdef WIZBALL_USE_SDL2
+					if (PLATFORM_RENDERER_is_sdl_primary_active())
+					{
+						MAIN_add_to_log("SDL2 native mode active: GL submission disabled; using minimal GL caps.");
+					}
+#endif
+					/* Setup OpenGL like we want */
+
+					if (output_debug_information && !PLATFORM_RENDERER_is_sdl_primary_active())
+					{
+						const char *gl_vendor = PLATFORM_RENDERER_get_vendor_text();
+						const char *gl_renderer = PLATFORM_RENDERER_get_renderer_text();
+						const char *gl_version = PLATFORM_RENDERER_get_version_text();
+						char gl_line[MAX_LINE_SIZE];
+
+						sprintf(gl_line, "OpenGL vendor: %s", (gl_vendor != NULL) ? gl_vendor : "UNKNOWN");
+						MAIN_add_to_log(gl_line);
+						sprintf(gl_line, "OpenGL renderer: %s", (gl_renderer != NULL) ? gl_renderer : "UNKNOWN");
+						MAIN_add_to_log(gl_line);
+						sprintf(gl_line, "OpenGL version: %s", (gl_version != NULL) ? gl_version : "UNKNOWN");
+						MAIN_add_to_log(gl_line);
+					}
+
+					// We output it, too. Uh-huh.
+					if (output_debug_information && !PLATFORM_RENDERER_is_sdl_primary_active())
+					{
+						if (!PLATFORM_RENDERER_write_extensions_to_file("OpenGL_Extension.txt"))
 						{
-							MAIN_add_to_log("OpenGL capability query failed; continuing with minimal renderer capabilities.");
-							memset(&caps, 0, sizeof(caps));
-						}
-
-						/* Setup OpenGL like we want */
-
-						if (output_debug_information)
-						{
-							const char *gl_vendor = PLATFORM_RENDERER_get_vendor_text();
-							const char *gl_renderer = PLATFORM_RENDERER_get_renderer_text();
-							const char *gl_version = PLATFORM_RENDERER_get_version_text();
-							char gl_line[MAX_LINE_SIZE];
-
-							sprintf(gl_line, "OpenGL vendor: %s", (gl_vendor != NULL) ? gl_vendor : "UNKNOWN");
-							MAIN_add_to_log(gl_line);
-							sprintf(gl_line, "OpenGL renderer: %s", (gl_renderer != NULL) ? gl_renderer : "UNKNOWN");
-							MAIN_add_to_log(gl_line);
-							sprintf(gl_line, "OpenGL version: %s", (gl_version != NULL) ? gl_version : "UNKNOWN");
-							MAIN_add_to_log(gl_line);
-						}
-
-						// We output it, too. Uh-huh.
-						if (output_debug_information)
-						{
-							if (!PLATFORM_RENDERER_write_extensions_to_file("OpenGL_Extension.txt"))
-							{
-								MAIN_add_to_log("Cannot output OpenGL extension information; continuing.");
-							}
+							MAIN_add_to_log("Cannot output OpenGL extension information; continuing.");
 						}
 					}
 				}
@@ -1100,18 +1170,34 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 				{
 					MAIN_add_to_log("OpenGL graphics mode failed; continuing without OpenGL capabilities.");
 					memset(&caps, 0, sizeof(caps));
+#ifdef WIZBALL_USE_SDL2
+					if (PLATFORM_RENDERER_is_sdl2_stub_enabled())
+					{
+						MAIN_add_to_log("SDL2 native mode fallback: bootstrapping SDL stub after GL mode failure.");
+						OUTPUT_prepare_sdl_stub_bootstrap(windowed);
+					}
+#endif
 				}
 			}
 		#ifdef WIZBALL_USE_SDL2
 		else
 		{
 			MAIN_add_to_log("SDL2 native mode active: OpenGL window disabled.");
-			if (!PLATFORM_RENDERER_prepare_sdl2_stub(game_screen_width, game_screen_height, windowed))
-			{
-				char sdl_bootstrap_line[MAX_LINE_SIZE];
-				sprintf(sdl_bootstrap_line, "SDL2 native mode bootstrap failed: %s", PLATFORM_RENDERER_get_sdl2_stub_status());
-				MAIN_add_to_log(sdl_bootstrap_line);
-			}
+			/*
+			 * In pure SDL2 mode the AllegroGL window path (which normally calls
+			 * set_color_depth / set_gfx_mode) is skipped entirely.  Allegro's
+			 * default color depth is 8-bit, so any dat-file bitmaps loaded after
+			 * this point would be up-converted to 8-bit palettised surfaces.
+			 * Because no meaningful palette is active at that point every pixel
+			 * comes out black, producing the all-black title screen.
+			 *
+			 * Force Allegro's internal color depth to the game's target depth
+			 * (typically 32-bit) so dat-file BMPs are loaded as true-colour
+			 * surfaces whose RGB data SDL can read correctly.
+			 */
+			set_color_depth(colour_depth);
+			set_color_conversion(COLORCONV_TOTAL + COLORCONV_KEEP_TRANS);
+			OUTPUT_prepare_sdl_stub_bootstrap(windowed);
 		}
 		#endif
 
@@ -1121,7 +1207,9 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 		PLATFORM_RENDERER_apply_caps(&caps);
 	}
 
-	if (software_mode_active || PLATFORM_RENDERER_is_gl_enabled())
+	if (software_mode_active ||
+		PLATFORM_RENDERER_is_gl_enabled() ||
+		PLATFORM_RENDERER_is_sdl2_stub_enabled())
 	{
 		PLATFORM_WINDOW_center_game_window();
 	}
@@ -1864,6 +1952,8 @@ int INPUT_load_bitmap (char *filename)
 
 	if (load_from_dat_file)
 	{
+		/* Re-apply gfx palette immediately before indexed bitmap upload. */
+		OUTPUT_apply_first_palette_from_datafile("gfx.dat@load_bitmap", gfx_dat);
 		DATAFILE *data_pointer = find_datafile_object(gfx_dat, filename);
 
 		#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
@@ -1977,6 +2067,18 @@ int INPUT_load_bitmap (char *filename)
 		#endif
 
 		bmps[total_bitmaps_loaded].texture_handle = PLATFORM_RENDERER_create_masked_texture(bmps[total_bitmaps_loaded].image);
+		if ((bmps[total_bitmaps_loaded].texture_handle == 0) || (total_bitmaps_loaded < 10))
+		{
+			fprintf(
+				stderr,
+				"[SDL2-TEX-LOAD] bmp=%d handle=%u size=%dx%d software=%d dat=%d\n",
+				total_bitmaps_loaded,
+				bmps[total_bitmaps_loaded].texture_handle,
+				bmps[total_bitmaps_loaded].width,
+				bmps[total_bitmaps_loaded].height,
+				software_mode_active ? 1 : 0,
+				load_from_dat_file ? 1 : 0);
+		}
 
 		#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 			sprintf(debug_text,"Made masked texture.");
@@ -3081,7 +3183,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							output_sdl_script_trace_counter++;
 							fprintf(
 								stderr,
-								"[SDL2-SCRIPT-TRACE] n=%u frame=%d win=%d entity=%d script=%d(%s) draw_mode=%d flags=0x%x sprite=%d frame=%d blend(add/mul/sub)=%d/%d/%d arb=%d persp=%d vcol=%d\n",
+								"[SDL2-SCRIPT-TRACE] n=%u frame=%d win=%d entity=%d script=%d(%s) draw_mode=%d flags=0x%x sprite=%d frame=%d blend(add/mul/sub)=%d/%d/%d arb=%d persp=%d vcol=%d rgba=%d,%d,%d,%d\n",
 								output_sdl_script_trace_counter,
 								frames_so_far,
 								window_number,
@@ -3097,7 +3199,11 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 								(opengl_booleans & OPENGL_BOOLEAN_BLEND_SUBTRACT) ? 1 : 0,
 								(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_QUAD) ? 1 : 0,
 								(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD) ? 1 : 0,
-								(opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA) ? 1 : 0);
+								(opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA) ? 1 : 0,
+								entity_pointer[ENT_OPENGL_VERTEX_RED],
+								entity_pointer[ENT_OPENGL_VERTEX_GREEN],
+								entity_pointer[ENT_OPENGL_VERTEX_BLUE],
+								entity_pointer[ENT_OPENGL_VERTEX_ALPHA]);
 						}
 					}
 					if (effect_trace_enabled)
@@ -3293,7 +3399,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						#endif
 
 						PLATFORM_RENDERER_set_blend_enabled(true);
-						PLATFORM_RENDERER_set_blend_mode_alpha();
+						PLATFORM_RENDERER_set_blend_mode_multiply();
 					}
 					
 					if ( !(opengl_booleans & OPENGL_BOOLEAN_BLEND_EITHER) && (old_opengl_booleans & OPENGL_BOOLEAN_BLEND_SUBTRACT) )
@@ -3522,6 +3628,114 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 							up -= entity_pointer[ENT_CUT_SPRITE_TOP_INDENTATION];
 							down += entity_pointer[ENT_CUT_SPRITE_BOTTOM_INDENTATION];
 						}
+
+#ifdef WIZBALL_USE_SDL2
+						/*
+						 * In pure SDL mode, prefer the explicit window-sprite path for
+						 * standard sprites. It does not depend on bound-texture state and
+						 * has been more robust for transformed/animated entities.
+						 */
+						bool sdl_multiply_fallback_direct_sprite =
+							PLATFORM_RENDERER_is_sdl_multiply_fallback_active() &&
+							(opengl_booleans & OPENGL_BOOLEAN_BLEND_MULTIPLY) &&
+							!(opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA);
+						if (PLATFORM_RENDERER_is_sdl_primary_active() &&
+							((!(opengl_booleans & OPENGL_BOOLEAN_BLEND_EITHER)) || sdl_multiply_fallback_direct_sprite) &&
+							!(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_QUAD) &&
+							!(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD) &&
+							!(opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA) &&
+							!(opengl_booleans & OPENGL_BOOLEAN_MULTITEXTURE_MASK) &&
+							!(opengl_booleans & OPENGL_BOOLEAN_MULTITEXTURE_DOUBLE_MASK) &&
+							!(opengl_booleans & OPENGL_BOOLEAN_SECONDARY_SCALE) &&
+							!(opengl_booleans & OPENGL_BOOLEAN_SECONDARY_ROTATE))
+						{
+							int sprite_r = 255;
+							int sprite_g = 255;
+							int sprite_b = 255;
+							int sprite_a = 255;
+							int src_x = sp->x;
+							int src_y = sp->y;
+							int src_w = sp->width;
+							int src_h = sp->height;
+							float sprite_scale_x = 1.0f;
+							float sprite_scale_y = 1.0f;
+							float sprite_rotation_degrees = 0.0f;
+							bool sprite_flip_x = (opengl_booleans & OPENGL_BOOLEAN_HORI_FLIPPED) != 0;
+							bool sprite_flip_y = (opengl_booleans & OPENGL_BOOLEAN_VERT_FLIPPED) != 0;
+
+							if (opengl_booleans & (OPENGL_BOOLEAN_VERTEX_COLOUR | OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA))
+							{
+								sprite_r = entity_pointer[ENT_OPENGL_VERTEX_RED];
+								sprite_g = entity_pointer[ENT_OPENGL_VERTEX_GREEN];
+								sprite_b = entity_pointer[ENT_OPENGL_VERTEX_BLUE];
+								if (sprite_r < 0) sprite_r = 0; else if (sprite_r > 255) sprite_r = 255;
+								if (sprite_g < 0) sprite_g = 0; else if (sprite_g > 255) sprite_g = 255;
+								if (sprite_b < 0) sprite_b = 0; else if (sprite_b > 255) sprite_b = 255;
+							}
+							if (opengl_booleans & OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA)
+							{
+								sprite_a = entity_pointer[ENT_OPENGL_VERTEX_ALPHA];
+								if (sprite_a < 0) sprite_a = 0; else if (sprite_a > 255) sprite_a = 255;
+							}
+							if (opengl_booleans & OPENGL_BOOLEAN_CLIP_FRAME)
+							{
+								src_x += entity_pointer[ENT_CUT_SPRITE_LEFT_INDENTATION];
+								src_y += entity_pointer[ENT_CUT_SPRITE_TOP_INDENTATION];
+								src_w -= entity_pointer[ENT_CUT_SPRITE_LEFT_INDENTATION];
+								src_w -= entity_pointer[ENT_CUT_SPRITE_RIGHT_INDENTATION];
+								src_h -= entity_pointer[ENT_CUT_SPRITE_TOP_INDENTATION];
+								src_h -= entity_pointer[ENT_CUT_SPRITE_BOTTOM_INDENTATION];
+							}
+
+							if (opengl_booleans & OPENGL_BOOLEAN_SCALE)
+							{
+								sprite_scale_x = float(entity_pointer[ENT_OPENGL_SCALE_X]) / 10000.0f;
+								sprite_scale_y = float(entity_pointer[ENT_OPENGL_SCALE_Y]) / 10000.0f;
+							}
+
+							if (opengl_booleans & OPENGL_BOOLEAN_ROTATE)
+							{
+								sprite_rotation_degrees = -float(entity_pointer[ENT_OPENGL_ANGLE]) / 100.0f;
+							}
+
+							if (OUTPUT_env_enabled("WIZBALL_SDL2_LINE_TRACE"))
+							{
+								static unsigned int direct_sprite_trace_counter = 0;
+								direct_sprite_trace_counter++;
+								if ((direct_sprite_trace_counter <= 200u) || ((direct_sprite_trace_counter % 2000u) == 0u))
+								{
+									fprintf(
+										stderr,
+										"[SDL2-DIRECT-SPRITE] n=%u frame=%d ent=%d bmp=%d frm=%d rgb=%d,%d,%d scale=%.3f,%.3f rot=%.2f flip=%d/%d win=%d\n",
+										direct_sprite_trace_counter,
+										frames_so_far,
+										current_entity,
+										bitmap_number,
+										frame_number,
+										sprite_r, sprite_g, sprite_b,
+										sprite_scale_x, sprite_scale_y,
+										sprite_rotation_degrees,
+										sprite_flip_x ? 1 : 0,
+										sprite_flip_y ? 1 : 0,
+										window_number);
+								}
+							}
+
+								PLATFORM_RENDERER_draw_sdl_window_sprite_src(
+									bmps[bitmap_number].texture_handle,
+									sprite_r, sprite_g, sprite_b, sprite_a,
+									(float) x, (float) y,
+									left, right, up, down,
+									src_x, src_y, src_w, src_h,
+									left_window_transform_x, top_window_transform_y,
+									total_scale_x, total_scale_y,
+									sprite_scale_x, sprite_scale_y,
+									sprite_rotation_degrees,
+									sprite_flip_x, sprite_flip_y);
+
+								break;
+						}
+#endif
 
 						PLATFORM_RENDERER_translatef(x,-y,0.0);
 

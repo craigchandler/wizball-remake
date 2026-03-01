@@ -108,10 +108,8 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - Do not force a single SDL render driver globally.
 - Allow override via environment for debugging (`SDL_RENDER_DRIVER`), but keep auto-select as default.
 - Keep a software-render fallback path functional.
-- In SDL2 builds, current runtime default keeps legacy GL active for parity stability; use `WIZBALL_SDL2_DISABLE_GL=1` to force full SDL path during focused diagnostics.
-- For staged decommissioning, use `WIZBALL_SDL2_SAFE_GL_OFF=1` to keep GL active until SDL strict-primary coverage is stable, then auto-latch to GL-off.
-- Optional tuning: `WIZBALL_SDL2_SAFE_GL_OFF_STREAK=<frames>` (default `240`).
-- Safety rollback: `WIZBALL_SDL2_SAFE_GL_OFF_ROLLBACK_STREAK=<frames>` (default `6`) re-enables GL if SDL coverage regresses after latch.
+- In SDL2 builds, GL runtime submission/boot is now disabled; SDL renderer is the active path by default.
+- Legacy staged `SAFE_GL_OFF` environment controls are retained only as inert compatibility knobs while cleanup continues.
 
 ### Packaging/Test Expectations (PortMaster)
 
@@ -296,10 +294,15 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - 2026-02-28: Centralized non-Allegro relative path helper in `path_utils.h/.cpp` and switched SDL audio backend to shared utility.
 - 2026-02-28: Replaced direct `set_gfx_mode(GFX_TEXT,...)` callsites in `control.cpp` setup error paths with `PLATFORM_WINDOW_set_text_mode()`.
 - 2026-02-28: Added explicit SDL2 GL-mode env controls (`WIZBALL_SDL2_ENABLE_GL`, `WIZBALL_SDL2_DISABLE_GL`) for migration diagnostics.
-- 2026-02-28: Restored stable default to GL-enabled in SDL2 builds; full SDL strict path remains opt-in via `WIZBALL_SDL2_DISABLE_GL=1`.
+- 2026-03-01: Attempted SDL-first default (`use_gl=0`) exposed intro/title textured rendering regressions; reverted to GL-on default while continuing staged removal via `WIZBALL_SDL2_SAFE_GL_OFF=1` and `WIZBALL_SDL2_DISABLE_GL=1`.
 - 2026-02-28: Added phased GL retirement mode (`WIZBALL_SDL2_SAFE_GL_OFF=1`) that auto-disables GL only after sustained stable SDL strict-primary coverage.
 - 2026-02-28: Added phased GL retirement rollback guard (`WIZBALL_SDL2_SAFE_GL_OFF_ROLLBACK_STREAK`) to auto-restore GL if post-latch SDL coverage drops.
 - 2026-02-28: In safe GL-off mode, stopped requiring AllegroGL texture creation for newly loaded bitmaps; SDL texture path is now exercised independently before final GL latch-off.
+- 2026-03-01: Fixed full-SDL “starfield only” regression by allowing strict window-sprite `RenderCopyEx` fallback when GL is already off and geometry submission fails; this prevents dropped title/intro sprites while keeping strict no-fallback behavior during GL-on parity validation.
+- 2026-03-01: Added non-geometry fallback implementation for `draw_sdl_bound_textured_quad_custom` on SDL versions without `SDL_RenderGeometry`, preserving intro/title textured quad rendering in no-GL runs.
+- 2026-03-01: Added centralized `PLATFORM_RENDERER_should_submit_gl_draws()` policy and routed major draw paths through it, so strict SDL-primary/no-mirror runs stop submitting redundant GL scene draws before full GL teardown.
+- 2026-03-01: Routed `present_frame` GL flip/overlay/native-test GL-state probes through `PLATFORM_RENDERER_should_submit_gl_draws()` so strict SDL-primary/no-mirror frames no longer keep GL as implicit presenter.
+- 2026-03-01: Added public `PLATFORM_RENDERER_is_gl_submission_enabled()` and switched startup/present helpers to use submission policy (`should_submit_gl_draws`) instead of raw GL-env state for SDL native strict mode decisions (software-renderer side-by-side guard, GL compare gate, dual-present mirror gate, SDL-present gate, startup caps-query skip).
 - 2026-02-26: Added `platform_renderer` seam and moved AllegroGL lifecycle configuration from `OUTPUT_setup_allegro()` into `PLATFORM_RENDERER_prepare_allegro_gl()`.
 - 2026-02-26: Added `PLATFORM_RENDERER_shutdown()` hook in `OUTPUT_shutdown()` for incremental renderer backend teardown migration.
 - 2026-02-26: Moved fixed-function GL default bootstrap (texture/scissor state, viewport, orthographic projection setup, projection matrix capture) into `PLATFORM_RENDERER_apply_gl_defaults()`.
@@ -422,3 +425,22 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - 2026-02-26: Added first-pass SDL emulation for `GL_COLOR_SUM` / secondary colour in native sprite paths: renderer now tracks colour-sum enabled state + secondary RGB, and applies an additive secondary-colour overlay pass (`SDL_BLENDMODE_ADD`) after primary sprite draws in `draw_textured_quad` and `draw_sdl_window_sprite`. This targets remaining effect mismatch where base imagery is correct but GL effect overlays are absent in stub.
 - 2026-02-26: The first-pass `GL_COLOR_SUM` additive overlay emulation regressed placement/render correctness (black/left-clamped title+HUD paths) and was rolled back; baseline restored for further effect-parity work via narrower composition paths.
 - 2026-02-26: Added targeted runtime instrumentation in `OUTPUT_draw_window_contents` behind `WIZBALL_SDL2_EFFECT_TRACE=1`: per-window/frame summaries now report active entity feature counts (sprite, multitexture, double-mask, secondary-colour, arbitrary/perspective, vertex-colour-alpha, blend modes). This is to isolate the exact branch combinations active when stub effects diverge while base imagery is correct.
+- 2026-03-01: Continued GL-removal guard cleanup by switching GL state/combine/scissor/blend/alpha/multitexture helper entry guards to `PLATFORM_RENDERER_should_submit_gl_draws()` so SDL-primary no-submit mode does not issue latent GL state calls.
+- 2026-03-01: Aligned no-geometry copy fallback and masked-texture build decisions with GL submission policy (`should_submit_gl_draws`) rather than GL-context ownership (`should_use_gl`).
+- 2026-03-01: Updated GL compare path, mirror gate, and GL default-state application to respect active GL submission policy, reducing hidden coupling when GL context exists but scene submission is intentionally disabled.
+- 2026-03-01: Fixed SDL-only texture-handle registration edge case: GL texture id is now only required when GL submission is active, preventing zero-handle registration failures when context exists but GL submission is intentionally disabled.
+- 2026-03-01: `SDL2-MODE` startup diagnostic now prints both `use_gl` (context ownership) and `submit_gl` (active GL scene submission) to make safe-GL-off transitions unambiguous.
+- 2026-03-01: Extension/capability probing (`PLATFORM_RENDERER_query_extensions`) now gates on GL submission state, so safe-GL-off/no-submit runs do not call GL string/caps queries.
+- 2026-03-01: Finalized this pass by gating `PLATFORM_RENDERER_query_extensions(...)` on GL submission state, not just GL context ownership, so safe-GL-off runs avoid GL caps/string queries entirely once submission is disabled.
+- 2026-03-01: Extended `SDL2-MODE` startup diagnostics with `safe_off=0/1` to make migration mode selection explicit in logs.
+- 2026-03-01: `OUTPUT_update_screen()` now chooses present dimensions from GL submission state (`PLATFORM_RENDERER_is_gl_submission_enabled`) rather than GL ownership, so SDL-primary/no-submit frames use game-screen sizing even while GL ownership is still active during transition windows.
+- 2026-03-01: Hardened `PLATFORM_RENDERER_query_and_build_caps(...)` for SDL-primary/no-submit mode: when GL submission is inactive it now returns success with zeroed caps and skips GL extension/version probing, preventing accidental startup GL-query coupling in future refactors.
+- 2026-03-01: Simplified `OUTPUT_setup_allegro()` GL capability setup flow: always call `PLATFORM_RENDERER_query_and_build_caps(...)` on successful GL-mode init, with no-submit mode handled inside renderer (minimal caps). Removed duplicate output-layer branching for "skip caps query".
+- 2026-03-01: Reduced startup GL coupling in `OUTPUT_setup_allegro()`: GL default-state init (`PLATFORM_RENDERER_apply_gl_defaults`) now runs only when GL submission is active; SDL-primary/no-submit startup skips this step.
+- 2026-03-01: Tightened present-frame flip ownership: `allegro_gl_flip()` is now additionally gated by active GL submission capability (`can_flip_allegro_gl`), preventing latent GL flip forcing in SDL-primary/no-submit transitions.
+- 2026-03-01: Decoupled game-window centering from GL ownership in `OUTPUT_setup_allegro()`: centering now runs for SDL-stub mode as well (`PLATFORM_RENDERER_is_sdl2_stub_enabled()`), reducing residual GL-mode assumptions in startup window flow.
+- 2026-03-01: Added `PLATFORM_RENDERER_is_sdl_primary_active()` and refactored output-layer mode decisions to use it (present sizing, startup diagnostics, GL debug info/extension dump gating), replacing scattered ad-hoc GL-submission checks with a single SDL-primary runtime predicate.
+- 2026-03-01: Grouped `present_frame` GL/submission cleanup: consolidated frame-local GL authority into `can_submit_gl` (updated on safe-off latch/rollback), switched dual-present/native-test/diagnostic overlay checks to that authority, and removed dead pre-SDL flip tracking. This reduces mixed dynamic GL checks and tightens SDL-primary transition behavior.
+- 2026-03-01: Refactored `PLATFORM_RENDERER_refresh_sdl_stub_env_flags()` policy ordering into a single deterministic pass: base native/dual-present policy first, then final safe-off override, then final full-SDL override. Removed duplicated safe-off override blocks that previously re-applied conflicting mirror settings mid-function.
+- 2026-03-01: Grouped startup bootstrap cleanup in `output.cpp`: introduced `OUTPUT_prepare_sdl_stub_bootstrap(...)` and routed both GL-owned startup and non-GL startup through the same SDL-stub initialization path, reducing split/lazy-init behavior across runtime modes.
+- 2026-03-01: Added grouped startup fallback behavior in `OUTPUT_setup_allegro()`: when GL mode setup fails and SDL stub mode is enabled, runtime now explicitly bootstraps SDL stub and continues in SDL-native fallback mode instead of leaving startup tied to failed GL ownership.
