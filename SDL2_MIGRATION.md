@@ -74,6 +74,10 @@ cmake --build build_asan -j
 - Use an incremental compatibility layer to avoid a big-bang rewrite.
 - Land vertical slices (boot -> input -> draw -> sound) that keep game runnable.
 - Preserve deterministic behavior and timing semantics as much as possible.
+- Sequence major removals as:
+1. Remove legacy GL/AllegroGL runtime path (make SDL renderer primary).
+2. Remove remaining Allegro runtime dependencies behind platform/util seams.
+3. Remove FMOD backend once SDL audio parity is stable across scenes.
 
 ## PortMaster Direction (Important)
 
@@ -104,6 +108,10 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - Do not force a single SDL render driver globally.
 - Allow override via environment for debugging (`SDL_RENDER_DRIVER`), but keep auto-select as default.
 - Keep a software-render fallback path functional.
+- In SDL2 builds, current runtime default keeps legacy GL active for parity stability; use `WIZBALL_SDL2_DISABLE_GL=1` to force full SDL path during focused diagnostics.
+- For staged decommissioning, use `WIZBALL_SDL2_SAFE_GL_OFF=1` to keep GL active until SDL strict-primary coverage is stable, then auto-latch to GL-off.
+- Optional tuning: `WIZBALL_SDL2_SAFE_GL_OFF_STREAK=<frames>` (default `240`).
+- Safety rollback: `WIZBALL_SDL2_SAFE_GL_OFF_ROLLBACK_STREAK=<frames>` (default `6`) re-enables GL if SDL coverage regresses after latch.
 
 ### Packaging/Test Expectations (PortMaster)
 
@@ -121,7 +129,7 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - [~] Window / context lifecycle
 - [x] Timing / frame pacing / high-resolution clock
 - [~] Input state and events
-- [ ] File/path helpers
+- [~] File/path helpers
 - [ ] Clipboards / message boxes / logging hooks
 - [ ] Route existing Allegro calls behind wrappers (first pass: thin adapters).
 
@@ -134,10 +142,10 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 
 ### 3. Rendering
 
-- [ ] Inventory current AllegroGL + fixed-pipeline usage.
-- [ ] Decide render backend path:
-- [ ] `SDL_Renderer` (fastest migration, limited flexibility), or
-- [ ] SDL window + modern OpenGL/Vulkan abstraction (more work, longer-term better).
+- [x] Inventory current AllegroGL + fixed-pipeline usage.
+- [x] Decide render backend path:
+- [x] `SDL_Renderer` first (PortMaster-friendly baseline, GL-first removal plan).
+- [~] Disable/remove legacy AllegroGL runtime path in SDL2 build.
 - [ ] Replace bitmap/texture lifecycle calls.
 - [ ] Replace screen update/buffering model (`DOUBLEBUFFER`, `TRIPLEBUFFER`, etc.).
 - [ ] Validate sprite UV/pivot behavior matches legacy output.
@@ -151,13 +159,13 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 
 ### 5. Audio (FMOD -> SDL2)
 
-- [ ] Choose audio path:
-- [ ] `SDL_mixer` for faster parity, or
+- [x] Choose audio path:
+- [x] `SDL_mixer` for faster parity, or
 - [ ] custom SDL audio mixing for full control.
-- [ ] Port sound effect loading/playback/channels.
-- [ ] Port streamed music path and loop behavior.
-- [ ] Port global sound/music volume behavior.
-- [ ] Remove FMOD-specific driver selection code.
+- [x] Port sound effect loading/playback/channels.
+- [x] Port streamed music path and loop behavior.
+- [x] Port global sound/music volume behavior.
+- [~] Remove FMOD-specific driver selection code.
 
 ### 6. File + Asset I/O
 
@@ -187,7 +195,7 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 ### 10. Cleanup
 
 - [ ] Remove dead Allegro code paths once SDL2 parity is complete.
-- [ ] Remove FMOD backend once SDL audio is stable.
+- [~] Remove FMOD backend once SDL audio is stable.
 - [ ] Update README/build docs for SDL2-first workflow.
 
 ## Milestones
@@ -204,8 +212,8 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 
 ### M3: SDL2 Audio Parity
 
-- [ ] SFX and music play correctly.
-- [ ] Volume controls and looping behavior match baseline.
+- [~] SFX and music play correctly.
+- [x] Volume controls and looping behavior match baseline.
 
 ### M4: First Playable Level
 
@@ -214,6 +222,7 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 
 ### M5: Decommission Allegro/FMOD
 
+- [ ] Legacy GL/AllegroGL removed from SDL2 migration build path.
 - [ ] Allegro/FMOD removed from default build.
 - [ ] Docs and packaging updated.
 
@@ -226,37 +235,37 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 
 ## Open Decisions
 
-- [ ] `SDL_Renderer` vs SDL + OpenGL backend
-- [ ] `SDL_mixer` vs custom mixer
+- [x] `SDL_Renderer` vs SDL + OpenGL backend
+- [x] `SDL_mixer` vs custom mixer
 - [ ] Keep `.dat` workflow as-is or replace over time
 
-## Progress Snapshot (2026-02-26)
+## Progress Snapshot (2026-02-28)
 
 ### Workstreams
 
 - Platform Abstraction: ~75%
 - Build System: ~85%
-- Rendering: ~65%
+- Rendering: ~70%
 - Input: ~80%
-- Audio (FMOD -> SDL): ~10%
+- Audio (FMOD -> SDL): ~80%
 - File + Asset I/O: ~45%
 - Timing + Main Loop: ~55%
 - UI / Menus / Fonts: ~35%
 - Save/Data Compatibility: ~40%
-- Cleanup (remove Allegro/FMOD): ~10%
+- Cleanup (remove Allegro/FMOD): ~20%
 
 ### Milestones
 
 - M1 SDL2 Boot: ~95%
 - M2 SDL2 Visual Parity (Menu): ~70%
-- M3 SDL2 Audio Parity: ~5%
+- M3 SDL2 Audio Parity: ~80%
 - M4 First Playable Level: ~60%
-- M5 Decommission Allegro/FMOD: ~0-5%
+- M5 Decommission Allegro/FMOD: ~20%
 
 ### Current Top Blockers
 
-- Make SDL renderer path truly primary (no GL mirror/fallback dependency).
-- Audio migration off FMOD.
+- Remove legacy GL/AllegroGL path from SDL2 runtime and make SDL renderer unconditionally primary.
+- Complete remaining visual parity edge cases under SDL primary path.
 - Full parity validation pass (menu/gameplay, `-dat`/non-`-dat`, regression matrix).
 
 ## Change Log
@@ -278,6 +287,19 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - 2026-02-26: Added `PLATFORM_WINDOW_set_windowed_mode(width,height,depth)` and routed `OUTPUT_setup_project_list()` display mode setup through `platform_window`.
 - 2026-02-26: Added `PLATFORM_WINDOW_begin_text_screen()/end_text_screen()` and routed both `OUTPUT_setup_project_list()` and `OUTPUT_setup_running_mode()` text screen prep through `platform_window`.
 - 2026-02-26: Added `PLATFORM_WINDOW_set_software_game_mode()` and `PLATFORM_WINDOW_set_opengl_game_mode()` and routed `OUTPUT_setup_allegro()` display mode selection through `platform_window`.
+- 2026-02-28: Adopted GL-first decommission order (remove legacy AllegroGL path before broad Allegro runtime removal).
+- 2026-02-28: Added SDL audio backend (`sound_sdl.cpp`) selected when `WIZBALL_ENABLE_SDL2=ON` and `WIZBALL_ENABLE_FMOD=OFF`.
+- 2026-02-28: Added `SDL2_mixer` CMake discovery/linking for SDL2 audio path.
+- 2026-02-28: Ported sound/stream playback, channel control, persistent/fader channels, and global sound/music volume to SDL_mixer backend.
+- 2026-02-28: Fixed missing bonus-level music by repairing malformed `wizball_bonus.mp3` and repacking `stream.dat`.
+- 2026-02-28: Added reserved stream/music channels in SDL audio backend to reduce stream-start starvation under SFX load.
+- 2026-02-28: Centralized non-Allegro relative path helper in `path_utils.h/.cpp` and switched SDL audio backend to shared utility.
+- 2026-02-28: Replaced direct `set_gfx_mode(GFX_TEXT,...)` callsites in `control.cpp` setup error paths with `PLATFORM_WINDOW_set_text_mode()`.
+- 2026-02-28: Added explicit SDL2 GL-mode env controls (`WIZBALL_SDL2_ENABLE_GL`, `WIZBALL_SDL2_DISABLE_GL`) for migration diagnostics.
+- 2026-02-28: Restored stable default to GL-enabled in SDL2 builds; full SDL strict path remains opt-in via `WIZBALL_SDL2_DISABLE_GL=1`.
+- 2026-02-28: Added phased GL retirement mode (`WIZBALL_SDL2_SAFE_GL_OFF=1`) that auto-disables GL only after sustained stable SDL strict-primary coverage.
+- 2026-02-28: Added phased GL retirement rollback guard (`WIZBALL_SDL2_SAFE_GL_OFF_ROLLBACK_STREAK`) to auto-restore GL if post-latch SDL coverage drops.
+- 2026-02-28: In safe GL-off mode, stopped requiring AllegroGL texture creation for newly loaded bitmaps; SDL texture path is now exercised independently before final GL latch-off.
 - 2026-02-26: Added `platform_renderer` seam and moved AllegroGL lifecycle configuration from `OUTPUT_setup_allegro()` into `PLATFORM_RENDERER_prepare_allegro_gl()`.
 - 2026-02-26: Added `PLATFORM_RENDERER_shutdown()` hook in `OUTPUT_shutdown()` for incremental renderer backend teardown migration.
 - 2026-02-26: Moved fixed-function GL default bootstrap (texture/scissor state, viewport, orthographic projection setup, projection matrix capture) into `PLATFORM_RENDERER_apply_gl_defaults()`.

@@ -6,6 +6,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <allegro.h>
 #ifdef ALLEGRO_MACOSX
 #include <CoreServices/CoreServices.h>
@@ -120,6 +121,40 @@ bool complete_trace_from_now_on = false;
 
 static int entity_window_queue_stamp[MAX_ENTITIES];
 static int entity_window_queue_epoch = 0;
+static bool scripting_window_queue_guard_trace_checked = false;
+static bool scripting_window_queue_guard_trace_enabled = false;
+
+static bool SCRIPTING_is_window_queue_guard_trace_enabled(void)
+{
+	if (!scripting_window_queue_guard_trace_checked)
+	{
+		const char *value = getenv("WIZBALL_WINDOW_QUEUE_GUARD_TRACE");
+		scripting_window_queue_guard_trace_enabled =
+			(value != NULL) &&
+			(value[0] != '\0') &&
+			(strcmp(value, "0") != 0);
+		scripting_window_queue_guard_trace_checked = true;
+	}
+	return scripting_window_queue_guard_trace_enabled;
+}
+
+static void SCRIPTING_emit_window_queue_guard(const char *format, ...)
+{
+	char guard_line[MAX_LINE_SIZE];
+	va_list args;
+
+	if (!SCRIPTING_is_window_queue_guard_trace_enabled())
+	{
+		return;
+	}
+
+	va_start(args, format);
+	vsnprintf(guard_line, sizeof(guard_line), format, args);
+	va_end(args);
+
+	MAIN_add_to_log(guard_line);
+	fprintf(stderr, "%s\n", guard_line);
+}
 
 int just_created_entity = 0;
 	// This is the last entity which will be processed each frame
@@ -3039,16 +3074,11 @@ void SCRIPTING_add_entity_to_window (int entity_number)
 	{
 		if (queue_guard_log_count < 128)
 		{
-			char guard_line[MAX_LINE_SIZE];
 			queue_guard_log_count++;
-			snprintf(
-				guard_line,
-				sizeof(guard_line),
+			SCRIPTING_emit_window_queue_guard(
 				"WINDOW_QUEUE_GUARD stage=duplicate_insert ent=%d frame=%d",
 				entity_number,
 				frames_so_far);
-			MAIN_add_to_log(guard_line);
-			fprintf(stderr, "%s\n", guard_line);
 		}
 		return;
 	}
@@ -3183,18 +3213,13 @@ void SCRIPTING_move_window_y_queue_to_z_queue (int window_number)
 			{
 				if (guard_log_count < 128)
 				{
-					char guard_line[MAX_LINE_SIZE];
 					guard_log_count++;
-					snprintf(
-						guard_line,
-						sizeof(guard_line),
+					SCRIPTING_emit_window_queue_guard(
 						"WINDOW_QUEUE_GUARD stage=y_to_z window=%d y_list=%d current=%d frame=%d",
 						window_number,
 						y_ordering_list,
 						current_entity,
 						frames_so_far);
-					MAIN_add_to_log(guard_line);
-					fprintf(stderr, "%s\n", guard_line);
 				}
 				break;
 			}
@@ -3203,18 +3228,13 @@ void SCRIPTING_move_window_y_queue_to_z_queue (int window_number)
 			{
 				if (guard_log_count < 128)
 				{
-					char guard_line[MAX_LINE_SIZE];
 					guard_log_count++;
-					snprintf(
-						guard_line,
-						sizeof(guard_line),
+					SCRIPTING_emit_window_queue_guard(
 						"WINDOW_QUEUE_INVALID stage=y_to_z window=%d y_list=%d current=%d frame=%d",
 						window_number,
 						y_ordering_list,
 						current_entity,
 						frames_so_far);
-					MAIN_add_to_log(guard_line);
-					fprintf(stderr, "%s\n", guard_line);
 				}
 				break;
 			}
@@ -3222,18 +3242,13 @@ void SCRIPTING_move_window_y_queue_to_z_queue (int window_number)
 			{
 				if (guard_log_count < 128)
 				{
-					char guard_line[MAX_LINE_SIZE];
 					guard_log_count++;
-					snprintf(
-						guard_line,
-						sizeof(guard_line),
+					SCRIPTING_emit_window_queue_guard(
 						"WINDOW_QUEUE_GUARD stage=y_cycle window=%d y_list=%d current=%d frame=%d",
 						window_number,
 						y_ordering_list,
 						current_entity,
 						frames_so_far);
-					MAIN_add_to_log(guard_line);
-					fprintf(stderr, "%s\n", guard_line);
 				}
 				break;
 			}
@@ -3253,18 +3268,13 @@ void SCRIPTING_move_window_y_queue_to_z_queue (int window_number)
 			{
 				if (guard_log_count < 128)
 				{
-					char guard_line[MAX_LINE_SIZE];
 					guard_log_count++;
-					snprintf(
-						guard_line,
-						sizeof(guard_line),
+					SCRIPTING_emit_window_queue_guard(
 						"WINDOW_QUEUE_SELF_LOOP stage=next_window window=%d y_list=%d ent=%d frame=%d",
 						window_number,
 						y_ordering_list,
 						current_entity,
 						frames_so_far);
-					MAIN_add_to_log(guard_line);
-					fprintf(stderr, "%s\n", guard_line);
 				}
 				next_entity = UNSET;
 			}
@@ -3304,19 +3314,14 @@ void SCRIPTING_move_window_y_queue_to_z_queue (int window_number)
 					{
 						if (guard_log_count < 128)
 						{
-							char guard_line[MAX_LINE_SIZE];
 							guard_log_count++;
-							snprintf(
-								guard_line,
-								sizeof(guard_line),
+							SCRIPTING_emit_window_queue_guard(
 								"WINDOW_QUEUE_GUARD stage=draw_buddy window=%d y_list=%d ent=%d buddy=%d frame=%d",
 								window_number,
 								y_ordering_list,
 								current_entity,
 								buddy_entity,
 								frames_so_far);
-							MAIN_add_to_log(guard_line);
-							fprintf(stderr, "%s\n", guard_line);
 						}
 						break;
 					}
@@ -3324,19 +3329,14 @@ void SCRIPTING_move_window_y_queue_to_z_queue (int window_number)
 					{
 						if (guard_log_count < 128)
 						{
-							char guard_line[MAX_LINE_SIZE];
 							guard_log_count++;
-							snprintf(
-								guard_line,
-								sizeof(guard_line),
+							SCRIPTING_emit_window_queue_guard(
 								"WINDOW_QUEUE_INVALID stage=draw_buddy window=%d y_list=%d ent=%d buddy=%d frame=%d",
 								window_number,
 								y_ordering_list,
 								current_entity,
 								buddy_entity,
 								frames_so_far);
-							MAIN_add_to_log(guard_line);
-							fprintf(stderr, "%s\n", guard_line);
 						}
 						cep[ENT_DRAW_BUDDY] = UNSET;
 						break;
@@ -3345,19 +3345,14 @@ void SCRIPTING_move_window_y_queue_to_z_queue (int window_number)
 					{
 						if (guard_log_count < 128)
 						{
-							char guard_line[MAX_LINE_SIZE];
 							guard_log_count++;
-							snprintf(
-								guard_line,
-								sizeof(guard_line),
+							SCRIPTING_emit_window_queue_guard(
 								"WINDOW_QUEUE_GUARD stage=draw_buddy_cycle window=%d y_list=%d ent=%d buddy=%d frame=%d",
 								window_number,
 								y_ordering_list,
 								current_entity,
 								buddy_entity,
 								frames_so_far);
-							MAIN_add_to_log(guard_line);
-							fprintf(stderr, "%s\n", guard_line);
 						}
 						cep[ENT_DRAW_BUDDY] = UNSET;
 						break;
@@ -9761,6 +9756,39 @@ void SCRIPTING_erase_window_and_contents (int window_number)
 
 }
 
+static void SCRIPTING_reset_window_draw_queues(void)
+{
+	int window_number;
+	int list_index;
+
+	for (window_number = 0; window_number < number_of_windows; window_number++)
+	{
+		if (window_details[window_number].y_ordering_list_starts != NULL)
+		{
+			for (list_index = 0; list_index < window_details[window_number].y_ordering_list_size; list_index++)
+			{
+				window_details[window_number].y_ordering_list_starts[list_index] = UNSET;
+				window_details[window_number].y_ordering_list_ends[list_index] = UNSET;
+			}
+		}
+
+		if (window_details[window_number].z_ordering_list_starts != NULL)
+		{
+			for (list_index = 0; list_index < window_details[window_number].z_ordering_list_size; list_index++)
+			{
+				window_details[window_number].z_ordering_list_starts[list_index] = UNSET;
+				window_details[window_number].z_ordering_list_ends[list_index] = UNSET;
+			}
+		}
+	}
+
+	for (list_index = 0; list_index < MAX_ENTITIES; list_index++)
+	{
+		entity[list_index][ENT_PREV_WINDOW_ENT] = UNSET;
+		entity[list_index][ENT_NEXT_WINDOW_ENT] = UNSET;
+	}
+}
+
 
 
 bool SCRIPTING_process_entities (void)
@@ -9813,6 +9841,7 @@ bool SCRIPTING_process_entities (void)
 	script_lines_executed = 0;
 
 	SCRIPTING_set_new_window_status ();
+	SCRIPTING_reset_window_draw_queues();
 
 	// Update positions, add to collision buckets and window buckets.
 

@@ -2,12 +2,12 @@
 #include "global_param_list.h"
 #include "main.h"
 #include "output.h"
+#include "path_utils.h"
 #include "string_size_constants.h"
 
 #include <SDL.h>
 #include <SDL_mixer.h>
 
-#include <allegro.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -442,7 +442,7 @@ void SOUND_load_sound_effects(void)
 		}
 		else
 		{
-			append_filename(full_filename, "sound_fx", filename, sizeof(full_filename));
+			PATH_UTIL_build_relative_path(full_filename, sizeof(full_filename), "sound_fx", filename);
 			sound_effects[counter] = SOUND_load_chunk_from_file(MAIN_get_project_filename(full_filename));
 		}
 
@@ -637,7 +637,7 @@ void SOUND_open_sound_streams(void)
 		}
 		else
 		{
-			append_filename(full_filename, "streams", filename, sizeof(full_filename));
+			PATH_UTIL_build_relative_path(full_filename, sizeof(full_filename), "streams", filename);
 			sound_streams[counter] = SOUND_load_chunk_from_file(MAIN_get_project_filename(full_filename));
 			if (sound_streams[counter] == NULL)
 			{

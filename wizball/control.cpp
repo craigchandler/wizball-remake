@@ -17,6 +17,7 @@
 #include "main.h"
 #include "file_stuff.h"
 #include "platform_input.h"
+#include "platform_window.h"
 
 //#include "fortify.h"
 
@@ -3497,7 +3498,7 @@ int CONTROL_setup_joypad(void)
 	if (PLATFORM_INPUT_install_joystick() != 0)
 	{
 		joystick_setup_okay = false;
-		set_gfx_mode(GFX_TEXT, 0, 0, 0, 0);
+		PLATFORM_WINDOW_set_text_mode();
 		sprintf(error_string , "Error initialising joystick\n%s\n", allegro_error);
 		OUTPUT_message(error_string);
 		return 1;
@@ -3509,7 +3510,7 @@ int CONTROL_setup_joypad(void)
 
 	if (!PLATFORM_INPUT_num_joysticks())
 	{
-//		set_gfx_mode(GFX_TEXT, 0, 0, 0, 0);
+//		PLATFORM_WINDOW_set_text_mode();
 //		OUTPUT_message("Error: joystick not found\n");
 //		return 1;
 	}
@@ -3528,7 +3529,7 @@ int CONTROL_setup_joypad(void)
 
 		if (PLATFORM_INPUT_calibrate_joystick(0) != 0)
 		{
-			set_gfx_mode(GFX_TEXT, 0, 0, 0, 0);
+			PLATFORM_WINDOW_set_text_mode();
 			OUTPUT_message("Error calibrating joystick!\n");
 			return 1;
 		}
@@ -3549,7 +3550,7 @@ int CONTROL_setup_mouse(void)
 	if (PLATFORM_INPUT_install_mouse() == -1)
 	{
 		mouse_setup_okay = false;
-		set_gfx_mode(GFX_TEXT, 0, 0, 0, 0);
+		PLATFORM_WINDOW_set_text_mode();
 		sprintf(error_string , "Error initialising mouse!\n");
 		return 1;
 	}
@@ -3572,7 +3573,7 @@ int CONTROL_setup_keyboard(void)
 	if (PLATFORM_INPUT_install_keyboard() != 0)
 	{
 		keyboard_setup_okay = false;
-		set_gfx_mode(GFX_TEXT, 0, 0, 0, 0);
+		PLATFORM_WINDOW_set_text_mode();
 		sprintf(error_string , "Error initialising keyboard!\n");
 		return 1;
 	}

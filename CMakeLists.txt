@@ -45,6 +45,7 @@ set(WIZBALL_SOURCES
   wizball/new_editor.cpp
   wizball/object_collision.cpp
   wizball/output.cpp
+  wizball/path_utils.cpp
   wizball/parser.cpp
   wizball/particles.cpp
   wizball/platform.cpp

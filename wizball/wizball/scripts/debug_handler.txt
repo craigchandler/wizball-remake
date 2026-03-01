@@ -24,9 +24,9 @@ start
 		TOGGLE_DEBUG
 	end_if
 
-//	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,DEBUG_3) THEN
-//		gosub toggle_pause
-//	end_if
+	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,DEBUG_3) THEN
+		gosub jump_to_laboratory
+	end_if
 
 //	IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,DEBUG_4) THEN
 //		goto frame_advance
@@ -94,3 +94,13 @@ end
 
 	return
 
+
+
+.jump_to_laboratory
+
+	let main_game_handler_id = get_global_flag (MAIN_GAME_CONTROLLER_ENTITY_ID)
+	if main_game_handler_id != CONST_UNSET then
+		ADD_EVENT_TO_QUEUE (main_game_handler_id,LEVEL_RESET_FLAG_GO_TO_LABORATORY)
+	end_if
+
+	return

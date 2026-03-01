@@ -119,6 +119,10 @@ bool secondary_colour_available;
 static bool output_sdl_effect_trace_checked_env = false;
 static bool output_sdl_effect_trace_enabled = false;
 static unsigned int output_sdl_effect_trace_frame_counter = 0;
+static bool output_sdl_script_trace_checked_env = false;
+static bool output_sdl_script_trace_enabled = false;
+static char output_sdl_script_trace_filter[NAME_SIZE] = {0};
+static unsigned int output_sdl_script_trace_counter = 0;
 
 bool software_mode_active = false;
 
@@ -152,6 +156,73 @@ static bool OUTPUT_is_sdl_effect_trace_enabled(void)
 		output_sdl_effect_trace_checked_env = true;
 	}
 	return output_sdl_effect_trace_enabled;
+}
+
+static bool OUTPUT_contains_case_insensitive(const char *haystack, const char *needle)
+{
+	size_t i;
+	size_t j;
+	size_t needle_len;
+
+	if ((haystack == NULL) || (needle == NULL))
+	{
+		return false;
+	}
+
+	needle_len = strlen(needle);
+	if (needle_len == 0)
+	{
+		return false;
+	}
+
+	for (i = 0; haystack[i] != '\0'; i++)
+	{
+		for (j = 0; j < needle_len; j++)
+		{
+			unsigned char hc = (unsigned char) haystack[i + j];
+			unsigned char nc = (unsigned char) needle[j];
+			if (hc == '\0')
+			{
+				break;
+			}
+			if (tolower(hc) != tolower(nc))
+			{
+				break;
+			}
+		}
+		if (j == needle_len)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool OUTPUT_is_script_trace_match(const char *script_name)
+{
+	if (!output_sdl_script_trace_checked_env)
+	{
+		const char *env = getenv("WIZBALL_SDL2_TRACE_SCRIPT");
+		if ((env != NULL) && (env[0] != '\0'))
+		{
+			snprintf(output_sdl_script_trace_filter, sizeof(output_sdl_script_trace_filter), "%s", env);
+			output_sdl_script_trace_enabled = true;
+		}
+		else
+		{
+			output_sdl_script_trace_filter[0] = '\0';
+			output_sdl_script_trace_enabled = false;
+		}
+		output_sdl_script_trace_checked_env = true;
+	}
+
+	if (!output_sdl_script_trace_enabled)
+	{
+		return false;
+	}
+
+	return OUTPUT_contains_case_insensitive(script_name, output_sdl_script_trace_filter);
 }
 
 static void OUTPUT_sanitize_window_transform_values(
@@ -2998,6 +3069,37 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 
 					draw_type = entity_pointer[ENT_DRAW_MODE];
 					opengl_booleans = entity_pointer[ENT_OPENGL_BOOLEANS];
+					{
+						int script_number = entity_pointer[ENT_SCRIPT_NUMBER];
+						const char *script_name = "UNSET";
+						if ((script_number >= 0) && (script_number < GPL_list_size("SCRIPTS")))
+						{
+							script_name = GPL_get_entry_name("SCRIPTS", script_number);
+						}
+						if (OUTPUT_is_script_trace_match(script_name))
+						{
+							output_sdl_script_trace_counter++;
+							fprintf(
+								stderr,
+								"[SDL2-SCRIPT-TRACE] n=%u frame=%d win=%d entity=%d script=%d(%s) draw_mode=%d flags=0x%x sprite=%d frame=%d blend(add/mul/sub)=%d/%d/%d arb=%d persp=%d vcol=%d\n",
+								output_sdl_script_trace_counter,
+								frames_so_far,
+								window_number,
+								current_entity,
+								script_number,
+								script_name,
+								draw_type,
+								opengl_booleans,
+								entity_pointer[ENT_SPRITE],
+								entity_pointer[ENT_CURRENT_FRAME],
+								(opengl_booleans & OPENGL_BOOLEAN_BLEND_ADD) ? 1 : 0,
+								(opengl_booleans & OPENGL_BOOLEAN_BLEND_MULTIPLY) ? 1 : 0,
+								(opengl_booleans & OPENGL_BOOLEAN_BLEND_SUBTRACT) ? 1 : 0,
+								(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_QUAD) ? 1 : 0,
+								(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD) ? 1 : 0,
+								(opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA) ? 1 : 0);
+						}
+					}
 					if (effect_trace_enabled)
 					{
 						trace_total_entities++;
