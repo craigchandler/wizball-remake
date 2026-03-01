@@ -60,15 +60,11 @@ static unsigned char *platform_renderer_sdl_mirror_pixels = NULL;
 static int platform_renderer_sdl_mirror_width = 0;
 static int platform_renderer_sdl_mirror_height = 0;
 static int platform_renderer_sdl_mirror_pitch = 0;
-static bool platform_renderer_sdl_stub_enabled = false;
 static bool platform_renderer_sdl_stub_show_checked_env = false;
 static bool platform_renderer_sdl_stub_show_enabled = false;
 static bool platform_renderer_sdl_stub_accel_checked_env = false;
 static bool platform_renderer_sdl_stub_accel_enabled = false;
 static bool platform_renderer_sdl_stub_self_test_done = false;
-static bool platform_renderer_sdl_mirror_enabled = false;
-static bool platform_renderer_sdl_native_sprite_enabled = false;
-static bool platform_renderer_sdl_native_primary_enabled = false;
 static bool platform_renderer_sdl_native_primary_strict_enabled = false;
 static bool platform_renderer_sdl_native_primary_force_no_mirror_enabled = false;
 static bool platform_renderer_sdl_native_primary_auto_no_mirror_enabled = false;
@@ -467,7 +463,6 @@ static void PLATFORM_RENDERER_trace_sdl_sprite_draw(
 static void PLATFORM_RENDERER_refresh_sdl_stub_env_flags(void)
 {
 	platform_renderer_sdl_diag_verbose_enabled = false;
-	platform_renderer_sdl_stub_enabled = true;
 	if (!platform_renderer_sdl_stub_show_checked_env)
 	{
 		const char *show_env = getenv("WIZBALL_SDL2_STUB_SHOW");
@@ -480,9 +475,6 @@ static void PLATFORM_RENDERER_refresh_sdl_stub_env_flags(void)
 		platform_renderer_sdl_stub_accel_enabled = (accel_env == NULL) ? false : PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_ACCELERATED");
 		platform_renderer_sdl_stub_accel_checked_env = true;
 	}
-	platform_renderer_sdl_mirror_enabled = false;
-	platform_renderer_sdl_native_sprite_enabled = true;
-	platform_renderer_sdl_native_primary_enabled = true;
 	platform_renderer_sdl_native_primary_strict_enabled = true;
 	platform_renderer_sdl_native_primary_force_no_mirror_enabled = true;
 	platform_renderer_sdl_native_primary_auto_no_mirror_enabled = false;
@@ -513,13 +505,13 @@ static void PLATFORM_RENDERER_refresh_sdl_stub_env_flags(void)
 bool PLATFORM_RENDERER_is_sdl2_native_sprite_enabled(void)
 {
 	PLATFORM_RENDERER_refresh_sdl_stub_env_flags();
-	return platform_renderer_sdl_native_sprite_enabled;
+	return true;
 }
 
 bool PLATFORM_RENDERER_is_sdl2_native_primary_enabled(void)
 {
 	PLATFORM_RENDERER_refresh_sdl_stub_env_flags();
-	return platform_renderer_sdl_native_primary_enabled;
+	return true;
 }
 
 static bool PLATFORM_RENDERER_is_sdl_geometry_enabled(void)
@@ -661,7 +653,7 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(SDL_Texture *te
 {
 	(void) indices;
 	(void) index_count;
-	if (platform_renderer_sdl_native_primary_enabled && platform_renderer_sdl_native_primary_strict_enabled)
+	if (platform_renderer_sdl_native_primary_strict_enabled)
 	{
 		/*
 		 * In strict native mode we avoid copy/copyex rectangle fallback entirely:
@@ -1876,16 +1868,6 @@ static void PLATFORM_RENDERER_apply_sdl_texture_blend_mode(SDL_Texture *texture)
 }
 #endif
 
-
-bool PLATFORM_RENDERER_is_sdl_primary_active(void)
-{
-	return PLATFORM_RENDERER_is_sdl2_stub_enabled();
-}
-
-bool PLATFORM_RENDERER_is_sdl_multiply_fallback_active(void)
-{
-	return PLATFORM_RENDERER_using_multiply_blend_fallback();
-}
 
 void PLATFORM_RENDERER_reset_texture_registry(void)
 {
@@ -3213,16 +3195,6 @@ bool PLATFORM_RENDERER_set_active_texture_unit(int texture_unit)
 	return false;
 }
 
-bool PLATFORM_RENDERER_set_active_texture_unit0(void)
-{
-	return PLATFORM_RENDERER_set_active_texture_unit(0);
-}
-
-bool PLATFORM_RENDERER_set_active_texture_unit1(void)
-{
-	return PLATFORM_RENDERER_set_active_texture_unit(1);
-}
-
 void PLATFORM_RENDERER_set_secondary_colour_proc(void *proc)
 {
 	platform_renderer_secondary_colour_proc = (platform_secondary_colour_proc_t) proc;
@@ -3458,9 +3430,9 @@ void PLATFORM_RENDERER_bind_secondary_texture(unsigned int texture_handle, bool 
 
 void PLATFORM_RENDERER_disable_secondary_texture_and_restore_combiner(void)
 {
-	(void) PLATFORM_RENDERER_set_active_texture_unit1();
+	(void) PLATFORM_RENDERER_set_active_texture_unit(1);
 	PLATFORM_RENDERER_set_texture_enabled(false);
-	(void) PLATFORM_RENDERER_set_active_texture_unit0();
+	(void) PLATFORM_RENDERER_set_active_texture_unit(0);
 	PLATFORM_RENDERER_set_combiner_modulate_primary();
 }
 
@@ -3481,10 +3453,10 @@ void PLATFORM_RENDERER_prepare_textured_window_draw(bool texture_combiner_availa
 		if (texture_combiner_available)
 		{
 			// Defensive frame-begin reset: ensure texture unit 1 starts disabled.
-			(void) PLATFORM_RENDERER_set_active_texture_unit1();
+			(void) PLATFORM_RENDERER_set_active_texture_unit(1);
 			PLATFORM_RENDERER_set_texture_enabled(false);
 		}
-		(void) PLATFORM_RENDERER_set_active_texture_unit0();
+		(void) PLATFORM_RENDERER_set_active_texture_unit(0);
 	}
 	if (texture_combiner_available)
 	{
@@ -3499,14 +3471,14 @@ void PLATFORM_RENDERER_finish_textured_window_draw(bool texture_combiner_availab
 	if (had_secondary_texture && texture_combiner_available)
 	{
 		// Disable secondary texture unit and restore default combiner mode.
-		(void) PLATFORM_RENDERER_set_active_texture_unit1();
+		(void) PLATFORM_RENDERER_set_active_texture_unit(1);
 		PLATFORM_RENDERER_set_texture_enabled(false);
-		(void) PLATFORM_RENDERER_set_active_texture_unit0();
+		(void) PLATFORM_RENDERER_set_active_texture_unit(0);
 		PLATFORM_RENDERER_set_combiner_modulate_primary();
 	}
 	else if (texture_combiner_available && PLATFORM_RENDERER_is_active_texture_available())
 	{
-		(void) PLATFORM_RENDERER_set_active_texture_unit0();
+		(void) PLATFORM_RENDERER_set_active_texture_unit(0);
 	}
 
 	if (secondary_colour_available)
@@ -3967,7 +3939,7 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 					{
 						return;
 					}
-					if (platform_renderer_sdl_native_primary_enabled && platform_renderer_sdl_native_primary_strict_enabled)
+					if (platform_renderer_sdl_native_primary_strict_enabled)
 					{
 						return;
 					}
@@ -4315,7 +4287,7 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 					{
 						return;
 					}
-					if (platform_renderer_sdl_native_primary_enabled && platform_renderer_sdl_native_primary_strict_enabled)
+					if (platform_renderer_sdl_native_primary_strict_enabled)
 					{
 						return;
 					}
@@ -5436,7 +5408,7 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 {
 	PLATFORM_RENDERER_refresh_sdl_stub_env_flags();
 
-	if (!platform_renderer_sdl_stub_enabled)
+	if (!PLATFORM_RENDERER_is_sdl2_stub_enabled())
 	{
 		strcpy(platform_renderer_sdl_status, "SDL2 stub disabled.");
 		return false;
@@ -5648,7 +5620,7 @@ bool PLATFORM_RENDERER_is_sdl2_stub_ready(void)
 bool PLATFORM_RENDERER_is_sdl2_stub_enabled(void)
 {
 	PLATFORM_RENDERER_refresh_sdl_stub_env_flags();
-	return platform_renderer_sdl_stub_enabled;
+	return true;
 }
 
 bool PLATFORM_RENDERER_run_sdl2_stub_self_test(void)

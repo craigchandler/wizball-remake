@@ -778,7 +778,7 @@ void OUTPUT_updatescreen (void)
 	{
 		int present_width = SCREEN_W;
 		int present_height = SCREEN_H;
-		if (PLATFORM_RENDERER_is_sdl_primary_active())
+			if (PLATFORM_RENDERER_is_sdl2_stub_enabled())
 		{
 			present_width = game_screen_width;
 			present_height = game_screen_height;
@@ -1051,7 +1051,7 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 	bool sdl_stub_enabled = PLATFORM_RENDERER_is_sdl2_stub_enabled();
 	bool sdl_native_sprites_enabled = PLATFORM_RENDERER_is_sdl2_native_sprite_enabled();
 	bool sdl_native_primary_enabled = PLATFORM_RENDERER_is_sdl2_native_primary_enabled();
-	bool sdl_primary_active = PLATFORM_RENDERER_is_sdl_primary_active();
+	bool sdl_primary_active = PLATFORM_RENDERER_is_sdl2_stub_enabled();
 	char sdl_stub_line[MAX_LINE_SIZE];
 	sprintf(sdl_stub_line, "SDL2 renderer stub: enabled=%d native_sprites=%d native_primary=%d sdl_primary=%d lazy_init=1 status=%s", sdl_stub_enabled ? 1 : 0, sdl_native_sprites_enabled ? 1 : 0, sdl_native_primary_enabled ? 1 : 0, sdl_primary_active ? 1 : 0, PLATFORM_RENDERER_get_sdl2_stub_status());
 	MAIN_add_to_log(sdl_stub_line);
@@ -3532,7 +3532,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						 * standard sprites. It does not depend on bound-texture state and
 						 * has been more robust for transformed/animated entities.
 						 */
-						if (PLATFORM_RENDERER_is_sdl_primary_active() &&
+							if (PLATFORM_RENDERER_is_sdl2_stub_enabled() &&
 							OUTPUT_env_enabled("WIZBALL_SDL2_DIRECT_SPRITE_PATH") &&
 							(!(opengl_booleans & OPENGL_BOOLEAN_BLEND_EITHER)) &&
 							!(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_QUAD) &&
@@ -3746,7 +3746,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 								secondary_v2 -= secondary_sp->uv_pixel_size * float(entity_pointer[ENT_CUT_SPRITE_BOTTOM_INDENTATION]);
 							}
 
-							PLATFORM_RENDERER_set_active_texture_unit0();
+							PLATFORM_RENDERER_set_active_texture_unit(0);
 							OUTPUT_apply_texture_parameters_from_flags(opengl_booleans, old_opengl_booleans);
 
 							if (OUTPUT_has_multitexture_flags(opengl_booleans))
@@ -3811,7 +3811,7 @@ int OUTPUT_draw_window_contents (int window_number, bool texture_combiner_availa
 						}
 						else
 						{
-							PLATFORM_RENDERER_set_active_texture_unit0();
+							PLATFORM_RENDERER_set_active_texture_unit(0);
 							OUTPUT_apply_texture_parameters_from_flags(opengl_booleans, old_opengl_booleans);
 
 							if (opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA)

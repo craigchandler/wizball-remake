@@ -29,8 +29,6 @@ void PLATFORM_RENDERER_apply_texture_parameters(bool filtered, bool old_filtered
 void PLATFORM_RENDERER_set_active_texture_proc(void *proc);
 bool PLATFORM_RENDERER_is_active_texture_available(void);
 bool PLATFORM_RENDERER_set_active_texture_unit(int texture_unit);
-bool PLATFORM_RENDERER_set_active_texture_unit0(void);
-bool PLATFORM_RENDERER_set_active_texture_unit1(void);
 void PLATFORM_RENDERER_set_secondary_colour_proc(void *proc);
 bool PLATFORM_RENDERER_set_secondary_colour(float r, float g, float b);
 void PLATFORM_RENDERER_set_blend_enabled(bool enabled);
@@ -71,8 +69,6 @@ bool PLATFORM_RENDERER_is_sdl2_stub_ready(void);
 bool PLATFORM_RENDERER_is_sdl2_stub_enabled(void);
 bool PLATFORM_RENDERER_is_sdl2_native_sprite_enabled(void);
 bool PLATFORM_RENDERER_is_sdl2_native_primary_enabled(void);
-bool PLATFORM_RENDERER_is_sdl_primary_active(void);
-bool PLATFORM_RENDERER_is_sdl_multiply_fallback_active(void);
 bool PLATFORM_RENDERER_run_sdl2_stub_self_test(void);
 bool PLATFORM_RENDERER_mirror_from_current_backbuffer(int width, int height);
 const char *PLATFORM_RENDERER_get_sdl2_stub_status(void);
