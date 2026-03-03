@@ -1,10 +1,12 @@
-#include <allegro.h>
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
 #include <assert.h>
-#ifdef ALLEGRO_MACOSX
-#include <CoreServices/CoreServices.h>
+
+#if __has_include(<SDL2/SDL.h>)
+#include <SDL2/SDL.h>
+#else
+#include <SDL.h>
 #endif
 
 #include "control.h" // Because - DUH!
@@ -811,7 +813,8 @@ float CONTROL_stick_power (int port, int stick, int axis, int side)
 
 void CONTROL_position_mouse (int x, int y)
 {
-	position_mouse (x,y);
+	// Warp within the currently focused window (NULL => focused window).
+	SDL_WarpMouseInWindow(NULL, x, y);
 }
 
 
@@ -1558,7 +1561,7 @@ void CONTROL_update_keyboard (void)
 	// state so that we can tell if the state's changed since the last poll. As long as it's
 	// held down we also increase a counter which can be used for keyrepeats.
 
-	PLATFORM_INPUT_poll_keyboard();
+	// PLATFORM_INPUT_poll_keyboard();
 
 	int t;
 

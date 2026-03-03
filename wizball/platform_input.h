@@ -1,7 +1,8 @@
 #ifndef _PLATFORM_INPUT_H_
 #define _PLATFORM_INPUT_H_
 
-void PLATFORM_INPUT_poll_keyboard(void);
+#include "platform_scancodes.h"
+
 int PLATFORM_INPUT_key_state(int scancode);
 int PLATFORM_INPUT_install_keyboard(void);
 int PLATFORM_INPUT_readkey_ascii(void);
