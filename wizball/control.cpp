@@ -3266,6 +3266,9 @@ void CONTROL_manage_recording (void)
 
 void CONTROL_update_all_input (void)
 {
+	// SDL: pump events once before sampling device states.
+	PLATFORM_INPUT_begin_frame();
+
 	if (keyboard_setup_okay == true)
 	{
 		CONTROL_update_keyboard();

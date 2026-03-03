@@ -39,12 +39,16 @@ static int g_mouse_buttons_mask = 0;
 struct JoyPort
 {
     SDL_Joystick *joy = NULL;
+    SDL_GameController *controller = NULL; // preferred when available
+    bool is_controller = false;
 };
 
 static std::vector<JoyPort> g_joyports;
 
 // Clamp number of opened joysticks to match old code expectations.
 static const int kMaxJoyPorts = 8;
+
+static bool g_need_rescan_joy = false;
 
 // SDL event pump.
 // - Keeps g_quit_requested updated.
@@ -75,6 +79,12 @@ static void pump_events_nonblocking()
             break;
         case SDL_WINDOWEVENT:
             ++g_debug_window_event_count;
+            break;
+        case SDL_CONTROLLERDEVICEADDED:
+        case SDL_CONTROLLERDEVICEREMOVED:
+        case SDL_JOYDEVICEADDED:
+        case SDL_JOYDEVICEREMOVED:
+            g_need_rescan_joy = true;
             break;
         default:
             break;
@@ -245,39 +255,12 @@ int PLATFORM_INPUT_install_mouse(void)
     return 0;
 }
 
-int PLATFORM_INPUT_install_joystick(void)
-{
-    ensure_sdl_events();
-    ensure_sdl_video();
-
-    if (!g_sdl_joystick_inited)
-    {
-        if (SDL_InitSubSystem(SDL_INIT_JOYSTICK) != 0)
-        {
-            return 1;
-        }
-        SDL_JoystickEventState(SDL_ENABLE);
-        g_sdl_joystick_inited = true;
-    }
-
-    // Open joysticks (idempotent).
-    g_joyports.clear();
-    int n = SDL_NumJoysticks();
-    n = std::min(n, kMaxJoyPorts);
-    g_joyports.resize(n);
-    for (int i = 0; i < n; ++i)
-    {
-        g_joyports[i].joy = SDL_JoystickOpen(i);
-    }
-
-    return 0;
-}
-
 void PLATFORM_INPUT_poll_mouse(void)
 {
     ensure_sdl_events();
     ensure_sdl_video();
-    pump_events_nonblocking();
+    // Do not pump events here (key_state may be called many times per frame).
+    // Call PLATFORM_INPUT_begin_frame() or PLATFORM_INPUT_pump_events() once per frame instead.
 
     int x = 0, y = 0;
     Uint32 buttons = SDL_GetMouseState(&x, &y);
@@ -290,13 +273,6 @@ void PLATFORM_INPUT_poll_mouse(void)
     if (buttons & SDL_BUTTON(SDL_BUTTON_LEFT))   g_mouse_buttons_mask |= (1 << 0);
     if (buttons & SDL_BUTTON(SDL_BUTTON_RIGHT))  g_mouse_buttons_mask |= (1 << 1);
     if (buttons & SDL_BUTTON(SDL_BUTTON_MIDDLE)) g_mouse_buttons_mask |= (1 << 2);
-}
-
-void PLATFORM_INPUT_poll_joysticks(void)
-{
-    ensure_sdl_events();
-    pump_events_nonblocking();
-    // SDL_JoystickGet* queries current state; polling events is enough.
 }
 
 int PLATFORM_INPUT_key_state(int scancode)
@@ -327,64 +303,6 @@ int PLATFORM_INPUT_mouse_buttons_mask(void) { return g_mouse_buttons_mask; }
 int PLATFORM_INPUT_num_joysticks(void)
 {
     return (int)g_joyports.size();
-}
-
-int PLATFORM_INPUT_joystick_num_buttons(int port)
-{
-    if (port < 0 || port >= (int)g_joyports.size() || !g_joyports[port].joy)
-        return 0;
-    return SDL_JoystickNumButtons(g_joyports[port].joy);
-}
-
-int PLATFORM_INPUT_joystick_button_state(int port, int button)
-{
-    if (port < 0 || port >= (int)g_joyports.size() || !g_joyports[port].joy)
-        return 0;
-    if (button < 0 || button >= SDL_JoystickNumButtons(g_joyports[port].joy))
-        return 0;
-    return SDL_JoystickGetButton(g_joyports[port].joy, button) ? 1 : 0;
-}
-
-int PLATFORM_INPUT_joystick_num_sticks(int port)
-{
-    // Old code expects "sticks"; with SDL we expose a single stick and map axes onto it.
-    if (port < 0 || port >= (int)g_joyports.size() || !g_joyports[port].joy)
-        return 0;
-    return 1;
-}
-
-int PLATFORM_INPUT_joystick_stick_num_axes(int port, int stick)
-{
-    if (port < 0 || port >= (int)g_joyports.size() || !g_joyports[port].joy)
-        return 0;
-    if (stick != 0)
-        return 0;
-    return SDL_JoystickNumAxes(g_joyports[port].joy);
-}
-
-int PLATFORM_INPUT_joystick_stick_is_signed(int /*port*/, int /*stick*/)
-{
-    // SDL axes are signed (-32768..32767).
-    return 1;
-}
-
-int PLATFORM_INPUT_joystick_axis_pos(int port, int stick, int axis)
-{
-    if (port < 0 || port >= (int)g_joyports.size() || !g_joyports[port].joy)
-        return 0;
-    if (stick != 0)
-        return 0;
-
-    int naxes = SDL_JoystickNumAxes(g_joyports[port].joy);
-    if (axis < 0 || axis >= naxes)
-        return 0;
-
-    Sint16 v = SDL_JoystickGetAxis(g_joyports[port].joy, axis);
-    // Scale to roughly Allegro signed 8-bit range.
-    int scaled = (int)(v / 256);
-    if (scaled < -128) scaled = -128;
-    if (scaled > 127) scaled = 127;
-    return scaled;
 }
 
 int PLATFORM_INPUT_joystick_axis_pos(int port, int axis)
@@ -472,3 +390,224 @@ unsigned int PLATFORM_INPUT_debug_event_count(void) { return g_debug_event_count
 unsigned int PLATFORM_INPUT_debug_window_event_count(void) { return g_debug_window_event_count; }
 unsigned int PLATFORM_INPUT_debug_keydown_event_count(void) { return g_debug_keydown_event_count; }
 unsigned int PLATFORM_INPUT_debug_quit_event_count(void) { return g_debug_quit_event_count; }
+
+// ------------------------------------------------------------
+// Frame helpers
+// ------------------------------------------------------------
+
+void PLATFORM_INPUT_begin_frame(void)
+{
+    // Single entry point for callers.
+    PLATFORM_INPUT_pump_events();
+}
+
+void PLATFORM_INPUT_warp_mouse(int x, int y)
+{
+    ensure_sdl_events();
+    SDL_WarpMouseInWindow(NULL, x, y);
+}
+
+// ------------------------------------------------------------
+// Joystick / controller
+// ------------------------------------------------------------
+
+static void close_joyports()
+{
+    for (JoyPort &jp : g_joyports)
+    {
+        if (jp.controller)
+        {
+            SDL_GameControllerClose(jp.controller);
+            jp.controller = NULL;
+            jp.joy = NULL;
+        }
+        else if (jp.joy)
+        {
+            SDL_JoystickClose(jp.joy);
+            jp.joy = NULL;
+        }
+        jp.is_controller = false;
+    }
+    g_joyports.clear();
+}
+
+static void rescan_joyports()
+{
+    close_joyports();
+
+    // Prefer the GameController API for consistent mappings (Xbox/PS/etc).
+    const int count = SDL_NumJoysticks();
+    for (int i = 0; i < count && (int)g_joyports.size() < kMaxJoyPorts; ++i)
+    {
+        JoyPort jp;
+        if (SDL_IsGameController(i))
+        {
+            jp.controller = SDL_GameControllerOpen(i);
+            if (jp.controller)
+            {
+                jp.is_controller = true;
+                jp.joy = SDL_GameControllerGetJoystick(jp.controller);
+                g_joyports.push_back(jp);
+                continue;
+            }
+        }
+
+        jp.joy = SDL_JoystickOpen(i);
+        if (jp.joy)
+        {
+            jp.is_controller = false;
+            g_joyports.push_back(jp);
+        }
+    }
+
+    g_need_rescan_joy = false;
+}
+
+int PLATFORM_INPUT_install_joystick(void)
+{
+    ensure_sdl_events();
+    if (SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_HAPTIC) != 0)
+        return -1;
+
+    SDL_JoystickEventState(SDL_ENABLE);
+    SDL_GameControllerEventState(SDL_ENABLE);
+
+    rescan_joyports();
+    return 0;
+}
+
+void PLATFORM_INPUT_remove_joystick(void)
+{
+    close_joyports();
+}
+
+void PLATFORM_INPUT_poll_joysticks(void)
+{
+    ensure_sdl_events();
+    pump_events_nonblocking();
+
+    if (g_need_rescan_joy)
+        rescan_joyports();
+
+    SDL_GameControllerUpdate();
+    SDL_JoystickUpdate();
+}
+
+int PLATFORM_INPUT_joystick_num_buttons(int port)
+{
+    if (port < 0 || port >= (int)g_joyports.size())
+        return 0;
+    const JoyPort &jp = g_joyports[port];
+    if (jp.is_controller && jp.controller)
+        return (int)SDL_CONTROLLER_BUTTON_MAX;
+    if (!jp.joy)
+        return 0;
+    return SDL_JoystickNumButtons(jp.joy);
+}
+
+int PLATFORM_INPUT_joystick_button_state(int port, int button)
+{
+    if (port < 0 || port >= (int)g_joyports.size())
+        return 0;
+    const JoyPort &jp = g_joyports[port];
+
+    if (jp.is_controller && jp.controller)
+    {
+        if (button < 0 || button >= (int)SDL_CONTROLLER_BUTTON_MAX)
+            return 0;
+        return SDL_GameControllerGetButton(jp.controller, (SDL_GameControllerButton)button) ? 1 : 0;
+    }
+
+    if (!jp.joy)
+        return 0;
+    if (button < 0 || button >= SDL_JoystickNumButtons(jp.joy))
+        return 0;
+    return SDL_JoystickGetButton(jp.joy, button) ? 1 : 0;
+}
+
+int PLATFORM_INPUT_joystick_num_sticks(int port)
+{
+    if (port < 0 || port >= (int)g_joyports.size())
+        return 0;
+    const JoyPort &jp = g_joyports[port];
+    if (jp.is_controller && jp.controller)
+        return 3; // left, right, triggers
+    return 1; // raw SDL joystick is treated as one stick
+}
+
+int PLATFORM_INPUT_joystick_stick_num_axes(int port, int stick)
+{
+    if (port < 0 || port >= (int)g_joyports.size())
+        return 0;
+    const JoyPort &jp = g_joyports[port];
+    if (jp.is_controller && jp.controller)
+    {
+        if (stick == 0 || stick == 1 || stick == 2)
+            return 2;
+        return 0;
+    }
+
+    if (!jp.joy)
+        return 0;
+    if (stick != 0)
+        return 0;
+    return SDL_JoystickNumAxes(jp.joy);
+}
+
+int PLATFORM_INPUT_joystick_stick_is_signed(int port, int stick)
+{
+    if (port < 0 || port >= (int)g_joyports.size())
+        return 1;
+    const JoyPort &jp = g_joyports[port];
+    if (jp.is_controller && jp.controller)
+    {
+        // Triggers are exposed as unsigned 0..255.
+        return (stick == 2) ? 0 : 1;
+    }
+    return 1;
+}
+
+int PLATFORM_INPUT_joystick_axis_pos(int port, int stick, int axis)
+{
+    if (port < 0 || port >= (int)g_joyports.size())
+        return 0;
+    const JoyPort &jp = g_joyports[port];
+    if (jp.is_controller && jp.controller)
+    {
+        if (axis < 0 || axis > 1)
+            return 0;
+        if (stick == 0)
+        {
+            const Sint16 v = (axis == 0)
+                ? SDL_GameControllerGetAxis(jp.controller, SDL_CONTROLLER_AXIS_LEFTX)
+                : SDL_GameControllerGetAxis(jp.controller, SDL_CONTROLLER_AXIS_LEFTY);
+            return (int)((v / 32767.0f) * 128.0f);
+        }
+        if (stick == 1)
+        {
+            const Sint16 v = (axis == 0)
+                ? SDL_GameControllerGetAxis(jp.controller, SDL_CONTROLLER_AXIS_RIGHTX)
+                : SDL_GameControllerGetAxis(jp.controller, SDL_CONTROLLER_AXIS_RIGHTY);
+            return (int)((v / 32767.0f) * 128.0f);
+        }
+        if (stick == 2)
+        {
+            const Sint16 v = (axis == 0)
+                ? SDL_GameControllerGetAxis(jp.controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT)
+                : SDL_GameControllerGetAxis(jp.controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT);
+            return (int)((v / 32767.0f) * 255.0f);
+        }
+        return 0;
+    }
+
+    // Raw joystick
+    if (!jp.joy)
+        return 0;
+    if (stick != 0)
+        return 0;
+    if (axis < 0 || axis >= SDL_JoystickNumAxes(jp.joy))
+        return 0;
+
+    const Sint16 v = SDL_JoystickGetAxis(jp.joy, axis);
+    return (int)((v / 32767.0f) * 128.0f);
+}

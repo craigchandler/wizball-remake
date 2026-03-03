@@ -3,6 +3,9 @@
 
 #include "platform_scancodes.h"
 
+// SDL is the only backend for this input layer.
+#include <SDL.h>
+
 int PLATFORM_INPUT_key_state(int scancode);
 int PLATFORM_INPUT_install_keyboard(void);
 int PLATFORM_INPUT_readkey_ascii(void);
@@ -28,6 +31,11 @@ int PLATFORM_INPUT_calibrate_joystick(int port);
 void PLATFORM_INPUT_poll_joysticks(void);
 
 void PLATFORM_INPUT_pump_events(void);
+
+// Call once per frame (or once per fixed-step tick) to keep SDL input state fresh.
+// This wraps PLATFORM_INPUT_pump_events() and any per-frame housekeeping.
+// Safe to call multiple times.
+void PLATFORM_INPUT_begin_frame(void);
 int PLATFORM_INPUT_quit_requested(void);
 void PLATFORM_INPUT_clear_quit_requested(void);
 
@@ -36,5 +44,9 @@ unsigned int PLATFORM_INPUT_debug_event_count(void);
 unsigned int PLATFORM_INPUT_debug_window_event_count(void);
 unsigned int PLATFORM_INPUT_debug_keydown_event_count(void);
 unsigned int PLATFORM_INPUT_debug_quit_event_count(void);
+
+// Optional helper used by legacy code to reposition the cursor.
+// Uses the current mouse-focus window.
+void PLATFORM_INPUT_warp_mouse(int x, int y);
 
 #endif
