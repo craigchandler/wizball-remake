@@ -1027,6 +1027,7 @@ bool TILESETS_load_game_data (void)
 			if (ts[tileset_number].tile_count <= 0 || ts[tileset_number].tile_count > 65536)
 			{
 				fclose(file_pointer);
+				fprintf(stderr, "Invalid tile count %d in tileset %d\n", ts[tileset_number].tile_count, tileset_number);
 				OUTPUT_message("tilesets.dat contains an invalid tile_count.");
 				TILESETS_cleanup_loaded_data(loaded_tilesets);
 				return false;

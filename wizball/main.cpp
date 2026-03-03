@@ -1591,15 +1591,6 @@ int main (int argc, char *argv[])
 		return 0;
 	}
 
-	if (load_from_dat_file)
-	{
-		if (INPUT_load_datafile () == false)
-		{
-			assert(0);
-			// Arse-candles...
-		}
-	}
-
 //	_chdir ("C:\\Program Files\\Microsoft Visual Studio\\Script Parser\\");
 //	_chdir ("D:\\C Projects\\new_toodee_new\\");
 

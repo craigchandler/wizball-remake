@@ -7491,17 +7491,6 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 				SCRIPTING_put_value ( entity_id,line_number,1,result_i );
 				break;
 
-
-
-//			case COM_SET_VIRTUAL_SCREEN_SIZE:
-//				first_value = SCRIPTING_get_int_value ( entity_id , line_number , 1);
-//				second_value = SCRIPTING_get_int_value ( entity_id , line_number , 2);
-//
-//				OUTPUT_set_virtual_screen_size (first_value,second_value);
-//				break;
-
-
-
 			case COM_LET_VALUE_LOOP:
 				if ( SCRIPTING_get_int_value ( entity_id , line_number , 7) > 0 )
 				{

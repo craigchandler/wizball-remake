@@ -9,7 +9,6 @@ set(CMAKE_CXX_STANDARD 98)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
-option(WIZBALL_ENABLE_FMOD "Build with FMOD backend (requires FMOD headers/libs)" OFF)
 option(WIZBALL_ENABLE_ASAN "Build with AddressSanitizer (debug heap corruption)" OFF)
 set(WIZBALL_DAT_TOOL "dat" CACHE STRING "Path/name of Allegro dat packing tool")
 
@@ -52,6 +51,7 @@ set(WIZBALL_SOURCES
   wizball/roomzones.cpp
   wizball/scripting.cpp
   wizball/simple_gui.cpp
+  wizball/sound_sdl.cpp
   wizball/spawn_points.cpp
   wizball/string_stuff.cpp
   wizball/textfiles.cpp
@@ -64,41 +64,6 @@ set(WIZBALL_SOURCES
   wizball/world_collision.cpp
 )
 
-if(WIZBALL_ENABLE_FMOD)
-  find_path(FMOD_INCLUDE_DIR
-    fmod.h
-    PATH_SUFFIXES fmodex
-  )
-  find_library(FMOD_LIBRARY NAMES fmod fmodex)
-
-  if(NOT FMOD_INCLUDE_DIR OR NOT FMOD_LIBRARY)
-    message(FATAL_ERROR "WIZBALL_ENABLE_FMOD is ON, but FMOD headers or library were not found.")
-  endif()
-
-  # Validate modern FMOD Ex/Core API availability.
-  set(CMAKE_REQUIRED_INCLUDES ${FMOD_INCLUDE_DIR})
-  set(CMAKE_REQUIRED_LIBRARIES ${FMOD_LIBRARY})
-  check_cxx_source_compiles("
-    #include <fmod.h>
-    int main() {
-      FMOD_SYSTEM *sys = 0;
-      FMOD_RESULT r = FMOD_System_Create(&sys);
-      (void)r;
-      return 0;
-    }" WIZBALL_FMOD_HAS_MODERN_API)
-  unset(CMAKE_REQUIRED_INCLUDES)
-  unset(CMAKE_REQUIRED_LIBRARIES)
-
-  if(NOT WIZBALL_FMOD_HAS_MODERN_API)
-    message(FATAL_ERROR
-      "WIZBALL_ENABLE_FMOD is ON, but the installed FMOD headers do not expose modern FMOD_System_* symbols.")
-  endif()
-
-  list(APPEND WIZBALL_SOURCES wizball/sound.cpp)
-else()
-  list(APPEND WIZBALL_SOURCES wizball/sound_sdl.cpp)
-endif()
-
 find_package(SDL2 QUIET)
 if(NOT SDL2_FOUND)
   message(FATAL_ERROR "SDL2 was not found.")
@@ -107,6 +72,11 @@ endif()
 find_package(SDL2_mixer QUIET)
 if(NOT SDL2_mixer_FOUND)
   message(FATAL_ERROR "SDL2_mixer was not found.")
+endif()
+
+find_package(SDL2_image QUIET)
+if(NOT SDL2_mixer_FOUND)
+  message(FATAL_ERROR "SDL2_image was not found.")
 endif()
 
 add_executable(wizball ${WIZBALL_SOURCES})
@@ -133,11 +103,6 @@ target_include_directories(wizball PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/wizball
 )
 
-if(WIZBALL_ENABLE_FMOD)
-  target_include_directories(wizball PRIVATE ${FMOD_INCLUDE_DIR})
-  target_link_libraries(wizball PRIVATE ${FMOD_LIBRARY})
-endif()
-
 if(TARGET SDL2::SDL2)
   target_link_libraries(wizball PRIVATE SDL2::SDL2)
 else()
@@ -150,6 +115,13 @@ if(TARGET SDL2_mixer::SDL2_mixer)
 else()
   target_include_directories(wizball PRIVATE ${SDL2_MIXER_INCLUDE_DIRS})
   target_link_libraries(wizball PRIVATE ${SDL2_MIXER_LIBRARIES})
+endif()
+
+if(TARGET SDL2_image::SDL2_image)
+  target_link_libraries(wizball PRIVATE SDL2_image::SDL2_image)
+else()
+  target_include_directories(wizball PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+  target_link_libraries(wizball PRIVATE ${SDL2_IMAGE_LIBRARIES})
 endif()
 
 target_link_libraries(wizball PRIVATE

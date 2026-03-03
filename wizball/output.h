@@ -1,7 +1,7 @@
 #ifndef _OUTPUT_H_
 #define _OUTPUT_H_
 
-
+#include <SDL.h>
 
 #define BLEND_OFF		(0)
 #define BLEND_ADDITIVE	(1)
@@ -44,13 +44,8 @@
 #define SOFTWARE_FONT_WIDTH		(8)
 #define SOFTWARE_FONT_HEIGHT	(8)
 
-
-
-bool INPUT_load_datafile (void);
 void INPUT_load_media_datafiles (void);
 void INPUT_unload_datafiles (void);
-
-void OUTPUT_set_virtual_screen_size (int width, int height);
 
 void OUTPUT_message (char *msg);
 void OUTPUT_store_frame_info_in_entity_collision (int *entity_pointer, int modifier=0);
@@ -78,9 +73,10 @@ void OUTPUT_setup_allegro (bool windowed, int colour_depth, int base_screen_widt
 void OUTPUT_draw_sprite (int bitmap_number , int sprite_number, int x, int y, int r=255, int g=255, int b=255);
 void OUTPUT_draw_masked_sprite (int bitmap_number , int sprite_number, int x, int y, int r=255, int g=255, int b=255);
 
-void OUTPUT_draw_bitmap (int bitmap_number, int x, int y, int window=-1);
-
 int INPUT_load_bitmap (char *filename);
+int INPUT_load_bitmap_old(char *filename);
+int INPUT_load_bitmap_SDL(const char *filename, SDL_Renderer *renderer);
+
 void INPUT_create_sprite (int parent_bitmap, int sprite_number, char *name, int x, int y, int width, int height, int pivot_x, int pivot_y);
 void INPUT_create_equal_sized_sprite_series (int parent_bitmap, char *name_base, int sprite_width, int sprite_height, int pivot_x, int pivot_y);
 void INPUT_create_arbitrary_sized_sprite_series (int parent_bitmap, char *name_base, char *descriptor_file);
@@ -120,8 +116,6 @@ void OUTPUT_disable_multi_texture_effects (void);
 
 void OUTPUT_setup_project_list (char *text);
 void OUTPUT_setup_running_mode (void);
-void * INPUT_get_stream_data_pointer(char *object_name, int *data_length);
-void * INPUT_get_sfx_data_pointer(char *object_name, int *data_length);
 
 void OUTPUT_list_all_window_contents (int look_for_script);
 

@@ -10,22 +10,11 @@
 #include "main.h"
 #include "output.h"
 #include "scripting.h"
-
+#include "platform_renderer_texture_entry.h"
 
 static void PLATFORM_RENDERER_apply_sdl_texture_blend_mode(SDL_Texture *texture);
 static Uint8 PLATFORM_RENDERER_get_sdl_texture_alpha_mod(Uint8 requested_alpha);
-static bool PLATFORM_RENDERER_try_capture_legacy_texture_rgba(unsigned int legacy_texture_id, int expected_w, int expected_h, unsigned char *out_rgba_pixels);
 
-typedef struct
-{
-	unsigned int legacy_texture_id;
-	SDL_Texture *sdl_texture;
-	SDL_Texture *sdl_texture_premultiplied;
-	SDL_Texture *sdl_texture_inverted;
-	unsigned char *sdl_rgba_pixels;
-	int width;
-	int height;
-} platform_renderer_texture_entry;
 static platform_renderer_texture_entry *platform_renderer_texture_entries = NULL;
 static int platform_renderer_texture_count = 0;
 static int platform_renderer_texture_capacity = 0;
@@ -49,9 +38,9 @@ enum
 };
 static int platform_renderer_blend_mode = PLATFORM_RENDERER_BLEND_MODE_ALPHA;
 static unsigned int platform_renderer_last_bound_texture_handle = 0;
-typedef void (*platform_active_texture_proc_t) (int texture_unit);
+typedef void (*platform_active_texture_proc_t)(int texture_unit);
 static platform_active_texture_proc_t platform_renderer_active_texture_proc = NULL;
-typedef void (*platform_secondary_colour_proc_t) (float red, float green, float blue);
+typedef void (*platform_secondary_colour_proc_t)(float red, float green, float blue);
 static SDL_Window *platform_renderer_sdl_window = NULL;
 static SDL_Renderer *platform_renderer_sdl_renderer = NULL;
 static bool platform_renderer_sdl_stub_show_checked_env = false;
@@ -155,19 +144,24 @@ static int platform_renderer_prev_legacy_draw_count = 0;
 static int platform_renderer_prev_legacy_textured_count = 0;
 static unsigned int platform_renderer_draw_transition_counter = 0;
 
+// SDL Magic Pink setup
+static Uint8 MAGIC_R = 255;
+static Uint8 MAGIC_G = 0;
+static Uint8 MAGIC_B = 255;
+
 static void PLATFORM_RENDERER_refresh_sdl_stub_env_flags(void);
 static int PLATFORM_RENDERER_find_texture_index_from_legacy_id(unsigned int legacy_texture_id);
 
 static void PLATFORM_RENDERER_log_native_draw_transition(
-	unsigned int frame_number,
-	int prev_sdl_draws,
-	int prev_sdl_textured,
-	int prev_legacy_draws,
-	int prev_legacy_textured,
-	int current_sdl_draws,
-	int current_sdl_textured,
-	int current_legacy_draws,
-	int current_legacy_textured)
+		unsigned int frame_number,
+		int prev_sdl_draws,
+		int prev_sdl_textured,
+		int prev_legacy_draws,
+		int prev_legacy_textured,
+		int current_sdl_draws,
+		int current_sdl_textured,
+		int current_legacy_draws,
+		int current_legacy_textured)
 {
 	const bool now_zero = (current_sdl_draws == 0) && (current_sdl_textured == 0);
 	const bool was_zero = (prev_sdl_draws == 0) && (prev_sdl_textured == 0);
@@ -224,12 +218,11 @@ static void PLATFORM_RENDERER_log_native_draw_transition(
 	}
 
 	platform_renderer_draw_transition_counter++;
-	(void) frame_number;
-	(void) prev_legacy_draws;
-	(void) prev_legacy_textured;
-	(void) current_legacy_draws;
-	(void) current_legacy_textured;
-
+	(void)frame_number;
+	(void)prev_legacy_draws;
+	(void)prev_legacy_textured;
+	(void)current_legacy_draws;
+	(void)current_legacy_textured;
 }
 
 static bool PLATFORM_RENDERER_env_enabled(const char *name);
@@ -254,27 +247,25 @@ static bool PLATFORM_RENDERER_env_enabled(const char *name)
 static bool PLATFORM_RENDERER_using_subtractive_mod_fallback(void)
 {
 	if (!platform_renderer_blend_enabled ||
-		(platform_renderer_blend_mode != PLATFORM_RENDERER_BLEND_MODE_SUBTRACT))
+			(platform_renderer_blend_mode != PLATFORM_RENDERER_BLEND_MODE_SUBTRACT))
 	{
 		return false;
 	}
 
-	return
-		platform_renderer_sdl_subtractive_texture_support_checked &&
-		(!platform_renderer_sdl_subtractive_texture_supported);
+	return platform_renderer_sdl_subtractive_texture_support_checked &&
+				 (!platform_renderer_sdl_subtractive_texture_supported);
 }
 
 static bool PLATFORM_RENDERER_using_multiply_blend_fallback(void)
 {
 	if (!platform_renderer_blend_enabled ||
-		(platform_renderer_blend_mode != PLATFORM_RENDERER_BLEND_MODE_MULTIPLY))
+			(platform_renderer_blend_mode != PLATFORM_RENDERER_BLEND_MODE_MULTIPLY))
 	{
 		return false;
 	}
 
-	return
-		platform_renderer_sdl_multiply_texture_support_checked &&
-		(!platform_renderer_sdl_multiply_texture_supported);
+	return platform_renderer_sdl_multiply_texture_support_checked &&
+				 (!platform_renderer_sdl_multiply_texture_supported);
 }
 
 static void PLATFORM_RENDERER_refresh_sdl_stub_env_flags(void)
@@ -340,10 +331,10 @@ static void PLATFORM_RENDERER_record_sdl_source_bounds_rect(int source_id, const
 		return;
 	}
 
-	min_x = (float) rect->x;
-	min_y = (float) rect->y;
-	max_x = (float) (rect->x + rect->w);
-	max_y = (float) (rect->y + rect->h);
+	min_x = (float)rect->x;
+	min_y = (float)rect->y;
+	max_x = (float)(rect->x + rect->w);
+	max_y = (float)(rect->y + rect->h);
 	if (platform_renderer_sdl_source_bounds_count[source_id] <= 0)
 	{
 		platform_renderer_sdl_source_min_x[source_id] = min_x;
@@ -354,10 +345,14 @@ static void PLATFORM_RENDERER_record_sdl_source_bounds_rect(int source_id, const
 		return;
 	}
 
-	if (min_x < platform_renderer_sdl_source_min_x[source_id]) platform_renderer_sdl_source_min_x[source_id] = min_x;
-	if (min_y < platform_renderer_sdl_source_min_y[source_id]) platform_renderer_sdl_source_min_y[source_id] = min_y;
-	if (max_x > platform_renderer_sdl_source_max_x[source_id]) platform_renderer_sdl_source_max_x[source_id] = max_x;
-	if (max_y > platform_renderer_sdl_source_max_y[source_id]) platform_renderer_sdl_source_max_y[source_id] = max_y;
+	if (min_x < platform_renderer_sdl_source_min_x[source_id])
+		platform_renderer_sdl_source_min_x[source_id] = min_x;
+	if (min_y < platform_renderer_sdl_source_min_y[source_id])
+		platform_renderer_sdl_source_min_y[source_id] = min_y;
+	if (max_x > platform_renderer_sdl_source_max_x[source_id])
+		platform_renderer_sdl_source_max_x[source_id] = max_x;
+	if (max_y > platform_renderer_sdl_source_max_y[source_id])
+		platform_renderer_sdl_source_max_y[source_id] = max_y;
 	platform_renderer_sdl_source_bounds_count[source_id]++;
 }
 
@@ -368,9 +363,9 @@ static bool PLATFORM_RENDERER_sync_sdl_render_target_size(int width, int height)
 		return false;
 	}
 
-	(void) SDL_RenderSetViewport(platform_renderer_sdl_renderer, NULL);
-	(void) SDL_RenderSetClipRect(platform_renderer_sdl_renderer, NULL);
-	(void) SDL_RenderSetIntegerScale(platform_renderer_sdl_renderer, SDL_FALSE);
+	(void)SDL_RenderSetViewport(platform_renderer_sdl_renderer, NULL);
+	(void)SDL_RenderSetClipRect(platform_renderer_sdl_renderer, NULL);
+	(void)SDL_RenderSetIntegerScale(platform_renderer_sdl_renderer, SDL_FALSE);
 	{
 		int out_w = 0;
 		int out_h = 0;
@@ -382,8 +377,8 @@ static bool PLATFORM_RENDERER_sync_sdl_render_target_size(int width, int height)
 			platform_renderer_sdl_output_height = out_h;
 			if ((out_w > 0) && (out_h > 0))
 			{
-				sx = (float) out_w / (float) width;
-				sy = (float) out_h / (float) height;
+				sx = (float)out_w / (float)width;
+				sy = (float)out_h / (float)height;
 			}
 		}
 		platform_renderer_sdl_scale_x = sx;
@@ -404,10 +399,10 @@ static bool PLATFORM_RENDERER_src_flip_y_for_sdl(float v1, float v2)
 }
 
 static void PLATFORM_RENDERER_axis_orientation_flips_from_transformed_quad(
-	const float tx[4],
-	const float ty[4],
-	bool *out_flip_x,
-	bool *out_flip_y)
+		const float tx[4],
+		const float ty[4],
+		bool *out_flip_x,
+		bool *out_flip_y)
 {
 	const float axis_eps = 0.01f;
 	bool flip_x = false;
@@ -437,8 +432,8 @@ static void PLATFORM_RENDERER_axis_orientation_flips_from_transformed_quad(
 
 static bool PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(SDL_Texture *texture, const SDL_Vertex *vertices, int vertex_count, const int *indices, int index_count, int source_id)
 {
-	(void) indices;
-	(void) index_count;
+	(void)indices;
+	(void)index_count;
 	if (platform_renderer_sdl_native_primary_strict_enabled)
 	{
 		/*
@@ -463,16 +458,24 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(SDL_Texture *te
 	int i;
 	for (i = 1; i < 4; i++)
 	{
-		if (vertices[i].position.x < min_x) min_x = vertices[i].position.x;
-		if (vertices[i].position.x > max_x) max_x = vertices[i].position.x;
-		if (vertices[i].position.y < min_y) min_y = vertices[i].position.y;
-		if (vertices[i].position.y > max_y) max_y = vertices[i].position.y;
-		if (vertices[i].tex_coord.x < min_u) min_u = vertices[i].tex_coord.x;
-		if (vertices[i].tex_coord.x > max_u) max_u = vertices[i].tex_coord.x;
+		if (vertices[i].position.x < min_x)
+			min_x = vertices[i].position.x;
+		if (vertices[i].position.x > max_x)
+			max_x = vertices[i].position.x;
+		if (vertices[i].position.y < min_y)
+			min_y = vertices[i].position.y;
+		if (vertices[i].position.y > max_y)
+			max_y = vertices[i].position.y;
+		if (vertices[i].tex_coord.x < min_u)
+			min_u = vertices[i].tex_coord.x;
+		if (vertices[i].tex_coord.x > max_u)
+			max_u = vertices[i].tex_coord.x;
 		{
 			const float sv = PLATFORM_RENDERER_convert_v_to_sdl(vertices[i].tex_coord.y);
-			if (sv < min_v) min_v = sv;
-			if (sv > max_v) max_v = sv;
+			if (sv < min_v)
+				min_v = sv;
+			if (sv > max_v)
+				max_v = sv;
 		}
 	}
 
@@ -484,20 +487,22 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(SDL_Texture *te
 	SDL_RendererFlip final_flip = SDL_FLIP_NONE;
 	if (vertices[2].tex_coord.x < vertices[0].tex_coord.x)
 	{
-		final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_HORIZONTAL);
+		final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_HORIZONTAL);
 	}
 	if (vertices[1].tex_coord.y > vertices[0].tex_coord.y)
 	{
-		final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_VERTICAL);
+		final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_VERTICAL);
 	}
 
 	SDL_Rect src_rect;
-	src_rect.x = (int) (min_u * 4096.0f);
-	src_rect.y = (int) (min_v * 4096.0f);
-	src_rect.w = (int) ((max_u - min_u) * 4096.0f);
-	src_rect.h = (int) ((max_v - min_v) * 4096.0f);
-	if (src_rect.w <= 0) src_rect.w = 1;
-	if (src_rect.h <= 0) src_rect.h = 1;
+	src_rect.x = (int)(min_u * 4096.0f);
+	src_rect.y = (int)(min_v * 4096.0f);
+	src_rect.w = (int)((max_u - min_u) * 4096.0f);
+	src_rect.h = (int)((max_v - min_v) * 4096.0f);
+	if (src_rect.w <= 0)
+		src_rect.w = 1;
+	if (src_rect.h <= 0)
+		src_rect.h = 1;
 
 	int tex_w = 0;
 	int tex_h = 0;
@@ -505,20 +510,30 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(SDL_Texture *te
 	{
 		return false;
 	}
-	src_rect.x = (int) (min_u * (float) tex_w);
-	src_rect.y = (int) (min_v * (float) tex_h);
-	src_rect.w = (int) ((max_u - min_u) * (float) tex_w);
-	src_rect.h = (int) ((max_v - min_v) * (float) tex_h);
-	if (src_rect.x < 0) src_rect.x = 0;
-	if (src_rect.y < 0) src_rect.y = 0;
-	if (src_rect.x >= tex_w) src_rect.x = tex_w - 1;
-	if (src_rect.y >= tex_h) src_rect.y = tex_h - 1;
-	if (src_rect.w <= 0) src_rect.w = 1;
-	if (src_rect.h <= 0) src_rect.h = 1;
-	if (src_rect.x + src_rect.w > tex_w) src_rect.w = tex_w - src_rect.x;
-	if (src_rect.y + src_rect.h > tex_h) src_rect.h = tex_h - src_rect.y;
-	if (src_rect.w <= 0) src_rect.w = 1;
-	if (src_rect.h <= 0) src_rect.h = 1;
+	src_rect.x = (int)(min_u * (float)tex_w);
+	src_rect.y = (int)(min_v * (float)tex_h);
+	src_rect.w = (int)((max_u - min_u) * (float)tex_w);
+	src_rect.h = (int)((max_v - min_v) * (float)tex_h);
+	if (src_rect.x < 0)
+		src_rect.x = 0;
+	if (src_rect.y < 0)
+		src_rect.y = 0;
+	if (src_rect.x >= tex_w)
+		src_rect.x = tex_w - 1;
+	if (src_rect.y >= tex_h)
+		src_rect.y = tex_h - 1;
+	if (src_rect.w <= 0)
+		src_rect.w = 1;
+	if (src_rect.h <= 0)
+		src_rect.h = 1;
+	if (src_rect.x + src_rect.w > tex_w)
+		src_rect.w = tex_w - src_rect.x;
+	if (src_rect.y + src_rect.h > tex_h)
+		src_rect.h = tex_h - src_rect.y;
+	if (src_rect.w <= 0)
+		src_rect.w = 1;
+	if (src_rect.h <= 0)
+		src_rect.h = 1;
 
 	// First try a rotated-rectangle approximation when the quad looks like
 	// an affine-transformed rectangle (common sprite case).
@@ -544,10 +559,10 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(SDL_Texture *te
 		const float p23y = p2y - p3y;
 		const float dot = (exx * eyx) + (exy * eyy);
 		const bool edges_match =
-			(fabsf((p21x - exx)) <= eps) &&
-			(fabsf((p21y - exy)) <= eps) &&
-			(fabsf((p23x - eyx)) <= eps) &&
-			(fabsf((p23y - eyy)) <= eps);
+				(fabsf((p21x - exx)) <= eps) &&
+				(fabsf((p21y - exy)) <= eps) &&
+				(fabsf((p23x - eyx)) <= eps) &&
+				(fabsf((p23y - eyy)) <= eps);
 		const bool near_rect = (width > 0.5f) && (height > 0.5f) && (fabsf(dot) < ((width * height) * 0.15f)) && edges_match;
 
 		if (near_rect)
@@ -556,21 +571,23 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(SDL_Texture *te
 			SDL_Point center;
 			const float cx = (p0x + p1x + p2x + p3x) * 0.25f;
 			const float cy = (p0y + p1y + p2y + p3y) * 0.25f;
-			const double angle_degrees = atan2((double) exy, (double) exx) * (180.0 / 3.14159265358979323846);
+			const double angle_degrees = atan2((double)exy, (double)exx) * (180.0 / 3.14159265358979323846);
 
-			dst_rect.w = (int) (width + 0.5f);
-			dst_rect.h = (int) (height + 0.5f);
-			if (dst_rect.w <= 0) dst_rect.w = 1;
-			if (dst_rect.h <= 0) dst_rect.h = 1;
-			dst_rect.x = (int) (cx - ((float) dst_rect.w * 0.5f));
-			dst_rect.y = (int) (cy - ((float) dst_rect.h * 0.5f));
+			dst_rect.w = (int)(width + 0.5f);
+			dst_rect.h = (int)(height + 0.5f);
+			if (dst_rect.w <= 0)
+				dst_rect.w = 1;
+			if (dst_rect.h <= 0)
+				dst_rect.h = 1;
+			dst_rect.x = (int)(cx - ((float)dst_rect.w * 0.5f));
+			dst_rect.y = (int)(cy - ((float)dst_rect.h * 0.5f));
 
 			center.x = dst_rect.w / 2;
 			center.y = dst_rect.h / 2;
 
 			PLATFORM_RENDERER_apply_sdl_texture_blend_mode(texture);
-	(void) SDL_SetTextureColorMod(texture, vertices[0].color.r, vertices[0].color.g, vertices[0].color.b);
-			(void) SDL_SetTextureAlphaMod(texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(vertices[0].color.a));
+			(void)SDL_SetTextureColorMod(texture, vertices[0].color.r, vertices[0].color.g, vertices[0].color.b);
+			(void)SDL_SetTextureAlphaMod(texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(vertices[0].color.a));
 			if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, texture, &src_rect, &dst_rect, angle_degrees, &center, final_flip) == 0)
 			{
 				platform_renderer_sdl_native_draw_count++;
@@ -588,12 +605,14 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(SDL_Texture *te
 	}
 
 	SDL_Rect dst_rect;
-	dst_rect.x = (int) min_x;
-	dst_rect.y = (int) min_y;
-	dst_rect.w = (int) (max_x - min_x);
-	dst_rect.h = (int) (max_y - min_y);
-	if (dst_rect.w <= 0) dst_rect.w = 1;
-	if (dst_rect.h <= 0) dst_rect.h = 1;
+	dst_rect.x = (int)min_x;
+	dst_rect.y = (int)min_y;
+	dst_rect.w = (int)(max_x - min_x);
+	dst_rect.h = (int)(max_y - min_y);
+	if (dst_rect.w <= 0)
+		dst_rect.w = 1;
+	if (dst_rect.h <= 0)
+		dst_rect.h = 1;
 
 	// Protect against pathological quads that can stall software/driver paths.
 	if ((dst_rect.w > 8192) || (dst_rect.h > 8192))
@@ -615,8 +634,8 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(SDL_Texture *te
 	}
 
 	PLATFORM_RENDERER_apply_sdl_texture_blend_mode(texture);
-	(void) SDL_SetTextureColorMod(texture, vertices[0].color.r, vertices[0].color.g, vertices[0].color.b);
-	(void) SDL_SetTextureAlphaMod(texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(vertices[0].color.a));
+	(void)SDL_SetTextureColorMod(texture, vertices[0].color.r, vertices[0].color.g, vertices[0].color.b);
+	(void)SDL_SetTextureAlphaMod(texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(vertices[0].color.a));
 	if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
 	{
 		platform_renderer_sdl_native_draw_count++;
@@ -641,9 +660,9 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 	int v;
 
 	if ((texture != NULL) &&
-		PLATFORM_RENDERER_using_multiply_blend_fallback() &&
-		((source_id == PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD) ||
-		 (source_id == PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD_CUSTOM)))
+			PLATFORM_RENDERER_using_multiply_blend_fallback() &&
+			((source_id == PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD) ||
+			 (source_id == PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD_CUSTOM)))
 	{
 		/*
 		 * Software SDL backends can produce opaque matte artefacts for textured
@@ -665,9 +684,9 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 	if (!PLATFORM_RENDERER_is_sdl_geometry_enabled())
 	{
 		const bool force_coloured_geometry =
-			(source_id == PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE) ||
-			(source_id == PLATFORM_RENDERER_GEOM_SRC_COLOURED_ARRAY) ||
-			(source_id == PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE);
+				(source_id == PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE) ||
+				(source_id == PLATFORM_RENDERER_GEOM_SRC_COLOURED_ARRAY) ||
+				(source_id == PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE);
 
 		if (force_coloured_geometry && (texture != NULL))
 		{
@@ -681,17 +700,23 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 				float max_y = work_vertices[0].position.y;
 				for (v = 1; v < vertex_count; v++)
 				{
-					if (work_vertices[v].position.x < min_x) min_x = work_vertices[v].position.x;
-					if (work_vertices[v].position.y < min_y) min_y = work_vertices[v].position.y;
-					if (work_vertices[v].position.x > max_x) max_x = work_vertices[v].position.x;
-					if (work_vertices[v].position.y > max_y) max_y = work_vertices[v].position.y;
+					if (work_vertices[v].position.x < min_x)
+						min_x = work_vertices[v].position.x;
+					if (work_vertices[v].position.y < min_y)
+						min_y = work_vertices[v].position.y;
+					if (work_vertices[v].position.x > max_x)
+						max_x = work_vertices[v].position.x;
+					if (work_vertices[v].position.y > max_y)
+						max_y = work_vertices[v].position.y;
 				}
-				geom_bounds.x = (int) min_x;
-				geom_bounds.y = (int) min_y;
-				geom_bounds.w = (int) (max_x - min_x);
-				geom_bounds.h = (int) (max_y - min_y);
-				if (geom_bounds.w <= 0) geom_bounds.w = 1;
-				if (geom_bounds.h <= 0) geom_bounds.h = 1;
+				geom_bounds.x = (int)min_x;
+				geom_bounds.y = (int)min_y;
+				geom_bounds.w = (int)(max_x - min_x);
+				geom_bounds.h = (int)(max_y - min_y);
+				if (geom_bounds.w <= 0)
+					geom_bounds.w = 1;
+				if (geom_bounds.h <= 0)
+					geom_bounds.h = 1;
 				platform_renderer_sdl_native_draw_count++;
 				platform_renderer_sdl_native_textured_draw_count++;
 				PLATFORM_RENDERER_note_sdl_draw_source(source_id);
@@ -740,17 +765,23 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 		float max_y = work_vertices[0].position.y;
 		for (v = 1; v < vertex_count; v++)
 		{
-			if (work_vertices[v].position.x < min_x) min_x = work_vertices[v].position.x;
-			if (work_vertices[v].position.y < min_y) min_y = work_vertices[v].position.y;
-			if (work_vertices[v].position.x > max_x) max_x = work_vertices[v].position.x;
-			if (work_vertices[v].position.y > max_y) max_y = work_vertices[v].position.y;
+			if (work_vertices[v].position.x < min_x)
+				min_x = work_vertices[v].position.x;
+			if (work_vertices[v].position.y < min_y)
+				min_y = work_vertices[v].position.y;
+			if (work_vertices[v].position.x > max_x)
+				max_x = work_vertices[v].position.x;
+			if (work_vertices[v].position.y > max_y)
+				max_y = work_vertices[v].position.y;
 		}
-		geom_bounds.x = (int) min_x;
-		geom_bounds.y = (int) min_y;
-		geom_bounds.w = (int) (max_x - min_x);
-		geom_bounds.h = (int) (max_y - min_y);
-		if (geom_bounds.w <= 0) geom_bounds.w = 1;
-		if (geom_bounds.h <= 0) geom_bounds.h = 1;
+		geom_bounds.x = (int)min_x;
+		geom_bounds.y = (int)min_y;
+		geom_bounds.w = (int)(max_x - min_x);
+		geom_bounds.h = (int)(max_y - min_y);
+		if (geom_bounds.w <= 0)
+			geom_bounds.w = 1;
+		if (geom_bounds.h <= 0)
+			geom_bounds.h = 1;
 		platform_renderer_sdl_native_draw_count++;
 		platform_renderer_sdl_native_textured_draw_count++;
 		PLATFORM_RENDERER_note_sdl_draw_source(source_id);
@@ -787,12 +818,14 @@ static bool PLATFORM_RENDERER_build_sdl_texture_from_entry(platform_renderer_tex
 		return entry->sdl_texture != NULL;
 	}
 
+	fprintf(stderr, "Building SDL texture for legacy ID %u (size %dx%d, Gotpixels: %d)\n", entry->legacy_texture_id, entry->width, entry->height, (entry->sdl_rgba_pixels == NULL));
+
 	entry->sdl_texture = SDL_CreateTexture(
-		platform_renderer_sdl_renderer,
-		SDL_PIXELFORMAT_RGBA32,
-		SDL_TEXTUREACCESS_STATIC,
-		entry->width,
-		entry->height);
+			platform_renderer_sdl_renderer,
+			SDL_PIXELFORMAT_RGBA32,
+			SDL_TEXTUREACCESS_STATIC,
+			entry->width,
+			entry->height);
 
 	if (entry->sdl_texture == NULL)
 	{
@@ -830,9 +863,9 @@ static SDL_Texture *PLATFORM_RENDERER_build_sdl_inverted_texture_from_entry(plat
 		return NULL;
 	}
 
-	pixel_count = (size_t) entry->width * (size_t) entry->height;
+	pixel_count = (size_t)entry->width * (size_t)entry->height;
 	byte_count = pixel_count * 4u;
-	inverted_pixels = (unsigned char *) malloc(byte_count);
+	inverted_pixels = (unsigned char *)malloc(byte_count);
 	if (inverted_pixels == NULL)
 	{
 		return NULL;
@@ -841,28 +874,28 @@ static SDL_Texture *PLATFORM_RENDERER_build_sdl_inverted_texture_from_entry(plat
 	for (i = 0; i < pixel_count; i++)
 	{
 		size_t base = i * 4u;
-		unsigned int a = (unsigned int) entry->sdl_rgba_pixels[base + 3];
-		unsigned int src_r = ((unsigned int) entry->sdl_rgba_pixels[base + 0] * a) / 255u;
-		unsigned int src_g = ((unsigned int) entry->sdl_rgba_pixels[base + 1] * a) / 255u;
-		unsigned int src_b = ((unsigned int) entry->sdl_rgba_pixels[base + 2] * a) / 255u;
+		unsigned int a = (unsigned int)entry->sdl_rgba_pixels[base + 3];
+		unsigned int src_r = ((unsigned int)entry->sdl_rgba_pixels[base + 0] * a) / 255u;
+		unsigned int src_g = ((unsigned int)entry->sdl_rgba_pixels[base + 1] * a) / 255u;
+		unsigned int src_b = ((unsigned int)entry->sdl_rgba_pixels[base + 2] * a) / 255u;
 
 		/*
 		 * Subtractive fallback uses MOD, so we feed 1-src into the texture.
 		 * Weight by alpha first so fully transparent texels become neutral white
 		 * (no dark rectangle around masked sprites like lab shadows).
 		 */
-		inverted_pixels[base + 0] = (unsigned char) (255u - src_r);
-		inverted_pixels[base + 1] = (unsigned char) (255u - src_g);
-		inverted_pixels[base + 2] = (unsigned char) (255u - src_b);
+		inverted_pixels[base + 0] = (unsigned char)(255u - src_r);
+		inverted_pixels[base + 1] = (unsigned char)(255u - src_g);
+		inverted_pixels[base + 2] = (unsigned char)(255u - src_b);
 		inverted_pixels[base + 3] = entry->sdl_rgba_pixels[base + 3];
 	}
 
 	entry->sdl_texture_inverted = SDL_CreateTexture(
-		platform_renderer_sdl_renderer,
-		SDL_PIXELFORMAT_RGBA32,
-		SDL_TEXTUREACCESS_STATIC,
-		entry->width,
-		entry->height);
+			platform_renderer_sdl_renderer,
+			SDL_PIXELFORMAT_RGBA32,
+			SDL_TEXTUREACCESS_STATIC,
+			entry->width,
+			entry->height);
 	if (entry->sdl_texture_inverted == NULL)
 	{
 		free(inverted_pixels);
@@ -876,7 +909,7 @@ static SDL_Texture *PLATFORM_RENDERER_build_sdl_inverted_texture_from_entry(plat
 		return NULL;
 	}
 	free(inverted_pixels);
-	(void) SDL_SetTextureBlendMode(entry->sdl_texture_inverted, SDL_BLENDMODE_MOD);
+	(void)SDL_SetTextureBlendMode(entry->sdl_texture_inverted, SDL_BLENDMODE_MOD);
 	return entry->sdl_texture_inverted;
 }
 
@@ -900,9 +933,9 @@ static SDL_Texture *PLATFORM_RENDERER_build_sdl_premultiplied_texture_from_entry
 		return NULL;
 	}
 
-	pixel_count = (size_t) entry->width * (size_t) entry->height;
+	pixel_count = (size_t)entry->width * (size_t)entry->height;
 	byte_count = pixel_count * 4u;
-	premul_pixels = (unsigned char *) malloc(byte_count);
+	premul_pixels = (unsigned char *)malloc(byte_count);
 	if (premul_pixels == NULL)
 	{
 		return NULL;
@@ -911,23 +944,23 @@ static SDL_Texture *PLATFORM_RENDERER_build_sdl_premultiplied_texture_from_entry
 	for (i = 0; i < pixel_count; i++)
 	{
 		size_t base = i * 4u;
-		unsigned int a = (unsigned int) entry->sdl_rgba_pixels[base + 3];
-		unsigned int src_r = ((unsigned int) entry->sdl_rgba_pixels[base + 0] * a) / 255u;
-		unsigned int src_g = ((unsigned int) entry->sdl_rgba_pixels[base + 1] * a) / 255u;
-		unsigned int src_b = ((unsigned int) entry->sdl_rgba_pixels[base + 2] * a) / 255u;
+		unsigned int a = (unsigned int)entry->sdl_rgba_pixels[base + 3];
+		unsigned int src_r = ((unsigned int)entry->sdl_rgba_pixels[base + 0] * a) / 255u;
+		unsigned int src_g = ((unsigned int)entry->sdl_rgba_pixels[base + 1] * a) / 255u;
+		unsigned int src_b = ((unsigned int)entry->sdl_rgba_pixels[base + 2] * a) / 255u;
 
-		premul_pixels[base + 0] = (unsigned char) src_r;
-		premul_pixels[base + 1] = (unsigned char) src_g;
-		premul_pixels[base + 2] = (unsigned char) src_b;
+		premul_pixels[base + 0] = (unsigned char)src_r;
+		premul_pixels[base + 1] = (unsigned char)src_g;
+		premul_pixels[base + 2] = (unsigned char)src_b;
 		premul_pixels[base + 3] = entry->sdl_rgba_pixels[base + 3];
 	}
 
 	entry->sdl_texture_premultiplied = SDL_CreateTexture(
-		platform_renderer_sdl_renderer,
-		SDL_PIXELFORMAT_RGBA32,
-		SDL_TEXTUREACCESS_STATIC,
-		entry->width,
-		entry->height);
+			platform_renderer_sdl_renderer,
+			SDL_PIXELFORMAT_RGBA32,
+			SDL_TEXTUREACCESS_STATIC,
+			entry->width,
+			entry->height);
 	if (entry->sdl_texture_premultiplied == NULL)
 	{
 		free(premul_pixels);
@@ -941,7 +974,7 @@ static SDL_Texture *PLATFORM_RENDERER_build_sdl_premultiplied_texture_from_entry
 		return NULL;
 	}
 	free(premul_pixels);
-	(void) SDL_SetTextureBlendMode(entry->sdl_texture_premultiplied, SDL_BLENDMODE_BLEND);
+	(void)SDL_SetTextureBlendMode(entry->sdl_texture_premultiplied, SDL_BLENDMODE_BLEND);
 	return entry->sdl_texture_premultiplied;
 }
 
@@ -953,20 +986,20 @@ static SDL_Texture *PLATFORM_RENDERER_get_effective_texture_for_current_blend(pl
 	}
 
 	if (platform_renderer_blend_enabled &&
-		(platform_renderer_blend_mode == PLATFORM_RENDERER_BLEND_MODE_SUBTRACT) &&
-		((platform_renderer_sdl_subtractive_texture_support_checked &&
-		  (!platform_renderer_sdl_subtractive_texture_supported))))
+			(platform_renderer_blend_mode == PLATFORM_RENDERER_BLEND_MODE_SUBTRACT) &&
+			((platform_renderer_sdl_subtractive_texture_support_checked &&
+				(!platform_renderer_sdl_subtractive_texture_supported))))
 	{
 		SDL_Texture *inverted = PLATFORM_RENDERER_build_sdl_inverted_texture_from_entry(entry);
 		if (inverted != NULL)
 		{
-			(void) SDL_SetTextureBlendMode(inverted, SDL_BLENDMODE_MOD);
+			(void)SDL_SetTextureBlendMode(inverted, SDL_BLENDMODE_MOD);
 			return inverted;
 		}
 	}
 
 	if (platform_renderer_blend_enabled &&
-		(platform_renderer_blend_mode == PLATFORM_RENDERER_BLEND_MODE_SUBTRACT))
+			(platform_renderer_blend_mode == PLATFORM_RENDERER_BLEND_MODE_SUBTRACT))
 	{
 		SDL_Texture *premul = PLATFORM_RENDERER_build_sdl_premultiplied_texture_from_entry(entry);
 		if (premul != NULL)
@@ -979,9 +1012,9 @@ static SDL_Texture *PLATFORM_RENDERER_get_effective_texture_for_current_blend(pl
 }
 
 static bool PLATFORM_RENDERER_build_safe_sdl_src_rect(
-	const platform_renderer_texture_entry *entry,
-	float u1, float v1, float u2, float v2,
-	SDL_Rect *out_src_rect)
+		const platform_renderer_texture_entry *entry,
+		float u1, float v1, float u2, float v2,
+		SDL_Rect *out_src_rect)
 {
 	if ((entry == NULL) || (out_src_rect == NULL))
 	{
@@ -999,13 +1032,13 @@ static bool PLATFORM_RENDERER_build_safe_sdl_src_rect(
 	float sdl_v2 = PLATFORM_RENDERER_convert_v_to_sdl(v2);
 	float src_v_min = (sdl_v1 < sdl_v2) ? sdl_v1 : sdl_v2;
 	float src_v_max = (sdl_v1 > sdl_v2) ? sdl_v1 : sdl_v2;
-	float tex_w_f = (float) entry->width;
-	float tex_h_f = (float) entry->height;
+	float tex_w_f = (float)entry->width;
+	float tex_h_f = (float)entry->height;
 	const float uv_eps = 0.0001f;
-	int src_x1 = (int) floorf((src_u_min * tex_w_f) + uv_eps);
-	int src_x2 = (int) ceilf((src_u_max * tex_w_f) - uv_eps);
-	int src_y1 = (int) floorf((src_v_min * tex_h_f) + uv_eps);
-	int src_y2 = (int) ceilf((src_v_max * tex_h_f) - uv_eps);
+	int src_x1 = (int)floorf((src_u_min * tex_w_f) + uv_eps);
+	int src_x2 = (int)ceilf((src_u_max * tex_w_f) - uv_eps);
+	int src_y1 = (int)floorf((src_v_min * tex_h_f) + uv_eps);
+	int src_y2 = (int)ceilf((src_v_max * tex_h_f) - uv_eps);
 	int src_x = src_x1;
 	int src_y = src_y1;
 	int src_w = src_x2 - src_x1;
@@ -1068,8 +1101,8 @@ static bool PLATFORM_RENDERER_build_safe_sdl_src_rect(
 }
 
 static float PLATFORM_RENDERER_estimate_alpha_coverage(
-	const platform_renderer_texture_entry *entry,
-	const SDL_Rect *src_rect)
+		const platform_renderer_texture_entry *entry,
+		const SDL_Rect *src_rect)
 {
 	int x;
 	int y;
@@ -1096,7 +1129,7 @@ static float PLATFORM_RENDERER_estimate_alpha_coverage(
 				continue;
 			}
 			{
-				const size_t idx = ((size_t) py * (size_t) entry->width + (size_t) px) * 4u + 3u;
+				const size_t idx = ((size_t)py * (size_t)entry->width + (size_t)px) * 4u + 3u;
 				if (entry->sdl_rgba_pixels[idx] > 0u)
 				{
 					opaque++;
@@ -1110,16 +1143,16 @@ static float PLATFORM_RENDERER_estimate_alpha_coverage(
 	{
 		return -1.0f;
 	}
-	return (float) opaque / (float) total;
+	return (float)opaque / (float)total;
 }
 
 static void PLATFORM_RENDERER_estimate_rect_colour_stats(
-	const platform_renderer_texture_entry *entry,
-	const SDL_Rect *src_rect,
-	float *out_avg_r,
-	float *out_avg_g,
-	float *out_avg_b,
-	float *out_avg_a)
+		const platform_renderer_texture_entry *entry,
+		const SDL_Rect *src_rect,
+		float *out_avg_r,
+		float *out_avg_g,
+		float *out_avg_b,
+		float *out_avg_a)
 {
 	int x;
 	int y;
@@ -1129,10 +1162,14 @@ static void PLATFORM_RENDERER_estimate_rect_colour_stats(
 	double sum_a = 0.0;
 	int total = 0;
 
-	if (out_avg_r != NULL) *out_avg_r = -1.0f;
-	if (out_avg_g != NULL) *out_avg_g = -1.0f;
-	if (out_avg_b != NULL) *out_avg_b = -1.0f;
-	if (out_avg_a != NULL) *out_avg_a = -1.0f;
+	if (out_avg_r != NULL)
+		*out_avg_r = -1.0f;
+	if (out_avg_g != NULL)
+		*out_avg_g = -1.0f;
+	if (out_avg_b != NULL)
+		*out_avg_b = -1.0f;
+	if (out_avg_a != NULL)
+		*out_avg_a = -1.0f;
 
 	if ((entry == NULL) || (entry->sdl_rgba_pixels == NULL) || (src_rect == NULL) || (src_rect->w <= 0) || (src_rect->h <= 0))
 	{
@@ -1150,21 +1187,25 @@ static void PLATFORM_RENDERER_estimate_rect_colour_stats(
 			{
 				continue;
 			}
-			idx = ((size_t) py * (size_t) entry->width + (size_t) px) * 4u;
-			sum_r += (double) entry->sdl_rgba_pixels[idx + 0u];
-			sum_g += (double) entry->sdl_rgba_pixels[idx + 1u];
-			sum_b += (double) entry->sdl_rgba_pixels[idx + 2u];
-			sum_a += (double) entry->sdl_rgba_pixels[idx + 3u];
+			idx = ((size_t)py * (size_t)entry->width + (size_t)px) * 4u;
+			sum_r += (double)entry->sdl_rgba_pixels[idx + 0u];
+			sum_g += (double)entry->sdl_rgba_pixels[idx + 1u];
+			sum_b += (double)entry->sdl_rgba_pixels[idx + 2u];
+			sum_a += (double)entry->sdl_rgba_pixels[idx + 3u];
 			total++;
 		}
 	}
 
 	if (total > 0)
 	{
-		if (out_avg_r != NULL) *out_avg_r = (float) (sum_r / (double) total);
-		if (out_avg_g != NULL) *out_avg_g = (float) (sum_g / (double) total);
-		if (out_avg_b != NULL) *out_avg_b = (float) (sum_b / (double) total);
-		if (out_avg_a != NULL) *out_avg_a = (float) (sum_a / (double) total);
+		if (out_avg_r != NULL)
+			*out_avg_r = (float)(sum_r / (double)total);
+		if (out_avg_g != NULL)
+			*out_avg_g = (float)(sum_g / (double)total);
+		if (out_avg_b != NULL)
+			*out_avg_b = (float)(sum_b / (double)total);
+		if (out_avg_a != NULL)
+			*out_avg_a = (float)(sum_a / (double)total);
 	}
 }
 
@@ -1179,12 +1220,12 @@ static float PLATFORM_RENDERER_wrap01(float value)
 }
 
 static bool PLATFORM_RENDERER_draw_axis_wrapped_u_repeat(
-	platform_renderer_texture_entry *entry,
-	SDL_Texture *draw_texture,
-	const SDL_Rect *dst_rect,
-	float u1, float v1, float u2, float v2,
-	Uint8 mod_r, Uint8 mod_g, Uint8 mod_b, Uint8 mod_a,
-	int source_id)
+		platform_renderer_texture_entry *entry,
+		SDL_Texture *draw_texture,
+		const SDL_Rect *dst_rect,
+		float u1, float v1, float u2, float v2,
+		Uint8 mod_r, Uint8 mod_g, Uint8 mod_b, Uint8 mod_a,
+		int source_id)
 {
 	float du;
 	float abs_du;
@@ -1260,7 +1301,7 @@ static bool PLATFORM_RENDERER_draw_axis_wrapped_u_repeat(
 		b_u2 = PLATFORM_RENDERER_wrap01(u2);
 	}
 
-	split_x = dst_rect->x + (int) floorf(((float) dst_rect->w * t_split) + 0.5f);
+	split_x = dst_rect->x + (int)floorf(((float)dst_rect->w * t_split) + 0.5f);
 	if (split_x <= dst_rect->x)
 	{
 		split_x = dst_rect->x + 1;
@@ -1286,7 +1327,7 @@ static bool PLATFORM_RENDERER_draw_axis_wrapped_u_repeat(
 
 	{
 		SDL_Vertex vertices[4];
-		int indices[6] = { 0, 1, 2, 0, 2, 3 };
+		int indices[6] = {0, 1, 2, 0, 2, 3};
 		const bool a_flip_x = (a_u2 < a_u1);
 		const bool b_flip_x = (b_u2 < b_u1);
 		const bool flip_y = PLATFORM_RENDERER_src_flip_y_for_sdl(v1, v2);
@@ -1298,18 +1339,22 @@ static bool PLATFORM_RENDERER_draw_axis_wrapped_u_repeat(
 		const float v_bottom = flip_y ? v1 : v2;
 		int before = platform_renderer_sdl_native_draw_count;
 
-		vertices[0].position.x = (float) dst_a.x;
-		vertices[0].position.y = (float) dst_a.y;
-		vertices[1].position.x = (float) dst_a.x;
-		vertices[1].position.y = (float) (dst_a.y + dst_a.h);
-		vertices[2].position.x = (float) (dst_a.x + dst_a.w);
-		vertices[2].position.y = (float) (dst_a.y + dst_a.h);
-		vertices[3].position.x = (float) (dst_a.x + dst_a.w);
-		vertices[3].position.y = (float) dst_a.y;
-		vertices[0].tex_coord.x = a_u_left;  vertices[0].tex_coord.y = v_top;
-		vertices[1].tex_coord.x = a_u_left;  vertices[1].tex_coord.y = v_bottom;
-		vertices[2].tex_coord.x = a_u_right; vertices[2].tex_coord.y = v_bottom;
-		vertices[3].tex_coord.x = a_u_right; vertices[3].tex_coord.y = v_top;
+		vertices[0].position.x = (float)dst_a.x;
+		vertices[0].position.y = (float)dst_a.y;
+		vertices[1].position.x = (float)dst_a.x;
+		vertices[1].position.y = (float)(dst_a.y + dst_a.h);
+		vertices[2].position.x = (float)(dst_a.x + dst_a.w);
+		vertices[2].position.y = (float)(dst_a.y + dst_a.h);
+		vertices[3].position.x = (float)(dst_a.x + dst_a.w);
+		vertices[3].position.y = (float)dst_a.y;
+		vertices[0].tex_coord.x = a_u_left;
+		vertices[0].tex_coord.y = v_top;
+		vertices[1].tex_coord.x = a_u_left;
+		vertices[1].tex_coord.y = v_bottom;
+		vertices[2].tex_coord.x = a_u_right;
+		vertices[2].tex_coord.y = v_bottom;
+		vertices[3].tex_coord.x = a_u_right;
+		vertices[3].tex_coord.y = v_top;
 		vertices[0].color.r = vertices[1].color.r = vertices[2].color.r = vertices[3].color.r = mod_r;
 		vertices[0].color.g = vertices[1].color.g = vertices[2].color.g = vertices[3].color.g = mod_g;
 		vertices[0].color.b = vertices[1].color.b = vertices[2].color.b = vertices[3].color.b = mod_b;
@@ -1319,18 +1364,22 @@ static bool PLATFORM_RENDERER_draw_axis_wrapped_u_repeat(
 			return false;
 		}
 
-		vertices[0].position.x = (float) dst_b.x;
-		vertices[0].position.y = (float) dst_b.y;
-		vertices[1].position.x = (float) dst_b.x;
-		vertices[1].position.y = (float) (dst_b.y + dst_b.h);
-		vertices[2].position.x = (float) (dst_b.x + dst_b.w);
-		vertices[2].position.y = (float) (dst_b.y + dst_b.h);
-		vertices[3].position.x = (float) (dst_b.x + dst_b.w);
-		vertices[3].position.y = (float) dst_b.y;
-		vertices[0].tex_coord.x = b_u_left;  vertices[0].tex_coord.y = v_top;
-		vertices[1].tex_coord.x = b_u_left;  vertices[1].tex_coord.y = v_bottom;
-		vertices[2].tex_coord.x = b_u_right; vertices[2].tex_coord.y = v_bottom;
-		vertices[3].tex_coord.x = b_u_right; vertices[3].tex_coord.y = v_top;
+		vertices[0].position.x = (float)dst_b.x;
+		vertices[0].position.y = (float)dst_b.y;
+		vertices[1].position.x = (float)dst_b.x;
+		vertices[1].position.y = (float)(dst_b.y + dst_b.h);
+		vertices[2].position.x = (float)(dst_b.x + dst_b.w);
+		vertices[2].position.y = (float)(dst_b.y + dst_b.h);
+		vertices[3].position.x = (float)(dst_b.x + dst_b.w);
+		vertices[3].position.y = (float)dst_b.y;
+		vertices[0].tex_coord.x = b_u_left;
+		vertices[0].tex_coord.y = v_top;
+		vertices[1].tex_coord.x = b_u_left;
+		vertices[1].tex_coord.y = v_bottom;
+		vertices[2].tex_coord.x = b_u_right;
+		vertices[2].tex_coord.y = v_bottom;
+		vertices[3].tex_coord.x = b_u_right;
+		vertices[3].tex_coord.y = v_top;
 		if (!PLATFORM_RENDERER_try_sdl_geometry_textured(draw_texture, vertices, 4, indices, 6, source_id))
 		{
 			return false;
@@ -1371,32 +1420,39 @@ static void PLATFORM_RENDERER_transform_point(float in_x, float in_y, float *out
 
 static void PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(float r, float g, float b, float a)
 {
-	int ir = (int) (r * 255.0f);
-	int ig = (int) (g * 255.0f);
-	int ib = (int) (b * 255.0f);
-	int ia = (int) (a * 255.0f);
+	int ir = (int)(r * 255.0f);
+	int ig = (int)(g * 255.0f);
+	int ib = (int)(b * 255.0f);
+	int ia = (int)(a * 255.0f);
 
-	if (ir < 0) ir = 0;
-	if (ir > 255) ir = 255;
-	if (ig < 0) ig = 0;
-	if (ig > 255) ig = 255;
-	if (ib < 0) ib = 0;
-	if (ib > 255) ib = 255;
-	if (ia < 0) ia = 0;
-	if (ia > 255) ia = 255;
+	if (ir < 0)
+		ir = 0;
+	if (ir > 255)
+		ir = 255;
+	if (ig < 0)
+		ig = 0;
+	if (ig > 255)
+		ig = 255;
+	if (ib < 0)
+		ib = 0;
+	if (ib > 255)
+		ib = 255;
+	if (ia < 0)
+		ia = 0;
+	if (ia > 255)
+		ia = 255;
 
-	(void) SDL_SetRenderDrawColor(platform_renderer_sdl_renderer, (Uint8) ir, (Uint8) ig, (Uint8) ib, (Uint8) ia);
+	(void)SDL_SetRenderDrawColor(platform_renderer_sdl_renderer, (Uint8)ir, (Uint8)ig, (Uint8)ib, (Uint8)ia);
 }
 
 static bool PLATFORM_RENDERER_transform_state_is_finite(void)
 {
-	return
-		isfinite(platform_renderer_tx_a) &&
-		isfinite(platform_renderer_tx_b) &&
-		isfinite(platform_renderer_tx_c) &&
-		isfinite(platform_renderer_tx_d) &&
-		isfinite(platform_renderer_tx_x) &&
-		isfinite(platform_renderer_tx_y);
+	return isfinite(platform_renderer_tx_a) &&
+				 isfinite(platform_renderer_tx_b) &&
+				 isfinite(platform_renderer_tx_c) &&
+				 isfinite(platform_renderer_tx_d) &&
+				 isfinite(platform_renderer_tx_x) &&
+				 isfinite(platform_renderer_tx_y);
 }
 
 static void PLATFORM_RENDERER_reset_transform_state(const char *reason)
@@ -1412,7 +1468,6 @@ static void PLATFORM_RENDERER_reset_transform_state(const char *reason)
 	transform_reset_counter++;
 	if ((transform_reset_counter <= 200) || ((transform_reset_counter % 1000) == 0))
 	{
-
 	}
 }
 
@@ -1422,60 +1477,60 @@ static void PLATFORM_RENDERER_apply_sdl_draw_blend_mode(void)
 	{
 		if (platform_renderer_sdl_renderer != NULL)
 		{
-			(void) SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_NONE);
+			(void)SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_NONE);
 		}
 		return;
 	}
 
 	switch (platform_renderer_blend_mode)
 	{
-		case PLATFORM_RENDERER_BLEND_MODE_ADD:
-			(void) SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_ADD);
-			break;
-		case PLATFORM_RENDERER_BLEND_MODE_MULTIPLY:
-		{
-			/*
-			 * Alpha-aware multiply:
-			 *   out_rgb = src_rgb * dst_rgb + dst_rgb * (1 - src_a)
-			 * This keeps classic multiply look for opaque texels while ensuring
-			 * masked/transparent texels do not stamp matte colour (pink/black boxes).
-			 */
-			SDL_BlendMode multiply_mode = SDL_ComposeCustomBlendMode(
+	case PLATFORM_RENDERER_BLEND_MODE_ADD:
+		(void)SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_ADD);
+		break;
+	case PLATFORM_RENDERER_BLEND_MODE_MULTIPLY:
+	{
+		/*
+		 * Alpha-aware multiply:
+		 *   out_rgb = src_rgb * dst_rgb + dst_rgb * (1 - src_a)
+		 * This keeps classic multiply look for opaque texels while ensuring
+		 * masked/transparent texels do not stamp matte colour (pink/black boxes).
+		 */
+		SDL_BlendMode multiply_mode = SDL_ComposeCustomBlendMode(
 				SDL_BLENDFACTOR_DST_COLOR, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD,
 				SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ZERO, SDL_BLENDOPERATION_ADD);
-			if (SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, multiply_mode) != 0)
-			{
-				static bool sdl_multiply_draw_warned = false;
-				if (!sdl_multiply_draw_warned)
-				{
-
-					sdl_multiply_draw_warned = true;
-				}
-				(void) SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_BLEND);
-			}
-			break;
-		}
-		case PLATFORM_RENDERER_BLEND_MODE_SUBTRACT:
+		if (SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, multiply_mode) != 0)
 		{
-			SDL_BlendMode subtract_mode = SDL_ComposeCustomBlendMode(
+			static bool sdl_multiply_draw_warned = false;
+			if (!sdl_multiply_draw_warned)
+			{
+
+				sdl_multiply_draw_warned = true;
+			}
+			(void)SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_BLEND);
+		}
+		break;
+	}
+	case PLATFORM_RENDERER_BLEND_MODE_SUBTRACT:
+	{
+		SDL_BlendMode subtract_mode = SDL_ComposeCustomBlendMode(
 				SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE_MINUS_SRC_COLOR, SDL_BLENDOPERATION_ADD,
 				SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD);
-			if (SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, subtract_mode) != 0)
+		if (SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, subtract_mode) != 0)
+		{
+			static bool sdl_subtractive_draw_warned = false;
+			if (!sdl_subtractive_draw_warned)
 			{
-				static bool sdl_subtractive_draw_warned = false;
-				if (!sdl_subtractive_draw_warned)
-				{
 
-					sdl_subtractive_draw_warned = true;
-				}
-				(void) SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_MOD);
+				sdl_subtractive_draw_warned = true;
 			}
-			break;
+			(void)SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_MOD);
 		}
-		case PLATFORM_RENDERER_BLEND_MODE_ALPHA:
-		default:
-			(void) SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_BLEND);
-			break;
+		break;
+	}
+	case PLATFORM_RENDERER_BLEND_MODE_ALPHA:
+	default:
+		(void)SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_BLEND);
+		break;
 	}
 }
 
@@ -1502,7 +1557,7 @@ static Uint8 PLATFORM_RENDERER_clamp_sdl_colour_mod(int value)
 	{
 		return 255;
 	}
-	return (Uint8) value;
+	return (Uint8)value;
 }
 
 static Uint8 PLATFORM_RENDERER_clamp_sdl_unit_to_byte(float unit_value)
@@ -1515,7 +1570,7 @@ static Uint8 PLATFORM_RENDERER_clamp_sdl_unit_to_byte(float unit_value)
 	{
 		return 255;
 	}
-	return (Uint8) (int) (unit_value * 255.0f);
+	return (Uint8)(int)(unit_value * 255.0f);
 }
 
 static void PLATFORM_RENDERER_apply_sdl_texture_blend_mode(SDL_Texture *texture)
@@ -1532,69 +1587,69 @@ static void PLATFORM_RENDERER_apply_sdl_texture_blend_mode(SDL_Texture *texture)
 		 * SDL has no alpha-test equivalent in RenderCopy, so keep texture blending on
 		 * to preserve transparent texels instead of drawing opaque matte backgrounds.
 		 */
-		(void) SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+		(void)SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 		return;
 	}
 
 	switch (platform_renderer_blend_mode)
 	{
-		case PLATFORM_RENDERER_BLEND_MODE_ADD:
-			(void) SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_ADD);
-			break;
-		case PLATFORM_RENDERER_BLEND_MODE_MULTIPLY:
-		{
-			/*
-			 * Alpha-aware multiply matching draw path.
-			 * Prevents transparent key-colour texels from contributing their RGB.
-			 */
-			SDL_BlendMode multiply_mode = SDL_ComposeCustomBlendMode(
+	case PLATFORM_RENDERER_BLEND_MODE_ADD:
+		(void)SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_ADD);
+		break;
+	case PLATFORM_RENDERER_BLEND_MODE_MULTIPLY:
+	{
+		/*
+		 * Alpha-aware multiply matching draw path.
+		 * Prevents transparent key-colour texels from contributing their RGB.
+		 */
+		SDL_BlendMode multiply_mode = SDL_ComposeCustomBlendMode(
 				SDL_BLENDFACTOR_DST_COLOR, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD,
 				SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ZERO, SDL_BLENDOPERATION_ADD);
-			platform_renderer_sdl_multiply_texture_support_checked = true;
-				if (SDL_SetTextureBlendMode(texture, multiply_mode) != 0)
-				{
-					static bool sdl_multiply_texture_warned = false;
-					platform_renderer_sdl_multiply_texture_supported = false;
-					if (!sdl_multiply_texture_warned)
-					{
-
-						sdl_multiply_texture_warned = true;
-					}
-					(void) SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-				}
-			else
-			{
-				platform_renderer_sdl_multiply_texture_supported = true;
-			}
-			break;
-		}
-		case PLATFORM_RENDERER_BLEND_MODE_SUBTRACT:
+		platform_renderer_sdl_multiply_texture_support_checked = true;
+		if (SDL_SetTextureBlendMode(texture, multiply_mode) != 0)
 		{
-			SDL_BlendMode subtract_mode = SDL_ComposeCustomBlendMode(
+			static bool sdl_multiply_texture_warned = false;
+			platform_renderer_sdl_multiply_texture_supported = false;
+			if (!sdl_multiply_texture_warned)
+			{
+
+				sdl_multiply_texture_warned = true;
+			}
+			(void)SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+		}
+		else
+		{
+			platform_renderer_sdl_multiply_texture_supported = true;
+		}
+		break;
+	}
+	case PLATFORM_RENDERER_BLEND_MODE_SUBTRACT:
+	{
+		SDL_BlendMode subtract_mode = SDL_ComposeCustomBlendMode(
 				SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE_MINUS_SRC_COLOR, SDL_BLENDOPERATION_ADD,
 				SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD);
-			platform_renderer_sdl_subtractive_texture_support_checked = true;
-			if (SDL_SetTextureBlendMode(texture, subtract_mode) != 0)
+		platform_renderer_sdl_subtractive_texture_support_checked = true;
+		if (SDL_SetTextureBlendMode(texture, subtract_mode) != 0)
+		{
+			static bool sdl_subtractive_texture_warned = false;
+			platform_renderer_sdl_subtractive_texture_supported = false;
+			if (!sdl_subtractive_texture_warned)
 			{
-				static bool sdl_subtractive_texture_warned = false;
-				platform_renderer_sdl_subtractive_texture_supported = false;
-				if (!sdl_subtractive_texture_warned)
-				{
 
-					sdl_subtractive_texture_warned = true;
-				}
-				(void) SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_MOD);
+				sdl_subtractive_texture_warned = true;
 			}
-			else
-			{
-				platform_renderer_sdl_subtractive_texture_supported = true;
-			}
-			break;
+			(void)SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_MOD);
 		}
-		case PLATFORM_RENDERER_BLEND_MODE_ALPHA:
-		default:
-			(void) SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-			break;
+		else
+		{
+			platform_renderer_sdl_subtractive_texture_supported = true;
+		}
+		break;
+	}
+	case PLATFORM_RENDERER_BLEND_MODE_ALPHA:
+	default:
+		(void)SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+		break;
 	}
 }
 
@@ -1628,13 +1683,213 @@ void PLATFORM_RENDERER_reset_texture_registry(void)
 	platform_renderer_last_bound_texture_handle = 0;
 }
 
-static bool PLATFORM_RENDERER_try_capture_legacy_texture_rgba(unsigned int legacy_texture_id, int expected_w, int expected_h, unsigned char *out_rgba_pixels)
+static inline Uint32 get_surface_pixel(SDL_Surface *surface, int x, int y)
 {
-	(void) legacy_texture_id;
-	(void) expected_w;
-	(void) expected_h;
-	(void) out_rgba_pixels;
-	return false;
+	const int bpp = surface->format->BytesPerPixel;
+	const Uint8 *p = static_cast<const Uint8 *>(surface->pixels) + y * surface->pitch + x * bpp;
+
+	switch (bpp)
+	{
+	case 1:
+		return *p;
+	case 2:
+		return *reinterpret_cast<const Uint16 *>(p);
+	case 3:
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		return (p[0] << 16) | (p[1] << 8) | p[2];
+#else
+		return p[0] | (p[1] << 8) | (p[2] << 16);
+#endif
+	case 4:
+		return *reinterpret_cast<const Uint32 *>(p);
+	default:
+		return 0;
+	}
+}
+
+static unsigned int PLATFORM_RENDERER_register_SDL_texture(unsigned int legacy_texture_id, SDL_Surface *image)
+{
+	bool require_nonzero_legacy_texture = false;
+	if ((legacy_texture_id == 0) && require_nonzero_legacy_texture)
+		return 0;
+
+	if (platform_renderer_texture_count == platform_renderer_texture_capacity)
+	{
+		int new_capacity = (platform_renderer_texture_capacity == 0) ? 128 : (platform_renderer_texture_capacity * 2);
+		platform_renderer_texture_entry *new_entries =
+				(platform_renderer_texture_entry *)realloc(platform_renderer_texture_entries,
+																									 sizeof(platform_renderer_texture_entry) * new_capacity);
+		if (new_entries == NULL)
+			return 0;
+
+		platform_renderer_texture_entries = new_entries;
+		platform_renderer_texture_capacity = new_capacity;
+	}
+
+	platform_renderer_texture_entries[platform_renderer_texture_count].legacy_texture_id = legacy_texture_id;
+	platform_renderer_texture_entries[platform_renderer_texture_count].sdl_texture = NULL;
+	platform_renderer_texture_entries[platform_renderer_texture_count].sdl_texture_premultiplied = NULL;
+	platform_renderer_texture_entries[platform_renderer_texture_count].sdl_texture_inverted = NULL;
+	platform_renderer_texture_entries[platform_renderer_texture_count].sdl_rgba_pixels = NULL;
+	platform_renderer_texture_entries[platform_renderer_texture_count].width = 0;
+	platform_renderer_texture_entries[platform_renderer_texture_count].height = 0;
+
+	if ((image != NULL) && (image->w > 0) && (image->h > 0))
+	{
+		const int image_width = image->w;
+		const int image_height = image->h;
+		const int image_depth = image->format ? image->format->BitsPerPixel : 0;
+
+		// Determine mask colour (SDL equivalent: color key). If none, fall back to magic pink.
+		Uint32 mask_pixel_value = 0;
+		bool has_color_key = (SDL_GetColorKey(image, &mask_pixel_value) == 0);
+
+		Uint8 mask_r = 255, mask_g = 0, mask_b = 255;
+		if (has_color_key)
+		{
+			SDL_GetRGB(mask_pixel_value, image->format, &mask_r, &mask_g, &mask_b);
+		}
+		else
+		{
+			// Map magic pink into the image format so exact pixel matching works for true-colour.
+			mask_pixel_value = SDL_MapRGB(image->format, mask_r, mask_g, mask_b);
+		}
+
+		// Convert paletted/low depth assets once to a 32-bit surface so RGB comes out palette-resolved.
+		// We use this "colour_source" for extracting RGB (and alpha if meaningful).
+		SDL_Surface *colour_source = image;
+		SDL_Surface *converted_32 = NULL;
+
+		if (image_depth <= 8)
+		{
+			converted_32 = SDL_ConvertSurfaceFormat(image, SDL_PIXELFORMAT_RGBA32, 0);
+			if (converted_32 != NULL)
+				colour_source = converted_32;
+		}
+
+		unsigned char *rgba_pixels =
+				(unsigned char *)malloc((size_t)image_width * (size_t)image_height * 4u);
+
+		if (rgba_pixels != NULL)
+		{
+			if (SDL_MUSTLOCK(image))
+				SDL_LockSurface(image);
+			if (SDL_MUSTLOCK(colour_source))
+				SDL_LockSurface(colour_source);
+
+			int mask_pixel_count = 0;
+			int alpha_zero_pixel_count = 0;
+			int alpha_zero_black_rgb_count = 0;
+
+			for (int y = 0; y < image_height; y++)
+			{
+				for (int x = 0; x < image_width; x++)
+				{
+					const Uint32 pixel = get_surface_pixel(image, x, y);						 // for exact mask compare
+					const Uint32 colour_px = get_surface_pixel(colour_source, x, y); // for RGB/alpha extraction
+					const size_t index = ((size_t)y * (size_t)image_width + (size_t)x) * 4u;
+
+					Uint8 pixel_r = 0, pixel_g = 0, pixel_b = 0, pixel_a = 255;
+					SDL_GetRGBA(colour_px, colour_source->format, &pixel_r, &pixel_g, &pixel_b, &pixel_a);
+
+					bool pixel_is_mask = false;
+
+					// Exact pixel-index match for indexed/paletted assets (or any surface, really).
+					if (pixel == mask_pixel_value)
+					{
+						pixel_is_mask = true;
+					}
+					// RGB fallback only for true-colour surfaces (>=15bpp), matching your Allegro logic.
+					else if ((image_depth >= 15) &&
+									 (pixel_r == mask_r) && (pixel_g == mask_g) && (pixel_b == mask_b))
+					{
+						pixel_is_mask = true;
+					}
+
+					if (pixel_is_mask)
+					{
+						mask_pixel_count++;
+						alpha_zero_pixel_count++;
+						if ((pixel_r == 0) && (pixel_g == 0) && (pixel_b == 0))
+							alpha_zero_black_rgb_count++;
+
+						// Force RGB to black for fully transparent pixels to avoid pink halos with filtering.
+						rgba_pixels[index + 0] = 0u;
+						rgba_pixels[index + 1] = 0u;
+						rgba_pixels[index + 2] = 0u;
+						rgba_pixels[index + 3] = 0u;
+					}
+					else
+					{
+						int alpha = 255;
+
+						// Only preserve authored per-pixel alpha when the SOURCE is meaningful 32-bit alpha.
+						// SDL analogue: 32bpp + non-zero Amask.
+						if (image_depth == 32 && image->format && image->format->Amask != 0)
+						{
+							alpha = (int)pixel_a;
+							if (alpha < 0)
+								alpha = 0;
+							if (alpha > 255)
+								alpha = 255;
+						}
+
+						rgba_pixels[index + 0] = pixel_r;
+						rgba_pixels[index + 1] = pixel_g;
+						rgba_pixels[index + 2] = pixel_b;
+						rgba_pixels[index + 3] = (unsigned char)alpha;
+
+						if (alpha == 0)
+						{
+							alpha_zero_pixel_count++;
+							if (rgba_pixels[index + 0] == 0u &&
+									rgba_pixels[index + 1] == 0u &&
+									rgba_pixels[index + 2] == 0u)
+							{
+								alpha_zero_black_rgb_count++;
+							}
+						}
+					}
+				}
+			}
+
+			if (SDL_MUSTLOCK(colour_source))
+				SDL_UnlockSurface(colour_source);
+			if (SDL_MUSTLOCK(image))
+				SDL_UnlockSurface(image);
+
+			if (converted_32 != NULL)
+			{
+				SDL_FreeSurface(converted_32);
+				converted_32 = NULL;
+			}
+
+			platform_renderer_texture_entries[platform_renderer_texture_count].sdl_rgba_pixels = rgba_pixels;
+			platform_renderer_texture_entries[platform_renderer_texture_count].width = image_width;
+			platform_renderer_texture_entries[platform_renderer_texture_count].height = image_height;
+		}
+		else
+		{
+			if (converted_32 != NULL)
+				SDL_FreeSurface(converted_32);
+
+			fprintf(stderr,
+							"Warning: Failed to allocate RGBA pixel buffer for legacy texture (id=%u, w=%d, h=%d)\n",
+							legacy_texture_id, image_width, image_height);
+		}
+	}
+	else
+	{
+		fprintf(stderr, "Warning: Legacy texture registration with invalid image (id=%u, w=%d, h=%d)\n",
+						legacy_texture_id,
+						(image != NULL) ? image->w : -1,
+						(image != NULL) ? image->h : -1);
+	}
+
+	platform_renderer_texture_count++;
+
+	// Externally-visible texture ids become renderer-owned handles (1-based).
+	return (unsigned int)platform_renderer_texture_count;
 }
 
 static unsigned int PLATFORM_RENDERER_register_legacy_texture(unsigned int legacy_texture_id, BITMAP *image)
@@ -1648,9 +1903,9 @@ static unsigned int PLATFORM_RENDERER_register_legacy_texture(unsigned int legac
 	if (platform_renderer_texture_count == platform_renderer_texture_capacity)
 	{
 		int new_capacity = (platform_renderer_texture_capacity == 0) ? 128 : (platform_renderer_texture_capacity * 2);
-		platform_renderer_texture_entry *new_entries = (platform_renderer_texture_entry *) realloc(
-			platform_renderer_texture_entries,
-			sizeof(platform_renderer_texture_entry) * new_capacity);
+		platform_renderer_texture_entry *new_entries = (platform_renderer_texture_entry *)realloc(
+				platform_renderer_texture_entries,
+				sizeof(platform_renderer_texture_entry) * new_capacity);
 		if (new_entries == NULL)
 		{
 			return 0;
@@ -1668,57 +1923,57 @@ static unsigned int PLATFORM_RENDERER_register_legacy_texture(unsigned int legac
 	platform_renderer_texture_entries[platform_renderer_texture_count].width = 0;
 	platform_renderer_texture_entries[platform_renderer_texture_count].height = 0;
 
-		if ((image != NULL) && (image->w > 0) && (image->h > 0))
+	if ((image != NULL) && (image->w > 0) && (image->h > 0))
+	{
+		int x;
+		int y;
+		int image_width = image->w;
+		int image_height = image->h;
+		int image_depth = bitmap_color_depth(image);
+		int mask_colour = bitmap_mask_color(image);
+		int mask_r = getr(mask_colour);
+		int mask_g = getg(mask_colour);
+		int mask_b = getb(mask_colour);
+		BITMAP *colour_source = image;
+		BITMAP *converted_32 = NULL;
+		unsigned char *rgba_pixels = (unsigned char *)malloc((size_t)image_width * (size_t)image_height * 4u);
+
+		if (rgba_pixels != NULL)
 		{
-			int x;
-			int y;
-			int image_width = image->w;
-			int image_height = image->h;
-			int image_depth = bitmap_color_depth(image);
-			int mask_colour = bitmap_mask_color(image);
-			int mask_r = getr(mask_colour);
-			int mask_g = getg(mask_colour);
-			int mask_b = getb(mask_colour);
-			BITMAP *colour_source = image;
-			BITMAP *converted_32 = NULL;
-			unsigned char *rgba_pixels = (unsigned char *) malloc((size_t) image_width * (size_t) image_height * 4u);
+			int mask_pixel_count = 0;
+			int alpha_zero_pixel_count = 0;
+			int alpha_zero_black_rgb_count = 0;
 
-			if (rgba_pixels != NULL)
+			/*
+			 * DAT-loaded sprite sheets are frequently paletted (<=8bpp). Convert once
+			 * via Allegro blit into a 32-bit bitmap so SDL upload uses the same
+			 * palette-resolved colours as classic Allegro rendering.
+			 */
+			if (image_depth <= 8)
 			{
-				int mask_pixel_count = 0;
-				int alpha_zero_pixel_count = 0;
-				int alpha_zero_black_rgb_count = 0;
-
-				/*
-				 * DAT-loaded sprite sheets are frequently paletted (<=8bpp). Convert once
-				 * via Allegro blit into a 32-bit bitmap so SDL upload uses the same
-				 * palette-resolved colours as classic Allegro rendering.
-				 */
-				if (image_depth <= 8)
+				converted_32 = create_bitmap_ex(32, image_width, image_height);
+				if (converted_32 != NULL)
 				{
-					converted_32 = create_bitmap_ex(32, image_width, image_height);
-					if (converted_32 != NULL)
-					{
-						clear_to_color(converted_32, makecol_depth(32, 0, 0, 0));
-						blit(image, converted_32, 0, 0, 0, 0, image_width, image_height);
-						colour_source = converted_32;
-					}
+					clear_to_color(converted_32, makecol_depth(32, 0, 0, 0));
+					blit(image, converted_32, 0, 0, 0, 0, image_width, image_height);
+					colour_source = converted_32;
 				}
+			}
 
-				for (y = 0; y < image_height; y++)
+			for (y = 0; y < image_height; y++)
+			{
+				for (x = 0; x < image_width; x++)
 				{
-					for (x = 0; x < image_width; x++)
-					{
-						int pixel = getpixel(image, x, y);
-						int colour_pixel = getpixel(colour_source, x, y);
-						size_t index = ((size_t) y * (size_t) image_width + (size_t) x) * 4u;
-						int pixel_r;
-						int pixel_g;
-						int pixel_b;
-						bool pixel_is_mask = false;
-						pixel_r = getr(colour_pixel);
-						pixel_g = getg(colour_pixel);
-						pixel_b = getb(colour_pixel);
+					int pixel = getpixel(image, x, y);
+					int colour_pixel = getpixel(colour_source, x, y);
+					size_t index = ((size_t)y * (size_t)image_width + (size_t)x) * 4u;
+					int pixel_r;
+					int pixel_g;
+					int pixel_b;
+					bool pixel_is_mask = false;
+					pixel_r = getr(colour_pixel);
+					pixel_g = getg(colour_pixel);
+					pixel_b = getb(colour_pixel);
 
 					/*
 					 * Indexed/paletted assets must use exact pixel-index mask matching.
@@ -1731,84 +1986,100 @@ static unsigned int PLATFORM_RENDERER_register_legacy_texture(unsigned int legac
 						pixel_is_mask = true;
 					}
 					else if ((image_depth >= 15) &&
-						(pixel_r == mask_r) && (pixel_g == mask_g) && (pixel_b == mask_b))
+									 (pixel_r == mask_r) && (pixel_g == mask_g) && (pixel_b == mask_b))
 					{
 						pixel_is_mask = true;
 					}
 
-						if (pixel_is_mask)
+					if (pixel_is_mask)
+					{
+						mask_pixel_count++;
+						alpha_zero_pixel_count++;
+						if ((pixel_r == 0) && (pixel_g == 0) && (pixel_b == 0))
 						{
-							mask_pixel_count++;
-							alpha_zero_pixel_count++;
-							if ((pixel_r == 0) && (pixel_g == 0) && (pixel_b == 0))
-							{
-								alpha_zero_black_rgb_count++;
-							}
-							/*
-							 * For colour-keyed transparent texels, force RGB to black.
-							 * Keeping palette key RGB (often pink in index 0) can leak
-							 * through linear filtering and appear as pink squares/halos.
-							 */
-							rgba_pixels[index + 0] = 0u;
-							rgba_pixels[index + 1] = 0u;
-							rgba_pixels[index + 2] = 0u;
-							rgba_pixels[index + 3] = 0u;
+							alpha_zero_black_rgb_count++;
 						}
+						/*
+						 * For colour-keyed transparent texels, force RGB to black.
+						 * Keeping palette key RGB (often pink in index 0) can leak
+						 * through linear filtering and appear as pink squares/halos.
+						 */
+						rgba_pixels[index + 0] = 0u;
+						rgba_pixels[index + 1] = 0u;
+						rgba_pixels[index + 2] = 0u;
+						rgba_pixels[index + 3] = 0u;
+					}
 					else
 					{
-							int alpha = 255;
-							/*
-							 * Only preserve authored per-pixel alpha for true 32-bit source
-							 * bitmaps. Paletted/low-depth sprites are often converted through
-							 * an intermediate 32-bit surface for RGB lookup, whose alpha plane
-							 * is not meaningful and can be zero-filled.
-							 */
-							if (image_depth == 32)
+						int alpha = 255;
+						/*
+						 * Only preserve authored per-pixel alpha for true 32-bit source
+						 * bitmaps. Paletted/low-depth sprites are often converted through
+						 * an intermediate 32-bit surface for RGB lookup, whose alpha plane
+						 * is not meaningful and can be zero-filled.
+						 */
+						if (image_depth == 32)
+						{
+							alpha = geta(colour_pixel);
+							if (alpha < 0)
+								alpha = 0;
+							if (alpha > 255)
+								alpha = 255;
+						}
+						rgba_pixels[index + 0] = (unsigned char)pixel_r;
+						rgba_pixels[index + 1] = (unsigned char)pixel_g;
+						rgba_pixels[index + 2] = (unsigned char)pixel_b;
+						rgba_pixels[index + 3] = (unsigned char)alpha;
+						if (alpha == 0)
+						{
+							alpha_zero_pixel_count++;
+							if ((rgba_pixels[index + 0] == 0u) && (rgba_pixels[index + 1] == 0u) && (rgba_pixels[index + 2] == 0u))
 							{
-								alpha = geta(colour_pixel);
-								if (alpha < 0) alpha = 0;
-								if (alpha > 255) alpha = 255;
-							}
-						rgba_pixels[index + 0] = (unsigned char) pixel_r;
-						rgba_pixels[index + 1] = (unsigned char) pixel_g;
-						rgba_pixels[index + 2] = (unsigned char) pixel_b;
-						rgba_pixels[index + 3] = (unsigned char) alpha;
-							if (alpha == 0)
-							{
-								alpha_zero_pixel_count++;
-								if ((rgba_pixels[index + 0] == 0u) && (rgba_pixels[index + 1] == 0u) && (rgba_pixels[index + 2] == 0u))
-								{
-									alpha_zero_black_rgb_count++;
-								}
+								alpha_zero_black_rgb_count++;
 							}
 						}
 					}
 				}
-				if (converted_32 != NULL)
-				{
-					destroy_bitmap(converted_32);
-					converted_32 = NULL;
-				}
+			}
+			if (converted_32 != NULL)
+			{
+				destroy_bitmap(converted_32);
+				converted_32 = NULL;
+			}
 
-				/*
-				 * Force SDL texture pixels to exactly match GL texture contents for
-				 * indexed assets. This bypasses palette-state ambiguity in software
-				 * conversion paths and keeps SDL-primary rendering consistent with GL.
-				 */
-				platform_renderer_texture_entries[platform_renderer_texture_count].sdl_rgba_pixels = rgba_pixels;
-				platform_renderer_texture_entries[platform_renderer_texture_count].width = image_width;
+			/*
+			 * Force SDL texture pixels to exactly match GL texture contents for
+			 * indexed assets. This bypasses palette-state ambiguity in software
+			 * conversion paths and keeps SDL-primary rendering consistent with GL.
+			 */
+			if (rgba_pixels == NULL)
+			{
+				fprintf(stderr, "Warning: Failed to allocate RGBA pixel buffer for legacy texture (id=%u, w=%d, h=%d)\n",
+								legacy_texture_id,
+								image_width,
+								image_height);
+			}
+			platform_renderer_texture_entries[platform_renderer_texture_count].sdl_rgba_pixels = rgba_pixels;
+			platform_renderer_texture_entries[platform_renderer_texture_count].width = image_width;
 			platform_renderer_texture_entries[platform_renderer_texture_count].height = image_height;
 		}
+	}
+	else
+	{
+		fprintf(stderr, "Warning: Legacy texture registration with invalid image (id=%u, w=%d, h=%d)\n",
+						legacy_texture_id,
+						(image != NULL) ? image->w : -1,
+						(image != NULL) ? image->h : -1);
 	}
 	platform_renderer_texture_count++;
 
 	// Externally-visible texture ids become renderer-owned handles (1-based).
-	return (unsigned int) platform_renderer_texture_count;
+	return (unsigned int)platform_renderer_texture_count;
 }
 
 static unsigned int PLATFORM_RENDERER_resolve_legacy_texture(unsigned int texture_handle)
 {
-	if ((texture_handle >= 1) && (texture_handle <= (unsigned int) platform_renderer_texture_count))
+	if ((texture_handle >= 1) && (texture_handle <= (unsigned int)platform_renderer_texture_count))
 	{
 		return platform_renderer_texture_entries[texture_handle - 1].legacy_texture_id;
 	}
@@ -1845,7 +2116,7 @@ static int PLATFORM_RENDERER_find_texture_index_from_legacy_id(unsigned int lega
 
 static platform_renderer_texture_entry *PLATFORM_RENDERER_get_texture_entry(unsigned int texture_handle)
 {
-	if ((texture_handle >= 1) && (texture_handle <= (unsigned int) platform_renderer_texture_count))
+	if ((texture_handle >= 1) && (texture_handle <= (unsigned int)platform_renderer_texture_count))
 	{
 		return &platform_renderer_texture_entries[texture_handle - 1];
 	}
@@ -1863,7 +2134,7 @@ static platform_renderer_texture_entry *PLATFORM_RENDERER_get_texture_entry(unsi
 
 static unsigned int PLATFORM_RENDERER_normalize_texture_handle(unsigned int texture_handle)
 {
-	if ((texture_handle >= 1) && (texture_handle <= (unsigned int) platform_renderer_texture_count))
+	if ((texture_handle >= 1) && (texture_handle <= (unsigned int)platform_renderer_texture_count))
 	{
 		return texture_handle;
 	}
@@ -1872,7 +2143,7 @@ static unsigned int PLATFORM_RENDERER_normalize_texture_handle(unsigned int text
 		int index = PLATFORM_RENDERER_find_texture_index_from_legacy_id(texture_handle);
 		if (index >= 0)
 		{
-			return (unsigned int) (index + 1);
+			return (unsigned int)(index + 1);
 		}
 	}
 
@@ -1926,8 +2197,8 @@ void PLATFORM_RENDERER_clear_backbuffer(void)
 	snprintf(platform_renderer_legacy_diag_first_error_stage, sizeof(platform_renderer_legacy_diag_first_error_stage), "-");
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
-		(void) SDL_SetRenderDrawColor(platform_renderer_sdl_renderer, 0, 0, 0, 255);
-		(void) SDL_RenderClear(platform_renderer_sdl_renderer);
+		(void)SDL_SetRenderDrawColor(platform_renderer_sdl_renderer, 0, 0, 0, 255);
+		(void)SDL_RenderClear(platform_renderer_sdl_renderer);
 	}
 }
 
@@ -1959,12 +2230,12 @@ void PLATFORM_RENDERER_draw_outline_rect(int x1, int y1, int x2, int y2, int r, 
 		rect.h = height;
 
 		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
-		(void) SDL_SetRenderDrawColor(
-			platform_renderer_sdl_renderer,
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
-			255);
+		(void)SDL_SetRenderDrawColor(
+				platform_renderer_sdl_renderer,
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
+				255);
 		if (SDL_RenderDrawRect(platform_renderer_sdl_renderer, &rect) == 0)
 		{
 			platform_renderer_sdl_native_draw_count++;
@@ -2000,12 +2271,12 @@ void PLATFORM_RENDERER_draw_filled_rect(int x1, int y1, int x2, int y2, int r, i
 		rect.h = height;
 
 		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
-		(void) SDL_SetRenderDrawColor(
-			platform_renderer_sdl_renderer,
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
-			255);
+		(void)SDL_SetRenderDrawColor(
+				platform_renderer_sdl_renderer,
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
+				255);
 		if (SDL_RenderFillRect(platform_renderer_sdl_renderer, &rect) == 0)
 		{
 			platform_renderer_sdl_native_draw_count++;
@@ -2013,24 +2284,95 @@ void PLATFORM_RENDERER_draw_filled_rect(int x1, int y1, int x2, int y2, int r, i
 	}
 }
 
-void PLATFORM_RENDERER_draw_line(int x1, int y1, int x2, int y2, int r, int g, int b, int virtual_screen_height)
+void PLATFORM_RENDERER_draw_line(int x1, int y1, int x2, int y2, int r, int g, int b)
 {
-	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready())
+	if (PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
-		int sx1 = x1;
-		int sy1 = y1;
-		int sx2 = x2;
-		int sy2 = y2;
 		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
-		(void) SDL_SetRenderDrawColor(
-			platform_renderer_sdl_renderer,
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
-			255);
-		if (SDL_RenderDrawLine(platform_renderer_sdl_renderer, sx1, sy1, sx2, sy2) == 0)
+		(void)SDL_SetRenderDrawColor(
+				platform_renderer_sdl_renderer,
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
+				255);
+		if (SDL_RenderDrawLine(platform_renderer_sdl_renderer, x1, y1, x2, y2) == 0)
 		{
 			platform_renderer_sdl_native_draw_count++;
+		}
+	}
+}
+
+void PLATFORM_RENDERER_draw_coloured_line(float x1, float y1, float x2, float y2, float r, float g, float b)
+{
+	if (PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	{
+		float tx1;
+		float ty1;
+		float tx2;
+		float ty2;
+		PLATFORM_RENDERER_transform_point(x1, y1, &tx1, &ty1);
+		PLATFORM_RENDERER_transform_point(x2, y2, &tx2, &ty2);
+		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
+		PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(r, g, b, platform_renderer_current_colour_a);
+		if (SDL_RenderDrawLine(platform_renderer_sdl_renderer, (int)tx1, (int)((float)platform_renderer_present_height - ty1), (int)tx2, (int)((float)platform_renderer_present_height - ty2)) == 0)
+		{
+			platform_renderer_sdl_native_draw_count++;
+		}
+	}
+}
+
+void PLATFORM_RENDERER_draw_line(float x1, float y1, float x2, float y2)
+{
+	if (PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	{
+		float tx1;
+		float ty1;
+		float tx2;
+		float ty2;
+		PLATFORM_RENDERER_transform_point(x1, y1, &tx1, &ty1);
+		PLATFORM_RENDERER_transform_point(x2, y2, &tx2, &ty2);
+		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
+		PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(
+				platform_renderer_current_colour_r,
+				platform_renderer_current_colour_g,
+				platform_renderer_current_colour_b,
+				platform_renderer_current_colour_a);
+		if (SDL_RenderDrawLine(platform_renderer_sdl_renderer, (int)tx1, (int)((float)platform_renderer_present_height - ty1), (int)tx2, (int)((float)platform_renderer_present_height - ty2)) == 0)
+		{
+			platform_renderer_sdl_native_draw_count++;
+		}
+	}
+}
+
+void PLATFORM_RENDERER_draw_line_loop_array(const float *x, const float *y, int count)
+{
+	int i;
+
+	if ((x == NULL) || (y == NULL) || (count < 2))
+	{
+		return;
+	}
+	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
+	{
+		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
+		PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(
+				platform_renderer_current_colour_r,
+				platform_renderer_current_colour_g,
+				platform_renderer_current_colour_b,
+				platform_renderer_current_colour_a);
+		for (i = 0; i < count; i++)
+		{
+			int j = (i + 1) % count;
+			float tx1;
+			float ty1;
+			float tx2;
+			float ty2;
+			PLATFORM_RENDERER_transform_point(x[i], y[i], &tx1, &ty1);
+			PLATFORM_RENDERER_transform_point(x[j], y[j], &tx2, &ty2);
+			if (SDL_RenderDrawLine(platform_renderer_sdl_renderer, (int)tx1, (int)((float)platform_renderer_present_height - ty1), (int)tx2, (int)((float)platform_renderer_present_height - ty2)) == 0)
+			{
+				platform_renderer_sdl_native_draw_count++;
+			}
 		}
 	}
 }
@@ -2045,27 +2387,27 @@ void PLATFORM_RENDERER_draw_circle(int x, int y, int radius, int r, int g, int b
 		return;
 	}
 
-	step = (2.0f * 3.14159265358979323846f) / (float) resolution;
+	step = (2.0f * 3.14159265358979323846f) / (float)resolution;
 
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
 		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
-		(void) SDL_SetRenderDrawColor(
-			platform_renderer_sdl_renderer,
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
-			255);
+		(void)SDL_SetRenderDrawColor(
+				platform_renderer_sdl_renderer,
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
+				255);
 		for (angle = 0.0f; angle < (2.0f * 3.14159265358979323846f); angle += step)
 		{
-			float cx1 = (float) radius * cosf(angle);
-			float cy1 = (float) radius * sinf(angle);
-			float cx2 = (float) radius * cosf(angle + step);
-			float cy2 = (float) radius * sinf(angle + step);
-			int x_start = x + (int) cx1;
-			int y_start = y + (int) cy1;
-			int x_end = x + (int) cx2;
-			int y_end = y + (int) cy2;
+			float cx1 = (float)radius * cosf(angle);
+			float cy1 = (float)radius * sinf(angle);
+			float cx2 = (float)radius * cosf(angle + step);
+			float cy2 = (float)radius * sinf(angle + step);
+			int x_start = x + (int)cx1;
+			int y_start = y + (int)cy1;
+			int x_end = x + (int)cx2;
+			int y_end = y + (int)cy2;
 			if (SDL_RenderDrawLine(platform_renderer_sdl_renderer, x_start, y_start, x_end, y_end) == 0)
 			{
 				platform_renderer_sdl_native_draw_count++;
@@ -2086,10 +2428,10 @@ void PLATFORM_RENDERER_draw_bound_solid_quad(float left, float right, float up, 
 		PLATFORM_RENDERER_transform_point(right, down, &tx1, &ty1);
 
 		SDL_Rect rect;
-		rect.x = (int) ((tx0 < tx1) ? tx0 : tx1);
-		rect.y = (int) ((float) platform_renderer_present_height - ((ty0 > ty1) ? ty0 : ty1));
-		rect.w = (int) fabsf(tx1 - tx0);
-		rect.h = (int) fabsf(ty1 - ty0);
+		rect.x = (int)((tx0 < tx1) ? tx0 : tx1);
+		rect.y = (int)((float)platform_renderer_present_height - ((ty0 > ty1) ? ty0 : ty1));
+		rect.w = (int)fabsf(tx1 - tx0);
+		rect.h = (int)fabsf(ty1 - ty0);
 		if (rect.w <= 0)
 		{
 			rect.w = 1;
@@ -2100,10 +2442,10 @@ void PLATFORM_RENDERER_draw_bound_solid_quad(float left, float right, float up, 
 		}
 
 		PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(
-			platform_renderer_current_colour_r,
-			platform_renderer_current_colour_g,
-			platform_renderer_current_colour_b,
-			platform_renderer_current_colour_a);
+				platform_renderer_current_colour_r,
+				platform_renderer_current_colour_g,
+				platform_renderer_current_colour_b,
+				platform_renderer_current_colour_a);
 		if (SDL_RenderFillRect(platform_renderer_sdl_renderer, &rect) == 0)
 		{
 			platform_renderer_sdl_native_draw_count++;
@@ -2123,10 +2465,10 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 			if (PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
 			{
 				SDL_Texture *draw_texture = PLATFORM_RENDERER_get_effective_texture_for_current_blend(entry);
-				float quad_x[4] = { left, left, right, right };
-				float quad_y[4] = { up, down, down, up };
-				float quad_u[4] = { u1, u1, u2, u2 };
-				float quad_v[4] = { v1, v2, v2, v1 };
+				float quad_x[4] = {left, left, right, right};
+				float quad_y[4] = {up, down, down, up};
+				float quad_u[4] = {u1, u1, u2, u2};
+				float quad_v[4] = {v1, v2, v2, v1};
 				float tx[4];
 				float ty[4];
 				SDL_Vertex vertices[4];
@@ -2147,14 +2489,14 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 
 					PLATFORM_RENDERER_transform_point(quad_x[i], quad_y[i], &tx[i], &ty[i]);
 					vertices[i].position.x = tx[i];
-					vertices[i].position.y = (float) platform_renderer_present_height - ty[i];
+					vertices[i].position.y = (float)platform_renderer_present_height - ty[i];
 					vertices[i].tex_coord.x = quad_u[i];
 					vertices[i].tex_coord.y = quad_v[i];
 
-					cr = (int) (platform_renderer_current_colour_r * 255.0f);
-					cg = (int) (platform_renderer_current_colour_g * 255.0f);
-					cb = (int) (platform_renderer_current_colour_b * 255.0f);
-					ca = (int) (platform_renderer_current_colour_a * 255.0f);
+					cr = (int)(platform_renderer_current_colour_r * 255.0f);
+					cg = (int)(platform_renderer_current_colour_g * 255.0f);
+					cb = (int)(platform_renderer_current_colour_b * 255.0f);
+					ca = (int)(platform_renderer_current_colour_a * 255.0f);
 					if (PLATFORM_RENDERER_using_subtractive_mod_fallback())
 					{
 						/*
@@ -2166,14 +2508,26 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 						cg = 255;
 						cb = 255;
 					}
-					if (cr < 0) cr = 0; if (cr > 255) cr = 255;
-					if (cg < 0) cg = 0; if (cg > 255) cg = 255;
-					if (cb < 0) cb = 0; if (cb > 255) cb = 255;
-					if (ca < 0) ca = 0; if (ca > 255) ca = 255;
-					vertices[i].color.r = (Uint8) cr;
-					vertices[i].color.g = (Uint8) cg;
-					vertices[i].color.b = (Uint8) cb;
-					vertices[i].color.a = (Uint8) ca;
+					if (cr < 0)
+						cr = 0;
+					if (cr > 255)
+						cr = 255;
+					if (cg < 0)
+						cg = 0;
+					if (cg > 255)
+						cg = 255;
+					if (cb < 0)
+						cb = 0;
+					if (cb > 255)
+						cb = 255;
+					if (ca < 0)
+						ca = 0;
+					if (ca > 255)
+						ca = 255;
+					vertices[i].color.r = (Uint8)cr;
+					vertices[i].color.g = (Uint8)cg;
+					vertices[i].color.b = (Uint8)cb;
+					vertices[i].color.a = (Uint8)ca;
 				}
 
 				src_flip_x = (u2 < u1);
@@ -2189,16 +2543,16 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 					const int vp_w = platform_renderer_present_width;
 					const int vp_h = platform_renderer_present_height;
 					const bool offscreen =
-						(tx_max < 0.0f) ||
-						(tx_min > (float) vp_w) ||
-						(sy_max < 0.0f) ||
-						(sy_min > (float) vp_h);
+							(tx_max < 0.0f) ||
+							(tx_min > (float)vp_w) ||
+							(sy_max < 0.0f) ||
+							(sy_min > (float)vp_h);
 				}
 				is_axis_aligned =
-					(fabsf(tx[0] - tx[1]) < axis_eps) &&
-					(fabsf(tx[2] - tx[3]) < axis_eps) &&
-					(fabsf(ty[0] - ty[3]) < axis_eps) &&
-					(fabsf(ty[1] - ty[2]) < axis_eps);
+						(fabsf(tx[0] - tx[1]) < axis_eps) &&
+						(fabsf(tx[2] - tx[3]) < axis_eps) &&
+						(fabsf(ty[0] - ty[3]) < axis_eps) &&
+						(fabsf(ty[1] - ty[2]) < axis_eps);
 
 				if (is_axis_aligned)
 				{
@@ -2209,10 +2563,10 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 					float gl_right = (tx[0] > tx[2]) ? tx[0] : tx[2];
 					float gl_top = (ty[0] > ty[2]) ? ty[0] : ty[2];
 					float gl_bottom = (ty[0] < ty[2]) ? ty[0] : ty[2];
-					int mod_r = (int) (platform_renderer_current_colour_r * 255.0f);
-					int mod_g = (int) (platform_renderer_current_colour_g * 255.0f);
-					int mod_b = (int) (platform_renderer_current_colour_b * 255.0f);
-					int mod_a = (int) (platform_renderer_current_colour_a * 255.0f);
+					int mod_r = (int)(platform_renderer_current_colour_r * 255.0f);
+					int mod_g = (int)(platform_renderer_current_colour_g * 255.0f);
+					int mod_b = (int)(platform_renderer_current_colour_b * 255.0f);
+					int mod_a = (int)(platform_renderer_current_colour_a * 255.0f);
 					if (PLATFORM_RENDERER_using_subtractive_mod_fallback())
 					{
 						mod_r = 255;
@@ -2220,10 +2574,10 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 						mod_b = 255;
 					}
 
-					dst_rect.x = (int) gl_left;
-					dst_rect.y = (int) ((float) platform_renderer_present_height - gl_top);
-					dst_rect.w = (int) (gl_right - gl_left);
-					dst_rect.h = (int) (gl_top - gl_bottom);
+					dst_rect.x = (int)gl_left;
+					dst_rect.y = (int)((float)platform_renderer_present_height - gl_top);
+					dst_rect.w = (int)(gl_right - gl_left);
+					dst_rect.h = (int)(gl_top - gl_bottom);
 					if (dst_rect.w <= 0)
 					{
 						dst_rect.w = 1;
@@ -2233,30 +2587,41 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 						dst_rect.h = 1;
 					}
 
-					if (mod_r < 0) mod_r = 0; if (mod_r > 255) mod_r = 255;
-					if (mod_g < 0) mod_g = 0; if (mod_g > 255) mod_g = 255;
-					if (mod_b < 0) mod_b = 0; if (mod_b > 255) mod_b = 255;
-					if (mod_a < 0) mod_a = 0; if (mod_a > 255) mod_a = 255;
+					if (mod_r < 0)
+						mod_r = 0;
+					if (mod_r > 255)
+						mod_r = 255;
+					if (mod_g < 0)
+						mod_g = 0;
+					if (mod_g > 255)
+						mod_g = 255;
+					if (mod_b < 0)
+						mod_b = 0;
+					if (mod_b > 255)
+						mod_b = 255;
+					if (mod_a < 0)
+						mod_a = 0;
+					if (mod_a > 255)
+						mod_a = 255;
 					sdl_bound_colour_diag_counter++;
 					if ((sdl_bound_colour_diag_counter <= 120u) &&
-						((mod_r < 8) || (mod_g < 8) || (mod_b < 8)))
+							((mod_r < 8) || (mod_g < 8) || (mod_b < 8)))
 					{
-
 					}
 
 					if (PLATFORM_RENDERER_draw_axis_wrapped_u_repeat(
-						entry,
-						draw_texture,
-						&dst_rect,
-						u1, v1, u2, v2,
-						(Uint8) mod_r, (Uint8) mod_g, (Uint8) mod_b, (Uint8) mod_a,
-						PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD))
+									entry,
+									draw_texture,
+									&dst_rect,
+									u1, v1, u2, v2,
+									(Uint8)mod_r, (Uint8)mod_g, (Uint8)mod_b, (Uint8)mod_a,
+									PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD))
 					{
 						return;
 					}
 					{
 						if (PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, v1, u2, v2, &src_rect) &&
-							PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, 1.0f - v1, u2, 1.0f - v2, &src_rect_no_vflip))
+								PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, 1.0f - v1, u2, 1.0f - v2, &src_rect_no_vflip))
 						{
 							static unsigned int uv_diag_counter = 0;
 							uv_diag_counter++;
@@ -2278,16 +2643,20 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 						const float u_right = effective_flip_x ? u1 : u2;
 						const float v_top = effective_flip_y ? v2 : v1;
 						const float v_bottom = effective_flip_y ? v1 : v2;
-						int indices[6] = { 0, 1, 2, 0, 2, 3 };
+						int indices[6] = {0, 1, 2, 0, 2, 3};
 
-						vertices[0].tex_coord.x = u_left;  vertices[0].tex_coord.y = v_top;
-						vertices[1].tex_coord.x = u_left;  vertices[1].tex_coord.y = v_bottom;
-						vertices[2].tex_coord.x = u_right; vertices[2].tex_coord.y = v_bottom;
-						vertices[3].tex_coord.x = u_right; vertices[3].tex_coord.y = v_top;
-						vertices[0].color.r = vertices[1].color.r = vertices[2].color.r = vertices[3].color.r = (Uint8) mod_r;
-						vertices[0].color.g = vertices[1].color.g = vertices[2].color.g = vertices[3].color.g = (Uint8) mod_g;
-						vertices[0].color.b = vertices[1].color.b = vertices[2].color.b = vertices[3].color.b = (Uint8) mod_b;
-						vertices[0].color.a = vertices[1].color.a = vertices[2].color.a = vertices[3].color.a = (Uint8) mod_a;
+						vertices[0].tex_coord.x = u_left;
+						vertices[0].tex_coord.y = v_top;
+						vertices[1].tex_coord.x = u_left;
+						vertices[1].tex_coord.y = v_bottom;
+						vertices[2].tex_coord.x = u_right;
+						vertices[2].tex_coord.y = v_bottom;
+						vertices[3].tex_coord.x = u_right;
+						vertices[3].tex_coord.y = v_top;
+						vertices[0].color.r = vertices[1].color.r = vertices[2].color.r = vertices[3].color.r = (Uint8)mod_r;
+						vertices[0].color.g = vertices[1].color.g = vertices[2].color.g = vertices[3].color.g = (Uint8)mod_g;
+						vertices[0].color.b = vertices[1].color.b = vertices[2].color.b = vertices[3].color.b = (Uint8)mod_b;
+						vertices[0].color.a = vertices[1].color.a = vertices[2].color.a = vertices[3].color.a = (Uint8)mod_a;
 
 						if (PLATFORM_RENDERER_try_sdl_geometry_textured(draw_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD))
 						{
@@ -2300,16 +2669,16 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 							SDL_RendererFlip copy_flip = SDL_FLIP_NONE;
 							if (copy_flip_x)
 							{
-								copy_flip = (SDL_RendererFlip) (copy_flip | SDL_FLIP_HORIZONTAL);
+								copy_flip = (SDL_RendererFlip)(copy_flip | SDL_FLIP_HORIZONTAL);
 							}
 							if (copy_flip_y)
 							{
-								copy_flip = (SDL_RendererFlip) (copy_flip | SDL_FLIP_VERTICAL);
+								copy_flip = (SDL_RendererFlip)(copy_flip | SDL_FLIP_VERTICAL);
 							}
 
 							PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
-							(void) SDL_SetTextureColorMod(draw_texture, (Uint8) mod_r, (Uint8) mod_g, (Uint8) mod_b);
-							(void) SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod((Uint8) mod_a));
+							(void)SDL_SetTextureColorMod(draw_texture, (Uint8)mod_r, (Uint8)mod_g, (Uint8)mod_b);
+							(void)SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod((Uint8)mod_a));
 							if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
 							{
 								platform_renderer_sdl_native_draw_count++;
@@ -2321,7 +2690,7 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 				}
 				else
 				{
-					int indices[6] = { 0, 1, 2, 0, 2, 3 };
+					int indices[6] = {0, 1, 2, 0, 2, 3};
 					if (!PLATFORM_RENDERER_try_sdl_geometry_textured(draw_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD))
 					{
 						SDL_Rect src_rect;
@@ -2336,10 +2705,10 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 
 						if (PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, v1, u2, v2, &src_rect))
 						{
-							dst_rect.x = (int) tx_min;
-							dst_rect.y = (int) ((float) platform_renderer_present_height - ty_max);
-							dst_rect.w = (int) (tx_max - tx_min);
-							dst_rect.h = (int) (ty_max - ty_min);
+							dst_rect.x = (int)tx_min;
+							dst_rect.y = (int)((float)platform_renderer_present_height - ty_max);
+							dst_rect.w = (int)(tx_max - tx_min);
+							dst_rect.h = (int)(ty_max - ty_min);
 							if (dst_rect.w <= 0)
 							{
 								dst_rect.w = 1;
@@ -2351,22 +2720,22 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 
 							if (copy_flip_x)
 							{
-								copy_flip = (SDL_RendererFlip) (copy_flip | SDL_FLIP_HORIZONTAL);
+								copy_flip = (SDL_RendererFlip)(copy_flip | SDL_FLIP_HORIZONTAL);
 							}
 							if (copy_flip_y)
 							{
-								copy_flip = (SDL_RendererFlip) (copy_flip | SDL_FLIP_VERTICAL);
+								copy_flip = (SDL_RendererFlip)(copy_flip | SDL_FLIP_VERTICAL);
 							}
 
 							PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
-							(void) SDL_SetTextureColorMod(
-								draw_texture,
-								PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
-								PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
-								PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
-							(void) SDL_SetTextureAlphaMod(
-								draw_texture,
-								PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
+							(void)SDL_SetTextureColorMod(
+									draw_texture,
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
+							(void)SDL_SetTextureAlphaMod(
+									draw_texture,
+									PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
 							if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
 							{
 								platform_renderer_sdl_native_draw_count++;
@@ -2393,10 +2762,10 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 			if (PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
 			{
 				SDL_Texture *draw_texture = PLATFORM_RENDERER_get_effective_texture_for_current_blend(entry);
-				float quad_x[4] = { x0, x1, x2, x3 };
-				float quad_y[4] = { y0, y1, y2, y3 };
-				float quad_u[4] = { u1, u1, u2, u2 };
-				float quad_v[4] = { v1, v2, v2, v1 };
+				float quad_x[4] = {x0, x1, x2, x3};
+				float quad_y[4] = {y0, y1, y2, y3};
+				float quad_u[4] = {u1, u1, u2, u2};
+				float quad_v[4] = {v1, v2, v2, v1};
 				float tx[4];
 				float ty[4];
 				SDL_Vertex vertices[4];
@@ -2417,38 +2786,50 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 
 					PLATFORM_RENDERER_transform_point(quad_x[i], quad_y[i], &tx[i], &ty[i]);
 					vertices[i].position.x = tx[i];
-					vertices[i].position.y = (float) platform_renderer_present_height - ty[i];
+					vertices[i].position.y = (float)platform_renderer_present_height - ty[i];
 					vertices[i].tex_coord.x = quad_u[i];
 					vertices[i].tex_coord.y = quad_v[i];
 
-					cr = (int) (platform_renderer_current_colour_r * 255.0f);
-					cg = (int) (platform_renderer_current_colour_g * 255.0f);
-					cb = (int) (platform_renderer_current_colour_b * 255.0f);
-					ca = (int) (platform_renderer_current_colour_a * 255.0f);
+					cr = (int)(platform_renderer_current_colour_r * 255.0f);
+					cg = (int)(platform_renderer_current_colour_g * 255.0f);
+					cb = (int)(platform_renderer_current_colour_b * 255.0f);
+					ca = (int)(platform_renderer_current_colour_a * 255.0f);
 					if (PLATFORM_RENDERER_using_subtractive_mod_fallback())
 					{
 						cr = 255;
 						cg = 255;
 						cb = 255;
 					}
-					if (cr < 0) cr = 0; if (cr > 255) cr = 255;
-					if (cg < 0) cg = 0; if (cg > 255) cg = 255;
-					if (cb < 0) cb = 0; if (cb > 255) cb = 255;
-					if (ca < 0) ca = 0; if (ca > 255) ca = 255;
-					vertices[i].color.r = (Uint8) cr;
-					vertices[i].color.g = (Uint8) cg;
-					vertices[i].color.b = (Uint8) cb;
-					vertices[i].color.a = (Uint8) ca;
+					if (cr < 0)
+						cr = 0;
+					if (cr > 255)
+						cr = 255;
+					if (cg < 0)
+						cg = 0;
+					if (cg > 255)
+						cg = 255;
+					if (cb < 0)
+						cb = 0;
+					if (cb > 255)
+						cb = 255;
+					if (ca < 0)
+						ca = 0;
+					if (ca > 255)
+						ca = 255;
+					vertices[i].color.r = (Uint8)cr;
+					vertices[i].color.g = (Uint8)cg;
+					vertices[i].color.b = (Uint8)cb;
+					vertices[i].color.a = (Uint8)ca;
 				}
 
 				src_flip_x = (u2 < u1);
 				src_flip_y = PLATFORM_RENDERER_src_flip_y_for_sdl(v1, v2);
 				PLATFORM_RENDERER_axis_orientation_flips_from_transformed_quad(tx, ty, &geom_flip_x, &geom_flip_y);
 				is_axis_aligned =
-					(fabsf(tx[0] - tx[1]) < axis_eps) &&
-					(fabsf(tx[2] - tx[3]) < axis_eps) &&
-					(fabsf(ty[0] - ty[3]) < axis_eps) &&
-					(fabsf(ty[1] - ty[2]) < axis_eps);
+						(fabsf(tx[0] - tx[1]) < axis_eps) &&
+						(fabsf(tx[2] - tx[3]) < axis_eps) &&
+						(fabsf(ty[0] - ty[3]) < axis_eps) &&
+						(fabsf(ty[1] - ty[2]) < axis_eps);
 
 				if (is_axis_aligned)
 				{
@@ -2458,10 +2839,10 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 					float gl_right = (tx[0] > tx[2]) ? tx[0] : tx[2];
 					float gl_top = (ty[0] > ty[2]) ? ty[0] : ty[2];
 					float gl_bottom = (ty[0] < ty[2]) ? ty[0] : ty[2];
-					int mod_r = (int) (platform_renderer_current_colour_r * 255.0f);
-					int mod_g = (int) (platform_renderer_current_colour_g * 255.0f);
-					int mod_b = (int) (platform_renderer_current_colour_b * 255.0f);
-					int mod_a = (int) (platform_renderer_current_colour_a * 255.0f);
+					int mod_r = (int)(platform_renderer_current_colour_r * 255.0f);
+					int mod_g = (int)(platform_renderer_current_colour_g * 255.0f);
+					int mod_b = (int)(platform_renderer_current_colour_b * 255.0f);
+					int mod_a = (int)(platform_renderer_current_colour_a * 255.0f);
 					if (PLATFORM_RENDERER_using_subtractive_mod_fallback())
 					{
 						mod_r = 255;
@@ -2469,10 +2850,10 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 						mod_b = 255;
 					}
 
-					dst_rect.x = (int) gl_left;
-					dst_rect.y = (int) ((float) platform_renderer_present_height - gl_top);
-					dst_rect.w = (int) (gl_right - gl_left);
-					dst_rect.h = (int) (gl_top - gl_bottom);
+					dst_rect.x = (int)gl_left;
+					dst_rect.y = (int)((float)platform_renderer_present_height - gl_top);
+					dst_rect.w = (int)(gl_right - gl_left);
+					dst_rect.h = (int)(gl_top - gl_bottom);
 					if (dst_rect.w <= 0)
 					{
 						dst_rect.w = 1;
@@ -2482,18 +2863,30 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 						dst_rect.h = 1;
 					}
 
-					if (mod_r < 0) mod_r = 0; if (mod_r > 255) mod_r = 255;
-					if (mod_g < 0) mod_g = 0; if (mod_g > 255) mod_g = 255;
-					if (mod_b < 0) mod_b = 0; if (mod_b > 255) mod_b = 255;
-					if (mod_a < 0) mod_a = 0; if (mod_a > 255) mod_a = 255;
+					if (mod_r < 0)
+						mod_r = 0;
+					if (mod_r > 255)
+						mod_r = 255;
+					if (mod_g < 0)
+						mod_g = 0;
+					if (mod_g > 255)
+						mod_g = 255;
+					if (mod_b < 0)
+						mod_b = 0;
+					if (mod_b > 255)
+						mod_b = 255;
+					if (mod_a < 0)
+						mod_a = 0;
+					if (mod_a > 255)
+						mod_a = 255;
 
 					if (PLATFORM_RENDERER_draw_axis_wrapped_u_repeat(
-						entry,
-						draw_texture,
-						&dst_rect,
-						u1, v1, u2, v2,
-						(Uint8) mod_r, (Uint8) mod_g, (Uint8) mod_b, (Uint8) mod_a,
-						PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD_CUSTOM))
+									entry,
+									draw_texture,
+									&dst_rect,
+									u1, v1, u2, v2,
+									(Uint8)mod_r, (Uint8)mod_g, (Uint8)mod_b, (Uint8)mod_a,
+									PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD_CUSTOM))
 					{
 						return;
 					}
@@ -2509,16 +2902,20 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 						const float u_right = effective_flip_x ? u1 : u2;
 						const float v_top = effective_flip_y ? v2 : v1;
 						const float v_bottom = effective_flip_y ? v1 : v2;
-						int indices[6] = { 0, 1, 2, 0, 2, 3 };
+						int indices[6] = {0, 1, 2, 0, 2, 3};
 
-						vertices[0].tex_coord.x = u_left;  vertices[0].tex_coord.y = v_top;
-						vertices[1].tex_coord.x = u_left;  vertices[1].tex_coord.y = v_bottom;
-						vertices[2].tex_coord.x = u_right; vertices[2].tex_coord.y = v_bottom;
-						vertices[3].tex_coord.x = u_right; vertices[3].tex_coord.y = v_top;
-						vertices[0].color.r = vertices[1].color.r = vertices[2].color.r = vertices[3].color.r = (Uint8) mod_r;
-						vertices[0].color.g = vertices[1].color.g = vertices[2].color.g = vertices[3].color.g = (Uint8) mod_g;
-						vertices[0].color.b = vertices[1].color.b = vertices[2].color.b = vertices[3].color.b = (Uint8) mod_b;
-						vertices[0].color.a = vertices[1].color.a = vertices[2].color.a = vertices[3].color.a = (Uint8) mod_a;
+						vertices[0].tex_coord.x = u_left;
+						vertices[0].tex_coord.y = v_top;
+						vertices[1].tex_coord.x = u_left;
+						vertices[1].tex_coord.y = v_bottom;
+						vertices[2].tex_coord.x = u_right;
+						vertices[2].tex_coord.y = v_bottom;
+						vertices[3].tex_coord.x = u_right;
+						vertices[3].tex_coord.y = v_top;
+						vertices[0].color.r = vertices[1].color.r = vertices[2].color.r = vertices[3].color.r = (Uint8)mod_r;
+						vertices[0].color.g = vertices[1].color.g = vertices[2].color.g = vertices[3].color.g = (Uint8)mod_g;
+						vertices[0].color.b = vertices[1].color.b = vertices[2].color.b = vertices[3].color.b = (Uint8)mod_b;
+						vertices[0].color.a = vertices[1].color.a = vertices[2].color.a = vertices[3].color.a = (Uint8)mod_a;
 
 						if (PLATFORM_RENDERER_try_sdl_geometry_textured(draw_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD_CUSTOM))
 						{
@@ -2531,16 +2928,16 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 							SDL_RendererFlip copy_flip = SDL_FLIP_NONE;
 							if (copy_flip_x)
 							{
-								copy_flip = (SDL_RendererFlip) (copy_flip | SDL_FLIP_HORIZONTAL);
+								copy_flip = (SDL_RendererFlip)(copy_flip | SDL_FLIP_HORIZONTAL);
 							}
 							if (copy_flip_y)
 							{
-								copy_flip = (SDL_RendererFlip) (copy_flip | SDL_FLIP_VERTICAL);
+								copy_flip = (SDL_RendererFlip)(copy_flip | SDL_FLIP_VERTICAL);
 							}
 
 							PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
-							(void) SDL_SetTextureColorMod(draw_texture, (Uint8) mod_r, (Uint8) mod_g, (Uint8) mod_b);
-							(void) SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod((Uint8) mod_a));
+							(void)SDL_SetTextureColorMod(draw_texture, (Uint8)mod_r, (Uint8)mod_g, (Uint8)mod_b);
+							(void)SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod((Uint8)mod_a));
 							if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
 							{
 								platform_renderer_sdl_native_draw_count++;
@@ -2552,7 +2949,7 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 				}
 				else
 				{
-					int indices[6] = { 0, 1, 2, 0, 2, 3 };
+					int indices[6] = {0, 1, 2, 0, 2, 3};
 					if (!PLATFORM_RENDERER_try_sdl_geometry_textured(draw_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD_CUSTOM))
 					{
 						SDL_Rect src_rect;
@@ -2567,10 +2964,10 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 
 						if (PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, v1, u2, v2, &src_rect))
 						{
-							dst_rect.x = (int) tx_min;
-							dst_rect.y = (int) ((float) platform_renderer_present_height - ty_max);
-							dst_rect.w = (int) (tx_max - tx_min);
-							dst_rect.h = (int) (ty_max - ty_min);
+							dst_rect.x = (int)tx_min;
+							dst_rect.y = (int)((float)platform_renderer_present_height - ty_max);
+							dst_rect.w = (int)(tx_max - tx_min);
+							dst_rect.h = (int)(ty_max - ty_min);
 							if (dst_rect.w <= 0)
 							{
 								dst_rect.w = 1;
@@ -2582,22 +2979,22 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 
 							if (copy_flip_x)
 							{
-								copy_flip = (SDL_RendererFlip) (copy_flip | SDL_FLIP_HORIZONTAL);
+								copy_flip = (SDL_RendererFlip)(copy_flip | SDL_FLIP_HORIZONTAL);
 							}
 							if (copy_flip_y)
 							{
-								copy_flip = (SDL_RendererFlip) (copy_flip | SDL_FLIP_VERTICAL);
+								copy_flip = (SDL_RendererFlip)(copy_flip | SDL_FLIP_VERTICAL);
 							}
 
 							PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
-							(void) SDL_SetTextureColorMod(
-								draw_texture,
-								PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
-								PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
-								PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
-							(void) SDL_SetTextureAlphaMod(
-								draw_texture,
-								PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
+							(void)SDL_SetTextureColorMod(
+									draw_texture,
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
+							(void)SDL_SetTextureAlphaMod(
+									draw_texture,
+									PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
 							if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
 							{
 								platform_renderer_sdl_native_draw_count++;
@@ -2622,11 +3019,11 @@ void PLATFORM_RENDERER_draw_point(float x, float y)
 		PLATFORM_RENDERER_transform_point(x, y, &tx, &ty);
 		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
 		PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(
-			platform_renderer_current_colour_r,
-			platform_renderer_current_colour_g,
-			platform_renderer_current_colour_b,
-			platform_renderer_current_colour_a);
-		if (SDL_RenderDrawPoint(platform_renderer_sdl_renderer, (int) tx, (int) ((float) platform_renderer_present_height - ty)) == 0)
+				platform_renderer_current_colour_r,
+				platform_renderer_current_colour_g,
+				platform_renderer_current_colour_b,
+				platform_renderer_current_colour_a);
+		if (SDL_RenderDrawPoint(platform_renderer_sdl_renderer, (int)tx, (int)((float)platform_renderer_present_height - ty)) == 0)
 		{
 			platform_renderer_sdl_native_draw_count++;
 		}
@@ -2642,84 +3039,9 @@ void PLATFORM_RENDERER_draw_coloured_point(float x, float y, float r, float g, f
 		PLATFORM_RENDERER_transform_point(x, y, &tx, &ty);
 		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
 		PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(r, g, b, platform_renderer_current_colour_a);
-		if (SDL_RenderDrawPoint(platform_renderer_sdl_renderer, (int) tx, (int) ((float) platform_renderer_present_height - ty)) == 0)
+		if (SDL_RenderDrawPoint(platform_renderer_sdl_renderer, (int)tx, (int)((float)platform_renderer_present_height - ty)) == 0)
 		{
 			platform_renderer_sdl_native_draw_count++;
-		}
-	}
-}
-
-void PLATFORM_RENDERER_draw_line(float x1, float y1, float x2, float y2)
-{
-	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
-	{
-		float tx1;
-		float ty1;
-		float tx2;
-		float ty2;
-		PLATFORM_RENDERER_transform_point(x1, y1, &tx1, &ty1);
-		PLATFORM_RENDERER_transform_point(x2, y2, &tx2, &ty2);
-		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
-		PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(
-			platform_renderer_current_colour_r,
-			platform_renderer_current_colour_g,
-			platform_renderer_current_colour_b,
-			platform_renderer_current_colour_a);
-		if (SDL_RenderDrawLine(platform_renderer_sdl_renderer, (int) tx1, (int) ((float) platform_renderer_present_height - ty1), (int) tx2, (int) ((float) platform_renderer_present_height - ty2)) == 0)
-		{
-			platform_renderer_sdl_native_draw_count++;
-		}
-	}
-}
-
-void PLATFORM_RENDERER_draw_coloured_line(float x1, float y1, float x2, float y2, float r, float g, float b)
-{
-	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
-	{
-		float tx1;
-		float ty1;
-		float tx2;
-		float ty2;
-		PLATFORM_RENDERER_transform_point(x1, y1, &tx1, &ty1);
-		PLATFORM_RENDERER_transform_point(x2, y2, &tx2, &ty2);
-		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
-		PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(r, g, b, platform_renderer_current_colour_a);
-		if (SDL_RenderDrawLine(platform_renderer_sdl_renderer, (int) tx1, (int) ((float) platform_renderer_present_height - ty1), (int) tx2, (int) ((float) platform_renderer_present_height - ty2)) == 0)
-		{
-			platform_renderer_sdl_native_draw_count++;
-		}
-	}
-}
-
-void PLATFORM_RENDERER_draw_line_loop_array(const float *x, const float *y, int count)
-{
-	int i;
-
-	if ((x == NULL) || (y == NULL) || (count < 2))
-	{
-		return;
-	}
-	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
-	{
-		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
-		PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(
-			platform_renderer_current_colour_r,
-			platform_renderer_current_colour_g,
-			platform_renderer_current_colour_b,
-			platform_renderer_current_colour_a);
-		for (i = 0; i < count; i++)
-		{
-			int j = (i + 1) % count;
-			float tx1;
-			float ty1;
-			float tx2;
-			float ty2;
-			PLATFORM_RENDERER_transform_point(x[i], y[i], &tx1, &ty1);
-			PLATFORM_RENDERER_transform_point(x[j], y[j], &tx2, &ty2);
-			if (SDL_RenderDrawLine(platform_renderer_sdl_renderer, (int) tx1, (int) ((float) platform_renderer_present_height - ty1), (int) tx2, (int) ((float) platform_renderer_present_height - ty2)) == 0)
-			{
-				platform_renderer_sdl_native_draw_count++;
-			}
 		}
 	}
 }
@@ -2727,9 +3049,9 @@ void PLATFORM_RENDERER_draw_line_loop_array(const float *x, const float *y, int 
 void PLATFORM_RENDERER_set_window_transform(float left_window_transform_x, float top_window_transform_y, float total_scale_x, float total_scale_y)
 {
 	if (!isfinite(left_window_transform_x) ||
-		!isfinite(top_window_transform_y) ||
-		!isfinite(total_scale_x) ||
-		!isfinite(total_scale_y))
+			!isfinite(top_window_transform_y) ||
+			!isfinite(total_scale_x) ||
+			!isfinite(total_scale_y))
 	{
 		PLATFORM_RENDERER_reset_transform_state("set_window_transform input");
 		return;
@@ -2745,10 +3067,7 @@ void PLATFORM_RENDERER_set_window_transform(float left_window_transform_x, float
 
 void PLATFORM_RENDERER_set_colour3f(float r, float g, float b)
 {
-	platform_renderer_current_colour_r = r;
-	platform_renderer_current_colour_g = g;
-	platform_renderer_current_colour_b = b;
-	platform_renderer_current_colour_a = 1.0f;
+	PLATFORM_RENDERER_set_colour4f(r, g, b, 1.0f);
 }
 
 void PLATFORM_RENDERER_set_colour4f(float r, float g, float b, float a)
@@ -2763,20 +3082,19 @@ void PLATFORM_RENDERER_bind_texture(unsigned int texture_handle)
 {
 	unsigned int resolved_texture_id = PLATFORM_RENDERER_resolve_legacy_texture(texture_handle);
 	unsigned int normalized_texture_handle = PLATFORM_RENDERER_normalize_texture_handle(texture_handle);
-	(void) resolved_texture_id;
+	(void)resolved_texture_id;
 	platform_renderer_last_bound_texture_handle = normalized_texture_handle;
 }
 
 void PLATFORM_RENDERER_set_active_texture_proc(void *proc)
 {
-	platform_renderer_active_texture_proc = (platform_active_texture_proc_t) proc;
+	platform_renderer_active_texture_proc = (platform_active_texture_proc_t)proc;
 }
 
 bool PLATFORM_RENDERER_is_active_texture_available(void)
 {
 	return platform_renderer_active_texture_proc != NULL;
 }
-
 
 void PLATFORM_RENDERER_set_blend_enabled(bool enabled)
 {
@@ -2826,10 +3144,10 @@ void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float b
 	{
 		/* SDL clip rect uses top-left origin; transform from GL-style bottom-left space. */
 		SDL_Rect clip;
-		int clip_x = (int) x;
-		int clip_w = (int) width;
-		int clip_h = (int) height;
-		int clip_y = platform_renderer_present_height - ((int) y + clip_h);
+		int clip_x = (int)x;
+		int clip_w = (int)width;
+		int clip_h = (int)height;
+		int clip_y = platform_renderer_present_height - ((int)y + clip_h);
 
 		if (clip_w < 0)
 		{
@@ -2841,8 +3159,10 @@ void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float b
 			clip_y += clip_h;
 			clip_h = -clip_h;
 		}
-		if (clip_w < 0) clip_w = 0;
-		if (clip_h < 0) clip_h = 0;
+		if (clip_w < 0)
+			clip_w = 0;
+		if (clip_h < 0)
+			clip_h = 0;
 
 		/* Clamp to active SDL output viewport to avoid accidental empty/offscreen clip. */
 		{
@@ -2855,13 +3175,19 @@ void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float b
 			int x1 = clip_x + clip_w;
 			int y1 = clip_y + clip_h;
 
-			if (vp_w <= 0) vp_w = platform_renderer_present_width;
-			if (vp_h <= 0) vp_h = platform_renderer_present_height;
+			if (vp_w <= 0)
+				vp_w = platform_renderer_present_width;
+			if (vp_h <= 0)
+				vp_h = platform_renderer_present_height;
 
-			if (x0 < vp_x) x0 = vp_x;
-			if (y0 < vp_y) y0 = vp_y;
-			if (x1 > (vp_x + vp_w)) x1 = vp_x + vp_w;
-			if (y1 > (vp_y + vp_h)) y1 = vp_y + vp_h;
+			if (x0 < vp_x)
+				x0 = vp_x;
+			if (y0 < vp_y)
+				y0 = vp_y;
+			if (x1 > (vp_x + vp_w))
+				x1 = vp_x + vp_w;
+			if (y1 > (vp_y + vp_h))
+				y1 = vp_y + vp_h;
 
 			clip_w = x1 - x0;
 			clip_h = y1 - y0;
@@ -2869,7 +3195,7 @@ void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float b
 			if ((clip_w <= 0) || (clip_h <= 0))
 			{
 				/* Prefer no clipping over blank frame when window clip is invalid. */
-				(void) SDL_RenderSetClipRect(platform_renderer_sdl_renderer, NULL);
+				(void)SDL_RenderSetClipRect(platform_renderer_sdl_renderer, NULL);
 			}
 			else
 			{
@@ -2877,7 +3203,7 @@ void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float b
 				clip.y = y0;
 				clip.w = clip_w;
 				clip.h = clip_h;
-				(void) SDL_RenderSetClipRect(platform_renderer_sdl_renderer, &clip);
+				(void)SDL_RenderSetClipRect(platform_renderer_sdl_renderer, &clip);
 			}
 		}
 	}
@@ -2922,9 +3248,9 @@ void PLATFORM_RENDERER_rotatef(float angle_degrees, float x, float y, float z)
 		PLATFORM_RENDERER_reset_transform_state("rotatef input");
 		return;
 	}
-	(void) x;
-	(void) y;
-	(void) z;
+	(void)x;
+	(void)y;
+	(void)z;
 	float radians = angle_degrees * (3.14159265358979323846f / 180.0f);
 	float c = cosf(radians);
 	float s = sinf(radians);
@@ -2946,7 +3272,7 @@ void PLATFORM_RENDERER_finish_textured_window_draw(bool texture_combiner_availab
 {
 	if (platform_renderer_sdl_renderer != NULL)
 	{
-		(void) SDL_RenderSetClipRect(platform_renderer_sdl_renderer, NULL);
+		(void)SDL_RenderSetClipRect(platform_renderer_sdl_renderer, NULL);
 	}
 	PLATFORM_RENDERER_set_blend_enabled(false);
 	PLATFORM_RENDERER_set_colour4f(1.0f, 1.0f, 1.0f, 1.0f);
@@ -2988,44 +3314,52 @@ void PLATFORM_RENDERER_draw_bound_multitextured_quad_array(const float *x, const
 					txs[i] = tx;
 					tys[i] = ty;
 					vertices[i].position.x = tx;
-					vertices[i].position.y = (float) platform_renderer_present_height - ty;
+					vertices[i].position.y = (float)platform_renderer_present_height - ty;
 					vertices[i].tex_coord.x = u0[i];
 					vertices[i].tex_coord.y = v0[i];
 
-					cr = (int) (platform_renderer_current_colour_r * 255.0f);
-					cg = (int) (platform_renderer_current_colour_g * 255.0f);
-					cb = (int) (platform_renderer_current_colour_b * 255.0f);
-					ca = (int) (platform_renderer_current_colour_a * 255.0f);
+					cr = (int)(platform_renderer_current_colour_r * 255.0f);
+					cg = (int)(platform_renderer_current_colour_g * 255.0f);
+					cb = (int)(platform_renderer_current_colour_b * 255.0f);
+					ca = (int)(platform_renderer_current_colour_a * 255.0f);
 
-					if (cr < 0) cr = 0;
-					if (cr > 255) cr = 255;
-					if (cg < 0) cg = 0;
-					if (cg > 255) cg = 255;
-					if (cb < 0) cb = 0;
-					if (cb > 255) cb = 255;
-					if (ca < 0) ca = 0;
-					if (ca > 255) ca = 255;
+					if (cr < 0)
+						cr = 0;
+					if (cr > 255)
+						cr = 255;
+					if (cg < 0)
+						cg = 0;
+					if (cg > 255)
+						cg = 255;
+					if (cb < 0)
+						cb = 0;
+					if (cb > 255)
+						cb = 255;
+					if (ca < 0)
+						ca = 0;
+					if (ca > 255)
+						ca = 255;
 
-					vertices[i].color.r = (Uint8) cr;
-					vertices[i].color.g = (Uint8) cg;
-					vertices[i].color.b = (Uint8) cb;
-					vertices[i].color.a = (Uint8) ca;
+					vertices[i].color.r = (Uint8)cr;
+					vertices[i].color.g = (Uint8)cg;
+					vertices[i].color.b = (Uint8)cb;
+					vertices[i].color.a = (Uint8)ca;
 				}
 
 				src_flip_x = (u0[2] < u0[0]);
 				src_flip_y = PLATFORM_RENDERER_src_flip_y_for_sdl(v0[0], v0[1]);
 				is_axis_aligned =
-					(fabsf(txs[0] - txs[1]) < axis_eps) &&
-					(fabsf(txs[2] - txs[3]) < axis_eps) &&
-					(fabsf(tys[0] - tys[3]) < axis_eps) &&
-					(fabsf(tys[1] - tys[2]) < axis_eps);
+						(fabsf(txs[0] - txs[1]) < axis_eps) &&
+						(fabsf(txs[2] - txs[3]) < axis_eps) &&
+						(fabsf(tys[0] - tys[3]) < axis_eps) &&
+						(fabsf(tys[1] - tys[2]) < axis_eps);
 
 				{
-					const int indices[6] = { 0, 1, 2, 0, 2, 3 };
-					(void) is_axis_aligned;
-					(void) src_flip_x;
-					(void) src_flip_y;
-					(void) PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE);
+					const int indices[6] = {0, 1, 2, 0, 2, 3};
+					(void)is_axis_aligned;
+					(void)src_flip_x;
+					(void)src_flip_y;
+					(void)PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE);
 					return;
 				}
 
@@ -3044,10 +3378,10 @@ void PLATFORM_RENDERER_draw_bound_multitextured_quad_array(const float *x, const
 						return;
 					}
 
-					dst_rect.x = (int) gl_left;
-					dst_rect.y = (int) ((float) platform_renderer_present_height - gl_top);
-					dst_rect.w = (int) (gl_right - gl_left);
-					dst_rect.h = (int) (gl_top - gl_bottom);
+					dst_rect.x = (int)gl_left;
+					dst_rect.y = (int)((float)platform_renderer_present_height - gl_top);
+					dst_rect.w = (int)(gl_right - gl_left);
+					dst_rect.h = (int)(gl_top - gl_bottom);
 					if (dst_rect.w <= 0)
 					{
 						dst_rect.w = 1;
@@ -3059,20 +3393,20 @@ void PLATFORM_RENDERER_draw_bound_multitextured_quad_array(const float *x, const
 
 					if (src_flip_x)
 					{
-						final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_HORIZONTAL);
+						final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_HORIZONTAL);
 					}
 					if (src_flip_y)
 					{
-						final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_VERTICAL);
+						final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_VERTICAL);
 					}
 
 					PLATFORM_RENDERER_apply_sdl_texture_blend_mode(entry->sdl_texture);
-					(void) SDL_SetTextureColorMod(
-						entry->sdl_texture,
-						PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
-						PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
-						PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
-					(void) SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
+					(void)SDL_SetTextureColorMod(
+							entry->sdl_texture,
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
+					(void)SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
 
 					if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
 					{
@@ -3084,8 +3418,8 @@ void PLATFORM_RENDERER_draw_bound_multitextured_quad_array(const float *x, const
 				}
 				else
 				{
-					int indices[6] = { 0, 1, 2, 0, 2, 3 };
-					(void) PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_MULTITEXTURE_ARRAY);
+					int indices[6] = {0, 1, 2, 0, 2, 3};
+					(void)PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_MULTITEXTURE_ARRAY);
 				}
 			}
 		}
@@ -3131,28 +3465,36 @@ void PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(const float *x, c
 					txs[i] = tx;
 					tys[i] = ty;
 					vertices[i].position.x = tx;
-					vertices[i].position.y = (float) platform_renderer_present_height - ty;
+					vertices[i].position.y = (float)platform_renderer_present_height - ty;
 					vertices[i].tex_coord.x = u[i];
 					vertices[i].tex_coord.y = v[i];
 
-					cr = (int) (r[i] * 255.0f);
-					cg = (int) (g[i] * 255.0f);
-					cb = (int) (b[i] * 255.0f);
-					ca = (int) (a[i] * 255.0f);
+					cr = (int)(r[i] * 255.0f);
+					cg = (int)(g[i] * 255.0f);
+					cb = (int)(b[i] * 255.0f);
+					ca = (int)(a[i] * 255.0f);
 
-					if (cr < 0) cr = 0;
-					if (cr > 255) cr = 255;
-					if (cg < 0) cg = 0;
-					if (cg > 255) cg = 255;
-					if (cb < 0) cb = 0;
-					if (cb > 255) cb = 255;
-					if (ca < 0) ca = 0;
-					if (ca > 255) ca = 255;
+					if (cr < 0)
+						cr = 0;
+					if (cr > 255)
+						cr = 255;
+					if (cg < 0)
+						cg = 0;
+					if (cg > 255)
+						cg = 255;
+					if (cb < 0)
+						cb = 0;
+					if (cb > 255)
+						cb = 255;
+					if (ca < 0)
+						ca = 0;
+					if (ca > 255)
+						ca = 255;
 
-					vertices[i].color.r = (Uint8) cr;
-					vertices[i].color.g = (Uint8) cg;
-					vertices[i].color.b = (Uint8) cb;
-					vertices[i].color.a = (Uint8) ca;
+					vertices[i].color.r = (Uint8)cr;
+					vertices[i].color.g = (Uint8)cg;
+					vertices[i].color.b = (Uint8)cb;
+					vertices[i].color.a = (Uint8)ca;
 				}
 				for (i = 1; i < 4; i++)
 				{
@@ -3166,17 +3508,17 @@ void PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(const float *x, c
 				src_flip_x = (u[2] < u[0]);
 				src_flip_y = PLATFORM_RENDERER_src_flip_y_for_sdl(v[0], v[1]);
 				is_axis_aligned =
-					(fabsf(txs[0] - txs[1]) < axis_eps) &&
-					(fabsf(txs[2] - txs[3]) < axis_eps) &&
-					(fabsf(tys[0] - tys[3]) < axis_eps) &&
-					(fabsf(tys[1] - tys[2]) < axis_eps);
+						(fabsf(txs[0] - txs[1]) < axis_eps) &&
+						(fabsf(txs[2] - txs[3]) < axis_eps) &&
+						(fabsf(tys[0] - tys[3]) < axis_eps) &&
+						(fabsf(tys[1] - tys[2]) < axis_eps);
 
 				{
-					const int indices[6] = { 0, 1, 2, 0, 2, 3 };
-					(void) is_axis_aligned;
-					(void) src_flip_x;
-					(void) src_flip_y;
-					(void) PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE);
+					const int indices[6] = {0, 1, 2, 0, 2, 3};
+					(void)is_axis_aligned;
+					(void)src_flip_x;
+					(void)src_flip_y;
+					(void)PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE);
 					return;
 				}
 
@@ -3195,10 +3537,10 @@ void PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(const float *x, c
 						return;
 					}
 
-					dst_rect.x = (int) gl_left;
-					dst_rect.y = (int) ((float) platform_renderer_present_height - gl_top);
-					dst_rect.w = (int) (gl_right - gl_left);
-					dst_rect.h = (int) (gl_top - gl_bottom);
+					dst_rect.x = (int)gl_left;
+					dst_rect.y = (int)((float)platform_renderer_present_height - gl_top);
+					dst_rect.w = (int)(gl_right - gl_left);
+					dst_rect.h = (int)(gl_top - gl_bottom);
 					if (dst_rect.w <= 0)
 					{
 						dst_rect.w = 1;
@@ -3210,20 +3552,20 @@ void PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(const float *x, c
 
 					if (src_flip_x)
 					{
-						final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_HORIZONTAL);
+						final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_HORIZONTAL);
 					}
 					if (src_flip_y)
 					{
-						final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_VERTICAL);
+						final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_VERTICAL);
 					}
 
 					PLATFORM_RENDERER_apply_sdl_texture_blend_mode(entry->sdl_texture);
-					(void) SDL_SetTextureColorMod(
-						entry->sdl_texture,
-						PLATFORM_RENDERER_clamp_sdl_unit_to_byte(r[0]),
-						PLATFORM_RENDERER_clamp_sdl_unit_to_byte(g[0]),
-						PLATFORM_RENDERER_clamp_sdl_unit_to_byte(b[0]));
-					(void) SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(a[0])));
+					(void)SDL_SetTextureColorMod(
+							entry->sdl_texture,
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(r[0]),
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(g[0]),
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(b[0]));
+					(void)SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(a[0])));
 
 					if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
 					{
@@ -3235,8 +3577,8 @@ void PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(const float *x, c
 				}
 				else
 				{
-					int indices[6] = { 0, 1, 2, 0, 2, 3 };
-					(void) PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_COLOURED_ARRAY);
+					int indices[6] = {0, 1, 2, 0, 2, 3};
+					(void)PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_COLOURED_ARRAY);
 				}
 			}
 		}
@@ -3259,13 +3601,13 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 				{
 					bool strip_ok = true;
 					const int strip_count = 24;
-					const int indices[6] = { 0, 1, 2, 0, 2, 3 };
+					const int indices[6] = {0, 1, 2, 0, 2, 3};
 					int strip_index;
 
 					for (strip_index = 0; strip_index < strip_count; strip_index++)
 					{
-						const float t0 = (float) strip_index / (float) strip_count;
-						const float t1 = (float) (strip_index + 1) / (float) strip_count;
+						const float t0 = (float)strip_index / (float)strip_count;
+						const float t1 = (float)(strip_index + 1) / (float)strip_count;
 						const float one_minus_t0 = 1.0f - t0;
 						const float one_minus_t1 = 1.0f - t1;
 						const float left_x0 = (x0 * one_minus_t0) + (x1 * t0);
@@ -3295,7 +3637,7 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 
 						PLATFORM_RENDERER_transform_point(left_x0, left_y0, &tx, &ty);
 						strip_vertices[0].position.x = tx;
-						strip_vertices[0].position.y = (float) platform_renderer_present_height - ty;
+						strip_vertices[0].position.y = (float)platform_renderer_present_height - ty;
 						strip_vertices[0].tex_coord.x = u1;
 						strip_vertices[0].tex_coord.y = 1.0f - strip_v0;
 						strip_vertices[0].color.r = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r);
@@ -3305,7 +3647,7 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 
 						PLATFORM_RENDERER_transform_point(left_x1, left_y1, &tx, &ty);
 						strip_vertices[1].position.x = tx;
-						strip_vertices[1].position.y = (float) platform_renderer_present_height - ty;
+						strip_vertices[1].position.y = (float)platform_renderer_present_height - ty;
 						strip_vertices[1].tex_coord.x = u1;
 						strip_vertices[1].tex_coord.y = 1.0f - strip_v1;
 						strip_vertices[1].color.r = strip_vertices[0].color.r;
@@ -3315,7 +3657,7 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 
 						PLATFORM_RENDERER_transform_point(right_x1, right_y1, &tx, &ty);
 						strip_vertices[2].position.x = tx;
-						strip_vertices[2].position.y = (float) platform_renderer_present_height - ty;
+						strip_vertices[2].position.y = (float)platform_renderer_present_height - ty;
 						strip_vertices[2].tex_coord.x = u2;
 						strip_vertices[2].tex_coord.y = 1.0f - strip_v1;
 						strip_vertices[2].color.r = strip_vertices[0].color.r;
@@ -3325,7 +3667,7 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 
 						PLATFORM_RENDERER_transform_point(right_x0, right_y0, &tx, &ty);
 						strip_vertices[3].position.x = tx;
-						strip_vertices[3].position.y = (float) platform_renderer_present_height - ty;
+						strip_vertices[3].position.y = (float)platform_renderer_present_height - ty;
 						strip_vertices[3].tex_coord.x = u2;
 						strip_vertices[3].tex_coord.y = 1.0f - strip_v0;
 						strip_vertices[3].color.r = strip_vertices[0].color.r;
@@ -3348,10 +3690,10 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 
 				SDL_Vertex vertices[4];
 				int i;
-				const float px[4] = { x0, x1, x2, x3 };
-				const float py[4] = { y0, y1, y2, y3 };
-				const float tu[4] = { u1, u1, u2, u2 };
-				const float tv[4] = { v1, v2, v2, v1 };
+				const float px[4] = {x0, x1, x2, x3};
+				const float py[4] = {y0, y1, y2, y3};
+				const float tu[4] = {u1, u1, u2, u2};
+				const float tv[4] = {v1, v2, v2, v1};
 				float txs[4];
 				float tys[4];
 				const float axis_eps = 0.01f;
@@ -3369,7 +3711,7 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 					txs[i] = tx;
 					tys[i] = ty;
 					vertices[i].position.x = tx;
-					vertices[i].position.y = (float) platform_renderer_present_height - ty;
+					vertices[i].position.y = (float)platform_renderer_present_height - ty;
 					vertices[i].tex_coord.x = tu[i];
 					vertices[i].tex_coord.y = tv[i];
 					vertices[i].color.r = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r);
@@ -3384,7 +3726,7 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 				 * stretch during parallax/scrolling.
 				 */
 				{
-					const int indices[6] = { 0, 1, 2, 0, 2, 3 };
+					const int indices[6] = {0, 1, 2, 0, 2, 3};
 					if (PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE))
 					{
 						return;
@@ -3396,10 +3738,10 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 				}
 
 				is_axis_aligned =
-					(fabsf(txs[0] - txs[1]) < axis_eps) &&
-					(fabsf(txs[2] - txs[3]) < axis_eps) &&
-					(fabsf(tys[0] - tys[3]) < axis_eps) &&
-					(fabsf(tys[1] - tys[2]) < axis_eps);
+						(fabsf(txs[0] - txs[1]) < axis_eps) &&
+						(fabsf(txs[2] - txs[3]) < axis_eps) &&
+						(fabsf(tys[0] - tys[3]) < axis_eps) &&
+						(fabsf(tys[1] - tys[2]) < axis_eps);
 				PLATFORM_RENDERER_axis_orientation_flips_from_transformed_quad(txs, tys, &geom_flip_x, &geom_flip_y);
 
 				if (is_axis_aligned)
@@ -3417,10 +3759,10 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 						return;
 					}
 
-					dst_rect.x = (int) gl_left;
-					dst_rect.y = (int) ((float) platform_renderer_present_height - gl_top);
-					dst_rect.w = (int) (gl_right - gl_left);
-					dst_rect.h = (int) (gl_top - gl_bottom);
+					dst_rect.x = (int)gl_left;
+					dst_rect.y = (int)((float)platform_renderer_present_height - gl_top);
+					dst_rect.w = (int)(gl_right - gl_left);
+					dst_rect.h = (int)(gl_top - gl_bottom);
 					if (dst_rect.w <= 0)
 					{
 						dst_rect.w = 1;
@@ -3432,20 +3774,20 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 
 					if (src_flip_x ^ geom_flip_x)
 					{
-						final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_HORIZONTAL);
+						final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_HORIZONTAL);
 					}
 					if (src_flip_y ^ geom_flip_y)
 					{
-						final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_VERTICAL);
+						final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_VERTICAL);
 					}
 
 					PLATFORM_RENDERER_apply_sdl_texture_blend_mode(entry->sdl_texture);
-					(void) SDL_SetTextureColorMod(
-						entry->sdl_texture,
-						PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
-						PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
-						PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
-					(void) SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
+					(void)SDL_SetTextureColorMod(
+							entry->sdl_texture,
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
+					(void)SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
 
 					if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
 					{
@@ -3481,36 +3823,38 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 						SDL_RendererFlip final_flip = SDL_FLIP_NONE;
 						const float cx = (p0x + p1x + p2x + p3x) * 0.25f;
 						const float cy = (p0y + p1y + p2y + p3y) * 0.25f;
-						const double angle_degrees = atan2((double) exy, (double) exx) * (180.0 / 3.14159265358979323846);
+						const double angle_degrees = atan2((double)exy, (double)exx) * (180.0 / 3.14159265358979323846);
 
 						if (PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, v1, u2, v2, &src_rect))
 						{
-							dst_rect.w = (int) (width + 0.5f);
-							dst_rect.h = (int) (height + 0.5f);
-							if (dst_rect.w <= 0) dst_rect.w = 1;
-							if (dst_rect.h <= 0) dst_rect.h = 1;
-							dst_rect.x = (int) (cx - ((float) dst_rect.w * 0.5f));
-							dst_rect.y = (int) (cy - ((float) dst_rect.h * 0.5f));
+							dst_rect.w = (int)(width + 0.5f);
+							dst_rect.h = (int)(height + 0.5f);
+							if (dst_rect.w <= 0)
+								dst_rect.w = 1;
+							if (dst_rect.h <= 0)
+								dst_rect.h = 1;
+							dst_rect.x = (int)(cx - ((float)dst_rect.w * 0.5f));
+							dst_rect.y = (int)(cy - ((float)dst_rect.h * 0.5f));
 
 							center.x = dst_rect.w / 2;
 							center.y = dst_rect.h / 2;
 
 							if (src_flip_x)
 							{
-								final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_HORIZONTAL);
+								final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_HORIZONTAL);
 							}
 							if (src_flip_y)
 							{
-								final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_VERTICAL);
+								final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_VERTICAL);
 							}
 
 							PLATFORM_RENDERER_apply_sdl_texture_blend_mode(entry->sdl_texture);
-					(void) SDL_SetTextureColorMod(
-						entry->sdl_texture,
-								PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
-								PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
-								PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
-							(void) SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
+							(void)SDL_SetTextureColorMod(
+									entry->sdl_texture,
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
+							(void)SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
 
 							if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, angle_degrees, &center, final_flip) == 0)
 							{
@@ -3525,15 +3869,15 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 
 					if (!drawn_rotated_rect)
 					{
-						const int indices[6] = { 0, 1, 2, 0, 2, 3 };
-						(void) PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE);
+						const int indices[6] = {0, 1, 2, 0, 2, 3};
+						(void)PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE);
 					}
 				}
 			}
 		}
 	}
 #endif
-	(void) q;
+	(void)q;
 }
 
 void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2, float q, const float *r, const float *g, const float *b, const float *a)
@@ -3555,13 +3899,13 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 				{
 					bool strip_ok = true;
 					const int strip_count = 24;
-					const int indices[6] = { 0, 1, 2, 0, 2, 3 };
+					const int indices[6] = {0, 1, 2, 0, 2, 3};
 					int strip_index;
 
 					for (strip_index = 0; strip_index < strip_count; strip_index++)
 					{
-						const float t0 = (float) strip_index / (float) strip_count;
-						const float t1 = (float) (strip_index + 1) / (float) strip_count;
+						const float t0 = (float)strip_index / (float)strip_count;
+						const float t1 = (float)(strip_index + 1) / (float)strip_count;
 						const float one_minus_t0 = 1.0f - t0;
 						const float one_minus_t1 = 1.0f - t1;
 						const float left_x0 = (x0 * one_minus_t0) + (x1 * t0);
@@ -3595,75 +3939,123 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 
 						PLATFORM_RENDERER_transform_point(left_x0, left_y0, &tx, &ty);
 						strip_vertices[0].position.x = tx;
-						strip_vertices[0].position.y = (float) platform_renderer_present_height - ty;
+						strip_vertices[0].position.y = (float)platform_renderer_present_height - ty;
 						strip_vertices[0].tex_coord.x = u1;
 						strip_vertices[0].tex_coord.y = 1.0f - strip_v0;
-						cr = (int) (((r[0] * one_minus_t0) + (r[1] * t0)) * 255.0f);
-						cg = (int) (((g[0] * one_minus_t0) + (g[1] * t0)) * 255.0f);
-						cb = (int) (((b[0] * one_minus_t0) + (b[1] * t0)) * 255.0f);
-						ca = (int) (((a[0] * one_minus_t0) + (a[1] * t0)) * 255.0f);
-						if (cr < 0) cr = 0; else if (cr > 255) cr = 255;
-						if (cg < 0) cg = 0; else if (cg > 255) cg = 255;
-						if (cb < 0) cb = 0; else if (cb > 255) cb = 255;
-						if (ca < 0) ca = 0; else if (ca > 255) ca = 255;
-						strip_vertices[0].color.r = (Uint8) cr;
-						strip_vertices[0].color.g = (Uint8) cg;
-						strip_vertices[0].color.b = (Uint8) cb;
-						strip_vertices[0].color.a = (Uint8) ca;
+						cr = (int)(((r[0] * one_minus_t0) + (r[1] * t0)) * 255.0f);
+						cg = (int)(((g[0] * one_minus_t0) + (g[1] * t0)) * 255.0f);
+						cb = (int)(((b[0] * one_minus_t0) + (b[1] * t0)) * 255.0f);
+						ca = (int)(((a[0] * one_minus_t0) + (a[1] * t0)) * 255.0f);
+						if (cr < 0)
+							cr = 0;
+						else if (cr > 255)
+							cr = 255;
+						if (cg < 0)
+							cg = 0;
+						else if (cg > 255)
+							cg = 255;
+						if (cb < 0)
+							cb = 0;
+						else if (cb > 255)
+							cb = 255;
+						if (ca < 0)
+							ca = 0;
+						else if (ca > 255)
+							ca = 255;
+						strip_vertices[0].color.r = (Uint8)cr;
+						strip_vertices[0].color.g = (Uint8)cg;
+						strip_vertices[0].color.b = (Uint8)cb;
+						strip_vertices[0].color.a = (Uint8)ca;
 
 						PLATFORM_RENDERER_transform_point(left_x1, left_y1, &tx, &ty);
 						strip_vertices[1].position.x = tx;
-						strip_vertices[1].position.y = (float) platform_renderer_present_height - ty;
+						strip_vertices[1].position.y = (float)platform_renderer_present_height - ty;
 						strip_vertices[1].tex_coord.x = u1;
 						strip_vertices[1].tex_coord.y = 1.0f - strip_v1;
-						cr = (int) (((r[0] * one_minus_t1) + (r[1] * t1)) * 255.0f);
-						cg = (int) (((g[0] * one_minus_t1) + (g[1] * t1)) * 255.0f);
-						cb = (int) (((b[0] * one_minus_t1) + (b[1] * t1)) * 255.0f);
-						ca = (int) (((a[0] * one_minus_t1) + (a[1] * t1)) * 255.0f);
-						if (cr < 0) cr = 0; else if (cr > 255) cr = 255;
-						if (cg < 0) cg = 0; else if (cg > 255) cg = 255;
-						if (cb < 0) cb = 0; else if (cb > 255) cb = 255;
-						if (ca < 0) ca = 0; else if (ca > 255) ca = 255;
-						strip_vertices[1].color.r = (Uint8) cr;
-						strip_vertices[1].color.g = (Uint8) cg;
-						strip_vertices[1].color.b = (Uint8) cb;
-						strip_vertices[1].color.a = (Uint8) ca;
+						cr = (int)(((r[0] * one_minus_t1) + (r[1] * t1)) * 255.0f);
+						cg = (int)(((g[0] * one_minus_t1) + (g[1] * t1)) * 255.0f);
+						cb = (int)(((b[0] * one_minus_t1) + (b[1] * t1)) * 255.0f);
+						ca = (int)(((a[0] * one_minus_t1) + (a[1] * t1)) * 255.0f);
+						if (cr < 0)
+							cr = 0;
+						else if (cr > 255)
+							cr = 255;
+						if (cg < 0)
+							cg = 0;
+						else if (cg > 255)
+							cg = 255;
+						if (cb < 0)
+							cb = 0;
+						else if (cb > 255)
+							cb = 255;
+						if (ca < 0)
+							ca = 0;
+						else if (ca > 255)
+							ca = 255;
+						strip_vertices[1].color.r = (Uint8)cr;
+						strip_vertices[1].color.g = (Uint8)cg;
+						strip_vertices[1].color.b = (Uint8)cb;
+						strip_vertices[1].color.a = (Uint8)ca;
 
 						PLATFORM_RENDERER_transform_point(right_x1, right_y1, &tx, &ty);
 						strip_vertices[2].position.x = tx;
-						strip_vertices[2].position.y = (float) platform_renderer_present_height - ty;
+						strip_vertices[2].position.y = (float)platform_renderer_present_height - ty;
 						strip_vertices[2].tex_coord.x = u2;
 						strip_vertices[2].tex_coord.y = 1.0f - strip_v1;
-						cr = (int) (((r[3] * one_minus_t1) + (r[2] * t1)) * 255.0f);
-						cg = (int) (((g[3] * one_minus_t1) + (g[2] * t1)) * 255.0f);
-						cb = (int) (((b[3] * one_minus_t1) + (b[2] * t1)) * 255.0f);
-						ca = (int) (((a[3] * one_minus_t1) + (a[2] * t1)) * 255.0f);
-						if (cr < 0) cr = 0; else if (cr > 255) cr = 255;
-						if (cg < 0) cg = 0; else if (cg > 255) cg = 255;
-						if (cb < 0) cb = 0; else if (cb > 255) cb = 255;
-						if (ca < 0) ca = 0; else if (ca > 255) ca = 255;
-						strip_vertices[2].color.r = (Uint8) cr;
-						strip_vertices[2].color.g = (Uint8) cg;
-						strip_vertices[2].color.b = (Uint8) cb;
-						strip_vertices[2].color.a = (Uint8) ca;
+						cr = (int)(((r[3] * one_minus_t1) + (r[2] * t1)) * 255.0f);
+						cg = (int)(((g[3] * one_minus_t1) + (g[2] * t1)) * 255.0f);
+						cb = (int)(((b[3] * one_minus_t1) + (b[2] * t1)) * 255.0f);
+						ca = (int)(((a[3] * one_minus_t1) + (a[2] * t1)) * 255.0f);
+						if (cr < 0)
+							cr = 0;
+						else if (cr > 255)
+							cr = 255;
+						if (cg < 0)
+							cg = 0;
+						else if (cg > 255)
+							cg = 255;
+						if (cb < 0)
+							cb = 0;
+						else if (cb > 255)
+							cb = 255;
+						if (ca < 0)
+							ca = 0;
+						else if (ca > 255)
+							ca = 255;
+						strip_vertices[2].color.r = (Uint8)cr;
+						strip_vertices[2].color.g = (Uint8)cg;
+						strip_vertices[2].color.b = (Uint8)cb;
+						strip_vertices[2].color.a = (Uint8)ca;
 
 						PLATFORM_RENDERER_transform_point(right_x0, right_y0, &tx, &ty);
 						strip_vertices[3].position.x = tx;
-						strip_vertices[3].position.y = (float) platform_renderer_present_height - ty;
+						strip_vertices[3].position.y = (float)platform_renderer_present_height - ty;
 						strip_vertices[3].tex_coord.x = u2;
 						strip_vertices[3].tex_coord.y = 1.0f - strip_v0;
-						cr = (int) (((r[3] * one_minus_t0) + (r[2] * t0)) * 255.0f);
-						cg = (int) (((g[3] * one_minus_t0) + (g[2] * t0)) * 255.0f);
-						cb = (int) (((b[3] * one_minus_t0) + (b[2] * t0)) * 255.0f);
-						ca = (int) (((a[3] * one_minus_t0) + (a[2] * t0)) * 255.0f);
-						if (cr < 0) cr = 0; else if (cr > 255) cr = 255;
-						if (cg < 0) cg = 0; else if (cg > 255) cg = 255;
-						if (cb < 0) cb = 0; else if (cb > 255) cb = 255;
-						if (ca < 0) ca = 0; else if (ca > 255) ca = 255;
-						strip_vertices[3].color.r = (Uint8) cr;
-						strip_vertices[3].color.g = (Uint8) cg;
-						strip_vertices[3].color.b = (Uint8) cb;
-						strip_vertices[3].color.a = (Uint8) ca;
+						cr = (int)(((r[3] * one_minus_t0) + (r[2] * t0)) * 255.0f);
+						cg = (int)(((g[3] * one_minus_t0) + (g[2] * t0)) * 255.0f);
+						cb = (int)(((b[3] * one_minus_t0) + (b[2] * t0)) * 255.0f);
+						ca = (int)(((a[3] * one_minus_t0) + (a[2] * t0)) * 255.0f);
+						if (cr < 0)
+							cr = 0;
+						else if (cr > 255)
+							cr = 255;
+						if (cg < 0)
+							cg = 0;
+						else if (cg > 255)
+							cg = 255;
+						if (cb < 0)
+							cb = 0;
+						else if (cb > 255)
+							cb = 255;
+						if (ca < 0)
+							ca = 0;
+						else if (ca > 255)
+							ca = 255;
+						strip_vertices[3].color.r = (Uint8)cr;
+						strip_vertices[3].color.g = (Uint8)cg;
+						strip_vertices[3].color.b = (Uint8)cb;
+						strip_vertices[3].color.a = (Uint8)ca;
 
 						if (!PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, strip_vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE))
 						{
@@ -3680,10 +4072,10 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 
 				SDL_Vertex vertices[4];
 				int i;
-				const float px[4] = { x0, x1, x2, x3 };
-				const float py[4] = { y0, y1, y2, y3 };
-				const float tu[4] = { u1, u1, u2, u2 };
-				const float tv[4] = { v1, v2, v2, v1 };
+				const float px[4] = {x0, x1, x2, x3};
+				const float py[4] = {y0, y1, y2, y3};
+				const float tu[4] = {u1, u1, u2, u2};
+				const float tv[4] = {v1, v2, v2, v1};
 				float txs[4];
 				float tys[4];
 				bool uniform_colour = true;
@@ -3699,31 +4091,39 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 				{
 					float tx;
 					float ty;
-					int cr = (int) (r[i] * 255.0f);
-					int cg = (int) (g[i] * 255.0f);
-					int cb = (int) (b[i] * 255.0f);
-					int ca = (int) (a[i] * 255.0f);
+					int cr = (int)(r[i] * 255.0f);
+					int cg = (int)(g[i] * 255.0f);
+					int cb = (int)(b[i] * 255.0f);
+					int ca = (int)(a[i] * 255.0f);
 
-					if (cr < 0) cr = 0;
-					if (cr > 255) cr = 255;
-					if (cg < 0) cg = 0;
-					if (cg > 255) cg = 255;
-					if (cb < 0) cb = 0;
-					if (cb > 255) cb = 255;
-					if (ca < 0) ca = 0;
-					if (ca > 255) ca = 255;
+					if (cr < 0)
+						cr = 0;
+					if (cr > 255)
+						cr = 255;
+					if (cg < 0)
+						cg = 0;
+					if (cg > 255)
+						cg = 255;
+					if (cb < 0)
+						cb = 0;
+					if (cb > 255)
+						cb = 255;
+					if (ca < 0)
+						ca = 0;
+					if (ca > 255)
+						ca = 255;
 
 					PLATFORM_RENDERER_transform_point(px[i], py[i], &tx, &ty);
 					txs[i] = tx;
 					tys[i] = ty;
 					vertices[i].position.x = tx;
-					vertices[i].position.y = (float) platform_renderer_present_height - ty;
+					vertices[i].position.y = (float)platform_renderer_present_height - ty;
 					vertices[i].tex_coord.x = tu[i];
 					vertices[i].tex_coord.y = tv[i];
-					vertices[i].color.r = (Uint8) cr;
-					vertices[i].color.g = (Uint8) cg;
-					vertices[i].color.b = (Uint8) cb;
-					vertices[i].color.a = (Uint8) ca;
+					vertices[i].color.r = (Uint8)cr;
+					vertices[i].color.g = (Uint8)cg;
+					vertices[i].color.b = (Uint8)cb;
+					vertices[i].color.a = (Uint8)ca;
 				}
 
 				/*
@@ -3732,7 +4132,7 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 				 * artifacts during background scrolling.
 				 */
 				{
-					const int indices[6] = { 0, 1, 2, 0, 2, 3 };
+					const int indices[6] = {0, 1, 2, 0, 2, 3};
 					if (PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE))
 					{
 						return;
@@ -3753,10 +4153,10 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 				}
 
 				is_axis_aligned =
-					(fabsf(txs[0] - txs[1]) < axis_eps) &&
-					(fabsf(txs[2] - txs[3]) < axis_eps) &&
-					(fabsf(tys[0] - tys[3]) < axis_eps) &&
-					(fabsf(tys[1] - tys[2]) < axis_eps);
+						(fabsf(txs[0] - txs[1]) < axis_eps) &&
+						(fabsf(txs[2] - txs[3]) < axis_eps) &&
+						(fabsf(tys[0] - tys[3]) < axis_eps) &&
+						(fabsf(tys[1] - tys[2]) < axis_eps);
 				PLATFORM_RENDERER_axis_orientation_flips_from_transformed_quad(txs, tys, &geom_flip_x, &geom_flip_y);
 
 				if (is_axis_aligned && uniform_colour)
@@ -3774,10 +4174,10 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 						return;
 					}
 
-					dst_rect.x = (int) gl_left;
-					dst_rect.y = (int) ((float) platform_renderer_present_height - gl_top);
-					dst_rect.w = (int) (gl_right - gl_left);
-					dst_rect.h = (int) (gl_top - gl_bottom);
+					dst_rect.x = (int)gl_left;
+					dst_rect.y = (int)((float)platform_renderer_present_height - gl_top);
+					dst_rect.w = (int)(gl_right - gl_left);
+					dst_rect.h = (int)(gl_top - gl_bottom);
 					if (dst_rect.w <= 0)
 					{
 						dst_rect.w = 1;
@@ -3789,20 +4189,20 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 
 					if (src_flip_x ^ geom_flip_x)
 					{
-						final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_HORIZONTAL);
+						final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_HORIZONTAL);
 					}
 					if (src_flip_y ^ geom_flip_y)
 					{
-						final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_VERTICAL);
+						final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_VERTICAL);
 					}
 
 					PLATFORM_RENDERER_apply_sdl_texture_blend_mode(entry->sdl_texture);
-					(void) SDL_SetTextureColorMod(
-						entry->sdl_texture,
-						PLATFORM_RENDERER_clamp_sdl_unit_to_byte(r[0]),
-						PLATFORM_RENDERER_clamp_sdl_unit_to_byte(g[0]),
-						PLATFORM_RENDERER_clamp_sdl_unit_to_byte(b[0]));
-					(void) SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(a[0])));
+					(void)SDL_SetTextureColorMod(
+							entry->sdl_texture,
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(r[0]),
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(g[0]),
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(b[0]));
+					(void)SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(a[0])));
 
 					if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
 					{
@@ -3838,7 +4238,7 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 						SDL_RendererFlip final_flip = SDL_FLIP_NONE;
 						const float cx = (p0x + p1x + p2x + p3x) * 0.25f;
 						const float cy = (p0y + p1y + p2y + p3y) * 0.25f;
-						const double angle_degrees = atan2((double) exy, (double) exx) * (180.0 / 3.14159265358979323846);
+						const double angle_degrees = atan2((double)exy, (double)exx) * (180.0 / 3.14159265358979323846);
 						const float avg_r = (r[0] + r[1] + r[2] + r[3]) * 0.25f;
 						const float avg_g = (g[0] + g[1] + g[2] + g[3]) * 0.25f;
 						const float avg_b = (b[0] + b[1] + b[2] + b[3]) * 0.25f;
@@ -3846,32 +4246,34 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 
 						if (PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, v1, u2, v2, &src_rect))
 						{
-							dst_rect.w = (int) (width + 0.5f);
-							dst_rect.h = (int) (height + 0.5f);
-							if (dst_rect.w <= 0) dst_rect.w = 1;
-							if (dst_rect.h <= 0) dst_rect.h = 1;
-							dst_rect.x = (int) (cx - ((float) dst_rect.w * 0.5f));
-							dst_rect.y = (int) (cy - ((float) dst_rect.h * 0.5f));
+							dst_rect.w = (int)(width + 0.5f);
+							dst_rect.h = (int)(height + 0.5f);
+							if (dst_rect.w <= 0)
+								dst_rect.w = 1;
+							if (dst_rect.h <= 0)
+								dst_rect.h = 1;
+							dst_rect.x = (int)(cx - ((float)dst_rect.w * 0.5f));
+							dst_rect.y = (int)(cy - ((float)dst_rect.h * 0.5f));
 
 							center.x = dst_rect.w / 2;
 							center.y = dst_rect.h / 2;
 
 							if (src_flip_x)
 							{
-								final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_HORIZONTAL);
+								final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_HORIZONTAL);
 							}
 							if (src_flip_y)
 							{
-								final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_VERTICAL);
+								final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_VERTICAL);
 							}
 
 							PLATFORM_RENDERER_apply_sdl_texture_blend_mode(entry->sdl_texture);
-					(void) SDL_SetTextureColorMod(
-						entry->sdl_texture,
-								PLATFORM_RENDERER_clamp_sdl_unit_to_byte(avg_r),
-								PLATFORM_RENDERER_clamp_sdl_unit_to_byte(avg_g),
-								PLATFORM_RENDERER_clamp_sdl_unit_to_byte(avg_b));
-							(void) SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(avg_a)));
+							(void)SDL_SetTextureColorMod(
+									entry->sdl_texture,
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(avg_r),
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(avg_g),
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(avg_b));
+							(void)SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(avg_a)));
 
 							if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, angle_degrees, &center, final_flip) == 0)
 							{
@@ -3886,21 +4288,21 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 
 					if (!drawn_rotated_rect)
 					{
-						const int indices[6] = { 0, 1, 2, 0, 2, 3 };
-						(void) PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE);
+						const int indices[6] = {0, 1, 2, 0, 2, 3};
+						(void)PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE);
 					}
 				}
 			}
 		}
 	}
 #endif
-	(void) q;
+	(void)q;
 }
 
 void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, int g, int b, float screen_x, float screen_y, int virtual_screen_height, float left, float right, float up, float down, float u1, float v1, float u2, float v2, bool alpha_test)
 {
 	static unsigned int sdl_quad_colour_diag_counter = 0;
-	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready())
+	if (PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
 		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(texture_handle);
 		if (entry != NULL)
@@ -3944,8 +4346,8 @@ void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, in
 				ty0 = y0;
 				tx1 = x1;
 				ty1 = y1;
-				sdl_y0 = (float) sdl_height - ty0;
-				sdl_y1 = (float) sdl_height - ty1;
+				sdl_y0 = (float)sdl_height - ty0;
+				sdl_y1 = (float)sdl_height - ty1;
 				dst_left = (tx0 < tx1) ? tx0 : tx1;
 				dst_right = (tx0 > tx1) ? tx0 : tx1;
 				dst_top = (sdl_y0 < sdl_y1) ? sdl_y0 : sdl_y1;
@@ -3956,10 +4358,10 @@ void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, in
 				}
 				else
 				{
-					dst_rect.x = (int) dst_left;
-					dst_rect.y = (int) dst_top;
-					dst_rect.w = (int) (dst_right - dst_left);
-					dst_rect.h = (int) (dst_bottom - dst_top);
+					dst_rect.x = (int)dst_left;
+					dst_rect.y = (int)dst_top;
+					dst_rect.w = (int)(dst_right - dst_left);
+					dst_rect.h = (int)(dst_bottom - dst_top);
 
 					if (dst_rect.w <= 0)
 					{
@@ -3970,20 +4372,19 @@ void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, in
 						dst_rect.h = 1;
 					}
 
-					(void) alpha_test;
+					(void)alpha_test;
 					sdl_quad_colour_diag_counter++;
 					if ((sdl_quad_colour_diag_counter <= 120u) &&
-						((r < 8) || (g < 8) || (b < 8)))
+							((r < 8) || (g < 8) || (b < 8)))
 					{
-
 					}
 					PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
-					(void) SDL_SetTextureColorMod(
-						draw_texture,
-						PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
-						PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
-						PLATFORM_RENDERER_clamp_sdl_colour_mod(b));
-					(void) SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(255));
+					(void)SDL_SetTextureColorMod(
+							draw_texture,
+							PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
+							PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
+							PLATFORM_RENDERER_clamp_sdl_colour_mod(b));
+					(void)SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(255));
 					if (SDL_RenderCopy(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect) == 0)
 					{
 						platform_renderer_sdl_native_draw_count++;
@@ -3993,12 +4394,12 @@ void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, in
 			}
 		}
 	}
-	(void) virtual_screen_height;
+	(void)virtual_screen_height;
 }
 
 void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r, int g, int b, int a, float entity_x, float entity_y, float left, float right, float up, float down, float u1, float v1, float u2, float v2, float left_window_transform_x, float top_window_transform_y, float total_scale_x, float total_scale_y, float sprite_scale_x, float sprite_scale_y, float sprite_rotation_degrees, bool sprite_flip_x, bool sprite_flip_y)
 {
-	if (!(true && PLATFORM_RENDERER_is_sdl2_stub_ready()))
+	if (!(PLATFORM_RENDERER_is_sdl2_stub_ready()))
 	{
 		return;
 	}
@@ -4048,10 +4449,10 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 	}
 
 	SDL_Rect dst_rect;
-	dst_rect.x = (int) dst_left;
-	dst_rect.y = (int) ((float) platform_renderer_present_height - gl_top);
-	dst_rect.w = (int) (dst_right - dst_left);
-	dst_rect.h = (int) (gl_top - gl_bottom);
+	dst_rect.x = (int)dst_left;
+	dst_rect.y = (int)((float)platform_renderer_present_height - gl_top);
+	dst_rect.w = (int)(dst_right - dst_left);
+	dst_rect.h = (int)(gl_top - gl_bottom);
 
 	if (dst_rect.w <= 0)
 	{
@@ -4064,20 +4465,20 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 
 	float origin_x_gl = left_window_transform_x + (entity_x * total_scale_x);
 	float origin_y_gl = top_window_transform_y + ((-entity_y) * total_scale_y);
-	float origin_y_sdl = (float) platform_renderer_present_height - origin_y_gl;
+	float origin_y_sdl = (float)platform_renderer_present_height - origin_y_gl;
 
 	SDL_Point center;
-	center.x = (int) (origin_x_gl - (float) dst_rect.x);
-	center.y = (int) (origin_y_sdl - (float) dst_rect.y);
+	center.x = (int)(origin_x_gl - (float)dst_rect.x);
+	center.y = (int)(origin_y_sdl - (float)dst_rect.y);
 
 	SDL_RendererFlip final_flip = SDL_FLIP_NONE;
 	if (src_flip_x ^ sprite_flip_x)
 	{
-		final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_HORIZONTAL);
+		final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_HORIZONTAL);
 	}
 	if (src_flip_y ^ sprite_flip_y)
 	{
-		final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_VERTICAL);
+		final_flip = (SDL_RendererFlip)(final_flip | SDL_FLIP_VERTICAL);
 	}
 
 	{
@@ -4087,7 +4488,7 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 		 * backend quirks that can silently drop textured sprite output.
 		 */
 		SDL_Vertex vertices[4];
-		int indices[6] = { 0, 1, 2, 0, 2, 3 };
+		int indices[6] = {0, 1, 2, 0, 2, 3};
 		const bool effective_flip_x = src_flip_x ^ sprite_flip_x;
 		const bool effective_flip_y = src_flip_y ^ sprite_flip_y;
 		const float rel_left = transformed_left * total_scale_x;
@@ -4101,25 +4502,25 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 		const float radians = sprite_rotation_degrees * (3.14159265358979323846f / 180.0f);
 		const float c = cosf(radians);
 		const float s = sinf(radians);
-		const float local_x[4] = { rel_left, rel_left, rel_right, rel_right };
-		const float local_y[4] = { rel_up, rel_down, rel_down, rel_up };
-		const float uv_x[4] = { u_left, u_left, u_right, u_right };
-		const float uv_y[4] = { v_top, v_bottom, v_bottom, v_top };
+		const float local_x[4] = {rel_left, rel_left, rel_right, rel_right};
+		const float local_y[4] = {rel_up, rel_down, rel_down, rel_up};
+		const float uv_x[4] = {u_left, u_left, u_right, u_right};
+		const float uv_y[4] = {v_top, v_bottom, v_bottom, v_top};
 		int i;
 		int native_draw_count_before = platform_renderer_sdl_native_draw_count;
 		bool copied = false;
 
-		(void) SDL_SetTextureColorMod(
-			draw_texture,
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
-			PLATFORM_RENDERER_clamp_sdl_colour_mod(b));
+		(void)SDL_SetTextureColorMod(
+				draw_texture,
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(b));
 		if (PLATFORM_RENDERER_using_subtractive_mod_fallback())
 		{
-			(void) SDL_SetTextureColorMod(draw_texture, 255, 255, 255);
+			(void)SDL_SetTextureColorMod(draw_texture, 255, 255, 255);
 		}
 		PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
-		(void) SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_colour_mod(a)));
+		(void)SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_colour_mod(a)));
 		if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, sprite_rotation_degrees, &center, final_flip) == 0)
 		{
 			platform_renderer_sdl_native_draw_count++;
@@ -4137,7 +4538,7 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 				const float rx = (x * c) - (y * s);
 				const float ry = (x * s) + (y * c);
 				vertices[i].position.x = origin_x_gl + rx;
-				vertices[i].position.y = (float) platform_renderer_present_height - (origin_y_gl + ry);
+				vertices[i].position.y = (float)platform_renderer_present_height - (origin_y_gl + ry);
 				vertices[i].tex_coord.x = uv_x[i];
 				vertices[i].tex_coord.y = uv_y[i];
 				if (PLATFORM_RENDERER_using_subtractive_mod_fallback())
@@ -4155,9 +4556,9 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 				vertices[i].color.a = PLATFORM_RENDERER_clamp_sdl_colour_mod(a);
 			}
 
-			(void) SDL_SetTextureColorMod(draw_texture, 255, 255, 255);
-			(void) SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_colour_mod(a)));
-			(void) PLATFORM_RENDERER_try_sdl_geometry_textured(draw_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_SDL_CUSTOM);
+			(void)SDL_SetTextureColorMod(draw_texture, 255, 255, 255);
+			(void)SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_colour_mod(a)));
+			(void)PLATFORM_RENDERER_try_sdl_geometry_textured(draw_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_SDL_CUSTOM);
 		}
 		if (platform_renderer_sdl_native_draw_count > native_draw_count_before)
 		{
@@ -4168,207 +4569,6 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 			static unsigned int sdl_window_sprite_miss_counter = 0;
 			sdl_window_sprite_miss_counter++;
 		}
-	}
-
-}
-
-void PLATFORM_RENDERER_draw_sdl_window_sprite_src(unsigned int texture_handle, int r, int g, int b, int a, float entity_x, float entity_y, float left, float right, float up, float down, int src_x, int src_y, int src_w, int src_h, float left_window_transform_x, float top_window_transform_y, float total_scale_x, float total_scale_y, float sprite_scale_x, float sprite_scale_y, float sprite_rotation_degrees, bool sprite_flip_x, bool sprite_flip_y)
-{
-	platform_renderer_texture_entry *entry;
-	SDL_Texture *draw_texture;
-	SDL_Rect src_rect;
-	SDL_Rect dst_rect;
-	SDL_Point center;
-	SDL_RendererFlip final_flip = SDL_FLIP_NONE;
-	float transformed_left;
-	float transformed_right;
-	float transformed_up;
-	float transformed_down;
-	float tx0;
-	float tx1;
-	float ty0;
-	float ty1;
-	float dst_left;
-	float dst_right;
-	float gl_bottom;
-	float gl_top;
-	float origin_x_gl;
-	float origin_y_gl;
-	float origin_y_sdl;
-
-	if (!(true && PLATFORM_RENDERER_is_sdl2_stub_ready()))
-	{
-		return;
-	}
-	if (platform_renderer_present_height <= 0)
-	{
-		return;
-	}
-
-	entry = PLATFORM_RENDERER_get_texture_entry(texture_handle);
-	if (entry == NULL)
-	{
-		return;
-	}
-	if (!PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
-	{
-		return;
-	}
-	draw_texture = PLATFORM_RENDERER_get_effective_texture_for_current_blend(entry);
-	if (draw_texture == NULL)
-	{
-		return;
-	}
-
-	if (src_w <= 0 || src_h <= 0)
-	{
-		return;
-	}
-	{
-		const int raw_src_x = src_x;
-		const int raw_src_y = src_y;
-		const int raw_src_w = src_w;
-		const int raw_src_h = src_h;
-		int a_x = raw_src_x;
-		int a_y = raw_src_y;
-		int a_w = raw_src_w;
-		int a_h = raw_src_h;
-		int b_x = raw_src_x;
-		int b_y = entry->height - (raw_src_y + raw_src_h);
-		int b_w = raw_src_w;
-		int b_h = raw_src_h;
-		bool a_valid = true;
-		bool b_valid = true;
-
-		/* Candidate A: direct top-left source coordinates. */
-		if (a_x < 0) { a_w += a_x; a_x = 0; }
-		if (a_y < 0) { a_h += a_y; a_y = 0; }
-		if ((a_x >= entry->width) || (a_y >= entry->height)) { a_valid = false; }
-		if (a_valid && (a_x + a_w > entry->width)) { a_w = entry->width - a_x; }
-		if (a_valid && (a_y + a_h > entry->height)) { a_h = entry->height - a_y; }
-		if (a_valid && ((a_w <= 0) || (a_h <= 0))) { a_valid = false; }
-
-		/* Candidate B: OpenGL-style bottom-origin source coordinates. */
-		if (b_x < 0) { b_w += b_x; b_x = 0; }
-		if (b_y < 0) { b_h += b_y; b_y = 0; }
-		if ((b_x >= entry->width) || (b_y >= entry->height)) { b_valid = false; }
-		if (b_valid && (b_x + b_w > entry->width)) { b_w = entry->width - b_x; }
-		if (b_valid && (b_y + b_h > entry->height)) { b_h = entry->height - b_y; }
-		if (b_valid && ((b_w <= 0) || (b_h <= 0))) { b_valid = false; }
-
-		if (!a_valid && !b_valid)
-		{
-			return;
-		}
-		if (a_valid && !b_valid)
-		{
-			src_rect.x = a_x; src_rect.y = a_y; src_rect.w = a_w; src_rect.h = a_h;
-		}
-		else if (!a_valid && b_valid)
-		{
-			src_rect.x = b_x; src_rect.y = b_y; src_rect.w = b_w; src_rect.h = b_h;
-		}
-		else
-		{
-			SDL_Rect a_rect;
-			SDL_Rect b_rect;
-			float cov_a;
-			float cov_b;
-			float avg_ar, avg_ag, avg_ab, avg_aa;
-			float avg_br, avg_bg, avg_bb, avg_ba;
-			float lum_a;
-			float lum_b;
-			bool choose_b = false;
-			a_rect.x = a_x; a_rect.y = a_y; a_rect.w = a_w; a_rect.h = a_h;
-			b_rect.x = b_x; b_rect.y = b_y; b_rect.w = b_w; b_rect.h = b_h;
-			cov_a = PLATFORM_RENDERER_estimate_alpha_coverage(entry, &a_rect);
-			cov_b = PLATFORM_RENDERER_estimate_alpha_coverage(entry, &b_rect);
-			PLATFORM_RENDERER_estimate_rect_colour_stats(entry, &a_rect, &avg_ar, &avg_ag, &avg_ab, &avg_aa);
-			PLATFORM_RENDERER_estimate_rect_colour_stats(entry, &b_rect, &avg_br, &avg_bg, &avg_bb, &avg_ba);
-			lum_a = (avg_ar * 0.2126f) + (avg_ag * 0.7152f) + (avg_ab * 0.0722f);
-			lum_b = (avg_br * 0.2126f) + (avg_bg * 0.7152f) + (avg_bb * 0.0722f);
-			if (cov_b > cov_a)
-			{
-				choose_b = true;
-			}
-			else if (cov_a > cov_b)
-			{
-				choose_b = false;
-			}
-			else
-			{
-				/*
-				 * If alpha coverage ties, prefer the candidate with more visible
-				 * colour data. This avoids selecting fully-opaque black filler
-				 * bands when the true content is in the flipped Y candidate.
-				 */
-				if (lum_b > lum_a)
-				{
-					choose_b = true;
-				}
-			}
-
-			if (choose_b)
-			{
-				src_rect = b_rect;
-			}
-			else
-			{
-				src_rect = a_rect;
-			}
-		}
-	}
-
-	transformed_left = left * sprite_scale_x;
-	transformed_right = right * sprite_scale_x;
-	transformed_up = up * sprite_scale_y;
-	transformed_down = down * sprite_scale_y;
-
-	tx0 = left_window_transform_x + ((entity_x + transformed_left) * total_scale_x);
-	tx1 = left_window_transform_x + ((entity_x + transformed_right) * total_scale_x);
-	ty0 = top_window_transform_y + (((-entity_y) + transformed_up) * total_scale_y);
-	ty1 = top_window_transform_y + (((-entity_y) + transformed_down) * total_scale_y);
-
-	dst_left = (tx0 < tx1) ? tx0 : tx1;
-	dst_right = (tx0 > tx1) ? tx0 : tx1;
-	gl_bottom = (ty0 < ty1) ? ty0 : ty1;
-	gl_top = (ty0 > ty1) ? ty0 : ty1;
-
-	dst_rect.x = (int) dst_left;
-	dst_rect.y = (int) ((float) platform_renderer_present_height - gl_top);
-	dst_rect.w = (int) (dst_right - dst_left);
-	dst_rect.h = (int) (gl_top - gl_bottom);
-	if (dst_rect.w <= 0) dst_rect.w = 1;
-	if (dst_rect.h <= 0) dst_rect.h = 1;
-
-	origin_x_gl = left_window_transform_x + (entity_x * total_scale_x);
-	origin_y_gl = top_window_transform_y + ((-entity_y) * total_scale_y);
-	origin_y_sdl = (float) platform_renderer_present_height - origin_y_gl;
-	center.x = (int) (origin_x_gl - (float) dst_rect.x);
-	center.y = (int) (origin_y_sdl - (float) dst_rect.y);
-
-	if (sprite_flip_x)
-	{
-		final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_HORIZONTAL);
-	}
-	if (sprite_flip_y)
-	{
-		final_flip = (SDL_RendererFlip) (final_flip | SDL_FLIP_VERTICAL);
-	}
-
-	PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
-	(void) SDL_SetTextureColorMod(
-		draw_texture,
-		PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
-		PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
-		PLATFORM_RENDERER_clamp_sdl_colour_mod(b));
-	(void) SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_colour_mod(a)));
-
-	if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, sprite_rotation_degrees, &center, final_flip) == 0)
-	{
-		platform_renderer_sdl_native_draw_count++;
-		platform_renderer_sdl_native_textured_draw_count++;
-		platform_renderer_sdl_window_sprite_draw_count++;
 	}
 }
 
@@ -4400,10 +4600,10 @@ void PLATFORM_RENDERER_draw_sdl_window_solid_rect(int r, int g, int b, float ent
 	float gl_top = (ty0 > ty1) ? ty0 : ty1;
 
 	SDL_Rect dst_rect;
-	dst_rect.x = (int) dst_left;
-	dst_rect.y = (int) ((float) platform_renderer_present_height - gl_top);
-	dst_rect.w = (int) (dst_right - dst_left);
-	dst_rect.h = (int) (gl_top - gl_bottom);
+	dst_rect.x = (int)dst_left;
+	dst_rect.y = (int)((float)platform_renderer_present_height - gl_top);
+	dst_rect.w = (int)(dst_right - dst_left);
+	dst_rect.h = (int)(gl_top - gl_bottom);
 
 	if (dst_rect.w <= 0)
 	{
@@ -4414,19 +4614,18 @@ void PLATFORM_RENDERER_draw_sdl_window_solid_rect(int r, int g, int b, float ent
 		dst_rect.h = 1;
 	}
 
-	(void) SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_BLEND);
-	(void) SDL_SetRenderDrawColor(
-		platform_renderer_sdl_renderer,
-		PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
-		PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
-		PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
-		255);
+	(void)SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_BLEND);
+	(void)SDL_SetRenderDrawColor(
+			platform_renderer_sdl_renderer,
+			PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
+			PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
+			PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
+			255);
 	if (SDL_RenderFillRect(platform_renderer_sdl_renderer, &dst_rect) == 0)
 	{
 		platform_renderer_sdl_native_draw_count++;
 		platform_renderer_sdl_window_solid_rect_draw_count++;
 	}
-
 }
 
 void PLATFORM_RENDERER_draw_sdl_bound_textured_quad_custom(unsigned int texture_handle, float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2)
@@ -4465,20 +4664,24 @@ void PLATFORM_RENDERER_draw_sdl_bound_textured_quad_custom(unsigned int texture_
 	for (i = 0; i < 4; i++)
 	{
 		vertices[i].position.x = px[i];
-		vertices[i].position.y = (float) platform_renderer_present_height - py[i];
+		vertices[i].position.y = (float)platform_renderer_present_height - py[i];
 		vertices[i].color.r = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r);
 		vertices[i].color.g = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g);
 		vertices[i].color.b = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b);
 		vertices[i].color.a = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a);
 	}
 
-	vertices[0].tex_coord.x = u1; vertices[0].tex_coord.y = v1;
-	vertices[1].tex_coord.x = u1; vertices[1].tex_coord.y = v2;
-	vertices[2].tex_coord.x = u2; vertices[2].tex_coord.y = v2;
-	vertices[3].tex_coord.x = u2; vertices[3].tex_coord.y = v1;
+	vertices[0].tex_coord.x = u1;
+	vertices[0].tex_coord.y = v1;
+	vertices[1].tex_coord.x = u1;
+	vertices[1].tex_coord.y = v2;
+	vertices[2].tex_coord.x = u2;
+	vertices[2].tex_coord.y = v2;
+	vertices[3].tex_coord.x = u2;
+	vertices[3].tex_coord.y = v1;
 	{
-		int indices[6] = { 0, 1, 2, 0, 2, 3 };
-		(void) PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_SDL_CUSTOM);
+		int indices[6] = {0, 1, 2, 0, 2, 3};
+		(void)PLATFORM_RENDERER_try_sdl_geometry_textured(entry->sdl_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_SDL_CUSTOM);
 	}
 	if (platform_renderer_sdl_native_draw_count > native_draw_count_before)
 	{
@@ -4486,19 +4689,19 @@ void PLATFORM_RENDERER_draw_sdl_bound_textured_quad_custom(unsigned int texture_
 	}
 
 #else
-	(void) texture_handle;
-	(void) x0;
-	(void) y0;
-	(void) x1;
-	(void) y1;
-	(void) x2;
-	(void) y2;
-	(void) x3;
-	(void) y3;
-	(void) u1;
-	(void) v1;
-	(void) u2;
-	(void) v2;
+					(void)texture_handle;
+					(void)x0;
+					(void)y0;
+					(void)x1;
+					(void)y1;
+					(void)x2;
+					(void)y2;
+					(void)x3;
+					(void)y3;
+					(void)u1;
+					(void)v1;
+					(void)u2;
+					(void)v2;
 #endif
 }
 
@@ -4507,10 +4710,9 @@ unsigned int PLATFORM_RENDERER_create_masked_texture(BITMAP *image)
 	return PLATFORM_RENDERER_register_legacy_texture(0, image);
 }
 
-static void PLATFORM_RENDERER_compare_legacy_and_sdl_outputs(int width, int height)
+unsigned int PLATFORM_RENDERER_create_masked_texture(SDL_Surface *image)
 {
-	(void) width;
-	(void) height;
+	return PLATFORM_RENDERER_register_SDL_texture(0, image);
 }
 
 void PLATFORM_RENDERER_present_frame(int width, int height)
@@ -4526,16 +4728,16 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 	platform_renderer_present_height = height;
 	if (PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
-		(void) PLATFORM_RENDERER_sync_sdl_render_target_size(width, height);
+		(void)PLATFORM_RENDERER_sync_sdl_render_target_size(width, height);
 	}
 	bool native_primary_strict = platform_renderer_sdl_native_primary_strict_enabled;
 	bool native_primary_requested = true;
 	bool native_primary = native_primary_requested && native_primary_strict;
 	bool native_primary_force_no_mirror = platform_renderer_sdl_native_primary_force_no_mirror_enabled;
 	bool coverage_good_this_frame =
-		(platform_renderer_sdl_native_textured_draw_count > 0) &&
-		(platform_renderer_sdl_geometry_fallback_miss_count == 0) &&
-		((platform_renderer_sdl_geometry_degraded_count == 0));
+			(platform_renderer_sdl_native_textured_draw_count > 0) &&
+			(platform_renderer_sdl_geometry_fallback_miss_count == 0) &&
+			((platform_renderer_sdl_geometry_degraded_count == 0));
 	bool allow_no_mirror_this_frame = false;
 	bool used_mirror_fallback = false;
 	int geom_hot_source = PLATFORM_RENDERER_GEOM_SRC_NONE;
@@ -4590,11 +4792,11 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 			platform_renderer_sdl_native_coverage_streak++;
 		}
 	}
-		else
-		{
-			platform_renderer_sdl_native_coverage_streak = 0;
-		}
-		if (!platform_renderer_legacy_submission_mode_forced_on &&
+	else
+	{
+		platform_renderer_sdl_native_coverage_streak = 0;
+	}
+	if (!platform_renderer_legacy_submission_mode_forced_on &&
 			!platform_renderer_legacy_submission_mode_forced_off &&
 			!platform_renderer_legacy_safe_off_latched &&
 			can_submit_legacy &&
@@ -4606,61 +4808,58 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 			(platform_renderer_sdl_native_draw_count >= native_primary_min_draws_for_no_mirror) &&
 			(platform_renderer_sdl_native_textured_draw_count >= native_primary_min_textured_draws_for_no_mirror) &&
 			(platform_renderer_sdl_native_coverage_streak >= platform_renderer_legacy_safe_off_required_streak))
-		{
-			platform_renderer_legacy_submission_mode_enabled = false;
-			can_submit_legacy = false;
-			platform_renderer_legacy_safe_off_latched = true;
-			platform_renderer_sdl_mode_info_logged = false;
-
-		}
-		if (!platform_renderer_legacy_submission_mode_forced_on &&
+	{
+		platform_renderer_legacy_submission_mode_enabled = false;
+		can_submit_legacy = false;
+		platform_renderer_legacy_safe_off_latched = true;
+		platform_renderer_sdl_mode_info_logged = false;
+	}
+	if (!platform_renderer_legacy_submission_mode_forced_on &&
 			!platform_renderer_legacy_submission_mode_forced_off &&
 			!platform_renderer_legacy_safe_off_latched)
-		{
-			platform_renderer_legacy_safe_off_progress_log_counter++;
-			if ((platform_renderer_legacy_safe_off_progress_log_counter <= 5u) ||
+	{
+		platform_renderer_legacy_safe_off_progress_log_counter++;
+		if ((platform_renderer_legacy_safe_off_progress_log_counter <= 5u) ||
 				((platform_renderer_legacy_safe_off_progress_log_counter % 300u) == 0u))
-			{
-
-			}
+		{
 		}
-		if (!platform_renderer_legacy_submission_mode_forced_on &&
+	}
+	if (!platform_renderer_legacy_submission_mode_forced_on &&
 			!platform_renderer_legacy_submission_mode_forced_off &&
 			platform_renderer_legacy_safe_off_latched &&
 			!can_submit_legacy)
-		{
-			bool rollback_bad_coverage =
+	{
+		bool rollback_bad_coverage =
 				!coverage_good_this_frame ||
 				(platform_renderer_sdl_native_draw_count < native_primary_min_draws_for_no_mirror) ||
 				(platform_renderer_sdl_native_textured_draw_count < native_primary_min_textured_draws_for_no_mirror);
 
-			if (rollback_bad_coverage)
-			{
-				if (platform_renderer_legacy_safe_off_regression_streak < 1000000)
-				{
-					platform_renderer_legacy_safe_off_regression_streak++;
-				}
-			}
-			else
-			{
-				platform_renderer_legacy_safe_off_regression_streak = 0;
-			}
-
-			if (platform_renderer_legacy_safe_off_regression_streak >= platform_renderer_legacy_safe_off_rollback_streak)
-			{
-				platform_renderer_legacy_submission_mode_enabled = true;
-				can_submit_legacy = false;
-				platform_renderer_legacy_safe_off_latched = false;
-				platform_renderer_legacy_safe_off_regression_streak = 0;
-				platform_renderer_sdl_native_coverage_streak = 0;
-				platform_renderer_sdl_mode_info_logged = false;
-
-			}
-		}
-		if (native_primary && native_primary_force_no_mirror)
+		if (rollback_bad_coverage)
 		{
-			allow_no_mirror_this_frame = true;
+			if (platform_renderer_legacy_safe_off_regression_streak < 1000000)
+			{
+				platform_renderer_legacy_safe_off_regression_streak++;
+			}
 		}
+		else
+		{
+			platform_renderer_legacy_safe_off_regression_streak = 0;
+		}
+
+		if (platform_renderer_legacy_safe_off_regression_streak >= platform_renderer_legacy_safe_off_rollback_streak)
+		{
+			platform_renderer_legacy_submission_mode_enabled = true;
+			can_submit_legacy = false;
+			platform_renderer_legacy_safe_off_latched = false;
+			platform_renderer_legacy_safe_off_regression_streak = 0;
+			platform_renderer_sdl_native_coverage_streak = 0;
+			platform_renderer_sdl_mode_info_logged = false;
+		}
+	}
+	if (native_primary && native_primary_force_no_mirror)
+	{
+		allow_no_mirror_this_frame = true;
+	}
 	else if (native_primary && !platform_renderer_sdl_no_mirror_blocked_for_session && (platform_renderer_sdl_no_mirror_cooldown_frames == 0) && coverage_good_this_frame)
 	{
 		allow_no_mirror_this_frame = true;
@@ -4669,7 +4868,7 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 	{
 		if (PLATFORM_RENDERER_prepare_sdl2_stub(width, height, true) && !platform_renderer_sdl_stub_self_test_done)
 		{
-			(void) PLATFORM_RENDERER_run_sdl2_stub_self_test();
+			(void)PLATFORM_RENDERER_run_sdl2_stub_self_test();
 			platform_renderer_sdl_stub_self_test_done = true;
 		}
 	}
@@ -4677,7 +4876,7 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 	{
 		used_mirror_fallback = true;
 	}
-		else if ((!native_primary_strict) || !allow_no_mirror_this_frame)
+	else if ((!native_primary_strict) || !allow_no_mirror_this_frame)
 	{
 		// Default primary mode remains safe: mirror while migration coverage is incomplete.
 		used_mirror_fallback = true;
@@ -4706,22 +4905,17 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 				snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL2 native sprites enabled; currently no native draw-path calls this frame (showing mirror fallback).");
 			}
 		}
-		if (native_primary && !used_mirror_fallback)
 		{
-			PLATFORM_RENDERER_compare_legacy_and_sdl_outputs(width, height);
-		}
-			{
-				const bool should_present_sdl = true;
-				platform_renderer_sdl_present_frame_counter++;
+			const bool should_present_sdl = true;
+			platform_renderer_sdl_present_frame_counter++;
 			if (should_present_sdl)
 			{
 				SDL_RenderPresent(platform_renderer_sdl_renderer);
-		}
-		sdl_present_debug_counter++;
-		if ((sdl_present_debug_counter <= 20u) || ((sdl_present_debug_counter % 300u) == 0u))
-		{
-
-		}
+			}
+			sdl_present_debug_counter++;
+			if ((sdl_present_debug_counter <= 20u) || ((sdl_present_debug_counter % 300u) == 0u))
+			{
+			}
 		}
 	}
 	if (native_primary)
@@ -4733,18 +4927,18 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 			should_flip_legacy_output = true;
 		}
 		else
-			{
-				should_flip_legacy_output = can_submit_legacy && used_mirror_fallback;
-			}
-		}
-		if (platform_renderer_sdl_stub_show_enabled && can_submit_legacy)
 		{
-			/*
-			 * Keep the final flip at the canonical end-of-frame position when SDL is
-			 * also presenting.
-			 */
-			should_flip_legacy_output = true;
+			should_flip_legacy_output = can_submit_legacy && used_mirror_fallback;
 		}
+	}
+	if (platform_renderer_sdl_stub_show_enabled && can_submit_legacy)
+	{
+		/*
+		 * Keep the final flip at the canonical end-of-frame position when SDL is
+		 * also presenting.
+		 */
+		should_flip_legacy_output = true;
+	}
 	platform_renderer_clear_backbuffer_calls_since_present = 0;
 	platform_renderer_midframe_reset_events = 0;
 }
@@ -4778,7 +4972,7 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 	 * Keep SDL submission order strict for mixed primitive/sprite scenes
 	 * (e.g. starfield lines + intro text overlays).
 	 */
-	(void) SDL_SetHint(SDL_HINT_RENDER_BATCHING, "0");
+	(void)SDL_SetHint(SDL_HINT_RENDER_BATCHING, "0");
 
 	Uint32 needed_flags = SDL_INIT_VIDEO | SDL_INIT_EVENTS;
 	Uint32 already_flags = SDL_WasInit(needed_flags);
@@ -4800,12 +4994,12 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 	}
 
 	platform_renderer_sdl_window = SDL_CreateWindow(
-		"WizBall SDL2 Stub",
-		SDL_WINDOWPOS_UNDEFINED,
-		SDL_WINDOWPOS_UNDEFINED,
-		width,
-		height,
-		window_flags);
+			"WizBall SDL2 Stub",
+			SDL_WINDOWPOS_UNDEFINED,
+			SDL_WINDOWPOS_UNDEFINED,
+			width,
+			height,
+			window_flags);
 
 	if (platform_renderer_sdl_window == NULL)
 	{
@@ -4818,32 +5012,32 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 		return false;
 	}
 
-		if (platform_renderer_sdl_stub_accel_enabled)
+	if (platform_renderer_sdl_stub_accel_enabled)
 	{
 		bool force_software_renderer = false;
 		platform_renderer_sdl_renderer_software_forced = force_software_renderer;
 		if (force_software_renderer)
 		{
 			platform_renderer_sdl_renderer = SDL_CreateRenderer(
-				platform_renderer_sdl_window,
-				-1,
-				SDL_RENDERER_SOFTWARE);
+					platform_renderer_sdl_window,
+					-1,
+					SDL_RENDERER_SOFTWARE);
 		}
 		else
 		{
-		platform_renderer_sdl_renderer = SDL_CreateRenderer(
-			platform_renderer_sdl_window,
-			-1,
-			SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+			platform_renderer_sdl_renderer = SDL_CreateRenderer(
+					platform_renderer_sdl_window,
+					-1,
+					SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 		}
 	}
 	else
 	{
 		platform_renderer_sdl_renderer_software_forced = true;
 		platform_renderer_sdl_renderer = SDL_CreateRenderer(
-			platform_renderer_sdl_window,
-			-1,
-			SDL_RENDERER_SOFTWARE);
+				platform_renderer_sdl_window,
+				-1,
+				SDL_RENDERER_SOFTWARE);
 	}
 
 	if (platform_renderer_sdl_renderer == NULL)
@@ -4867,18 +5061,18 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 		{
 			const char *renderer_name = (renderer_info.name != NULL) ? renderer_info.name : "";
 			renderer_backend_is_gpu = ((renderer_info.flags & SDL_RENDERER_ACCELERATED) != 0) ||
-				(strstr(renderer_name, "opengl") != NULL) ||
-				(strstr(renderer_name, "metal") != NULL) ||
-				(strstr(renderer_name, "vulkan") != NULL) ||
-				(strstr(renderer_name, "direct3d") != NULL);
+																(strstr(renderer_name, "opengl") != NULL) ||
+																(strstr(renderer_name, "metal") != NULL) ||
+																(strstr(renderer_name, "vulkan") != NULL) ||
+																(strstr(renderer_name, "direct3d") != NULL);
 		}
 		if (force_software_now && renderer_backend_is_gpu)
 		{
 			SDL_DestroyRenderer(platform_renderer_sdl_renderer);
 			platform_renderer_sdl_renderer = SDL_CreateRenderer(
-				platform_renderer_sdl_window,
-				-1,
-				SDL_RENDERER_SOFTWARE);
+					platform_renderer_sdl_window,
+					-1,
+					SDL_RENDERER_SOFTWARE);
 			platform_renderer_sdl_renderer_software_forced = true;
 		}
 		if (platform_renderer_sdl_renderer == NULL)
@@ -4942,9 +5136,14 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 			strcpy(platform_renderer_sdl_status, "SDL2 stub initialized (hidden window + software renderer).");
 		}
 	}
-	(void) PLATFORM_RENDERER_sync_sdl_render_target_size(width, height);
+	(void)PLATFORM_RENDERER_sync_sdl_render_target_size(width, height);
 	return true;
 	return false;
+}
+
+SDL_Renderer *PLATFORM_RENDERER_SDL_Renderer()
+{
+	return platform_renderer_sdl_renderer;
 }
 
 bool PLATFORM_RENDERER_is_sdl2_stub_ready(void)
@@ -5008,5 +5207,4 @@ void PLATFORM_RENDERER_shutdown(void)
 		SDL_QuitSubSystem(SDL_INIT_VIDEO | SDL_INIT_EVENTS);
 		platform_renderer_started_sdl_video = false;
 	}
-
 }

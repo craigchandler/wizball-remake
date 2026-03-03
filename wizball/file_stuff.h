@@ -25,4 +25,5 @@ FILE *FILE_open_case_fallback(const char *filename, const char *mode);
 FILE *FILE_open_project_read_case_fallback(const char *relative_filename);
 FILE *FILE_open_project_case_fallback(const char *relative_filename, const char *mode);
 
+void lowercase_last_path_components(const char *in_path, char *out_path, size_t out_size, int components);
 #endif

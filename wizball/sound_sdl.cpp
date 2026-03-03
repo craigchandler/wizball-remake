@@ -11,16 +11,18 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "file_stuff.h"
+
 static Mix_Chunk *sound_effects[MAX_SAMPLES];
 static Mix_Chunk *sound_streams[MAX_STREAMS];
 static int stream_channel_map[MAX_STREAMS];
 
-int persistant_channel_array [MAX_CHANNELS_WANTED];
-bool persistant_channel_array_active [MAX_CHANNELS_WANTED];
+int persistant_channel_array[MAX_CHANNELS_WANTED];
+bool persistant_channel_array_active[MAX_CHANNELS_WANTED];
 int current_persistant_channels = 0;
 
-int fading_channel_array [MAX_FADER_CHANNELS];
-bool fading_channel_array_active [MAX_FADER_CHANNELS];
+int fading_channel_array[MAX_FADER_CHANNELS];
+bool fading_channel_array_active[MAX_FADER_CHANNELS];
 int fading_channel_count = 0;
 
 static bool sound_backend_ready = false;
@@ -125,7 +127,7 @@ static int SOUND_pick_stream_channel(void)
 	return 0;
 }
 
-static Mix_Chunk * SOUND_load_chunk_from_memory(char *data_pointer, int data_length)
+static Mix_Chunk *SOUND_load_chunk_from_memory(char *data_pointer, int data_length)
 {
 	SDL_RWops *rw;
 
@@ -143,14 +145,19 @@ static Mix_Chunk * SOUND_load_chunk_from_memory(char *data_pointer, int data_len
 	return Mix_LoadWAV_RW(rw, 1);
 }
 
-static Mix_Chunk * SOUND_load_chunk_from_file(const char *filename)
+static Mix_Chunk *SOUND_load_chunk_from_file(const char *filename)
 {
 	if (filename == NULL)
 	{
 		return NULL;
 	}
 
-	return Mix_LoadWAV(filename);
+	char lower_filename[TEXT_LINE_SIZE];
+	lowercase_last_path_components(filename, lower_filename, sizeof(lower_filename), 1);
+	if (strcmp(lower_filename, filename) != 0)
+	{
+		return Mix_LoadWAV(lower_filename);
+	}
 }
 
 static void SOUND_reset_arrays(void)
@@ -172,7 +179,7 @@ static void SOUND_reset_arrays(void)
 	fading_channel_count = 0;
 }
 
-void SOUND_add_persistant_channel (int channel_number)
+void SOUND_add_persistant_channel(int channel_number)
 {
 	if (current_persistant_channels >= MAX_CHANNELS_WANTED)
 	{
@@ -184,7 +191,7 @@ void SOUND_add_persistant_channel (int channel_number)
 	current_persistant_channels++;
 }
 
-void SOUND_add_fader_channel (int channel_number)
+void SOUND_add_fader_channel(int channel_number)
 {
 	if (fading_channel_count >= MAX_FADER_CHANNELS)
 	{
@@ -196,7 +203,7 @@ void SOUND_add_fader_channel (int channel_number)
 	fading_channel_count++;
 }
 
-void SOUND_stop_persistant_channels (void)
+void SOUND_stop_persistant_channels(void)
 {
 	int channel;
 
@@ -208,7 +215,7 @@ void SOUND_stop_persistant_channels (void)
 	current_persistant_channels = 0;
 }
 
-void SOUND_transfer_persistant_channels_to_fader_channels (void)
+void SOUND_transfer_persistant_channels_to_fader_channels(void)
 {
 	int channel;
 
@@ -220,7 +227,7 @@ void SOUND_transfer_persistant_channels_to_fader_channels (void)
 	current_persistant_channels = 0;
 }
 
-void SOUND_check_persistant_channel_validity (void)
+void SOUND_check_persistant_channel_validity(void)
 {
 	int channel;
 
@@ -246,7 +253,7 @@ void SOUND_check_persistant_channel_validity (void)
 	}
 }
 
-void SOUND_remove_from_persistant_channels (int channel_number)
+void SOUND_remove_from_persistant_channels(int channel_number)
 {
 	int channel;
 	for (channel = 0; channel < current_persistant_channels; channel++)
@@ -258,7 +265,7 @@ void SOUND_remove_from_persistant_channels (int channel_number)
 	}
 }
 
-void SOUND_fade_channels (void)
+void SOUND_fade_channels(void)
 {
 	int channel;
 	int volume;
@@ -435,16 +442,8 @@ void SOUND_load_sound_effects(void)
 	{
 		sprintf(filename, "%s%s", GPL_what_is_word_name(list_pointer), extension_pointer);
 
-		if (load_from_dat_file)
-		{
-			data_pointer = (char *) INPUT_get_sfx_data_pointer(filename, &data_length);
-			sound_effects[counter] = SOUND_load_chunk_from_memory(data_pointer, data_length);
-		}
-		else
-		{
-			PATH_UTIL_build_relative_path(full_filename, sizeof(full_filename), "sound_fx", filename);
-			sound_effects[counter] = SOUND_load_chunk_from_file(MAIN_get_project_filename(full_filename));
-		}
+		PATH_UTIL_build_relative_path(full_filename, sizeof(full_filename), "sound_fx", filename);
+		sound_effects[counter] = SOUND_load_chunk_from_file(MAIN_get_project_filename(full_filename));
 
 		if (sound_effects[counter] != NULL)
 		{
@@ -625,25 +624,12 @@ void SOUND_open_sound_streams(void)
 	{
 		sprintf(filename, "%s%s", GPL_what_is_word_name(list_pointer), extension_pointer);
 
-		if (load_from_dat_file)
+		PATH_UTIL_build_relative_path(full_filename, sizeof(full_filename), "streams", filename);
+		sound_streams[counter] = SOUND_load_chunk_from_file(MAIN_get_project_filename(full_filename));
+		if (sound_streams[counter] == NULL)
 		{
-			data_pointer = (char *) INPUT_get_stream_data_pointer(filename, &data_length);
-			sound_streams[counter] = SOUND_load_chunk_from_memory(data_pointer, data_length);
-			if (sound_streams[counter] == NULL)
-			{
-				sprintf(line, "SDL stream load failed: %s (err=%s)", filename, Mix_GetError());
-				SOUND_log(line);
-			}
-		}
-		else
-		{
-			PATH_UTIL_build_relative_path(full_filename, sizeof(full_filename), "streams", filename);
-			sound_streams[counter] = SOUND_load_chunk_from_file(MAIN_get_project_filename(full_filename));
-			if (sound_streams[counter] == NULL)
-			{
-				sprintf(line, "SDL stream load failed: %s (err=%s)", filename, Mix_GetError());
-				SOUND_log(line);
-			}
+			sprintf(line, "SDL stream load failed: %s (err=%s)", filename, Mix_GetError());
+			SOUND_log(line);
 		}
 
 		if (sound_streams[counter] != NULL)

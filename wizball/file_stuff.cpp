@@ -231,20 +231,7 @@ int FILE_get_int_from_file (FILE *file_pointer)
 	return value;
 }
 
-
-#if defined(ALLEGRO_MACOSX) || defined(ALLEGRO_LINUX)
-
-
-
-static bool match_ext(const char* filename, const char* ext) 
-{
-  int flen = strlen(filename);
-  int elen = strlen(ext);
-  if (elen > flen) return false;
-  return strcasecmp(filename + flen - elen, ext) == 0;
-}
-
-static void lowercase_last_path_components(const char *in_path, char *out_path, size_t out_size, int components)
+void lowercase_last_path_components(const char *in_path, char *out_path, size_t out_size, int components)
 {
 	size_t i;
 	size_t len;
@@ -282,6 +269,18 @@ static void lowercase_last_path_components(const char *in_path, char *out_path, 
 	{
 		out_path[i] = (char)tolower((unsigned char)out_path[i]);
 	}
+}
+
+#if defined(ALLEGRO_MACOSX) || defined(ALLEGRO_LINUX)
+
+
+
+static bool match_ext(const char* filename, const char* ext) 
+{
+  int flen = strlen(filename);
+  int elen = strlen(ext);
+  if (elen > flen) return false;
+  return strcasecmp(filename + flen - elen, ext) == 0;
 }
 
 FILE *FILE_open_case_fallback(const char *filename, const char *mode)

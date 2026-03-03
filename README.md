@@ -115,13 +115,6 @@ cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release
 cmake --build build_release -j
 ```
 
-Build with FMOD enabled (requires FMOD headers/libs installed on your system):
-
-```bash
-cmake -S . -B build_fmod -DWIZBALL_ENABLE_FMOD=ON
-cmake --build build_fmod -j
-```
-
 ### Run
 
 Run from the `wizball/` data directory:
