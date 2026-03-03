@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include <allegro.h>
 #ifdef ALLEGRO_MACOSX
 #include <CoreServices/CoreServices.h>
 #endif
@@ -10702,7 +10701,7 @@ void SCRIPTING_load_prefabs (void)
 		sprintf (filename , "%s%s" , GPL_what_is_word_name (list_pointer) , extension_pointer );
 
 		// Okay, check the file to see if it contains the "-arb" or "-set"
-		append_filename(full_filename, "prefabs", filename, sizeof(full_filename) );
+		FILE_append_filename(full_filename, "prefabs", filename, sizeof(full_filename) );
 
 		SCRIPTING_load_prefab (full_filename,list_pointer-list_start);
 	}
@@ -11653,7 +11652,7 @@ void SCRIPTING_output_entities_to_file (char *filename)
 	int ent_num, ent_index, ent_tag;
 	char word[MAX_LINE_SIZE];
 
-	FILE *file_pointer = fopen (strlwr(MAIN_get_project_filename (filename)),"a");
+	FILE *file_pointer = fopen (STRING_lowercase(MAIN_get_project_filename (filename)),"a");
 
 	if (file_pointer != NULL)
 	{
@@ -11693,9 +11692,9 @@ void SCRIPTING_output_save_data_to_file (int filename_text_tag)
 	
 	strcpy (filename,filename_pointer);
 	strcat (filename,".sav");
-	strupr (filename);
+	STRING_uppercase (filename);
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename (strlwr(filename), true),"w");
+	FILE *file_pointer = fopen (MAIN_get_project_filename (STRING_lowercase(filename), true),"w");
 
 	if (file_pointer != NULL)
 	{
@@ -11959,7 +11958,7 @@ void SCRIPTING_load_save_file (int filename_text_tag)
 	
 	strcpy (filename,filename_pointer);
 	strcat (filename,".SAV");
-	strupr (filename);
+	STRING_uppercase (filename);
 
 	FILE *file_pointer = FILE_open_project_read_case_fallback(filename);
 	
@@ -12127,7 +12126,7 @@ void SCRIPTING_setup_watch_list (void)
 		while ( (fgets ( line , MAX_LINE_SIZE , file_pointer ) != NULL) && (exitmainloop == false) )
 		{
 			STRING_strip_newlines(line);
-			strupr(line);
+			STRING_uppercase(line);
 
 			pointer = STRING_end_of_string(line,"#END OF FILE");
 			if (pointer != NULL)

@@ -7,7 +7,6 @@ int GPL_what_is_list_number (char *word);
 void GPL_list_extents (char *word_list, int *start, int *end);
 void GPL_add_to_global_parameter_list (char *list_name , char *new_entry_name , int new_entry_value);
 void GPL_load_global_parameter_list(void);
-void GPL_load_global_parameter_list_from_datfile(void);
 char * GPL_what_is_list_extension (char *word_list);
 int GPL_does_word_exist (char *word_list, char *word);
 int GPL_does_parameter_exist (char *word_list, char *word);

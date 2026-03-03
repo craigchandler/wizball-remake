@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <allegro.h>
 
 #include "graphics.h"
 #include "scripting.h" // For the draw mode defines only
@@ -14,6 +13,7 @@
 #include "global_param_list.h"
 
 #include "fortify.h"
+#include "file_stuff.h"
 
 
 
@@ -84,7 +84,7 @@ void GRAPHICS_load_graphics()
 		}
 		else
 		{
-			append_filename(full_filename, "sprites", filename, sizeof(full_filename));
+			FILE_append_filename(full_filename, "sprites", filename, sizeof(full_filename));
 		}
 
 		word_pointer = strtok(filename,"[].");

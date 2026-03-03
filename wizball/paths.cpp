@@ -1,9 +1,7 @@
 #include <stdio.h>
 #include <string.h>
-#include <allegro.h>
 #include <math.h>
 #include <assert.h>
-#include <allegro.h>
 
 #include "scripting.h"
 #include "parser.h"
@@ -21,7 +19,6 @@
 #include "tilemaps.h"
 #include "tilesets.h"
 #include "file_stuff.h"
-#include "allegro.h"
 
 #include "fortify.h"
 
@@ -460,7 +457,7 @@ void PATHS_load (char *filename , int path_number)
 
 	char *pointer;
 
-	append_filename (full_filename,"paths", filename, sizeof(full_filename) );
+	FILE_append_filename (full_filename,"paths", filename, sizeof(full_filename) );
 
 	FILE *file_pointer = FILE_open_project_read_case_fallback(full_filename);
 
@@ -624,7 +621,7 @@ void PATHS_load (char *filename , int path_number)
 		fclose(file_pointer);
 
 		// Oh, and bung the capitalised name in. Haha.
-		strupr(filename);
+		STRING_uppercase(filename);
 		strtok(filename,"."); // Get rid of .txt extension...
 		strcpy ( pt[path_number].name , filename );
 		strcpy ( pt[path_number].old_name , filename );
@@ -639,189 +636,6 @@ void PATHS_load (char *filename , int path_number)
 }
 
 
-
-void PATHS_load_from_datafile (char *filename , int path_number)
-{
-	int node_number;
-	int t;
-
-	char line[TEXT_LINE_SIZE];
-
-	char full_filename [TEXT_LINE_SIZE];
-
-	sprintf (full_filename,"%s\\paths.dat#%s",MAIN_get_pack_project_name(),filename);
-	fix_filename_slashes(full_filename);
-	bool exitflag;
-
-	char *pointer;
-
-	PACKFILE *packfile_pointer = pack_fopen (full_filename,"r");
-
-	if (packfile_pointer != NULL) // It's the path data.
-	{
-
-		// Get line type...
-		pack_fgets ( line , TEXT_LINE_SIZE , packfile_pointer );
-		pointer = STRING_end_of_string(line,"#PATH TYPE = ");
-		pointer = strtok (pointer,"\n");
-
-		for (t=0;t<PATHS_TYPES;t++)
-		{
-			if (strcmp(pointer,&path_type_names[t][0]) == 0)
-			{
-				pt[path_number].line_type = t;
-			}
-		}
-
-		// Get looping behaviour...
-		pack_fgets ( line , TEXT_LINE_SIZE , packfile_pointer );
-		pointer = STRING_end_of_string(line,"#LOOPING TYPE = ");
-
-		for (t=0;t<PATHS_TYPES;t++)
-		{
-			if (strcmp(pointer,&path_looping_behaviour_name[t][0]) == 0)
-			{
-				pt[path_number].loop_type = t;
-			}
-		}
-
-		// Then get looped status...
-		pack_fgets ( line , MAX_LINE_SIZE , packfile_pointer );
-		pointer = STRING_end_of_string(line,"#LOOPED = ");
-		pointer = strtok (pointer,"\n");
-
-		if (strcmp(pointer,"TRUE") == 0)
-		{
-			pt[path_number].looped = true;
-		}
-		else
-		{
-			pt[path_number].looped = false;
-		}
-
-		// Get map position...
-		pack_fgets ( line , TEXT_LINE_SIZE , packfile_pointer );
-		pointer = STRING_end_of_string(line,"#INITIAL X POSITION = ");
-		pt[path_number].x = atoi (pointer);
-
-		pack_fgets ( line , TEXT_LINE_SIZE , packfile_pointer );
-		pointer = STRING_end_of_string(line,"#INITIAL Y POSITION = ");
-		pt[path_number].y = atoi (pointer);
-
-		// Get node data itself...
-		pack_fgets ( line , TEXT_LINE_SIZE , packfile_pointer );
-		pointer = STRING_end_of_string(line,"#NODE DATA = ");
-		if (pointer != NULL)
-		{
-			pt[path_number].nodes = atoi(pointer);
-
-			pt[path_number].node_list_pointer = (node *) malloc ( pt[path_number].nodes * sizeof(node) );
-
-			node_number = 0;
-			exitflag = false;
-
-			while (exitflag == false)
-			{	
-				pack_fgets ( line , TEXT_LINE_SIZE , packfile_pointer );
-				STRING_strip_newlines (line);
-
-				pointer = STRING_end_of_string(line,"#NODE NUMBER = ");
-				if (pointer != NULL)
-				{
-					node_number = atoi(pointer);
-					pt[path_number].node_list_pointer[node_number].pre_cx = -16.0;
-					pt[path_number].node_list_pointer[node_number].pre_cy = -16.0;
-					pt[path_number].node_list_pointer[node_number].aft_cx = 16.0;
-					pt[path_number].node_list_pointer[node_number].aft_cy = 16.0;
-				}
-
-				pointer = STRING_end_of_string(line,"#X POS = ");
-				if (pointer != NULL)
-				{
-					pt[path_number].node_list_pointer[node_number].x = atoi(pointer);
-				}
-
-				pointer = STRING_end_of_string(line,"#Y POS = ");
-				if (pointer != NULL)
-				{
-					pt[path_number].node_list_pointer[node_number].y = atoi(pointer);
-				}
-
-				pointer = STRING_end_of_string(line,"#PRE X POS = ");
-				if (pointer != NULL)
-				{
-					pt[path_number].node_list_pointer[node_number].pre_cx = atoi(pointer);
-				}
-
-				pointer = STRING_end_of_string(line,"#PRE Y POS = ");
-				if (pointer != NULL)
-				{
-					pt[path_number].node_list_pointer[node_number].pre_cy = atoi(pointer);
-				}
-
-				pointer = STRING_end_of_string(line,"#AFT X POS = ");
-				if (pointer != NULL)
-				{
-					pt[path_number].node_list_pointer[node_number].aft_cx = atoi(pointer);
-				}
-
-				pointer = STRING_end_of_string(line,"#AFT Y POS = ");
-				if (pointer != NULL)
-				{
-					pt[path_number].node_list_pointer[node_number].aft_cy = atoi(pointer);
-				}
-				
-				pointer = STRING_end_of_string(line,"#FLAG = ");
-				if (pointer != NULL)
-				{
-					strcpy (pt[path_number].node_list_pointer[node_number].flag_name , pointer);
-				}
-
-				pointer = STRING_end_of_string(line,"#SEGMENTS = ");
-				if (pointer != NULL)
-				{
-					pt[path_number].node_list_pointer[node_number].line_segments = atoi(pointer);
-				}
-
-				pointer = STRING_end_of_string(line,"#SPEED = ");
-				if (pointer != NULL)
-				{
-					pt[path_number].node_list_pointer[node_number].speed = atoi(pointer);
-				}
-
-				pointer = STRING_end_of_string(line,"#SPEED IN CURVE = ");
-				if (pointer != NULL)
-				{
-					pt[path_number].node_list_pointer[node_number].speed_in_curve_type = atoi(pointer);
-				}
-
-				pointer = STRING_end_of_string(line,"#SPEED OUT CURVE = ");
-				if (pointer != NULL)
-				{
-					pt[path_number].node_list_pointer[node_number].speed_out_curve_type = atoi(pointer);
-				}
-
-				pointer = STRING_end_of_string(line,"#END OF NODE DATA");
-				if (pointer != NULL)
-				{
-					exitflag = true;
-				}
-			}
-		}
-
-		pack_fclose(packfile_pointer);
-
-		// Oh, and bung the capitalised name in. Haha.
-		strupr(filename);
-		strtok(filename,"."); // Get rid of .txt extension...
-		strcpy ( pt[path_number].name , filename );
-		strcpy ( pt[path_number].old_name , filename );
-	}
-
-}
-
-
-
 void PATHS_save (int path_number)
 {
 	int node_counter;
@@ -833,8 +647,8 @@ void PATHS_save (int path_number)
 	char temp_char [MAX_LINE_SIZE];
 
 	strcpy(name,pt[path_number].name);
-	strlwr(name);
-	append_filename(full_filename, "paths", name, sizeof(full_filename) );
+	STRING_lowercase(name);
+	FILE_append_filename(full_filename, "paths", name, sizeof(full_filename) );
 	strcat(full_filename,".txt");
 
 	FILE *file_pointer = fopen (MAIN_get_project_filename (full_filename),"w");
@@ -936,7 +750,7 @@ void PATHS_save_all (void)
 	{
 		if (strcmp (pt[path_number].old_name,"UNSET") != 0)
 		{
-			append_filename(full_filename, "paths", pt[path_number].old_name, sizeof(full_filename) );
+			FILE_append_filename(full_filename, "paths", pt[path_number].old_name, sizeof(full_filename) );
 			strcat(full_filename,".txt");
 
 			remove (MAIN_get_project_filename (full_filename));
@@ -1088,14 +902,7 @@ void PATHS_load_all (void)
 		strcat(filename,GPL_what_is_list_extension ("PATHS"));
 		path_number = PATHS_create (false);
 
-		if (load_from_dat_file)
-		{
-			PATHS_load_from_datafile (filename,path_number);
-		}
-		else
-		{
-			PATHS_load (filename,path_number);
-		}
+		PATHS_load (filename,path_number);
 
 		if ((pt[path_number].node_list_pointer == NULL) || (pt[path_number].nodes < 2))
 		{

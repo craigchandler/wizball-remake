@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <allegro.h>
 #ifdef ALLEGRO_MACOSX
 #include <CoreServices/CoreServices.h>
 #endif

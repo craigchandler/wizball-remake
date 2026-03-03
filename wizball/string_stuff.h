@@ -16,6 +16,8 @@ void STRING_get_sub_word (char *word, char *sub_word, char endchar);
 
 char * STRING_end_of_string (char *line, char *look_for);
 void STRING_strip_newlines (char *line);
+char *STRING_uppercase(char* s);
+char *STRING_lowercase(char* s);
 void STRING_strip_all_disposable (char *line);
 
 int STRING_partial_strcmp (char *word_1, char *word_2);
@@ -32,7 +34,7 @@ void uuencode_generic (char *dest, int game_number, int num_scores, int *scores,
 
 #ifdef ALLEGRO_MACOSX
 	/* This function is not POSIX so define it here... */
-	char* strupr(char*);
+	char* STRING_uppercase(char*);
 #else
 #endif
 #endif

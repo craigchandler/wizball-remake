@@ -36,7 +36,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <allegro.h>
 
 #ifdef ALLEGRO_WINDOWS
 	#include <io.h>
@@ -45,7 +44,6 @@
 
 #include <ctype.h>
 #include <math.h>
-#include <allegro.h>
 
 #include "parser.h"
 #include "math_stuff.h"
@@ -798,7 +796,7 @@ void PARSER_read_script (char *filename, bool parsing_actual_script=false, bool 
 	{
 		// Uppercase it.
 
-		strupr (line);
+		STRING_uppercase (line);
 
 		if (remove_commas_and_brackets)
 		{
@@ -1100,7 +1098,7 @@ int PARSER_parse_list ( int line_number, int data_source, bool autonumber=false 
 			{
 				// Uppercase it.
 
-				strupr (file_text_line);
+				STRING_uppercase (file_text_line);
 
 				pointer_1 = strtok (file_text_line,"\r\n\t ");
 
@@ -1184,7 +1182,7 @@ int PARSER_parse_list ( int line_number, int data_source, bool autonumber=false 
 		for (word_list_counter=0; word_list_counter<word_list[source_list_index].word_list_size; word_list_counter++)
 		{
 			// Create a valid filename from the directory entry...
-		  append_filename(filename, word_list[source_list_index].name, word_list[source_list_index].words[word_list_counter].text_word, sizeof(filename) );
+		  FILE_append_filename(filename, word_list[source_list_index].name, word_list[source_list_index].words[word_list_counter].text_word, sizeof(filename) );
 		  strcat (filename , word_list[source_list_index].extension);
 			
 			// Then open it and read it just like with the SOURCE_FILE stuff
@@ -1196,7 +1194,7 @@ int PARSER_parse_list ( int line_number, int data_source, bool autonumber=false 
 				{
 					// Uppercase it.
 
-					strupr (file_text_line);
+					STRING_uppercase (file_text_line);
 
 					pointer_1 = strtok (file_text_line,"\r\n\t ");
 
@@ -1261,7 +1259,7 @@ int PARSER_parse_list ( int line_number, int data_source, bool autonumber=false 
 		for (word_list_counter=0; word_list_counter<word_list[source_list_index].word_list_size; word_list_counter++)
 		{
 			// Create a valid filename from the directory entry...
-			append_filename(filename , word_list[source_list_index].name, word_list[source_list_index].words[word_list_counter].text_word, sizeof(filename) );
+			FILE_append_filename(filename , word_list[source_list_index].name, word_list[source_list_index].words[word_list_counter].text_word, sizeof(filename) );
 			strcat (filename , word_list[source_list_index].extension);
 			
 			// Then open it and read it just like with the SOURCE_FILE stuff
@@ -1276,7 +1274,7 @@ int PARSER_parse_list ( int line_number, int data_source, bool autonumber=false 
 				{
 					// Uppercase it.
 
-					strupr (file_text_line);
+					STRING_uppercase (file_text_line);
 
 					pointer_1 = strtok (file_text_line,"\r\n\t ");
 
@@ -3468,7 +3466,7 @@ void PARSER_parse_datatables ( int line_number )
 	for (datatable_number=0; datatable_number<number_of_datatables; datatable_number++)
 	{
 		// Create a valid filename from the directory entry...
-		append_filename (filename , word_list[source_list_index].name, word_list[source_list_index].words[datatable_number].text_word, sizeof(filename) );
+		FILE_append_filename (filename , word_list[source_list_index].name, word_list[source_list_index].words[datatable_number].text_word, sizeof(filename) );
 		strcat (filename , word_list[source_list_index].extension);
 		
 		// Then open it and read it just like with the SOURCE_FILE stuff
@@ -3485,7 +3483,7 @@ void PARSER_parse_datatables ( int line_number )
 
 				strcpy(line_copy,file_text_line);
 
-				strupr (line_copy);
+				STRING_uppercase (line_copy);
 
 				pointer_1 = strtok (line_copy,",\r\n\t ");
 
@@ -3775,7 +3773,7 @@ bool PARSER_parse ( char *filename )
 	for (script_number = 0; script_number<max_script_number ; script_number++)
 	{
 		sprintf (script_filename , "%s\\%s%s" , word_list[script_list_index].name , word_list[script_list_index].words[script_number].text_word , word_list[script_list_index].extension );
-		fix_filename_slashes(script_filename);
+		FILE_fix_filename_slashes(script_filename);
 		strcpy (error_current_script,script_filename);
 		PARSER_read_script ( MAIN_get_project_filename (script_filename) , true , true);
 		PARSER_process_script ();

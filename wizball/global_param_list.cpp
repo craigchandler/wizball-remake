@@ -7,7 +7,6 @@
 #include "main.h"
 #include "string_stuff.h"
 #include "file_stuff.h"
-#include "allegro.h"
 
 #include "fortify.h"
 
@@ -483,137 +482,6 @@ bool GPL_check_for_duplicate_name (char *list_name , char *old_entry_name , char
 }
 
 
-
-void GPL_load_global_parameter_list_from_datfile(void)
-{
-	// This loads all the word lists we could possibly want and allocates space for them to boot.
-
-	char line[NAME_SIZE*2];
-	char filename[MAX_LINE_SIZE];
-
-	sprintf (filename,"%s\\data.dat#gpl_list_size.txt",MAIN_get_pack_project_name());
-	fix_filename_slashes(filename);
-
-	PACKFILE *packfile_pointer = pack_fopen (filename,"r");
-
-	if (packfile_pointer != NULL)
-	{
-		pack_fgets ( line , NAME_SIZE*2 , packfile_pointer );
-		total_word_list_size = atoi(line);
-
-		// Malloc some space for the word list and values...
-		word_list = (char *) malloc (sizeof (char) * NAME_SIZE * total_word_list_size);
-		word_list_values = (int *) malloc (sizeof (int) * total_word_list_size);
-
-		if (word_list == NULL)
-		{
-			assert(0);
-		}
-
-		if (word_list_values == NULL)
-		{
-			assert(0);
-		}
-
-		pack_fclose(packfile_pointer);
-	}
-	else
-	{
-		OUTPUT_message("Global Parameter List Size Not Found!");
-		assert(0); // AARGH!
-	}
-
-	sprintf (filename,"%s\\data.dat#global_parameter_list.txt",MAIN_get_pack_project_name());
-	fix_filename_slashes(filename);
-
-	packfile_pointer = pack_fopen (filename,"r");
-
-	bool exitflag = false;
-	bool exitmainloop = false;
-
-	int i;
-
-	int total_word_counter = 0;
-
-	char *pointer;
-
-	if (packfile_pointer != NULL)
-	{
-		while ( ( pack_fgets ( line , NAME_SIZE*2 , packfile_pointer ) != NULL ) && (exitmainloop == false) )
-		{
-			STRING_strip_newlines (line);
-			strupr(line);
-
-			pointer = strstr(line,"#END_OF_PARAMETER_LIST");
-			if (pointer != NULL) // It's the end of the world as we know it...
-			{
-				exitmainloop = true;
-			}
-
-			pointer = STRING_end_of_string(line,"#PARAMETER LIST NAME = ");
-			if (pointer != NULL) // 
-			{
-				strcpy(&word_list_names[number_of_global_parameter_lists_loaded][0] , pointer);
-				strcpy(&word_list_extensions[number_of_global_parameter_lists_loaded][0] , ""); // By default there is no extension unless specified
-			}
-
-			pointer = STRING_end_of_string(line,"#PARAMETER LIST EXTENSION = ");
-			if (pointer != NULL) // 
-			{
-				strcpy(&word_list_extensions[number_of_global_parameter_lists_loaded][0] , pointer);
-			}
-
-			pointer = STRING_end_of_string(line,"#PARAMETER LIST SIZE = ");
-			if (pointer != NULL) // 
-			{
-				word_list_lengths[number_of_global_parameter_lists_loaded] = atoi(pointer);
-				
-				// Only bother reading the list if there are entries in it.	
-				if (word_list_lengths[number_of_global_parameter_lists_loaded] > 0)
-				{
-					// Then get the words one by one...
-
-					for (i=0 ; i<word_list_lengths[number_of_global_parameter_lists_loaded] ; i++)
-					{
-						pack_fgets ( line , NAME_SIZE*2 , packfile_pointer );
-
-						STRING_strip_newlines (line);
-						strupr(line);
-
-						pointer = strtok(line," =");
-
-						strcpy ( &word_list[(i+total_word_counter)*NAME_SIZE] , line );
-
-						pointer = strtok(NULL," =");
-
-						word_list_values[i+total_word_counter] = atoi(pointer);
-					}
-
-				}
-
-				word_list_starts[number_of_global_parameter_lists_loaded] = total_word_counter;
-
-				total_word_counter += word_list_lengths[number_of_global_parameter_lists_loaded];
-				number_of_global_parameter_lists_loaded++;
-
-			}
-
-		}
-
-		total_word_list_size = total_word_counter; // set the global
-
-		pack_fclose(packfile_pointer);
-	}
-	else
-	{
-		OUTPUT_message("Global Parameter List Not Found!");
-		assert(0); // AARGH!
-	}
-
-}
-
-
-
 void GPL_load_global_parameter_list(void)
 {
 	// This loads all the word lists we could possibly want and allocates space for them to boot.
@@ -665,7 +533,7 @@ void GPL_load_global_parameter_list(void)
 		while ( ( fgets ( line , NAME_SIZE*2 , file_pointer ) != NULL ) && (exitmainloop == false) )
 		{
 			STRING_strip_newlines (line);
-			strupr(line);
+			STRING_uppercase(line);
 
 			pointer = strstr(line,"#END_OF_PARAMETER_LIST");
 			if (pointer != NULL) // It's the end of the world as we know it...
@@ -701,7 +569,7 @@ void GPL_load_global_parameter_list(void)
 						fgets ( line , NAME_SIZE*2 , file_pointer );
 
 						STRING_strip_newlines (line);
-						strupr(line);
+						STRING_uppercase(line);
 
 						pointer = strtok(line," =");
 

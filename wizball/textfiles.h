@@ -17,7 +17,6 @@ void TEXTFILE_load_text (void);
 void TEXTFILE_destroy (void);
 void TEXTFILE_save_compiled_text (void);
 void TEXTFILE_load_compiled_text (void);
-void TEXTFILE_load_compiled_text_from_datafile (void);
 int TEXTFILE_get_index_by_tag (char *tag);
 char * TEXTFILE_get_line_by_tag (char *tag);
 int TEXTFILE_get_line_length_by_tag (char *tag);

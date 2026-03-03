@@ -211,6 +211,7 @@ bool HISCORES_load_hiscore_table (int filename_text_tag)
 
 	bool exitmainloop = false;
 	bool exitsubloop = false;
+	bool table_loaded = false;
 
 	char *filename = TEXTFILE_get_line_by_index (filename_text_tag);
 
@@ -269,6 +270,7 @@ bool HISCORES_load_hiscore_table (int filename_text_tag)
 				}
 
 				HISCORES_create_hiscore_table (unique_id,table_type,table_size,name_size,score_size);
+				table_loaded = true;
 
 				while ( (fgets ( line , MAX_LINE_SIZE , fp ) != NULL) && (exitsubloop == false) )
 				{
@@ -312,7 +314,7 @@ bool HISCORES_load_hiscore_table (int filename_text_tag)
 
 		fclose (fp);
 
-		return true;
+		return table_loaded;
 	}
 
 	return false;

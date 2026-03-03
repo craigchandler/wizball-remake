@@ -26,4 +26,9 @@ FILE *FILE_open_project_read_case_fallback(const char *relative_filename);
 FILE *FILE_open_project_case_fallback(const char *relative_filename, const char *mode);
 
 void lowercase_last_path_components(const char *in_path, char *out_path, size_t out_size, int components);
+char* FILE_append_filename(char* dest, const char* path, const char* filename, int size);
+
+void FILE_fix_filename_slashes(char* path);
+void FILE_put_backslash(char* path, size_t size);
+
 #endif

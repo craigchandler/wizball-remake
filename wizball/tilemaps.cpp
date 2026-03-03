@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <math.h>
 #include <ctype.h>
-#include <allegro.h>
 
 #include "tilemaps.h" // Duh!
 #include "main.h" // For get_project_filename and also state constants
@@ -176,7 +175,7 @@ void TILEMAPS_load_editor_settings (void)
 		while ( ( fgets ( line , TEXT_LINE_SIZE , file_pointer ) != NULL ) && (exitmainloop == false) )
 		{
 			STRING_strip_newlines (line);
-			strupr(line);
+			STRING_uppercase(line);
 
 			pointer = strstr(line,"#END_OF_FILE");
 			if (pointer != NULL) // It's the end of the world as we know it...
@@ -1454,7 +1453,7 @@ void TILEMAPS_load (char *filename , int tilemap_number)
 
 	char temp_char [TEXT_LINE_SIZE];
 
-	append_filename(full_filename,"tilemaps", filename, sizeof(full_filename) );
+	FILE_append_filename(full_filename,"tilemaps", filename, sizeof(full_filename) );
 
 	FILE *file_pointer = FILE_open_project_read_case_fallback(full_filename);
 
@@ -1474,7 +1473,7 @@ void TILEMAPS_load (char *filename , int tilemap_number)
 
 		cm[tilemap_number].vertex_colour_mode = VERTEX_MODE_NONE;
 
-		strupr(filename); // Just in case it ain't upper case already.
+		STRING_uppercase(filename); // Just in case it ain't upper case already.
 		strtok(filename,"."); // Get rid of extension.
 		strcpy (cm[tilemap_number].name , filename);
 		strcpy (cm[tilemap_number].old_name , filename);
@@ -1482,7 +1481,7 @@ void TILEMAPS_load (char *filename , int tilemap_number)
 		while ( ( fgets ( line , TEXT_LINE_SIZE , file_pointer ) != NULL ) && (exitmainloop == false) )
 		{
 			STRING_strip_newlines (line);
-			strupr(line);
+			STRING_uppercase(line);
 
 			pointer = strstr(line,"#END OF FILE");
 			if (pointer != NULL) // It's the end of the world as we know it...
@@ -2472,7 +2471,7 @@ void TILEMAPS_save_all (void)
 			if (strcmp (cm[tilemap_number].old_name,"UNSET") != 0)
 			{
 				sprintf(filename, "%s.txt", cm[tilemap_number].old_name);
-				append_filename (full_filename, "tilemaps", filename, sizeof(full_filename) );
+				FILE_append_filename (full_filename, "tilemaps", filename, sizeof(full_filename) );
 
 				remove (MAIN_get_project_filename (full_filename));
 			}
@@ -2538,7 +2537,7 @@ void TILEMAPS_save (int tilemap_number)
 
 	char temp_char [TEXT_LINE_SIZE];
 
-	append_filename(full_filename,"tilemaps", filename, sizeof (full_filename) );
+	FILE_append_filename(full_filename,"tilemaps", filename, sizeof (full_filename) );
 
 	int map_data_size = cm[tilemap_number].map_layers * cm[tilemap_number].map_height * cm[tilemap_number].map_width;
 
@@ -2908,7 +2907,7 @@ void TILEMAPS_load_all (void)
 #endif
 			strcat(filename, extension);
 
-			append_filename(full_filename, "tilemaps", filename, sizeof(full_filename));
+			FILE_append_filename(full_filename, "tilemaps", filename, sizeof(full_filename));
 			probe_file = FILE_open_project_read_case_fallback(full_filename);
 			if (probe_file != NULL)
 			{

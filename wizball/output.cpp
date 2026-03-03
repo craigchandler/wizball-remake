@@ -1,4 +1,3 @@
-// #include <allegro.h>
 #include <SDL.h>
 #include <SDL_image.h>
 #include <assert.h>

@@ -9,9 +9,9 @@
 #include "main.h"
 #include "output.h"
 #include "file_stuff.h"
-#include "allegro.h"
 
 #include "fortify.h"
+#include "string_stuff.h"
 
 
 
@@ -75,7 +75,7 @@ void TEXTFILE_load_text (void)
 		{
 			// Create a valid filename from the directory entry...
 			sprintf(filename, "%s%s", GPL_what_is_word_name(file_number), GPL_what_is_list_extension("TEXTFILES") );
-			append_filename(filename, "TEXTFILES", filename, sizeof (filename) );
+			FILE_append_filename(filename, "TEXTFILES", filename, sizeof (filename) );
 			
 			// Then open it and read it just like with the SOURCE_FILE stuff
 				file_pointer = FILE_open_project_read_case_fallback(filename);
@@ -98,7 +98,7 @@ void TEXTFILE_load_text (void)
 					if ( (strlen(file_text_line)>0) && ( (file_text_line[0] != '/') && (file_text_line[1] != '/') ) && (pointer_1 != NULL) )
 					{
 						strcpy (tx[counter].tag , pointer_1);
-						strupr (tx[counter].tag);
+						STRING_uppercase (tx[counter].tag);
 
 						tx[counter].line = NULL; // Just to be tidy
 
@@ -127,14 +127,17 @@ void TEXTFILE_load_text (void)
 				OUTPUT_message (error);
 			}
 
+		if (file_pointer != NULL)
+		{
 			fclose (file_pointer);
+			file_pointer = NULL;
+		}
 
 		}
 
 	}
 
 }
-
 
 
 void TEXTFILE_save_compiled_text (void)
@@ -171,44 +174,6 @@ void TEXTFILE_save_compiled_text (void)
 }
 
 
-
-void TEXTFILE_load_compiled_text_from_datafile (void)
-{
-	char filename[MAX_LINE_SIZE];
-	char line[MAX_LINE_SIZE];
-	sprintf (filename,"%s\\data.dat#cptf.txt",MAIN_get_pack_project_name());
-	fix_filename_slashes(filename);
-	PACKFILE *packfile_pointer = pack_fopen (filename,"r");
-
-	int counter;
-	
-	if (packfile_pointer != NULL)
-	{
-		pack_fgets (line,MAX_LINE_SIZE,packfile_pointer);
-		textfile_line_count = atoi(line);
-
-		tx = (textfile_line *) malloc ( textfile_line_count * sizeof(textfile_line) );
-
-		for (counter=0; counter<textfile_line_count; counter++)
-		{
-			pack_fgets (line,MAX_LINE_SIZE,packfile_pointer);
-			tx[counter].line_size = atoi(line);
-			tx[counter].line = (char *) malloc ((sizeof(char) * tx[counter].line_size) + 1);
-
-			pack_fgets (tx[counter].line,TEXTFILE_SUPER_SIZE,packfile_pointer);
-		}
-
-		pack_fclose(packfile_pointer);
-	}
-	else
-	{
-		OUTPUT_message("Cannot read 'cptf.txt'!");
-		assert(0); // Tits...
-	}
-}
-
-
-
 void TEXTFILE_load_compiled_text (void)
 {
 	char line[MAX_LINE_SIZE];
@@ -230,7 +195,13 @@ void TEXTFILE_load_compiled_text (void)
 			tx[counter].line_size = atoi(line);
 			tx[counter].line = (char *) malloc ((sizeof(char) * tx[counter].line_size) + 1);
 
-			fgets (tx[counter].line,TEXTFILE_SUPER_SIZE,file_pointer);
+			// Read full line into temp buffer to consume the trailing '\n', then copy into allocated buffer.
+			fgets(line, MAX_LINE_SIZE, file_pointer);
+			size_t rlen = strlen(line);
+			while (rlen > 0 && (line[rlen - 1] == '\n' || line[rlen - 1] == '\r'))
+				line[--rlen] = '\0';
+			strncpy(tx[counter].line, line, (size_t)tx[counter].line_size);
+			tx[counter].line[tx[counter].line_size] = '\0';
 		}
 
 		fclose(file_pointer);
@@ -265,7 +236,7 @@ int TEXTFILE_get_index_by_tag (char *tag)
 {
 	int l;
 
-	strupr (tag);
+	STRING_uppercase (tag);
 
 	for (l=0; l<textfile_line_count; l++)
 	{

@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include <allegro.h>
 #ifdef ALLEGRO_MACOSX
 #include <CoreServices/CoreServices.h>
 #endif
@@ -483,7 +482,7 @@ void TILESETS_load (char *filename, int tileset_number)
 
 	char temp_char [TEXT_LINE_SIZE];
 
-	append_filename (full_filename, "tilesets", filename, sizeof(full_filename) );
+	FILE_append_filename (full_filename, "tilesets", filename, sizeof(full_filename) );
 
 	FILE *file_pointer = FILE_open_project_read_case_fallback(full_filename);
 
@@ -713,7 +712,7 @@ void TILESETS_load (char *filename, int tileset_number)
 		fclose(file_pointer);
 		
 		// Oh, and bung the capitalised name in. Haha.
-		strupr(filename);
+		STRING_uppercase(filename);
 		strtok(filename,"."); // Get rid of .txt extension...
 		strcpy (ts[tileset_number].name,filename);
 		strcpy (ts[tileset_number].old_name,filename);
@@ -768,7 +767,7 @@ void TILESETS_save (int tileset_number)
 	char temp_char [TEXT_LINE_SIZE];
 	char temp_char_2 [TEXT_LINE_SIZE];
 
-	append_filename (full_filename,"tilesets", filename, sizeof (full_filename) );
+	FILE_append_filename (full_filename,"tilesets", filename, sizeof (full_filename) );
 
 	FILE *file_pointer = fopen (MAIN_get_project_filename (full_filename),"w");
 
@@ -1126,7 +1125,7 @@ void TILESETS_save_all (void)
 			if (strcmp (ts[tileset_number].old_name,"UNSET") != 0)
 			{
 				sprintf(filename,"%s.TXT", ts[tileset_number].old_name);
-				append_filename(full_filename, "tilesets", filename, sizeof(full_filename) );
+				FILE_append_filename(full_filename, "tilesets", filename, sizeof(full_filename) );
 
 				remove (MAIN_get_project_filename (full_filename));
 			}

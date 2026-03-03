@@ -3,7 +3,6 @@
 #include <math.h>
 #include <string.h>
 #include <assert.h>
-#include <allegro.h>
 #ifdef ALLEGRO_MACOSX
 #include <CoreServices/CoreServices.h>
 #endif
@@ -55,7 +54,7 @@ char key_name [MAX_KEYS][MAX_KEY_NAME_LENGTH] =
   "t" , "u" , "v" , "w" , "x" , "y" , "z" , "0" , "1" , "2" , 
   "3" , "4" , "5" , "6" , "7" , "8" , "9" , "Keypad Insert" , "Keypad End" , "Keypad Down" , 
   "Keypad Page Down" , "Keypad Left" , "Keypad N/A" , "Keypad Right" , "Keypad Home" , "Keypad Uo" , "Keypad Page Up" , "F1" , "F2" , "F3" , 
-  "F4" , "F5" , "F6" , "F7" , "F8" , "F9" , "F10" , "F11" , "F12" , "Escape" , "¬" , 
+  "F4" , "F5" , "F6" , "F7" , "F8" , "F9" , "F10" , "F11" , "F12" , "Escape" , "ï¿½" , 
   "-" , "=" , "Backspace" , "Tab" , "[" , "]" , "Enter" , ";" , "\'" , "\\" , 
   "\\" , "," , "." , "/" , "Space" , "Insert" , "Delete" , "Home" , "End" , "Page Up" , 
   "Page" , "Cursor Left" , "Cursor Right" , "Cursor Up" , "Cursor Down" , "Keypad /" , "Keypad *" , "Keypad -" , "Keypad +" , "Keypad Delete" , 
@@ -99,10 +98,10 @@ char upper_character_array[MAX_KEYS] =
 { '\0' , 'A' , 'B' , 'C' , 'D' , 'E' , 'F' , 'G' , 'H' , 'I' ,
   'J' , 'K' , 'L' , 'M' , 'N' , 'O' , 'P' , 'Q' , 'R' , 'S' ,
   'T' , 'U' , 'V' , 'W' , 'X' , 'Y' , 'Z' , ')' , '!' , '\"' ,
-  '£' , '$' , '%' , '^' , '&' , '*' , '(' , '0' , '1' , '2' ,
+  'ï¿½' , '$' , '%' , '^' , '&' , '*' , '(' , '0' , '1' , '2' ,
   '3' , '4' , '5' , '6' , '7' , '8' , '9' , '\0' , '\0' , '\0' ,
   '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' ,
-  '¬' , '_' , '+' , '\0' , '\0' , '{' , '}' , '\0' , ':' , '@' ,
+  'ï¿½' , '_' , '+' , '\0' , '\0' , '{' , '}' , '\0' , ':' , '@' ,
   '|' , '|' , '<' , '>' , '\?' , ' ' , '\0' , '\0' , '\0' , '\0' ,
   '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '/' , '*' , '-' , '+' ,
   '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' ,
@@ -230,7 +229,7 @@ char * CONTROL_get_control_description (int player_number, int control_number)
 		strcat (word,temp_word);
 	}
 
-	strupr (word);
+	STRING_uppercase (word);
 
 	return word;
 }
@@ -289,7 +288,7 @@ void CONTROL_define_control_from_config (char *word)
 
 		for (key_num=0; key_num<MAX_KEYS; key_num++)
 		{
-			if (strcmp (strupr(&key_name[key_num][0]) , pointer) == 0)
+			if (strcmp (STRING_uppercase(&key_name[key_num][0]) , pointer) == 0)
 			{
 				selected_key = key_num;
 			}
@@ -2610,7 +2609,7 @@ void CONTROL_save_recorded_input (int player_number, char *filename_pointer)
 
 	sprintf (compress_filename,"demos\\%s_%4i.dem",filename_pointer,demo_file_index);
 	STRING_replace_char(compress_filename,' ','0');
-	fix_filename_slashes(compress_filename);
+	FILE_fix_filename_slashes(compress_filename);
 
 	if ( (rpi[player_number].recording == false) && (rpi[player_number].playback == false) )
 	{
@@ -2769,7 +2768,7 @@ void CONTROL_load_compressed_recorded_input_and_inflate (int player_number, char
 	char filename[MAX_LINE_SIZE];
 
 	sprintf (filename,"demos\\%s.dem",filename_pointer);
-	fix_filename_slashes(filename);
+	FILE_fix_filename_slashes(filename);
 
 	FILE *file_pointer = FILE_open_project_case_fallback(filename, "rb");
 
@@ -3499,7 +3498,7 @@ int CONTROL_setup_joypad(void)
 	{
 		joystick_setup_okay = false;
 		PLATFORM_WINDOW_set_text_mode();
-		sprintf(error_string , "Error initialising joystick\n%s\n", allegro_error);
+		sprintf(error_string , "Error initialising joystick\n%s\n", 0);
 		OUTPUT_message(error_string);
 		return 1;
 	}
