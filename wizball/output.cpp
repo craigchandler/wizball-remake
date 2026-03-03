@@ -1,4 +1,4 @@
-#include <allegro.h>
+// #include <allegro.h>
 #include <SDL.h>
 #include <SDL_image.h>
 #include <assert.h>
@@ -47,16 +47,6 @@ typedef struct
 
 typedef struct
 {
-	BITMAP *image;
-	unsigned int texture_handle;
-	int width;
-	int height;
-	int sprite_count;
-	sprite *sprite_list;
-} bitmap_holder;
-
-typedef struct
-{
 	SDL_Surface *surface;
 	SDL_Texture *texture;
 	unsigned int texture_handle;
@@ -100,11 +90,6 @@ BITMAP *current_page;
 int update_method;
 bool wait_for_vsync = false;
 
-bitmap_holder *bmps = NULL;
-// The thing that holds all the bitmaps.
-int total_bitmaps_loaded = 0;
-int total_bitmaps_allocated = 0;
-
 sdl_bitmap_holder *sdl_bmps = NULL;
 // The thing that holds all the bitmaps.
 int total_sdl_bitmaps_loaded = 0;
@@ -115,8 +100,8 @@ int total_sdl_bitmaps_allocated = 0;
 typedef sdl_bitmap_holder active_bmp_t;
 #define ACTIVE_BMPS sdl_bmps
 #else
-typedef bitmap_holder active_bmp_t;
-#define ACTIVE_BMPS bmps
+// typedef bitmap_holder active_bmp_t;
+// #define ACTIVE_BMPS bmps
 #endif
 
 // This is the size of the created window.
@@ -162,8 +147,6 @@ static void OUTPUT_prepare_sdl_stub_bootstrap(bool windowed)
 static int output_cached_main_menu_logo_section_script = UNSET;
 
 bool software_mode_active = false;
-
-DATAFILE *gfx_dat = NULL;
 
 static bool OUTPUT_env_enabled(const char *name)
 {
@@ -265,17 +248,19 @@ static void OUTPUT_sanitize_window_transform_values(
 
 void INPUT_load_media_datafiles(void)
 {
-	gfx_dat = load_datafile(MAIN_get_pack_filename("gfx.dat"));
 }
 
 void INPUT_unload_datafiles(void)
 {
-	unload_datafile(gfx_dat);
 }
 
 void OUTPUT_message(char *msg)
 {
-	allegro_message(msg);
+	SDL_ShowSimpleMessageBox(
+			SDL_MESSAGEBOX_INFORMATION,
+			"WizBall",
+			msg,
+			NULL);
 }
 
 void OUTPUT_rectangle(int x1, int y1, int x2, int y2, int r, int g, int b)
@@ -447,8 +432,8 @@ void OUTPUT_clear_screen(void)
 
 void OUTPUT_updatescreen(void)
 {
-	int present_width = SCREEN_W;
-	int present_height = SCREEN_H;
+	int present_width = 0; // SCREEN_W;
+	int present_height = 0; // SCREEN_H;
 	if (PLATFORM_RENDERER_is_sdl2_stub_enabled())
 	{
 		present_width = game_screen_width;
@@ -482,7 +467,7 @@ void OUTPUT_setup_project_list(char *text)
 
 	while (pointer != NULL)
 	{
-		textout(screen, font, pointer, 0, y, makecol(0, 0, 0));
+		// textout(screen, font, pointer, 0, y, makecol(0, 0, 0));
 		y += 8;
 		pointer = strtok(NULL, "\n");
 	}
@@ -505,7 +490,7 @@ void OUTPUT_setup_running_mode(void)
 
 	for (counter = 0; counter < 3; counter++)
 	{
-		textout(screen, font, &options[counter][0], 0, y, makecol(0, 0, 0));
+		// textout(screen, font, &options[counter][0], 0, y, makecol(0, 0, 0));
 		y += 8;
 	}
 
@@ -536,8 +521,8 @@ void OUTPUT_setup_allegro(bool windowed, int colour_depth, int base_screen_width
 	MAIN_add_to_log(sdl_stub_line);
 
 	MAIN_add_to_log("SDL2 renderer mode active.");
-	set_color_depth(colour_depth);
-	set_color_conversion(COLORCONV_TOTAL + COLORCONV_KEEP_TRANS);
+	// set_color_depth(colour_depth);
+	// set_color_conversion(COLORCONV_TOTAL + COLORCONV_KEEP_TRANS);
 	OUTPUT_prepare_sdl_stub_bootstrap(windowed);
 
 	secondary_colour_available = false;
@@ -655,7 +640,7 @@ int OUTPUT_bitmap_frames(int bitmap_number)
 
 static bool OUTPUT_is_valid_bitmap_index(int bitmap_number)
 {
-	return (bitmap_number >= 0 && bitmap_number < total_bitmaps_loaded);
+	return (bitmap_number >= 0 && bitmap_number < total_sdl_bitmaps_loaded);
 }
 
 static bool OUTPUT_is_valid_sprite_frame(int bitmap_number, int sprite_number)
@@ -959,7 +944,7 @@ void INPUT_create_arbitrary_sized_sprite_series(int parent_bitmap, char *name_ba
 
 	// 		pack_fclose(packfile_pointer);
 	// 	}
-		// else
+	// else
 	// 	{
 	// 		char error[MAX_LINE_SIZE];
 	// 		sprintf(error, "Sprite descriptor not found in gfx.dat: '%s' (normalised '%s').",
@@ -970,7 +955,7 @@ void INPUT_create_arbitrary_sized_sprite_series(int parent_bitmap, char *name_ba
 	// else
 	{
 		std::string full_filename = "wizball/sprites/" + std::string(descriptor_file);
-	  const char *prepended_filename = full_filename.c_str();
+		const char *prepended_filename = full_filename.c_str();
 
 		fprintf(stderr, "[SPRITE-DESCRIPTOR] Attempting to load sprite descriptor '%s' from disk.\n", prepended_filename);
 
@@ -1046,192 +1031,7 @@ void INPUT_create_arbitrary_sized_sprite_series(int parent_bitmap, char *name_ba
 
 int INPUT_load_bitmap(char *filename)
 {
-	INPUT_load_bitmap_SDL(filename, PLATFORM_RENDERER_SDL_Renderer());
-
-	return INPUT_load_bitmap_old(filename);
-}
-
-int INPUT_load_bitmap_old(char *filename)
-{
-#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-	char debug_text[MAX_LINE_SIZE];
-	sprintf(debug_text, "Entered INPUT_load_bitmap function...");
-	MAIN_debug_last_thing(debug_text);
-#endif
-
-	RGB *pal = NULL;
-	char error[MAX_LINE_SIZE];
-
-	// First of all create space for the bitmap by mallocing or reallocing
-	// the space needed.
-
-	if (total_bitmaps_loaded == total_bitmaps_allocated)
-	{
-		if (bmps == NULL)
-		{
-			bmps = (bitmap_holder *)malloc(sizeof(bitmap_holder) * CHUNK_SIZE);
-			total_bitmaps_allocated = CHUNK_SIZE;
-		}
-		else
-		{
-			bmps = (bitmap_holder *)realloc(bmps, sizeof(bitmap_holder) * (CHUNK_SIZE + total_bitmaps_allocated));
-			total_bitmaps_allocated += CHUNK_SIZE;
-		}
-
-		if (bmps == NULL)
-		{
-			sprintf(error, "Out of memory while allocating bitmap storage for '%s'.", filename);
-			OUTPUT_message(error);
-			MAIN_add_to_log(error);
-			exit(1);
-		}
-	}
-
-	if (load_from_dat_file)
-	{
-		fprintf(stderr, "[LOAD-BITMAP] Attempting to load bitmap '%s' from gfx.dat.\n", filename);
-		/* Re-apply gfx palette immediately before indexed bitmap upload. */
-		DATAFILE *data_pointer = find_datafile_object(gfx_dat, filename);
-
-#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-		sprintf(debug_text, "Found data pointer %p", data_pointer);
-		MAIN_debug_last_thing(debug_text);
-#endif
-
-		if ((data_pointer == NULL) || (data_pointer->dat == NULL))
-		{
-			sprintf(error, "Could not load bitmap '%s' from gfx.dat.", filename);
-			OUTPUT_message(error);
-			MAIN_add_to_log(error);
-			exit(1);
-		}
-
-		bmps[total_bitmaps_loaded].image = (BITMAP *)data_pointer->dat;
-	}
-	else
-	{
-		fprintf(stderr, "[LOAD-BITMAP] Attempting to load bitmap '%s' from disk.\n", filename);
-		bmps[total_bitmaps_loaded].image = load_bitmap(filename, pal);
-
-#if defined(ALLEGRO_LINUX) || defined(ALLEGRO_MACOSX)
-		if (bmps[total_bitmaps_loaded].image == NULL)
-		{
-			char lower_filename[MAX_LINE_SIZE];
-			size_t len;
-			size_t i;
-
-			strncpy(lower_filename, filename, sizeof(lower_filename) - 1);
-			lower_filename[sizeof(lower_filename) - 1] = '\0';
-			len = strlen(lower_filename);
-
-			// First fallback: lowercase basename.
-			for (i = len; i > 0; i--)
-			{
-				if ((lower_filename[i - 1] == '/') || (lower_filename[i - 1] == '\\'))
-				{
-					break;
-				}
-			}
-			for (; i < len; i++)
-			{
-				lower_filename[i] = (char)tolower((unsigned char)lower_filename[i]);
-			}
-
-			bmps[total_bitmaps_loaded].image = load_bitmap(lower_filename, pal);
-
-			// Second fallback: lowercase final directory + basename tail.
-			if (bmps[total_bitmaps_loaded].image == NULL)
-			{
-				strncpy(lower_filename, filename, sizeof(lower_filename) - 1);
-				lower_filename[sizeof(lower_filename) - 1] = '\0';
-				len = strlen(lower_filename);
-
-				int slash_count = 0;
-				size_t start = 0;
-				for (i = len; i > 0; i--)
-				{
-					if ((lower_filename[i - 1] == '/') || (lower_filename[i - 1] == '\\'))
-					{
-						slash_count++;
-						if (slash_count == 2)
-						{
-							start = i;
-							break;
-						}
-					}
-				}
-				if (slash_count < 2)
-				{
-					start = 0;
-				}
-				for (i = start; i < len; i++)
-				{
-					lower_filename[i] = (char)tolower((unsigned char)lower_filename[i]);
-				}
-
-				bmps[total_bitmaps_loaded].image = load_bitmap(lower_filename, pal);
-			}
-		}
-#endif
-
-		if (bmps[total_bitmaps_loaded].image == NULL)
-		{
-			sprintf(error, "Could not load bitmap '%s'.", filename);
-			OUTPUT_message(error);
-			MAIN_add_to_log(error);
-			exit(1);
-		}
-	}
-
-	if (bmps[total_bitmaps_loaded].image == NULL)
-	{
-		sprintf(error, "Bitmap '%s' resolved to NULL image pointer.", filename);
-		OUTPUT_message(error);
-		MAIN_add_to_log(error);
-		exit(1);
-	}
-
-	bmps[total_bitmaps_loaded].width = bmps[total_bitmaps_loaded].image->w;
-	bmps[total_bitmaps_loaded].height = bmps[total_bitmaps_loaded].image->h;
-
-	// After we've turned it into a texture then we can get rid of the software
-	// bitmap to free up memory. Woot!
-
-#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-	sprintf(debug_text, "About to make masked texture of %i,%i.", bmps[total_bitmaps_loaded].width, bmps[total_bitmaps_loaded].height);
-	MAIN_debug_last_thing(debug_text);
-#endif
-
-	// bmps[total_bitmaps_loaded].texture_handle = PLATFORM_RENDERER_create_masked_texture(bmps[total_bitmaps_loaded].image);
-	// if ((bmps[total_bitmaps_loaded].texture_handle == 0) || (total_bitmaps_loaded < 10))
-	// {
-	// 	fprintf(
-	// 			stderr,
-	// 			"[SDL2-TEX-LOAD] bmp=%d handle=%u size=%dx%d software=%d dat=%d\n",
-	// 			total_bitmaps_loaded,
-	// 			bmps[total_bitmaps_loaded].texture_handle,
-	// 			bmps[total_bitmaps_loaded].width,
-	// 			bmps[total_bitmaps_loaded].height,
-	// 			software_mode_active ? 1 : 0,
-	// 			load_from_dat_file ? 1 : 0);
-	// }
-
-#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-	sprintf(debug_text, "Made masked texture.");
-	MAIN_debug_last_thing(debug_text);
-#endif
-
-	if (load_from_dat_file == false)
-	{
-		destroy_bitmap(bmps[total_bitmaps_loaded].image);
-		bmps[total_bitmaps_loaded].image = NULL;
-	}
-
-	bmps[total_bitmaps_loaded].sprite_list = NULL;
-
-	total_bitmaps_loaded++;
-
-	return (total_bitmaps_loaded - 1);
+	return INPUT_load_bitmap_SDL(filename, PLATFORM_RENDERER_SDL_Renderer());
 }
 
 int INPUT_load_bitmap_SDL(const char *filename, SDL_Renderer *renderer)
@@ -1976,7 +1776,7 @@ void OUTPUT_destroy_bitmap_and_sprite_containers(void)
 	{
 		int bitmap_number;
 
-		for (bitmap_number = 0; bitmap_number < total_bitmaps_loaded; bitmap_number++)
+		for (bitmap_number = 0; bitmap_number < total_sdl_bitmaps_loaded; bitmap_number++)
 		{
 			if (ACTIVE_BMPS[bitmap_number].sprite_list != NULL)
 			{
@@ -1991,8 +1791,8 @@ void OUTPUT_destroy_bitmap_and_sprite_containers(void)
 	// Keep renderer texture handle bookkeeping aligned with bitmap container teardown.
 	PLATFORM_RENDERER_reset_texture_registry();
 
-	total_bitmaps_loaded = 0;
-	total_bitmaps_allocated = 0;
+	total_sdl_bitmaps_loaded = 0;
+	total_sdl_bitmaps_allocated = 0;
 }
 
 int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_available)

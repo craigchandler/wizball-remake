@@ -74,7 +74,6 @@ void OUTPUT_draw_sprite (int bitmap_number , int sprite_number, int x, int y, in
 void OUTPUT_draw_masked_sprite (int bitmap_number , int sprite_number, int x, int y, int r=255, int g=255, int b=255);
 
 int INPUT_load_bitmap (char *filename);
-int INPUT_load_bitmap_old(char *filename);
 int INPUT_load_bitmap_SDL(const char *filename, SDL_Renderer *renderer);
 
 void INPUT_create_sprite (int parent_bitmap, int sprite_number, char *name, int x, int y, int width, int height, int pivot_x, int pivot_y);
