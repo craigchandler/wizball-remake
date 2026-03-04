@@ -282,7 +282,9 @@ int PLATFORM_INPUT_key_state(int scancode)
 
     ensure_sdl_events();
     ensure_sdl_video();
-    pump_events_nonblocking();
+    // Do NOT pump here: CONTROL_update_all_input() calls PLATFORM_INPUT_begin_frame()
+    // before the key loop, which already drains the event queue. Pumping once per
+    // key (114 calls per update) wastes CPU and can interleave event state mid-scan.
 
     const Uint8 *keys = SDL_GetKeyboardState(NULL);
     if (!keys)

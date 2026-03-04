@@ -279,7 +279,8 @@ static void PLATFORM_RENDERER_refresh_sdl_stub_env_flags(void)
 	if (!platform_renderer_sdl_stub_accel_checked_env)
 	{
 		const char *accel_env = getenv("WIZBALL_SDL2_STUB_ACCELERATED");
-		platform_renderer_sdl_stub_accel_enabled = (accel_env == NULL) ? false : PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_ACCELERATED");
+		/* Default to accelerated; set WIZBALL_SDL2_STUB_ACCELERATED=0 to force software. */
+		platform_renderer_sdl_stub_accel_enabled = (accel_env == NULL) ? true : PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_STUB_ACCELERATED");
 		platform_renderer_sdl_stub_accel_checked_env = true;
 	}
 	platform_renderer_sdl_native_primary_strict_enabled = true;
@@ -2267,6 +2268,83 @@ void PLATFORM_RENDERER_draw_bound_solid_quad(float left, float right, float up, 
 	}
 }
 
+/*
+ * Pre-SDL-2.0.18 fallback for bound-textured-quad drawing.
+ * Computes the transformed bounding box from the four quad corners and issues
+ * SDL_RenderCopyEx.  This handles the common axis-aligned sprite case correctly
+ * on older SDL builds (e.g. PortMaster / Ambernic muOS which ships SDL ~2.0.14).
+ * Rotated/skewed quads are approximated by their bounding rectangle.
+ */
+static void PLATFORM_RENDERER_draw_bound_quad_legacy_fallback(
+		const float *quad_x, const float *quad_y,
+		float u1, float v1, float u2, float v2)
+{
+	platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(platform_renderer_last_bound_texture_handle);
+	if (entry == NULL)
+		return;
+	if (!PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
+		return;
+	SDL_Texture *draw_texture = PLATFORM_RENDERER_get_effective_texture_for_current_blend(entry);
+	if (draw_texture == NULL)
+		return;
+
+	float tx[4], ty[4];
+	int i;
+	for (i = 0; i < 4; i++)
+	{
+		PLATFORM_RENDERER_transform_point(quad_x[i], quad_y[i], &tx[i], &ty[i]);
+	}
+
+	float gl_left   = fminf(fminf(tx[0], tx[1]), fminf(tx[2], tx[3]));
+	float gl_right  = fmaxf(fmaxf(tx[0], tx[1]), fmaxf(tx[2], tx[3]));
+	float gl_top    = fmaxf(fmaxf(ty[0], ty[1]), fmaxf(ty[2], ty[3]));
+	float gl_bottom = fminf(fminf(ty[0], ty[1]), fminf(ty[2], ty[3]));
+
+	SDL_Rect dst_rect;
+	SDL_Rect src_rect;
+	dst_rect.x = (int)gl_left;
+	dst_rect.y = (int)((float)platform_renderer_present_height - gl_top);
+	dst_rect.w = (int)(gl_right - gl_left);
+	dst_rect.h = (int)(gl_top - gl_bottom);
+	if (dst_rect.w <= 0)
+		dst_rect.w = 1;
+	if (dst_rect.h <= 0)
+		dst_rect.h = 1;
+
+	if (!PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, v1, u2, v2, &src_rect))
+		return;
+
+	SDL_RendererFlip copy_flip = SDL_FLIP_NONE;
+	if (u2 < u1)
+		copy_flip = (SDL_RendererFlip)(copy_flip | SDL_FLIP_HORIZONTAL);
+	if (!PLATFORM_RENDERER_src_flip_y_for_sdl(v1, v2))
+		copy_flip = (SDL_RendererFlip)(copy_flip | SDL_FLIP_VERTICAL);
+
+	int mod_r = (int)(platform_renderer_current_colour_r * 255.0f);
+	int mod_g = (int)(platform_renderer_current_colour_g * 255.0f);
+	int mod_b = (int)(platform_renderer_current_colour_b * 255.0f);
+	int mod_a = (int)(platform_renderer_current_colour_a * 255.0f);
+	if (PLATFORM_RENDERER_using_subtractive_mod_fallback())
+	{
+		mod_r = 255;
+		mod_g = 255;
+		mod_b = 255;
+	}
+	if (mod_r < 0) mod_r = 0; if (mod_r > 255) mod_r = 255;
+	if (mod_g < 0) mod_g = 0; if (mod_g > 255) mod_g = 255;
+	if (mod_b < 0) mod_b = 0; if (mod_b > 255) mod_b = 255;
+	if (mod_a < 0) mod_a = 0; if (mod_a > 255) mod_a = 255;
+
+	PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
+	(void)SDL_SetTextureColorMod(draw_texture, (Uint8)mod_r, (Uint8)mod_g, (Uint8)mod_b);
+	(void)SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod((Uint8)mod_a));
+	if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
+	{
+		platform_renderer_sdl_native_draw_count++;
+		platform_renderer_sdl_native_textured_draw_count++;
+	}
+}
+
 void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float up, float down, float u1, float v1, float u2, float v2)
 {
 	static unsigned int sdl_bound_colour_diag_counter = 0;
@@ -2561,6 +2639,13 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 				}
 			}
 		}
+#else
+		{
+			/* Pre-2.0.18 fallback */
+			float quad_x[4] = {left, left, right, right};
+			float quad_y[4] = {up, down, down, up};
+			PLATFORM_RENDERER_draw_bound_quad_legacy_fallback(quad_x, quad_y, u1, v1, u2, v2);
+		}
 #endif
 	}
 }
@@ -2819,6 +2904,13 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 					}
 				}
 			}
+		}
+#else
+		{
+			/* Pre-2.0.18 fallback */
+			float quad_x[4] = {x0, x1, x2, x3};
+			float quad_y[4] = {y0, y1, y2, y3};
+			PLATFORM_RENDERER_draw_bound_quad_legacy_fallback(quad_x, quad_y, u1, v1, u2, v2);
 		}
 #endif
 	}
@@ -4783,6 +4875,9 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 	 */
 	(void)SDL_SetHint(SDL_HINT_RENDER_BATCHING, "0");
 
+	/* Use nearest-neighbour filtering for textures (pixel-art game). */
+	(void)SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+
 	Uint32 needed_flags = SDL_INIT_VIDEO | SDL_INIT_EVENTS;
 	Uint32 already_flags = SDL_WasInit(needed_flags);
 
@@ -4800,6 +4895,12 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 	if (windowed)
 	{
 		window_flags |= SDL_WINDOW_RESIZABLE;
+	}
+	else
+	{
+		/* Non-windowed (e.g. PortMaster/embedded): fill the display without
+		 * altering the desktop resolution (SDL handles scaling). */
+		window_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 	}
 
 	platform_renderer_sdl_window = SDL_CreateWindow(
@@ -4820,6 +4921,12 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 		}
 		return false;
 	}
+
+	/* Grab keyboard/input focus immediately — required on embedded devices
+	 * (e.g. muOS/PortMaster) where the window manager does not auto-focus
+	 * new windows, causing SDL_GetKeyboardState to return all-zeros. */
+	SDL_RaiseWindow(platform_renderer_sdl_window);
+	SDL_SetWindowInputFocus(platform_renderer_sdl_window);
 
 	if (platform_renderer_sdl_stub_accel_enabled)
 	{
@@ -4945,9 +5052,16 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 			strcpy(platform_renderer_sdl_status, "SDL2 stub initialized (hidden window + software renderer).");
 		}
 	}
+	/* Map all draw calls to game-space coordinates regardless of the actual
+	 * display size or DPI scaling.  SDL will letterbox/pillarbox as needed. */
+	if (SDL_RenderSetLogicalSize(platform_renderer_sdl_renderer, width, height) != 0)
+	{
+		char warn_buf[256];
+		snprintf(warn_buf, sizeof(warn_buf), "SDL_RenderSetLogicalSize(%d,%d) failed: %s", width, height, SDL_GetError());
+		MAIN_add_to_log(warn_buf);
+	}
 	(void)PLATFORM_RENDERER_sync_sdl_render_target_size(width, height);
 	return true;
-	return false;
 }
 
 SDL_Renderer *PLATFORM_RENDERER_SDL_Renderer()

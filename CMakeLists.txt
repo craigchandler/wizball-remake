@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(WizBall LANGUAGES CXX)
+
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 include(CheckCXXSymbolExists)
 include(CheckCXXSourceCompiles)
@@ -10,14 +11,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
 option(WIZBALL_ENABLE_ASAN "Build with AddressSanitizer (debug heap corruption)" OFF)
-set(WIZBALL_DAT_TOOL "dat" CACHE STRING "Path/name of Allegro dat packing tool")
 
-find_path(ALLEGRO_INCLUDE_DIR allegro.h)
-find_library(ALLEGRO_LIBRARY NAMES alleg allegro)
-if(NOT ALLEGRO_INCLUDE_DIR OR NOT ALLEGRO_LIBRARY)
-  message(FATAL_ERROR "Missing required deps. Need Allegro4 (headers + lib).")
-endif()
+# If you still use the old Allegro 'dat' tool for packing, keep this.
+# If you no longer use .dat packing, you can remove this option and the custom targets below.
+set(WIZBALL_DAT_TOOL "dat" CACHE STRING "Path/name of dat packing tool")
 
+# ---------------------------
+# Sources
+# ---------------------------
 set(WIZBALL_SOURCES
   wizball/ai_nodes.cpp
   wizball/ai_zones.cpp
@@ -27,7 +28,6 @@ set(WIZBALL_SOURCES
   wizball/file_stuff.cpp
   wizball/font_routines.cpp
   wizball/FORTIFY.CPP
-  wizball/funkyfont.cpp
   wizball/game.cpp
   wizball/global_param_list.cpp
   wizball/graphics.cpp
@@ -63,29 +63,32 @@ set(WIZBALL_SOURCES
   wizball/world_collision.cpp
 )
 
-find_package(SDL2 QUIET)
-if(NOT SDL2_FOUND)
-  message(FATAL_ERROR "SDL2 was not found.")
-endif()
-
-find_package(SDL2_mixer QUIET)
-if(NOT SDL2_mixer_FOUND)
-  message(FATAL_ERROR "SDL2_mixer was not found.")
-endif()
-
-find_package(SDL2_image QUIET)
-if(NOT SDL2_mixer_FOUND)
-  message(FATAL_ERROR "SDL2_image was not found.")
-endif()
-
 add_executable(wizball ${WIZBALL_SOURCES})
 
-if(UNIX AND NOT APPLE)
-  target_compile_definitions(wizball PRIVATE ALLEGRO_LINUX)
-endif()
+target_include_directories(wizball PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/wizball
+)
 
+# ---------------------------
+# SDL2 deps (PortMaster-friendly via pkg-config)
+# ---------------------------
+find_package(PkgConfig REQUIRED)
+
+pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
+pkg_check_modules(SDL2_MIXER REQUIRED IMPORTED_TARGET SDL2_mixer)
+pkg_check_modules(SDL2_IMAGE REQUIRED IMPORTED_TARGET SDL2_image)
+
+target_link_libraries(wizball PRIVATE
+  PkgConfig::SDL2
+  PkgConfig::SDL2_MIXER
+  PkgConfig::SDL2_IMAGE
+  m
+)
+
+# ---------------------------
+# Warnings / ASAN
+# ---------------------------
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-  # Legacy codebase warning reductions so real portability issues are easier to see.
   target_compile_options(wizball PRIVATE
     -Wno-write-strings
     -Wno-noexcept-type
@@ -97,38 +100,42 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   endif()
 endif()
 
-target_include_directories(wizball PRIVATE
-  ${ALLEGRO_INCLUDE_DIR}
-  ${CMAKE_CURRENT_SOURCE_DIR}/wizball
+# ---------------------------
+# PortMaster staging / install
+# ---------------------------
+option(WIZBALL_PORTMASTER "Enable PortMaster-style staging install" ON)
+set(WIZBALL_PORTNAME "wizball" CACHE STRING "PortMaster port folder name")
+
+# Determine PortMaster arch label
+set(PM_ARCH "unknown")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
+  set(PM_ARCH "aarch64")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7|armv7l|armhf")
+  set(PM_ARCH "armhf")
+endif()
+
+# Name the output binary as wizball.<arch>
+set_target_properties(wizball PROPERTIES OUTPUT_NAME "wizball.${PM_ARCH}")
+
+# Install binary to: <prefix>/wizball/wizball/wizball.<arch>
+install(TARGETS wizball
+  RUNTIME DESTINATION "${WIZBALL_PORTNAME}/${WIZBALL_PORTNAME}"
 )
 
-if(TARGET SDL2::SDL2)
-  target_link_libraries(wizball PRIVATE SDL2::SDL2)
-else()
-  target_include_directories(wizball PRIVATE ${SDL2_INCLUDE_DIRS})
-  target_link_libraries(wizball PRIVATE ${SDL2_LIBRARIES})
-endif()
-
-if(TARGET SDL2_mixer::SDL2_mixer)
-  target_link_libraries(wizball PRIVATE SDL2_mixer::SDL2_mixer)
-else()
-  target_include_directories(wizball PRIVATE ${SDL2_MIXER_INCLUDE_DIRS})
-  target_link_libraries(wizball PRIVATE ${SDL2_MIXER_LIBRARIES})
-endif()
-
-if(TARGET SDL2_image::SDL2_image)
-  target_link_libraries(wizball PRIVATE SDL2_image::SDL2_image)
-else()
-  target_include_directories(wizball PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
-  target_link_libraries(wizball PRIVATE ${SDL2_IMAGE_LIBRARIES})
-endif()
-
-target_link_libraries(wizball PRIVATE
-  ${ALLEGRO_LIBRARY}
-  m
+# Install your runtime data folder to: <prefix>/wizball/wizball/datafiles
+# Adjust the SOURCE path below to wherever your datafiles folder actually lives in the repo.
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/wizball/wizball/"
+  DESTINATION "${WIZBALL_PORTNAME}/${WIZBALL_PORTNAME}/wizball"
+  PATTERN "*.cpp" EXCLUDE
+  PATTERN "*.c"   EXCLUDE
+  PATTERN "*.h"   EXCLUDE
+  PATTERN "*.hpp" EXCLUDE
+  PATTERN "*.dat" EXCLUDE
 )
 
-
+# ---------------------------
+# Existing custom targets (optional)
+# ---------------------------
 add_custom_target(run_wizball_dat
   COMMAND $<TARGET_FILE:wizball> -dat
   DEPENDS wizball
