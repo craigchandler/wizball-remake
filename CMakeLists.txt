@@ -45,7 +45,6 @@ set(WIZBALL_SOURCES
   wizball/platform.cpp
   wizball/platform_input.cpp
   wizball/platform_renderer.cpp
-  wizball/platform_window.cpp
   wizball/paths.cpp
   wizball/report.cpp
   wizball/roomzones.cpp

@@ -6,15 +6,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#ifdef ALLEGRO_WINDOWS
-#include <winalleg.h>
-#include <windows.h>
-#endif
-
 #include <signal.h>
-#ifdef ALLEGRO_LINUX
-#include <execinfo.h>
-#endif
 
 #include "string_size_constants.h"
 #include "parser.h"
@@ -30,11 +22,6 @@
 #include "file_stuff.h"
 #include "math_stuff.h"
 #include "platform.h"
-#include "platform_window.h"
-
-#ifdef ALLEGRO_WINDOWS
-#include "direct.h"
-#endif
 
 #include "output.h"
 #include "sound.h"
@@ -170,6 +157,9 @@ int project_counter = 0;
 extern void do_exit_game(void);
 #endif
 
+int ms_time_id = -1;
+int bps_time_id = -1;
+
 void MAIN_start_log(void)
 {
 	if (output_debug_information)
@@ -296,32 +286,6 @@ void TIMING_fps_handler()
 unsigned int MAIN_get_wall_time_ms(void)
 {
 	return PLATFORM_get_wall_time_ms();
-}
-
-void MAIN_configure_linux_vblank_environment(void)
-{
-#ifdef ALLEGRO_LINUX
-	if (linux_vblank_hint_enabled == false)
-	{
-		MAIN_add_to_log("Linux vblank env hints disabled by -novblankhint.");
-		return;
-	}
-
-	char line[MAX_LINE_SIZE];
-	const char *mesa_vblank = getenv("vblank_mode");
-
-	if (mesa_vblank == NULL)
-	{
-		setenv("vblank_mode", "0", 0);
-		MAIN_add_to_log("Set env vblank_mode=0 (Mesa swap sync disable hint).");
-	}
-	else
-	{
-		sprintf(line, "Keep existing env vblank_mode=%s", mesa_vblank);
-		MAIN_add_to_log(line);
-	}
-
-#endif
 }
 
 #ifdef ALLEGRO_MACOSX
@@ -1333,7 +1297,6 @@ int main(int argc, char *argv[])
 #endif
 
 	MAIN_start_log();
-	MAIN_configure_linux_vblank_environment();
 	if (linux_timer_watchdog_enabled)
 	{
 		MAIN_add_to_log("Linux timer watchdog enabled.");
@@ -1342,18 +1305,6 @@ int main(int argc, char *argv[])
 	{
 		MAIN_add_to_log("Linux timer watchdog disabled by -notimerwatchdog.");
 	}
-
-	MAIN_add_to_log("Initialised Allegro...");
-	if (PLATFORM_WINDOW_init() != 0)
-	{
-		MAIN_add_to_log("\tFAILED!");
-		return 1;
-	}
-	MAIN_add_to_log("\tOK!");
-
-#if !defined(ALLEGRO_LINUX)
-	// set_close_button_callback(do_nothing_function);
-#endif
 
 	MAIN_add_to_log("Setting up control code...");
 	CONTROL_setup_everything();
@@ -1403,7 +1354,6 @@ int main(int argc, char *argv[])
 		sprintf(project, MAIN_create_project_selector());
 
 		MAIN_add_to_log("Setting graphics mode to text...");
-		PLATFORM_WINDOW_set_text_mode();
 		MAIN_add_to_log("\tOK!");
 	}
 
@@ -1425,7 +1375,6 @@ int main(int argc, char *argv[])
 	if (rebuild_scripts_only == true)
 	{
 		MAIN_add_to_log("Rebuild-scripts mode complete. Exiting.");
-		PLATFORM_WINDOW_shutdown();
 		return 0;
 	}
 
@@ -1470,8 +1419,8 @@ int main(int argc, char *argv[])
 
 	MAIN_add_to_log("Setting up frame counter...");
 
-	PLATFORM_install_timer_callback_ms(TIMING_fps_handler, 1000);
-	PLATFORM_install_timer_callback_bps(TIMING_game_timer, 60);
+	ms_time_id = PLATFORM_install_timer_callback_ms(TIMING_fps_handler, 1000);
+	bps_time_id = PLATFORM_install_timer_callback_bps(TIMING_game_timer, 60);
 
 	MAIN_add_to_log("\tOK!");
 
@@ -1596,8 +1545,8 @@ int main(int argc, char *argv[])
 #endif
 
 	MAIN_add_to_log("Removing frame counter...");
-	PLATFORM_remove_timer_callback(TIMING_game_timer);
-	PLATFORM_remove_timer_callback(TIMING_fps_handler);
+	PLATFORM_remove_timer_callback(ms_time_id);
+	PLATFORM_remove_timer_callback(bps_time_id);
 
 	MAIN_add_to_log("\tOK!");
 
@@ -1606,11 +1555,6 @@ int main(int argc, char *argv[])
 #endif
 
 	MAIN_add_to_log("Setting graphics mode to text...");
-	PLATFORM_WINDOW_set_text_mode();
-	MAIN_add_to_log("\tOK!");
-
-	MAIN_add_to_log("Shutting down Allegro...");
-	PLATFORM_WINDOW_shutdown();
 	MAIN_add_to_log("\tOK!");
 
 #ifdef ALLEGRO_WINDOWS

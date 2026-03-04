@@ -1,12 +1,6 @@
-#include <allegro.h>
-
 #include "platform.h"
 
 #include <SDL.h>
-
-#ifdef ALLEGRO_WINDOWS
-#include <windows.h>
-#endif
 
 unsigned int PLATFORM_get_wall_time_ms(void)
 {
@@ -15,25 +9,32 @@ unsigned int PLATFORM_get_wall_time_ms(void)
 
 int PLATFORM_install_timer_system(void)
 {
-	return install_timer();
+	return 0;
+	// return install_timer();
 }
 
-void PLATFORM_install_timer_callback_ms(void (*callback)(void), int ms)
+int PLATFORM_install_timer_callback_ms(void (*callback)(void), int ms)
 {
-	install_int(callback, ms);
+    return SDL_AddTimer(ms, [](Uint32 interval, void *param) -> Uint32 {
+        // Correctly cast the parameter to the callback function type and call it
+        reinterpret_cast<void (*)(void)>(param)();
+        return interval; // Continue the timer
+    }, reinterpret_cast<void *>(callback));
 }
 
-void PLATFORM_install_timer_callback_bps(void (*callback)(void), int bps)
+int PLATFORM_install_timer_callback_bps(void (*callback)(void), int bps)
 {
-	install_int_ex(callback, BPS_TO_TIMER(bps));
+	int ms = 1000 / bps;
+  return PLATFORM_install_timer_callback_ms(callback, ms);
+	// install_int_ex(callback, BPS_TO_TIMER(bps));
 }
 
-void PLATFORM_remove_timer_callback(void (*callback)(void))
+void PLATFORM_remove_timer_callback(int time_id)
 {
-	remove_int(callback);
+	SDL_RemoveTimer(time_id);
 }
 
 void PLATFORM_sleep_ms(int ms)
 {
-	rest(ms);
+	SDL_Delay(ms);
 }

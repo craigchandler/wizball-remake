@@ -21,7 +21,6 @@
 #include "string_stuff.h"
 #include "global_param_list.h"
 #include "object_collision.h"
-#include "platform_window.h"
 #include "platform_renderer.h"
 #include "file_stuff.h"
 
@@ -456,10 +455,6 @@ void OUTPUT_disable_multi_texture_effects(void)
 
 void OUTPUT_setup_project_list(char *text)
 {
-	PLATFORM_WINDOW_set_windowed_mode(320, 240, 32);
-
-	PLATFORM_WINDOW_begin_text_screen(255, 255, 255);
-
 	int y = 0;
 
 	char *pointer = strtok(text, "\n");
@@ -470,14 +465,10 @@ void OUTPUT_setup_project_list(char *text)
 		y += 8;
 		pointer = strtok(NULL, "\n");
 	}
-
-	PLATFORM_WINDOW_end_text_screen();
 }
 
 void OUTPUT_setup_running_mode(void)
 {
-	PLATFORM_WINDOW_begin_text_screen(255, 255, 255);
-
 	char options[3][64] = {
 			"1. Parse, debug, output datfiles.",
 			"2. Parse, output datfiles.",
@@ -492,8 +483,6 @@ void OUTPUT_setup_running_mode(void)
 		// textout(screen, font, &options[counter][0], 0, y, makecol(0, 0, 0));
 		y += 8;
 	}
-
-	PLATFORM_WINDOW_end_text_screen();
 }
 
 void OUTPUT_setup_allegro(bool windowed, int colour_depth, int base_screen_width, int base_screen_height, int screen_multiplier)
@@ -528,8 +517,6 @@ void OUTPUT_setup_allegro(bool windowed, int colour_depth, int base_screen_width
 	best_texture_combiner_available = false;
 	texture_combiner_available = false;
 	PLATFORM_RENDERER_set_active_texture_proc(NULL);
-
-	PLATFORM_WINDOW_center_game_window();
 }
 
 void OUTPUT_draw_sprite(int bitmap_number, int sprite_number, int x, int y, int r, int g, int b)
