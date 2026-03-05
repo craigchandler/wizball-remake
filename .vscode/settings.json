@@ -1,5 +1,8 @@
 {
   "C_Cpp.default.includePath": [
     "/usr/include/SDL2"
-  ]
+  ],
+  "chat.tools.terminal.autoApprove": {
+    "cmake": true
+  }
 }

@@ -9,8 +9,11 @@ unsigned int PLATFORM_get_wall_time_ms(void)
 
 int PLATFORM_install_timer_system(void)
 {
+	if (SDL_InitSubSystem(SDL_INIT_TIMER) != 0)
+	{
+		return -1;
+	}
 	return 0;
-	// return install_timer();
 }
 
 int PLATFORM_install_timer_callback_ms(void (*callback)(void), int ms)

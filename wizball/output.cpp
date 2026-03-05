@@ -141,7 +141,7 @@ static void OUTPUT_prepare_sdl_stub_bootstrap(bool windowed)
 		MAIN_add_to_log(sdl_bootstrap_line);
 	}
 }
-// static unsigned int output_sdl_script_trace_counter = 0;
+static unsigned int output_sdl_script_trace_counter = 0;
 static int output_cached_main_menu_logo_section_script = UNSET;
 
 bool software_mode_active = false;
@@ -1071,18 +1071,10 @@ int INPUT_load_bitmap_SDL(const char *filename, SDL_Renderer *renderer)
 	fprintf(stderr, "[SDL-LOAD-BITMAP] Loaded bitmap '%s' with size %dx%d. index %d\n", lower_filename, surface->w, surface->h, total_sdl_bitmaps_loaded);
 
 	// Optional: Convert surface to a texture (if needed)
-	if (renderer != NULL)
-	{
-		fprintf(stderr, "[SDL-LOAD-BITMAP] Attempting to render surface '%s'.\n", lower_filename);
-		SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
-		if (texture == NULL)
-		{
-			fprintf(stderr, "Could not create texture from '%s': %s\n", filename, SDL_GetError());
-			SDL_FreeSurface(surface);
-			return -1;
-		}
-		sdl_bmps[total_sdl_bitmaps_loaded].texture = texture;
-	}
+	/* NOTE: sdl_bmps[i].texture (from SDL_CreateTextureFromSurface) was never used for rendering —
+	 * all draws go through texture_handle / platform_renderer_texture_entries. Skip creation to
+	 * avoid leaking VRAM for every loaded bitmap. */
+	sdl_bmps[total_sdl_bitmaps_loaded].texture = NULL;
 
 	sdl_bmps[total_sdl_bitmaps_loaded].texture_handle = PLATFORM_RENDERER_create_masked_texture(surface);
 	if ((sdl_bmps[total_sdl_bitmaps_loaded].texture_handle == 0) || (total_sdl_bitmaps_loaded < 10))
@@ -1098,10 +1090,11 @@ int INPUT_load_bitmap_SDL(const char *filename, SDL_Renderer *renderer)
 				load_from_dat_file ? 1 : 0);
 	}
 
-	total_sdl_bitmaps_loaded++;
+	/* Surface pixel data has been copied into sdl_rgba_pixels by create_masked_texture; free it now. */
+	SDL_FreeSurface(surface);
+	sdl_bmps[total_sdl_bitmaps_loaded].surface = NULL; /* Avoid dangling pointer after free. */
 
-	// Free the surface if you no longer need it
-	// SDL_FreeSurface(surface);
+	total_sdl_bitmaps_loaded++;
 
 	return total_sdl_bitmaps_loaded - 1; // Return the index of the loaded bitmap
 }
@@ -2058,33 +2051,33 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 					{
 						script_name = GPL_get_entry_name("SCRIPTS", script_number);
 					}
-					// if (OUTPUT_is_script_trace_match(script_name))
-					// {
-					// 	output_sdl_script_trace_counter++;
-					// 	fprintf(
-					// 		stderr,
-					// 		"[SDL2-SCRIPT-TRACE] n=%u frame=%d win=%d entity=%d script=%d(%s) draw_mode=%d flags=0x%x sprite=%d frame=%d blend(add/mul/sub)=%d/%d/%d arb=%d persp=%d vcol=%d rgba=%d,%d,%d,%d\n",
-					// 		output_sdl_script_trace_counter,
-					// 		frames_so_far,
-					// 		window_number,
-					// 		current_entity,
-					// 		script_number,
-					// 		script_name,
-					// 		draw_type,
-					// 		opengl_booleans,
-					// 		entity_pointer[ENT_SPRITE],
-					// 		entity_pointer[ENT_CURRENT_FRAME],
-					// 		(opengl_booleans & OPENGL_BOOLEAN_BLEND_ADD) ? 1 : 0,
-					// 		(opengl_booleans & OPENGL_BOOLEAN_BLEND_MULTIPLY) ? 1 : 0,
-					// 		(opengl_booleans & OPENGL_BOOLEAN_BLEND_SUBTRACT) ? 1 : 0,
-					// 		(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_QUAD) ? 1 : 0,
-					// 		(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD) ? 1 : 0,
-					// 		(opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA) ? 1 : 0,
-					// 		entity_pointer[ENT_OPENGL_VERTEX_RED],
-					// 		entity_pointer[ENT_OPENGL_VERTEX_GREEN],
-					// 		entity_pointer[ENT_OPENGL_VERTEX_BLUE],
-					// 		effective_vertex_alpha);
-					// }
+					if (OUTPUT_env_enabled("WIZBALL_SDL2_SCRIPT_TRACE") && (frames_so_far < 300))
+					{
+						output_sdl_script_trace_counter++;
+						fprintf(
+							stderr,
+							"[SDL2-SCRIPT-TRACE] n=%u frame=%d win=%d entity=%d script=%d(%s) draw_mode=%d flags=0x%x sprite=%d frame=%d blend(add/mul/sub)=%d/%d/%d arb=%d persp=%d vcol=%d rgba=%d,%d,%d,%d\n",
+							output_sdl_script_trace_counter,
+							frames_so_far,
+							window_number,
+							current_entity,
+							script_number,
+							script_name,
+							draw_type,
+							opengl_booleans,
+							entity_pointer[ENT_SPRITE],
+							entity_pointer[ENT_CURRENT_FRAME],
+							(opengl_booleans & OPENGL_BOOLEAN_BLEND_ADD) ? 1 : 0,
+							(opengl_booleans & OPENGL_BOOLEAN_BLEND_MULTIPLY) ? 1 : 0,
+							(opengl_booleans & OPENGL_BOOLEAN_BLEND_SUBTRACT) ? 1 : 0,
+							(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_QUAD) ? 1 : 0,
+							(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD) ? 1 : 0,
+							(opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA) ? 1 : 0,
+							entity_pointer[ENT_OPENGL_VERTEX_RED],
+							entity_pointer[ENT_OPENGL_VERTEX_GREEN],
+							entity_pointer[ENT_OPENGL_VERTEX_BLUE],
+						effective_vertex_alpha);
+					}
 				}
 
 #ifdef RETRENGINE_DEBUG_VERSION
@@ -2370,8 +2363,74 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 #ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 					MAIN_debug_last_thing("Set primary vertex colour and alpha.");
 #endif
+					/*
+					 * SDL port: VERTEX_COLOUR_ALPHA was originally an alpha-only control in
+					 * most scripts (fade in/out: only opengl_vertex_alpha is set, rgb stays
+					 * at reset_entity default 0,0,0).  Passing rgb=0 to SDL_SetTextureColorMod
+					 * would multiply the texture to black.
+					 *
+					 * However some scripts (e.g. new_cauldron_liquid_underlay) use
+					 * VERTEX_COLOUR_ALPHA and also explicitly set rgb to carry a tint colour.
+					 * We must honour those non-zero values.
+					 *
+					 * Heuristic: if rgb is still (0,0,0) — the reset_entity default — treat
+					 * it as unset and substitute white (1,1,1).  If a script has written any
+					 * non-zero value to any channel, use the entity values as-is.
+					 * VERTEX_COLOUR always uses entity rgb regardless.
+					 */
+					const bool vcalpha_rgb_is_default =
+						(entity_pointer[ENT_OPENGL_VERTEX_RED]   == 0) &&
+						(entity_pointer[ENT_OPENGL_VERTEX_GREEN] == 0) &&
+						(entity_pointer[ENT_OPENGL_VERTEX_BLUE]  == 0) &&
+						!(opengl_booleans & OPENGL_BOOLEAN_VERTEX_COLOUR);
+					const float vcalpha_r = vcalpha_rgb_is_default ? 1.0f : float(entity_pointer[ENT_OPENGL_VERTEX_RED])   / 256.0f;
+					const float vcalpha_g = vcalpha_rgb_is_default ? 1.0f : float(entity_pointer[ENT_OPENGL_VERTEX_GREEN]) / 256.0f;
+					const float vcalpha_b = vcalpha_rgb_is_default ? 1.0f : float(entity_pointer[ENT_OPENGL_VERTEX_BLUE])  / 256.0f;
+					PLATFORM_RENDERER_set_colour4f(vcalpha_r, vcalpha_g, vcalpha_b, float(effective_vertex_alpha) / 256.0f);
+				}
 
-					PLATFORM_RENDERER_set_colour4f(float(entity_pointer[ENT_OPENGL_VERTEX_RED]) / 256.0f, float(entity_pointer[ENT_OPENGL_VERTEX_GREEN]) / 256.0f, float(entity_pointer[ENT_OPENGL_VERTEX_BLUE]) / 256.0f, float(effective_vertex_alpha) / 256.0f);
+				/*
+				 * SDL port: OpenGL's glColor4f state persisted across draw calls so the
+				 * renderer would carry the last-set colour into the next entity.  With
+				 * SDL_SetTextureColorMod / AlphaMod the same stale value is used and,
+				 * if a previous entity left colour=(0,0,0,0), every subsequent untinted
+				 * entity is invisible.  When no per-entity tinting flag is active,
+				 * explicitly reset to opaque white so untinted sprites render normally.
+				 */
+				if (!(opengl_booleans & (OPENGL_BOOLEAN_VERTEX_COLOUR | OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA)))
+				{
+					PLATFORM_RENDERER_set_colour4f(1.0f, 1.0f, 1.0f, 1.0f);
+				}
+				else
+				{
+					/*
+					 * Diagnostic: log first few times an entity sets a zero colour via
+					 * the vertex-colour flags, so we can see which scripts cause it.
+					 */
+					static unsigned int vcol_zero_entity_count = 0;
+					vcol_zero_entity_count++;
+					if (vcol_zero_entity_count <= 30)
+					{
+						const bool has_vcol = (opengl_booleans & OPENGL_BOOLEAN_VERTEX_COLOUR) != 0;
+						const bool has_vcol_a = (opengl_booleans & OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA) != 0;
+						const int script_number_trace = entity_pointer[ENT_SCRIPT_NUMBER];
+						const char *script_name_trace = "?";
+						if ((script_number_trace >= 0) && (script_number_trace < GPL_list_size("SCRIPTS")))
+						{
+							script_name_trace = GPL_get_entry_name("SCRIPTS", script_number_trace);
+						}
+						fprintf(stderr, "[VCOL-ENTITY %u] script=%s vcol=%d vcola=%d rgb=%d,%d,%d alpha=%d flags=0x%x frame=%d\n",
+							vcol_zero_entity_count,
+							script_name_trace,
+							has_vcol ? 1 : 0,
+							has_vcol_a ? 1 : 0,
+							entity_pointer[ENT_OPENGL_VERTEX_RED],
+							entity_pointer[ENT_OPENGL_VERTEX_GREEN],
+							entity_pointer[ENT_OPENGL_VERTEX_BLUE],
+							entity_pointer[ENT_OPENGL_VERTEX_ALPHA],
+							opengl_booleans,
+							frames_so_far);
+					}
 				}
 
 #ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID

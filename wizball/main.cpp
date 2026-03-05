@@ -7,6 +7,9 @@
 #include <ctype.h>
 
 #include <signal.h>
+#ifdef ALLEGRO_LINUX
+#include <execinfo.h>
+#endif
 
 #include "string_size_constants.h"
 #include "parser.h"
@@ -1422,7 +1425,13 @@ int main(int argc, char *argv[])
 	ms_time_id = PLATFORM_install_timer_callback_ms(TIMING_fps_handler, 1000);
 	bps_time_id = PLATFORM_install_timer_callback_bps(TIMING_game_timer, 60);
 
-	MAIN_add_to_log("\tOK!");
+	{
+		char timer_line[256];
+		sprintf(timer_line, "\tTimer IDs: fps=%d game=%d%s",
+				ms_time_id, bps_time_id,
+				(ms_time_id == 0 || bps_time_id == 0) ? " WARNING: id=0 means SDL_AddTimer FAILED" : " OK");
+		MAIN_add_to_log(timer_line);
+	}
 
 	GAME_load_and_set_up_everything();
 

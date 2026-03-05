@@ -43,23 +43,54 @@ else
 fi
 
 GAMEDIR="/$directory/ports/wizball"
-cd "$GAMEDIR" || exit 1
+# If $directory is empty (some CFWs don't set it), derive GAMEDIR from
+# the script's own location: script lives at ports/WizBall.sh so the
+# port folder is the wizball/ sibling directory.
+if [ ! -d "$GAMEDIR" ]; then
+  GAMEDIR="$(dirname "$(readlink -f "$0")")/wizball"
+fi
+cd "$GAMEDIR" || { echo "FATAL: cannot cd to $GAMEDIR" > /tmp/wizball_fatal.txt; exit 1; }
 
-# Optional: log file for debugging on device
-> "$GAMEDIR/log.txt" && exec > >(tee "$GAMEDIR/log.txt") 2>&1
+# Simple redirect to logfile - avoid process substitution (unreliable on embedded shells)
+exec > "$GAMEDIR/log.txt" 2>&1
+echo "GAMEDIR=$GAMEDIR"
+echo "CFW_NAME=${CFW_NAME}"
+echo "DEVICE_ARCH=${DEVICE_ARCH}"
 
 # SDL controller mapping provided by PortMaster
 export SDL_GAMECONTROLLERCONFIG="$sdl_controllerconfig"
+
+# Disable vsync so SDL_RenderPresent does not block waiting for vblank.
+# Remove this once the correct frame-pacing strategy is confirmed.
+export WIZBALL_SDL2_NOVSYNC=1
+
+# SDL_RenderGeometry is now enabled. The previous workaround (WIZBALL_SDL2_GEOMETRY=0)
+# was added because sprites appeared invisible with geometry enabled. That turned out
+# to be a vertex-colour (VERTEX_COLOUR_ALPHA zero-RGB) bug in output.cpp, now fixed.
+# Geometry batching is critical for performance: SDL batches consecutive same-texture
+# geometry calls internally, reducing ~2400 individual GPU commands to ~20 per frame.
+# export WIZBALL_SDL2_GEOMETRY=0  # left here for rollback if needed
 
 # If you ever ship extra libs, uncomment this and use libs.aarch64 / libs.armhf
 # export LD_LIBRARY_PATH="$GAMEDIR/libs.${DEVICE_ARCH}:$LD_LIBRARY_PATH"
 
 BIN="$GAMEDIR/wizball.${DEVICE_ARCH}"
+echo "BIN=$BIN  exists=$(test -f "$BIN" && echo yes || echo NO)"
 chmod +x "$BIN"
 
 # PortMaster helper (sets up env / permissions / etc.)
 pm_platform_helper "$BIN"
 
-"$BIN"
+# Start keymapper for this binary (kill-mode hotkey support)
+if [ -f "$controlfolder/gptokeyb2" ]; then
+  export LD_LIBRARY_PATH="$controlfolder:$LD_LIBRARY_PATH"
+  "$controlfolder/gptokeyb2" "$BIN" -c "$GAMEDIR/wizball.gptk" -X &
+else
+  echo "WARNING: gptokeyb2 not found, skipping keymapper"
+fi
+
+echo "Launching $BIN"
+"$BIN" -dat -debug
+echo "Binary exited with code $?"
 
 pm_finish

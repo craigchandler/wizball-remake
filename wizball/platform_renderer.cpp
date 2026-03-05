@@ -13,6 +13,8 @@
 
 static void PLATFORM_RENDERER_apply_sdl_texture_blend_mode(SDL_Texture *texture);
 static Uint8 PLATFORM_RENDERER_get_sdl_texture_alpha_mod(Uint8 requested_alpha);
+static void PLATFORM_RENDERER_set_texture_color_alpha_cached(SDL_Texture *tex, Uint8 r, Uint8 g, Uint8 b, Uint8 a);
+static int PLATFORM_RENDERER_sdl_copy_ex(SDL_Renderer *renderer, SDL_Texture *texture, const SDL_Rect *src, const SDL_Rect *dst, double angle, const SDL_Point *center, SDL_RendererFlip flip);
 
 static platform_renderer_texture_entry *platform_renderer_texture_entries = NULL;
 static int platform_renderer_texture_count = 0;
@@ -76,6 +78,33 @@ static int platform_renderer_legacy_draw_count = 0;
 static int platform_renderer_legacy_textured_draw_count = 0;
 static int platform_renderer_clear_backbuffer_calls_since_present = 0;
 static int platform_renderer_midframe_reset_events = 0;
+static int platform_renderer_sdl_tx_switch_count = 0;    /* texture object changes between consecutive SDL_RenderGeometry calls */
+static int platform_renderer_sdl_clip_switch_count = 0;  /* SDL_RenderSetClipRect calls that actually change state */
+static int platform_renderer_sdl_blend_switch_count = 0; /* SDL_SetTextureBlendMode calls that actually change state */
+static int platform_renderer_sdl_colmod_switch_count = 0;/* SDL_SetTextureColorMod/AlphaMod calls that actually change state */
+static int platform_renderer_sdl_alpha_skip_count = 0;   /* draw_point/draw_coloured_point skipped due to alpha=0 */
+static int platform_renderer_sdl_add_draw_count = 0;     /* draws submitted with BLEND_MODE_ADD blend */
+static int platform_renderer_sdl_spec_draw_count = 0;    /* draws submitted with non-alpha blend (ADD+MUL+SUB) */
+static int platform_renderer_sdl_defer_draw_count = 0;   /* draws pushed to deferred ADD batch queue */
+/* --- deferred ADD-blend draw queue ------------------------------------ *
+ * Textured draws using ADD blend are buffered here then flushed sorted  *
+ * by texture pointer at frame end.  Eliminates interleaved ADD/non-ADD  *
+ * blend transitions that each force a GPU batch submit on Panfrost.     */
+#define PLATFORM_RENDERER_ADDQ_MAX 512
+struct platform_renderer_addq_entry
+{
+	SDL_Texture *tex;
+	SDL_Vertex   verts[8];
+	int          indices[18];
+	int          vertex_count;
+	int          index_count;
+	int          source_id;
+};
+static platform_renderer_addq_entry platform_renderer_addq[PLATFORM_RENDERER_ADDQ_MAX];
+static int platform_renderer_addq_count = 0;
+static SDL_Texture *platform_renderer_last_geom_texture = NULL; /* last texture argument to SDL_RenderGeometry */
+static SDL_Rect platform_renderer_sdl_clip_cache = {-1,-1,-1,-1};
+static bool platform_renderer_sdl_clip_cache_enabled = false;
 static int platform_renderer_sdl_output_width = 0;
 static int platform_renderer_sdl_output_height = 0;
 static float platform_renderer_sdl_scale_x = 1.0f;
@@ -137,11 +166,14 @@ static bool platform_renderer_sdl_multiply_texture_supported = true;
 static bool platform_renderer_sdl_multiply_texture_support_checked = false;
 static bool platform_renderer_sdl_diag_verbose_enabled = false;
 static unsigned int platform_renderer_sdl_present_frame_counter = 0;
+static SDL_Texture *platform_renderer_white_texture = NULL;  /* 1x1 white RGBA; routes colored-primitive calls through RenderGeometry for SDL batch coherence */
+static bool platform_renderer_sdl_frame_log_enabled = false;  /* enabled by WIZBALL_SDL2_DIAG=1 */
 static int platform_renderer_prev_sdl_draw_count = 0;
 static int platform_renderer_prev_sdl_textured_count = 0;
 static int platform_renderer_prev_legacy_draw_count = 0;
 static int platform_renderer_prev_legacy_textured_count = 0;
 static unsigned int platform_renderer_draw_transition_counter = 0;
+static Uint32 s_frame_clear_ticks = 0; /* timestamp of last clear_backbuffer, used for render-phase timing */
 
 // SDL Magic Pink setup
 static Uint8 MAGIC_R = 255;
@@ -270,6 +302,10 @@ static bool PLATFORM_RENDERER_using_multiply_blend_fallback(void)
 static void PLATFORM_RENDERER_refresh_sdl_stub_env_flags(void)
 {
 	platform_renderer_sdl_diag_verbose_enabled = false;
+	{
+		const char *diag_env = getenv("WIZBALL_SDL2_DIAG");
+		platform_renderer_sdl_frame_log_enabled = (diag_env != NULL) && PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_DIAG");
+	}
 	if (!platform_renderer_sdl_stub_show_checked_env)
 	{
 		const char *show_env = getenv("WIZBALL_SDL2_STUB_SHOW");
@@ -586,8 +622,7 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(SDL_Texture *te
 			center.y = dst_rect.h / 2;
 
 			PLATFORM_RENDERER_apply_sdl_texture_blend_mode(texture);
-			(void)SDL_SetTextureColorMod(texture, vertices[0].color.r, vertices[0].color.g, vertices[0].color.b);
-			(void)SDL_SetTextureAlphaMod(texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(vertices[0].color.a));
+			PLATFORM_RENDERER_set_texture_color_alpha_cached(texture, vertices[0].color.r, vertices[0].color.g, vertices[0].color.b, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(vertices[0].color.a));
 			if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, texture, &src_rect, &dst_rect, angle_degrees, &center, final_flip) == 0)
 			{
 				platform_renderer_sdl_native_draw_count++;
@@ -634,9 +669,8 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(SDL_Texture *te
 	}
 
 	PLATFORM_RENDERER_apply_sdl_texture_blend_mode(texture);
-	(void)SDL_SetTextureColorMod(texture, vertices[0].color.r, vertices[0].color.g, vertices[0].color.b);
-	(void)SDL_SetTextureAlphaMod(texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(vertices[0].color.a));
-	if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
+	PLATFORM_RENDERER_set_texture_color_alpha_cached(texture, vertices[0].color.r, vertices[0].color.g, vertices[0].color.b, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(vertices[0].color.a));
+	if (PLATFORM_RENDERER_sdl_copy_ex(platform_renderer_sdl_renderer, texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
 	{
 		platform_renderer_sdl_native_draw_count++;
 		platform_renderer_sdl_native_textured_draw_count++;
@@ -675,8 +709,23 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 	{
 		for (v = 0; v < vertex_count; v++)
 		{
+			float su, sv;
 			converted_vertices[v] = vertices[v];
 			converted_vertices[v].tex_coord.y = PLATFORM_RENDERER_convert_v_to_sdl(vertices[v].tex_coord.y);
+			/*
+			 * SDL 2.28.5 GLES2 backend rejects RenderGeometry calls where any UV
+			 * is outside [0,1], logging "Values of 'uv' out of bounds". This happens
+			 * for perspective tunnel quads near the screen extremes where texture-space
+			 * coordinates wrap past the texture edge. Clamping here keeps those quads
+			 * in the batch (rather than falling back to RenderCopyEx which flushes the
+			 * entire pending command queue).
+			 */
+			su = converted_vertices[v].tex_coord.x;
+			sv = converted_vertices[v].tex_coord.y;
+			if (su < 0.0f) su = 0.0f; else if (su > 1.0f) su = 1.0f;
+			if (sv < 0.0f) sv = 0.0f; else if (sv > 1.0f) sv = 1.0f;
+			converted_vertices[v].tex_coord.x = su;
+			converted_vertices[v].tex_coord.y = sv;
 		}
 		work_vertices = converted_vertices;
 	}
@@ -782,6 +831,11 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 			geom_bounds.w = 1;
 		if (geom_bounds.h <= 0)
 			geom_bounds.h = 1;
+		if (texture != platform_renderer_last_geom_texture)
+		{
+			platform_renderer_sdl_tx_switch_count++;
+			platform_renderer_last_geom_texture = texture;
+		}
 		platform_renderer_sdl_native_draw_count++;
 		platform_renderer_sdl_native_textured_draw_count++;
 		PLATFORM_RENDERER_note_sdl_draw_source(source_id);
@@ -789,6 +843,15 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 		return true;
 	}
 
+	{
+		static int rg_fail_logged = 0;
+		if (rg_fail_logged < 5)
+		{
+			rg_fail_logged++;
+			fprintf(stderr, "[GEOM-FAIL %d] SDL_RenderGeometry returned non-zero (src=%d): %s\n",
+				rg_fail_logged, source_id, SDL_GetError());
+		}
+	}
 	if (PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(texture, work_vertices, vertex_count, indices, index_count, source_id))
 	{
 		return true;
@@ -1488,28 +1551,13 @@ static void PLATFORM_RENDERER_apply_sdl_draw_blend_mode(void)
 		(void)SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_ADD);
 		break;
 	case PLATFORM_RENDERER_BLEND_MODE_MULTIPLY:
-	{
 		/*
-		 * Alpha-aware multiply:
-		 *   out_rgb = src_rgb * dst_rgb + dst_rgb * (1 - src_a)
-		 * This keeps classic multiply look for opaque texels while ensuring
-		 * masked/transparent texels do not stamp matte colour (pink/black boxes).
+		 * The original GL code used GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA for
+		 * BLEND_MULTIPLY — i.e. standard alpha blending despite the name.
+		 * Use SDL_BLENDMODE_BLEND to match.
 		 */
-		SDL_BlendMode multiply_mode = SDL_ComposeCustomBlendMode(
-				SDL_BLENDFACTOR_DST_COLOR, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD,
-				SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ZERO, SDL_BLENDOPERATION_ADD);
-		if (SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, multiply_mode) != 0)
-		{
-			static bool sdl_multiply_draw_warned = false;
-			if (!sdl_multiply_draw_warned)
-			{
-
-				sdl_multiply_draw_warned = true;
-			}
-			(void)SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_BLEND);
-		}
+		(void)SDL_SetRenderDrawBlendMode(platform_renderer_sdl_renderer, SDL_BLENDMODE_BLEND);
 		break;
-	}
 	case PLATFORM_RENDERER_BLEND_MODE_SUBTRACT:
 	{
 		SDL_BlendMode subtract_mode = SDL_ComposeCustomBlendMode(
@@ -1573,12 +1621,112 @@ static Uint8 PLATFORM_RENDERER_clamp_sdl_unit_to_byte(float unit_value)
 	return (Uint8)(int)(unit_value * 255.0f);
 }
 
+/*
+ * Wrapper around SDL_RenderCopyEx that falls back to SDL_RenderCopy when there
+ * is no rotation or flip to apply.  On some GLES2/Panfrost drivers (SDL 2.28.x)
+ * SDL_RenderCopyEx silently produces no pixels even when returning 0, while
+ * SDL_RenderCopy works correctly.
+ */
+static int PLATFORM_RENDERER_sdl_copy_ex(
+		SDL_Renderer *renderer,
+		SDL_Texture *texture,
+		const SDL_Rect *src,
+		const SDL_Rect *dst,
+		double angle,
+		const SDL_Point *center,
+		SDL_RendererFlip flip)
+{
+	if ((angle == 0.0) && (center == NULL) && (flip == SDL_FLIP_NONE))
+	{
+		return SDL_RenderCopy(renderer, texture, src, dst);
+	}
+	return SDL_RenderCopyEx(renderer, texture, src, dst, angle, center, flip);
+}
+
+/*
+ * SDL texture state cache -----------------------------------------------
+ * SDL_SetTextureBlendMode / ColorMod / AlphaMod are expensive on GLES2
+ * because each call can flush the renderer's internal draw batch and
+ * results in GPU state changes.  We keep a tiny per-slot cache of the last
+ * value applied to each SDL_Texture* and skip redundant calls.
+ *
+ * The game uses at most ~50 textures, but can have up to 3 variants each
+ * (normal, premultiplied, inverted).  A 128-slot direct-mapped hash keyed
+ * on the lower bits of the pointer handles this without extra allocation.
+ */
+#define SDLCACHE_SLOTS 256
+#define SDLCACHE_IDX(p) (((uintptr_t)(p) >> 3) & (SDLCACHE_SLOTS - 1))
+
+static struct
+{
+	SDL_Texture    *tex;
+	SDL_BlendMode   blend;
+	Uint8           r, g, b, a;
+	bool            color_valid; /* false when blend evicted slot: forces next color call to hit SDL */
+} sdl_tex_cache[SDLCACHE_SLOTS];
+
+/* Invalidate the cache slot for a texture (call when texture is rebuilt). */
+static void PLATFORM_RENDERER_invalidate_tex_cache(SDL_Texture *tex)
+{
+	if (tex == NULL) return;
+	int slot = (int)SDLCACHE_IDX(tex);
+	if (sdl_tex_cache[slot].tex == tex)
+		sdl_tex_cache[slot].tex = NULL;
+}
+
+static void PLATFORM_RENDERER_set_texture_blend_cached(SDL_Texture *tex, SDL_BlendMode mode)
+{
+	if (tex == NULL) return;
+	int slot = (int)SDLCACHE_IDX(tex);
+	if (sdl_tex_cache[slot].tex == tex && sdl_tex_cache[slot].blend == mode)
+		return; /* no-op: already set */
+	/* If this slot was owned by a different texture, the r,g,b,a fields are stale.
+	 * Mark color_valid=false so the next color call will always make the SDL call. */
+	if (sdl_tex_cache[slot].tex != tex)
+		sdl_tex_cache[slot].color_valid = false;
+	(void)SDL_SetTextureBlendMode(tex, mode);
+	sdl_tex_cache[slot].tex   = tex;
+	sdl_tex_cache[slot].blend = mode;
+	platform_renderer_sdl_blend_switch_count++;
+}
+
+static void PLATFORM_RENDERER_set_texture_color_alpha_cached(SDL_Texture *tex, Uint8 r, Uint8 g, Uint8 b, Uint8 a)
+{
+	if (tex == NULL) return;
+	int slot = (int)SDLCACHE_IDX(tex);
+	/* color_valid guards against stale r,g,b,a left by a prior texture that owned this slot.
+	 * It is cleared by set_texture_blend_cached when the slot owner changes. */
+	if (sdl_tex_cache[slot].tex == tex &&
+			sdl_tex_cache[slot].color_valid &&
+			sdl_tex_cache[slot].r == r &&
+			sdl_tex_cache[slot].g == g &&
+			sdl_tex_cache[slot].b == b &&
+			sdl_tex_cache[slot].a == a)
+		return; /* no-op */
+	(void)SDL_SetTextureColorMod(tex, r, g, b);
+	(void)SDL_SetTextureAlphaMod(tex, a);
+	sdl_tex_cache[slot].tex         = tex;
+	sdl_tex_cache[slot].r           = r;
+	sdl_tex_cache[slot].g           = g;
+	sdl_tex_cache[slot].b           = b;
+	sdl_tex_cache[slot].a           = a;
+	sdl_tex_cache[slot].color_valid = true;
+	platform_renderer_sdl_colmod_switch_count++;
+}
+/* --- end SDL texture state cache --------------------------------------- */
+
 static void PLATFORM_RENDERER_apply_sdl_texture_blend_mode(SDL_Texture *texture)
 {
 	if (texture == NULL)
 	{
 		return;
 	}
+
+	/* Count per-blend-mode draw usage for batching diagnostics. */
+	if (platform_renderer_blend_mode == PLATFORM_RENDERER_BLEND_MODE_ADD)
+		platform_renderer_sdl_add_draw_count++;
+	if (platform_renderer_blend_mode != PLATFORM_RENDERER_BLEND_MODE_ALPHA)
+		platform_renderer_sdl_spec_draw_count++;
 
 	if (!platform_renderer_blend_enabled)
 	{
@@ -1587,48 +1735,43 @@ static void PLATFORM_RENDERER_apply_sdl_texture_blend_mode(SDL_Texture *texture)
 		 * SDL has no alpha-test equivalent in RenderCopy, so keep texture blending on
 		 * to preserve transparent texels instead of drawing opaque matte backgrounds.
 		 */
-		(void)SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+		PLATFORM_RENDERER_set_texture_blend_cached(texture, SDL_BLENDMODE_BLEND);
 		return;
 	}
 
 	switch (platform_renderer_blend_mode)
 	{
 	case PLATFORM_RENDERER_BLEND_MODE_ADD:
-		(void)SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_ADD);
+		PLATFORM_RENDERER_set_texture_blend_cached(texture, SDL_BLENDMODE_ADD);
 		break;
 	case PLATFORM_RENDERER_BLEND_MODE_MULTIPLY:
-	{
 		/*
-		 * Alpha-aware multiply matching draw path.
-		 * Prevents transparent key-colour texels from contributing their RGB.
+		 * The original GL code used GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA for
+		 * BLEND_MULTIPLY — i.e. standard alpha blending despite the name.
+		 * Use SDL_BLENDMODE_BLEND to match.
 		 */
-		SDL_BlendMode multiply_mode = SDL_ComposeCustomBlendMode(
-				SDL_BLENDFACTOR_DST_COLOR, SDL_BLENDFACTOR_ONE_MINUS_SRC_ALPHA, SDL_BLENDOPERATION_ADD,
-				SDL_BLENDFACTOR_ONE, SDL_BLENDFACTOR_ZERO, SDL_BLENDOPERATION_ADD);
 		platform_renderer_sdl_multiply_texture_support_checked = true;
-		if (SDL_SetTextureBlendMode(texture, multiply_mode) != 0)
-		{
-			static bool sdl_multiply_texture_warned = false;
-			platform_renderer_sdl_multiply_texture_supported = false;
-			if (!sdl_multiply_texture_warned)
-			{
-
-				sdl_multiply_texture_warned = true;
-			}
-			(void)SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
-		}
-		else
-		{
-			platform_renderer_sdl_multiply_texture_supported = true;
-		}
+		platform_renderer_sdl_multiply_texture_supported = true;
+		PLATFORM_RENDERER_set_texture_blend_cached(texture, SDL_BLENDMODE_BLEND);
 		break;
-	}
 	case PLATFORM_RENDERER_BLEND_MODE_SUBTRACT:
 	{
-		SDL_BlendMode subtract_mode = SDL_ComposeCustomBlendMode(
-				SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE_MINUS_SRC_COLOR, SDL_BLENDOPERATION_ADD,
-				SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD);
+		/* Cache the subtract composed blend mode too. */
+		static SDL_BlendMode s_subtract_mode = SDL_BLENDMODE_INVALID;
+		if (s_subtract_mode == SDL_BLENDMODE_INVALID)
+		{
+			s_subtract_mode = SDL_ComposeCustomBlendMode(
+					SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE_MINUS_SRC_COLOR, SDL_BLENDOPERATION_ADD,
+					SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD);
+		}
+		SDL_BlendMode subtract_mode = s_subtract_mode;
 		platform_renderer_sdl_subtractive_texture_support_checked = true;
+		/* Cache check: skip SDL call (and batch flush) if already set. */
+		{
+			int slot = (int)SDLCACHE_IDX(texture);
+			if (sdl_tex_cache[slot].tex == texture && sdl_tex_cache[slot].blend == subtract_mode)
+				break;
+		}
 		if (SDL_SetTextureBlendMode(texture, subtract_mode) != 0)
 		{
 			static bool sdl_subtractive_texture_warned = false;
@@ -1638,19 +1781,65 @@ static void PLATFORM_RENDERER_apply_sdl_texture_blend_mode(SDL_Texture *texture)
 
 				sdl_subtractive_texture_warned = true;
 			}
-			(void)SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_MOD);
+			PLATFORM_RENDERER_set_texture_blend_cached(texture, SDL_BLENDMODE_MOD);
 		}
 		else
 		{
 			platform_renderer_sdl_subtractive_texture_supported = true;
+			int slot = (int)SDLCACHE_IDX(texture);
+			if (sdl_tex_cache[slot].tex != texture)
+				sdl_tex_cache[slot].color_valid = false;
+			sdl_tex_cache[slot].tex   = texture;
+			sdl_tex_cache[slot].blend = subtract_mode;
+			platform_renderer_sdl_blend_switch_count++;
 		}
 		break;
 	}
 	case PLATFORM_RENDERER_BLEND_MODE_ALPHA:
 	default:
-		(void)SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+		PLATFORM_RENDERER_set_texture_blend_cached(texture, SDL_BLENDMODE_BLEND);
 		break;
 	}
+}
+
+static int platform_renderer_addq_cmp(const void *a, const void *b)
+{
+	const platform_renderer_addq_entry *ea = (const platform_renderer_addq_entry *)a;
+	const platform_renderer_addq_entry *eb = (const platform_renderer_addq_entry *)b;
+	if (ea->tex < eb->tex) return -1;
+	if (ea->tex > eb->tex) return 1;
+	return 0;
+}
+
+/* Submit all deferred ADD-blend draws sorted by texture pointer.
+ * Must be called before any SDL_RenderSetClipRect change and before SDL_RenderPresent.
+ * Safe to call with an empty queue. */
+static void PLATFORM_RENDERER_flush_addq(void)
+{
+	int i;
+	if (platform_renderer_addq_count == 0)
+		return;
+	if (platform_renderer_addq_count > 1)
+		qsort(platform_renderer_addq, platform_renderer_addq_count,
+			  sizeof(platform_renderer_addq_entry), platform_renderer_addq_cmp);
+	for (i = 0; i < platform_renderer_addq_count; i++)
+	{
+		platform_renderer_addq_entry *e = &platform_renderer_addq[i];
+		/* Set ADD blend on the texture (SDLCACHE skips the SDL call if already set). */
+		PLATFORM_RENDERER_set_texture_blend_cached(e->tex, SDL_BLENDMODE_ADD);
+		/* Reset color mod to white: SDL_RenderGeometry uses vertex colors for all
+		 * modulation. A stale dark color mod left by a CopyEx-fallback draw (e.g.
+		 * during a SUBTRACT fade) would otherwise multiply the vertex colors dark. */
+		PLATFORM_RENDERER_set_texture_color_alpha_cached(e->tex, 255, 255, 255, 255);
+		SDL_RenderGeometry(platform_renderer_sdl_renderer, e->tex,
+			e->verts, e->vertex_count, e->indices, e->index_count);
+		if (e->tex != platform_renderer_last_geom_texture)
+		{
+			platform_renderer_sdl_tx_switch_count++;
+			platform_renderer_last_geom_texture = e->tex;
+		}
+	}
+	platform_renderer_addq_count = 0;
 }
 
 void PLATFORM_RENDERER_reset_texture_registry(void)
@@ -1980,6 +2169,16 @@ void PLATFORM_RENDERER_clear_backbuffer(void)
 	platform_renderer_sdl_window_sprite_draw_count = 0;
 	platform_renderer_sdl_window_solid_rect_draw_count = 0;
 	platform_renderer_sdl_bound_custom_draw_count = 0;
+	platform_renderer_sdl_tx_switch_count = 0;
+	platform_renderer_sdl_clip_switch_count = 0;
+	platform_renderer_sdl_blend_switch_count = 0;
+	platform_renderer_sdl_colmod_switch_count = 0;
+	platform_renderer_sdl_alpha_skip_count = 0;
+	platform_renderer_sdl_add_draw_count = 0;
+	platform_renderer_sdl_spec_draw_count = 0;
+	platform_renderer_sdl_defer_draw_count = 0;
+	platform_renderer_addq_count = 0; /* discard any deferred draws from aborted frames */
+	platform_renderer_last_geom_texture = NULL;
 	platform_renderer_legacy_window_sprite_draw_count = 0;
 	platform_renderer_legacy_window_solid_rect_draw_count = 0;
 	platform_renderer_legacy_bound_custom_draw_count = 0;
@@ -2015,6 +2214,8 @@ void PLATFORM_RENDERER_clear_backbuffer(void)
 		(void)SDL_SetRenderDrawColor(platform_renderer_sdl_renderer, 0, 0, 0, 255);
 		(void)SDL_RenderClear(platform_renderer_sdl_renderer);
 	}
+	/* Mark the start of the render/draw-submission phase for per-frame timing. */
+	s_frame_clear_ticks = SDL_GetTicks();
 }
 
 void PLATFORM_RENDERER_draw_outline_rect(int x1, int y1, int x2, int y2, int r, int g, int b, int virtual_screen_height)
@@ -2085,16 +2286,50 @@ void PLATFORM_RENDERER_draw_filled_rect(int x1, int y1, int x2, int y2, int r, i
 		rect.w = width;
 		rect.h = height;
 
-		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
-		(void)SDL_SetRenderDrawColor(
-				platform_renderer_sdl_renderer,
-				PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
-				PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
-				PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
-				255);
-		if (SDL_RenderFillRect(platform_renderer_sdl_renderer, &rect) == 0)
+		if (platform_renderer_white_texture != NULL)
 		{
-			platform_renderer_sdl_native_draw_count++;
+			const Uint8 cr = PLATFORM_RENDERER_clamp_sdl_colour_mod(r);
+			const Uint8 cg = PLATFORM_RENDERER_clamp_sdl_colour_mod(g);
+			const Uint8 cb = PLATFORM_RENDERER_clamp_sdl_colour_mod(b);
+			SDL_Vertex verts[4];
+			static const int idx[6] = {0, 1, 2, 0, 2, 3};
+			verts[0].position.x = (float)rect.x;             verts[0].position.y = (float)rect.y;
+			verts[1].position.x = (float)(rect.x + rect.w);  verts[1].position.y = (float)rect.y;
+			verts[2].position.x = (float)(rect.x + rect.w);  verts[2].position.y = (float)(rect.y + rect.h);
+			verts[3].position.x = (float)rect.x;             verts[3].position.y = (float)(rect.y + rect.h);
+			for (int vi = 0; vi < 4; vi++) {
+				verts[vi].tex_coord.x = 0.5f;
+				verts[vi].tex_coord.y = 0.5f;
+				verts[vi].color.r = cr; verts[vi].color.g = cg;
+				verts[vi].color.b = cb; verts[vi].color.a = 255;
+			}
+			PLATFORM_RENDERER_apply_sdl_texture_blend_mode(platform_renderer_white_texture);
+			PLATFORM_RENDERER_set_texture_color_alpha_cached(platform_renderer_white_texture, 255, 255, 255, 255);
+			if (SDL_RenderGeometry(platform_renderer_sdl_renderer, platform_renderer_white_texture,
+					verts, 4, idx, 6) == 0)
+			{
+				if (platform_renderer_white_texture != platform_renderer_last_geom_texture)
+				{
+					platform_renderer_sdl_tx_switch_count++;
+					platform_renderer_last_geom_texture = platform_renderer_white_texture;
+				}
+				platform_renderer_sdl_native_draw_count++;
+				platform_renderer_sdl_native_textured_draw_count++;
+			}
+		}
+		else
+		{
+			PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
+			(void)SDL_SetRenderDrawColor(
+					platform_renderer_sdl_renderer,
+					PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
+					PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
+					PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
+					255);
+			if (SDL_RenderFillRect(platform_renderer_sdl_renderer, &rect) == 0)
+			{
+				platform_renderer_sdl_native_draw_count++;
+			}
 		}
 	}
 }
@@ -2256,14 +2491,49 @@ void PLATFORM_RENDERER_draw_bound_solid_quad(float left, float right, float up, 
 			rect.h = 1;
 		}
 
-		PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(
-				platform_renderer_current_colour_r,
-				platform_renderer_current_colour_g,
-				platform_renderer_current_colour_b,
-				platform_renderer_current_colour_a);
-		if (SDL_RenderFillRect(platform_renderer_sdl_renderer, &rect) == 0)
+		if (platform_renderer_white_texture != NULL)
 		{
-			platform_renderer_sdl_native_draw_count++;
+			const Uint8 cr = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r);
+			const Uint8 cg = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g);
+			const Uint8 cb = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b);
+			const Uint8 ca = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a);
+			SDL_Vertex verts[4];
+			static const int idx[6] = {0, 1, 2, 0, 2, 3};
+			verts[0].position.x = (float)rect.x;             verts[0].position.y = (float)rect.y;
+			verts[1].position.x = (float)(rect.x + rect.w);  verts[1].position.y = (float)rect.y;
+			verts[2].position.x = (float)(rect.x + rect.w);  verts[2].position.y = (float)(rect.y + rect.h);
+			verts[3].position.x = (float)rect.x;             verts[3].position.y = (float)(rect.y + rect.h);
+			for (int vi = 0; vi < 4; vi++) {
+				verts[vi].tex_coord.x = 0.5f;
+				verts[vi].tex_coord.y = 0.5f;
+				verts[vi].color.r = cr; verts[vi].color.g = cg;
+				verts[vi].color.b = cb; verts[vi].color.a = ca;
+			}
+			PLATFORM_RENDERER_apply_sdl_texture_blend_mode(platform_renderer_white_texture);
+			PLATFORM_RENDERER_set_texture_color_alpha_cached(platform_renderer_white_texture, 255, 255, 255, 255);
+			if (SDL_RenderGeometry(platform_renderer_sdl_renderer, platform_renderer_white_texture,
+					verts, 4, idx, 6) == 0)
+			{
+				if (platform_renderer_white_texture != platform_renderer_last_geom_texture)
+				{
+					platform_renderer_sdl_tx_switch_count++;
+					platform_renderer_last_geom_texture = platform_renderer_white_texture;
+				}
+				platform_renderer_sdl_native_draw_count++;
+				platform_renderer_sdl_native_textured_draw_count++;
+			}
+		}
+		else
+		{
+			PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(
+					platform_renderer_current_colour_r,
+					platform_renderer_current_colour_g,
+					platform_renderer_current_colour_b,
+					platform_renderer_current_colour_a);
+			if (SDL_RenderFillRect(platform_renderer_sdl_renderer, &rect) == 0)
+			{
+				platform_renderer_sdl_native_draw_count++;
+			}
 		}
 	}
 }
@@ -2279,6 +2549,9 @@ static void PLATFORM_RENDERER_draw_bound_quad_legacy_fallback(
 		const float *quad_x, const float *quad_y,
 		float u1, float v1, float u2, float v2)
 {
+	/* Skip fully transparent draws before doing any geometry/SDL work. */
+	if (platform_renderer_current_colour_a < (1.0f / 256.0f))
+		return;
 	platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(platform_renderer_last_bound_texture_handle);
 	if (entry == NULL)
 		return;
@@ -2336,9 +2609,8 @@ static void PLATFORM_RENDERER_draw_bound_quad_legacy_fallback(
 	if (mod_a < 0) mod_a = 0; if (mod_a > 255) mod_a = 255;
 
 	PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
-	(void)SDL_SetTextureColorMod(draw_texture, (Uint8)mod_r, (Uint8)mod_g, (Uint8)mod_b);
-	(void)SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod((Uint8)mod_a));
-	if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
+	PLATFORM_RENDERER_set_texture_color_alpha_cached(draw_texture, (Uint8)mod_r, (Uint8)mod_g, (Uint8)mod_b, PLATFORM_RENDERER_get_sdl_texture_alpha_mod((Uint8)mod_a));
+	if (PLATFORM_RENDERER_sdl_copy_ex(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
 	{
 		platform_renderer_sdl_native_draw_count++;
 		platform_renderer_sdl_native_textured_draw_count++;
@@ -2347,6 +2619,10 @@ static void PLATFORM_RENDERER_draw_bound_quad_legacy_fallback(
 
 void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float up, float down, float u1, float v1, float u2, float v2)
 {
+	/* Skip fully transparent draws early: SDL API calls have non-trivial CPU cost per-call.
+	 * When alpha is zero the draw contributes nothing visible. */
+	if (platform_renderer_current_colour_a < (1.0f / 256.0f))
+		return;
 	static unsigned int sdl_bound_colour_diag_counter = 0;
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
@@ -2569,9 +2845,32 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 							}
 
 							PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
-							(void)SDL_SetTextureColorMod(draw_texture, (Uint8)mod_r, (Uint8)mod_g, (Uint8)mod_b);
-							(void)SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod((Uint8)mod_a));
-							if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
+							PLATFORM_RENDERER_set_texture_color_alpha_cached(draw_texture, (Uint8)mod_r, (Uint8)mod_g, (Uint8)mod_b, PLATFORM_RENDERER_get_sdl_texture_alpha_mod((Uint8)mod_a));
+							{
+								/*
+								 * Log the first 3 bound-draws per frame for the first 10 frames.
+								 * Detect frame boundary by watching textured_draw_count reset.
+								 */
+								static unsigned int bd_frame_seq = 0;
+								static unsigned int bd_prev_tex = 0;
+								static unsigned int bd_frame_num = 0;
+								if (platform_renderer_sdl_native_textured_draw_count < bd_prev_tex)
+								{
+									bd_frame_seq = 0;
+									bd_frame_num++;
+								}
+								bd_prev_tex = platform_renderer_sdl_native_textured_draw_count;
+								bd_frame_seq++;
+								if ((bd_frame_num <= 10) && (bd_frame_seq <= 3))
+								{
+									fprintf(stderr, "[BOUND-DRAW f=%u s=%u] dst=(%d,%d %dx%d) src=(%d,%d %dx%d) flip=%d mod=(%d,%d,%d,%d)\n",
+										bd_frame_num, bd_frame_seq,
+										dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h,
+										src_rect.x, src_rect.y, src_rect.w, src_rect.h,
+										(int)copy_flip, mod_r, mod_g, mod_b, mod_a);
+								}
+							}
+							if (PLATFORM_RENDERER_sdl_copy_ex(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
 							{
 								platform_renderer_sdl_native_draw_count++;
 								platform_renderer_sdl_native_textured_draw_count++;
@@ -2620,15 +2919,13 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 							}
 
 							PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
-							(void)SDL_SetTextureColorMod(
+							PLATFORM_RENDERER_set_texture_color_alpha_cached(
 									draw_texture,
 									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
 									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
-									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
-							(void)SDL_SetTextureAlphaMod(
-									draw_texture,
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b),
 									PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
-							if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
+							if (PLATFORM_RENDERER_sdl_copy_ex(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
 							{
 								platform_renderer_sdl_native_draw_count++;
 								platform_renderer_sdl_native_textured_draw_count++;
@@ -2835,9 +3132,8 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 							}
 
 							PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
-							(void)SDL_SetTextureColorMod(draw_texture, (Uint8)mod_r, (Uint8)mod_g, (Uint8)mod_b);
-							(void)SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod((Uint8)mod_a));
-							if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
+							PLATFORM_RENDERER_set_texture_color_alpha_cached(draw_texture, (Uint8)mod_r, (Uint8)mod_g, (Uint8)mod_b, PLATFORM_RENDERER_get_sdl_texture_alpha_mod((Uint8)mod_a));
+							if (PLATFORM_RENDERER_sdl_copy_ex(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
 							{
 								platform_renderer_sdl_native_draw_count++;
 								platform_renderer_sdl_native_textured_draw_count++;
@@ -2886,15 +3182,13 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 							}
 
 							PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
-							(void)SDL_SetTextureColorMod(
+							PLATFORM_RENDERER_set_texture_color_alpha_cached(
 									draw_texture,
 									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
 									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
-									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
-							(void)SDL_SetTextureAlphaMod(
-									draw_texture,
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b),
 									PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
-							if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
+							if (PLATFORM_RENDERER_sdl_copy_ex(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, 0.0, NULL, copy_flip) == 0)
 							{
 								platform_renderer_sdl_native_draw_count++;
 								platform_renderer_sdl_native_textured_draw_count++;
@@ -2923,6 +3217,54 @@ void PLATFORM_RENDERER_draw_point(float x, float y)
 		float tx;
 		float ty;
 		PLATFORM_RENDERER_transform_point(x, y, &tx, &ty);
+		/*
+		 * Route point draws through SDL_RenderGeometry with the 1x1 white texture rather
+		 * than SDL_RenderDrawPoint.  SDL_RenderDrawPoint emits a "draw_rects" command that
+		 * forces a GPU pipeline-state flush from geometry mode on GLES2/Panfrost (~100us).
+		 * With RenderGeometry all point/sprite/fill draws share one command type, so the
+		 * ~400 per-frame flushes collapse to ~1-2 texture-boundary changes (~5us each).
+		 */
+		if (platform_renderer_white_texture != NULL)
+		{
+			const float px = tx;
+			const float py = (float)platform_renderer_present_height - ty;
+			const Uint8 cr = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r);
+			const Uint8 cg = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g);
+			const Uint8 cb = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b);
+			const Uint8 ca = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a);
+			if (ca == 0)
+			{
+				/* Fully transparent — skip the geometry draw entirely (no GPU work, no batch flush). */
+				platform_renderer_sdl_alpha_skip_count++;
+				return;
+			}
+			SDL_Vertex verts[4];
+			static const int idx[6] = {0, 1, 2, 0, 2, 3};
+			verts[0].position.x = px;        verts[0].position.y = py;
+			verts[1].position.x = px + 1.0f; verts[1].position.y = py;
+			verts[2].position.x = px + 1.0f; verts[2].position.y = py + 1.0f;
+			verts[3].position.x = px;        verts[3].position.y = py + 1.0f;
+			for (int vi = 0; vi < 4; vi++) {
+				verts[vi].tex_coord.x = 0.5f;
+				verts[vi].tex_coord.y = 0.5f;
+				verts[vi].color.r = cr; verts[vi].color.g = cg;
+				verts[vi].color.b = cb; verts[vi].color.a = ca;
+			}
+			PLATFORM_RENDERER_apply_sdl_texture_blend_mode(platform_renderer_white_texture);
+			PLATFORM_RENDERER_set_texture_color_alpha_cached(platform_renderer_white_texture, 255, 255, 255, 255);
+			if (SDL_RenderGeometry(platform_renderer_sdl_renderer, platform_renderer_white_texture,
+					verts, 4, idx, 6) == 0)
+			{
+				if (platform_renderer_white_texture != platform_renderer_last_geom_texture)
+				{
+					platform_renderer_sdl_tx_switch_count++;
+					platform_renderer_last_geom_texture = platform_renderer_white_texture;
+				}
+				platform_renderer_sdl_native_draw_count++;
+				platform_renderer_sdl_native_textured_draw_count++;
+			}
+			return;
+		}
 		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
 		PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(
 				platform_renderer_current_colour_r,
@@ -2943,6 +3285,46 @@ void PLATFORM_RENDERER_draw_coloured_point(float x, float y, float r, float g, f
 		float tx;
 		float ty;
 		PLATFORM_RENDERER_transform_point(x, y, &tx, &ty);
+		if (platform_renderer_white_texture != NULL)
+		{
+			const float px = tx;
+			const float py = (float)platform_renderer_present_height - ty;
+			const Uint8 cr = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(r);
+			const Uint8 cg = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(g);
+			const Uint8 cb = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(b);
+			const Uint8 ca = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a);
+			if (ca == 0)
+			{
+				platform_renderer_sdl_alpha_skip_count++;
+				return;
+			}
+			SDL_Vertex verts[4];
+			static const int idx[6] = {0, 1, 2, 0, 2, 3};
+			verts[0].position.x = px;        verts[0].position.y = py;
+			verts[1].position.x = px + 1.0f; verts[1].position.y = py;
+			verts[2].position.x = px + 1.0f; verts[2].position.y = py + 1.0f;
+			verts[3].position.x = px;        verts[3].position.y = py + 1.0f;
+			for (int vi = 0; vi < 4; vi++) {
+				verts[vi].tex_coord.x = 0.5f;
+				verts[vi].tex_coord.y = 0.5f;
+				verts[vi].color.r = cr; verts[vi].color.g = cg;
+				verts[vi].color.b = cb; verts[vi].color.a = ca;
+			}
+			PLATFORM_RENDERER_apply_sdl_texture_blend_mode(platform_renderer_white_texture);
+			PLATFORM_RENDERER_set_texture_color_alpha_cached(platform_renderer_white_texture, 255, 255, 255, 255);
+			if (SDL_RenderGeometry(platform_renderer_sdl_renderer, platform_renderer_white_texture,
+					verts, 4, idx, 6) == 0)
+			{
+				if (platform_renderer_white_texture != platform_renderer_last_geom_texture)
+				{
+					platform_renderer_sdl_tx_switch_count++;
+					platform_renderer_last_geom_texture = platform_renderer_white_texture;
+				}
+				platform_renderer_sdl_native_draw_count++;
+				platform_renderer_sdl_native_textured_draw_count++;
+			}
+			return;
+		}
 		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
 		PLATFORM_RENDERER_set_sdl_draw_colour_from_floats(r, g, b, platform_renderer_current_colour_a);
 		if (SDL_RenderDrawPoint(platform_renderer_sdl_renderer, (int)tx, (int)((float)platform_renderer_present_height - ty)) == 0)
@@ -2978,6 +3360,20 @@ void PLATFORM_RENDERER_set_colour3f(float r, float g, float b)
 
 void PLATFORM_RENDERER_set_colour4f(float r, float g, float b, float a)
 {
+	/*
+	 * Diagnostic: log when colour is set to zero-alpha or all-black so we can
+	 * track down which code path causes entity sprites to become invisible.
+	 */
+	if ((a < 0.01f) || (r < 0.01f && g < 0.01f && b < 0.01f))
+	{
+		static unsigned int colour_zero_count = 0;
+		colour_zero_count++;
+		if (colour_zero_count <= 20)
+		{
+			fprintf(stderr, "[COLOUR-ZERO %u] set_colour4f(%.3f, %.3f, %.3f, %.3f)\n",
+				colour_zero_count, r, g, b, a);
+		}
+	}
 	platform_renderer_current_colour_r = r;
 	platform_renderer_current_colour_g = g;
 	platform_renderer_current_colour_b = b;
@@ -3101,7 +3497,15 @@ void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float b
 			if ((clip_w <= 0) || (clip_h <= 0))
 			{
 				/* Prefer no clipping over blank frame when window clip is invalid. */
-				(void)SDL_RenderSetClipRect(platform_renderer_sdl_renderer, NULL);
+				if (platform_renderer_sdl_clip_cache_enabled)
+				{
+					/* Flush deferred ADD draws before changing clip rect so they render
+					 * in the clip context they were issued in, preserving draw order. */
+					PLATFORM_RENDERER_flush_addq();
+					(void)SDL_RenderSetClipRect(platform_renderer_sdl_renderer, NULL);
+					platform_renderer_sdl_clip_cache_enabled = false;
+					platform_renderer_sdl_clip_switch_count++;
+				}
 			}
 			else
 			{
@@ -3109,7 +3513,19 @@ void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float b
 				clip.y = y0;
 				clip.w = clip_w;
 				clip.h = clip_h;
-				(void)SDL_RenderSetClipRect(platform_renderer_sdl_renderer, &clip);
+				if (!platform_renderer_sdl_clip_cache_enabled ||
+						platform_renderer_sdl_clip_cache.x != clip.x ||
+						platform_renderer_sdl_clip_cache.y != clip.y ||
+						platform_renderer_sdl_clip_cache.w != clip.w ||
+						platform_renderer_sdl_clip_cache.h != clip.h)
+				{
+					/* Flush deferred ADD draws before changing clip rect. */
+					PLATFORM_RENDERER_flush_addq();
+					(void)SDL_RenderSetClipRect(platform_renderer_sdl_renderer, &clip);
+					platform_renderer_sdl_clip_cache = clip;
+					platform_renderer_sdl_clip_cache_enabled = true;
+					platform_renderer_sdl_clip_switch_count++;
+				}
 			}
 		}
 	}
@@ -3178,7 +3594,14 @@ void PLATFORM_RENDERER_finish_textured_window_draw(bool texture_combiner_availab
 {
 	if (platform_renderer_sdl_renderer != NULL)
 	{
-		(void)SDL_RenderSetClipRect(platform_renderer_sdl_renderer, NULL);
+		if (platform_renderer_sdl_clip_cache_enabled)
+		{
+			/* Flush deferred ADD draws before clearing clip at textured-window end. */
+			PLATFORM_RENDERER_flush_addq();
+			(void)SDL_RenderSetClipRect(platform_renderer_sdl_renderer, NULL);
+			platform_renderer_sdl_clip_cache_enabled = false;
+			platform_renderer_sdl_clip_switch_count++;
+		}
 	}
 	PLATFORM_RENDERER_set_blend_enabled(false);
 	PLATFORM_RENDERER_set_colour4f(1.0f, 1.0f, 1.0f, 1.0f);
@@ -3307,14 +3730,14 @@ void PLATFORM_RENDERER_draw_bound_multitextured_quad_array(const float *x, const
 					}
 
 					PLATFORM_RENDERER_apply_sdl_texture_blend_mode(entry->sdl_texture);
-					(void)SDL_SetTextureColorMod(
+					PLATFORM_RENDERER_set_texture_color_alpha_cached(
 							entry->sdl_texture,
 							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
 							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
-							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
-					(void)SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b),
+							PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
 
-					if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
+					if (PLATFORM_RENDERER_sdl_copy_ex(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
 					{
 						platform_renderer_sdl_native_draw_count++;
 						platform_renderer_sdl_native_textured_draw_count++;
@@ -3466,14 +3889,14 @@ void PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(const float *x, c
 					}
 
 					PLATFORM_RENDERER_apply_sdl_texture_blend_mode(entry->sdl_texture);
-					(void)SDL_SetTextureColorMod(
+					PLATFORM_RENDERER_set_texture_color_alpha_cached(
 							entry->sdl_texture,
 							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(r[0]),
 							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(g[0]),
-							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(b[0]));
-					(void)SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(a[0])));
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(b[0]),
+							PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(a[0])));
 
-					if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
+					if (PLATFORM_RENDERER_sdl_copy_ex(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
 					{
 						platform_renderer_sdl_native_draw_count++;
 						platform_renderer_sdl_native_textured_draw_count++;
@@ -3688,14 +4111,14 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 					}
 
 					PLATFORM_RENDERER_apply_sdl_texture_blend_mode(entry->sdl_texture);
-					(void)SDL_SetTextureColorMod(
+					PLATFORM_RENDERER_set_texture_color_alpha_cached(
 							entry->sdl_texture,
 							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
 							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
-							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
-					(void)SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b),
+							PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
 
-					if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
+					if (PLATFORM_RENDERER_sdl_copy_ex(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
 					{
 						platform_renderer_sdl_native_draw_count++;
 						platform_renderer_sdl_native_textured_draw_count++;
@@ -3755,12 +4178,12 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 							}
 
 							PLATFORM_RENDERER_apply_sdl_texture_blend_mode(entry->sdl_texture);
-							(void)SDL_SetTextureColorMod(
+							PLATFORM_RENDERER_set_texture_color_alpha_cached(
 									entry->sdl_texture,
 									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
 									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
-									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b));
-							(void)SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b),
+									PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a)));
 
 							if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, angle_degrees, &center, final_flip) == 0)
 							{
@@ -4103,14 +4526,14 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 					}
 
 					PLATFORM_RENDERER_apply_sdl_texture_blend_mode(entry->sdl_texture);
-					(void)SDL_SetTextureColorMod(
+					PLATFORM_RENDERER_set_texture_color_alpha_cached(
 							entry->sdl_texture,
 							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(r[0]),
 							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(g[0]),
-							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(b[0]));
-					(void)SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(a[0])));
+							PLATFORM_RENDERER_clamp_sdl_unit_to_byte(b[0]),
+							PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(a[0])));
 
-					if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
+					if (PLATFORM_RENDERER_sdl_copy_ex(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, 0.0, NULL, final_flip) == 0)
 					{
 						platform_renderer_sdl_native_draw_count++;
 						platform_renderer_sdl_native_textured_draw_count++;
@@ -4174,12 +4597,12 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 							}
 
 							PLATFORM_RENDERER_apply_sdl_texture_blend_mode(entry->sdl_texture);
-							(void)SDL_SetTextureColorMod(
+							PLATFORM_RENDERER_set_texture_color_alpha_cached(
 									entry->sdl_texture,
 									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(avg_r),
 									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(avg_g),
-									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(avg_b));
-							(void)SDL_SetTextureAlphaMod(entry->sdl_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(avg_a)));
+									PLATFORM_RENDERER_clamp_sdl_unit_to_byte(avg_b),
+									PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_unit_to_byte(avg_a)));
 
 							if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, entry->sdl_texture, &src_rect, &dst_rect, angle_degrees, &center, final_flip) == 0)
 							{
@@ -4285,16 +4708,42 @@ void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, in
 					{
 					}
 					PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
-					(void)SDL_SetTextureColorMod(
-							draw_texture,
+					PLATFORM_RENDERER_set_texture_color_alpha_cached(draw_texture,
 							PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
 							PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
-							PLATFORM_RENDERER_clamp_sdl_colour_mod(b));
-					(void)SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(255));
+							PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
+							PLATFORM_RENDERER_get_sdl_texture_alpha_mod(255));
 					if (SDL_RenderCopy(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect) == 0)
 					{
 						platform_renderer_sdl_native_draw_count++;
 						platform_renderer_sdl_native_textured_draw_count++;
+						{
+							static int quad_log = 0;
+							if (quad_log < 10)
+							{
+								quad_log++;
+								fprintf(stderr,
+									"[QUAD-DRAW %d] handle=%u dst=(%d,%d %dx%d) "
+									"src=(%d,%d %dx%d) sdl_h=%d\n",
+									quad_log, texture_handle,
+									dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h,
+									src_rect.x, src_rect.y, src_rect.w, src_rect.h,
+									sdl_height);
+							}
+						}
+					}
+					else
+					{
+						static int quad_fail_log = 0;
+						if (quad_fail_log < 3)
+						{
+							quad_fail_log++;
+							fprintf(stderr,
+								"[QUAD-FAIL %d] handle=%u SDL error: %s "
+								"dst=(%d,%d %dx%d)\n",
+								quad_fail_log, texture_handle, SDL_GetError(),
+								dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h);
+						}
 					}
 				}
 			}
@@ -4416,27 +4865,56 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 		int native_draw_count_before = platform_renderer_sdl_native_draw_count;
 		bool copied = false;
 
-		(void)SDL_SetTextureColorMod(
-				draw_texture,
-				PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
-				PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
-				PLATFORM_RENDERER_clamp_sdl_colour_mod(b));
 		if (PLATFORM_RENDERER_using_subtractive_mod_fallback())
 		{
-			(void)SDL_SetTextureColorMod(draw_texture, 255, 255, 255);
+			PLATFORM_RENDERER_set_texture_color_alpha_cached(draw_texture, 255, 255, 255,
+					PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_colour_mod(a)));
+		}
+		else
+		{
+			PLATFORM_RENDERER_set_texture_color_alpha_cached(draw_texture,
+					PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
+					PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
+					PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
+					PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_colour_mod(a)));
 		}
 		PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
-		(void)SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_colour_mod(a)));
 		if (SDL_RenderCopyEx(platform_renderer_sdl_renderer, draw_texture, &src_rect, &dst_rect, sprite_rotation_degrees, &center, final_flip) == 0)
 		{
 			platform_renderer_sdl_native_draw_count++;
 			platform_renderer_sdl_native_textured_draw_count++;
 			copied = true;
-		}
-
-		/* Geometry fallback only if copy path fails. */
-		if (!copied)
 		{
+			static int ws_log = 0;
+			if (ws_log < 30)
+			{
+				ws_log++;
+				fprintf(stderr,
+					"[WIN-SPRITE %d] handle=%u entity=(%.0f,%.0f) "
+					"dst=(%d,%d %dx%d) src=(%d,%d %dx%d) rot=%.1f\n",
+					ws_log, texture_handle,
+					entity_x, entity_y,
+					dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h,
+					src_rect.x, src_rect.y, src_rect.w, src_rect.h,
+					sprite_rotation_degrees);
+			}
+		}
+	}
+	else
+	{
+		static int ws_fail_log = 0;
+		if (ws_fail_log < 5)
+		{
+			ws_fail_log++;
+			fprintf(stderr,
+				"[WIN-SPRITE-FAIL %d] handle=%u entity=(%.0f,%.0f) "
+				"dst=(%d,%d %dx%d) src=(%d,%d %dx%d) err: %s\n",
+				ws_fail_log, texture_handle,
+				entity_x, entity_y,
+				dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h,
+				src_rect.x, src_rect.y, src_rect.w, src_rect.h,
+				SDL_GetError());
+		}
 			for (i = 0; i < 4; i++)
 			{
 				const float x = local_x[i];
@@ -4462,8 +4940,8 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 				vertices[i].color.a = PLATFORM_RENDERER_clamp_sdl_colour_mod(a);
 			}
 
-			(void)SDL_SetTextureColorMod(draw_texture, 255, 255, 255);
-			(void)SDL_SetTextureAlphaMod(draw_texture, PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_colour_mod(a)));
+			PLATFORM_RENDERER_set_texture_color_alpha_cached(draw_texture, 255, 255, 255,
+					PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_colour_mod(a)));
 			(void)PLATFORM_RENDERER_try_sdl_geometry_textured(draw_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_SDL_CUSTOM);
 		}
 		if (platform_renderer_sdl_native_draw_count > native_draw_count_before)
@@ -4809,13 +5287,47 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 		{
 			const bool should_present_sdl = true;
 			platform_renderer_sdl_present_frame_counter++;
+			/* Flush deferred ADD batch before measuring render_ms so the cost is included. */
+			PLATFORM_RENDERER_flush_addq();
+			/* Track total frame time (wall-clock from end of previous present to end of this one). */
+			static Uint32 s_last_frame_end_ticks = 0;
+			Uint32 frame_start_ticks = SDL_GetTicks();
+			Uint32 frame_ms = (s_last_frame_end_ticks > 0) ? (frame_start_ticks - s_last_frame_end_ticks) : 0;
+			/* render_ms = time from clear_backbuffer to present start = SDL draw-submission cost */
+			Uint32 render_ms = (s_frame_clear_ticks > 0 && frame_start_ticks >= s_frame_clear_ticks)
+								? (frame_start_ticks - s_frame_clear_ticks) : 0;
+			Uint32 present_t0 = frame_start_ticks;
 			if (should_present_sdl)
 			{
 				SDL_RenderPresent(platform_renderer_sdl_renderer);
 			}
+			Uint32 present_ms = SDL_GetTicks() - present_t0;
+			s_last_frame_end_ticks = SDL_GetTicks();
 			sdl_present_debug_counter++;
-			if ((sdl_present_debug_counter <= 20u) || ((sdl_present_debug_counter % 300u) == 0u))
+			if ((sdl_present_debug_counter <= 300u) || ((sdl_present_debug_counter % 300u) == 0u))
 			{
+				fprintf(stderr,
+					"[FRAME %u] draws=%d textured=%d nontex=%d winspr=%d geom_miss=%d degraded=%d "
+					"tx_sw=%d clip_sw=%d blend_sw=%d colmod_sw=%d skip=%d add_d=%d spec_d=%d defer_d=%d present_h=%d frame_ms=%u render_ms=%u present_ms=%u\n",
+					sdl_present_debug_counter,
+					platform_renderer_sdl_native_draw_count,
+					platform_renderer_sdl_native_textured_draw_count,
+					platform_renderer_sdl_native_draw_count - platform_renderer_sdl_native_textured_draw_count,
+					platform_renderer_sdl_window_sprite_draw_count,
+					platform_renderer_sdl_geometry_fallback_miss_count,
+					platform_renderer_sdl_geometry_degraded_count,
+					platform_renderer_sdl_tx_switch_count,
+					platform_renderer_sdl_clip_switch_count,
+					platform_renderer_sdl_blend_switch_count,
+					platform_renderer_sdl_colmod_switch_count,
+					platform_renderer_sdl_alpha_skip_count,
+					platform_renderer_sdl_add_draw_count,
+					platform_renderer_sdl_spec_draw_count,
+					platform_renderer_sdl_defer_draw_count,
+					platform_renderer_present_height,
+					(unsigned int)frame_ms,
+					(unsigned int)render_ms,
+					(unsigned int)present_ms);
 			}
 		}
 	}
@@ -4870,10 +5382,14 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 	}
 
 	/*
-	 * Keep SDL submission order strict for mixed primitive/sprite scenes
-	 * (e.g. starfield lines + intro text overlays).
+	 * Enable SDL batch rendering. SDL processes its command queue in strict
+	 * FIFO order — draw order is fully preserved. Consecutive SDL_RenderGeometry
+	 * calls with the same texture+blend are merged into a single GL draw call,
+	 * collapsing ~2400 per-frame calls into ~20 on GLES2/Panfrost (~10x speedup).
+	 * Mixed primitive/sprite scenes (lines + overlays) are safe: SDL only merges
+	 * consecutive same-type/same-texture commands, never across different draw types.
 	 */
-	(void)SDL_SetHint(SDL_HINT_RENDER_BATCHING, "0");
+	(void)SDL_SetHint(SDL_HINT_RENDER_BATCHING, "1");
 
 	/* Use nearest-neighbour filtering for textures (pixel-art game). */
 	(void)SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
@@ -4941,10 +5457,14 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 		}
 		else
 		{
+			const bool novsync = PLATFORM_RENDERER_env_enabled("WIZBALL_SDL2_NOVSYNC");
+			const Uint32 accel_flags = novsync
+					? SDL_RENDERER_ACCELERATED
+					: SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC;
 			platform_renderer_sdl_renderer = SDL_CreateRenderer(
 					platform_renderer_sdl_window,
 					-1,
-					SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+					accel_flags);
 		}
 	}
 	else
@@ -5015,7 +5535,23 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 				}
 				if (!platform_renderer_sdl_renderer_info_logged)
 				{
-
+					SDL_version compiled_ver, linked_ver;
+					SDL_VERSION(&compiled_ver);
+					SDL_GetVersion(&linked_ver);
+					const bool linked_has_geometry = (linked_ver.major > 2) ||
+						(linked_ver.major == 2 && linked_ver.minor > 0) ||
+						(linked_ver.major == 2 && linked_ver.minor == 0 && linked_ver.patch >= 18);
+					fprintf(stderr,
+						"[SDL-INIT] compiled=%d.%d.%d linked=%d.%d.%d "
+						"renderer='%s' flags=0x%x accel=%d software=%d "
+						"has_RenderGeometry=%s\n",
+						compiled_ver.major, compiled_ver.minor, compiled_ver.patch,
+						linked_ver.major, linked_ver.minor, linked_ver.patch,
+						renderer_info.name ? renderer_info.name : "(null)",
+						(unsigned int)renderer_info.flags,
+						(renderer_info.flags & SDL_RENDERER_ACCELERATED) ? 1 : 0,
+						(renderer_info.flags & SDL_RENDERER_SOFTWARE) ? 1 : 0,
+						linked_has_geometry ? "yes" : "NO");
 					platform_renderer_sdl_renderer_info_logged = true;
 				}
 			}
@@ -5050,6 +5586,26 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 		else
 		{
 			strcpy(platform_renderer_sdl_status, "SDL2 stub initialized (hidden window + software renderer).");
+		}
+	}
+	/* Create a 1x1 white RGBA texture used to route SDL_RenderFillRect / SDL_RenderDrawPoint
+	 * calls through SDL_RenderGeometry.  All draw calls then share one command type, letting
+	 * SDL batch consecutive same-texture calls and avoiding the ~100us per-call GPU
+	 * pipeline-state flush that "draw_rects"-type commands cause when interleaved with
+	 * geometry commands on GLES2/Panfrost (~400 flushes/frame = 40ms overhead). */
+	if ((platform_renderer_sdl_renderer != NULL) && (platform_renderer_white_texture == NULL))
+	{
+		SDL_Texture *wt = SDL_CreateTexture(
+				platform_renderer_sdl_renderer,
+				SDL_PIXELFORMAT_RGBA8888,
+				SDL_TEXTUREACCESS_STATIC,
+				1, 1);
+		if (wt != NULL)
+		{
+			const Uint32 white_pixel = 0xFFFFFFFFu;  /* R=FF G=FF B=FF A=FF in RGBA8888 */
+			SDL_UpdateTexture(wt, NULL, &white_pixel, 4);
+			SDL_SetTextureBlendMode(wt, SDL_BLENDMODE_BLEND);
+			platform_renderer_white_texture = wt;
 		}
 	}
 	/* Map all draw calls to game-space coordinates regardless of the actual

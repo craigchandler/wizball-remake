@@ -93,6 +93,9 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     -Wno-write-strings
     -Wno-noexcept-type
   )
+  # Use verbose (non-binary) tileset/tilemap loading on all SDL/Linux builds.
+  # This matches the ALLEGRO_LINUX path in new_editor.cpp which skips tilesets.dat.
+  target_compile_definitions(wizball PRIVATE ALLEGRO_LINUX)
 
   if(WIZBALL_ENABLE_ASAN)
     target_compile_options(wizball PRIVATE -fsanitize=address -fno-omit-frame-pointer -g)
@@ -104,7 +107,6 @@ endif()
 # PortMaster staging / install
 # ---------------------------
 option(WIZBALL_PORTMASTER "Enable PortMaster-style staging install" ON)
-set(WIZBALL_PORTNAME "wizball" CACHE STRING "PortMaster port folder name")
 
 # Determine PortMaster arch label
 set(PM_ARCH "unknown")
@@ -112,27 +114,58 @@ if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64")
   set(PM_ARCH "aarch64")
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7|armv7l|armhf")
   set(PM_ARCH "armhf")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|amd64")
+  set(PM_ARCH "x86_64")
 endif()
 
-# Name the output binary as wizball.<arch>
-set_target_properties(wizball PROPERTIES OUTPUT_NAME "wizball.${PM_ARCH}")
+if(WIZBALL_PORTMASTER)
+  set(WIZBALL_PORTNAME "wizball")
+  set_target_properties(wizball PROPERTIES OUTPUT_NAME "wizball.${PM_ARCH}")
 
-# Install binary to: <prefix>/wizball/wizball/wizball.<arch>
+# PortMaster on-device layout:
+#   ports/WizBall.sh                 <- launch script (ports root)
+#   ports/wizball/wizball.<arch>     <- binary
+#   ports/wizball/port.json          <- port metadata
+#   ports/wizball/wizball/           <- game data
+#
+# cmake --install ... --prefix staging  produces:
+#   staging/WizBall.sh
+#   staging/wizball/wizball.<arch>
+#   staging/wizball/port.json
+#   staging/wizball/wizball/
+
+# Binary -> staging/wizball/
 install(TARGETS wizball
-  RUNTIME DESTINATION "${WIZBALL_PORTNAME}/${WIZBALL_PORTNAME}"
+  RUNTIME DESTINATION "${WIZBALL_PORTNAME}"
 )
 
-# Install your runtime data folder to: <prefix>/wizball/wizball/datafiles
-# Adjust the SOURCE path below to wherever your datafiles folder actually lives in the repo.
+# Launch script -> staging/  (ports root level)
+install(FILES "${CMAKE_SOURCE_DIR}/wizball/WizBall.sh"
+  DESTINATION "."
+  PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
+              GROUP_READ GROUP_EXECUTE
+              WORLD_READ WORLD_EXECUTE
+)
+
+# port.json -> staging/wizball/
+install(FILES "${CMAKE_SOURCE_DIR}/wizball/port.json"
+  DESTINATION "${WIZBALL_PORTNAME}"
+)
+
+# Game data -> staging/wizball/wizball/
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/wizball/wizball/"
-  DESTINATION "${WIZBALL_PORTNAME}/${WIZBALL_PORTNAME}/wizball"
+  DESTINATION "${WIZBALL_PORTNAME}/wizball"
   PATTERN "*.cpp" EXCLUDE
   PATTERN "*.c"   EXCLUDE
   PATTERN "*.h"   EXCLUDE
   PATTERN "*.hpp" EXCLUDE
   PATTERN "*.dat" EXCLUDE
+  PATTERN "WizBall.sh" EXCLUDE
+  PATTERN "port.json"  EXCLUDE
 )
-
+else()
+  set_target_properties(wizball PROPERTIES OUTPUT_NAME "wizball")
+endif()
 # ---------------------------
 # Existing custom targets (optional)
 # ---------------------------
