@@ -34,7 +34,7 @@ int HISCORES_get_index_from_unique_id (int unique_id)
 	}
 
 	char error[MAX_LINE_SIZE];
-	sprintf(error,"Invalid unique id %i for hiscore table!",unique_id);
+	snprintf(error, sizeof(error), "Invalid unique id %i for hiscore table!",unique_id);
 	OUTPUT_message(error);
 	assert(0);
 
@@ -104,7 +104,7 @@ char *HISCORE_checkcode (int unique_id, char *name, int score)
 
 	char line[MAX_LINE_SIZE];
 
-	sprintf (line,"%i%s%i",unique_id,name,score);
+	snprintf (line, sizeof(line), "%i%s%i",unique_id,name,score);
 
 	int c;
 
@@ -158,19 +158,19 @@ void HISCORES_save_hiscore_table (int unique_id, int filename_text_tag)
 
 	if (fp != NULL)
 	{
-		sprintf(line,"#HI-SCORE TABLE SIZE = %i\n",hs[index].entries);
+		snprintf(line, sizeof(line), "#HI-SCORE TABLE SIZE = %i\n",hs[index].entries);
 		fputs(line,fp);
 
-		sprintf(line,"#HI-SCORE NAME SIZE = %i\n",hs[index].name_size);
+		snprintf(line, sizeof(line), "#HI-SCORE NAME SIZE = %i\n",hs[index].name_size);
 		fputs(line,fp);
 
-		sprintf(line,"#HI-SCORE SCORE SIZE = %i\n",hs[index].score_size);
+		snprintf(line, sizeof(line), "#HI-SCORE SCORE SIZE = %i\n",hs[index].score_size);
 		fputs(line,fp);
 
-		sprintf(line,"#HI-SCORE TABLE TYPE = %i\n",hs[index].table_type);
+		snprintf(line, sizeof(line), "#HI-SCORE TABLE TYPE = %i\n",hs[index].table_type);
 		fputs(line,fp);
 
-		sprintf(line,"#HI-SCORE UNIQUE ID = %i\n\n",hs[index].unique_id);
+		snprintf(line, sizeof(line), "#HI-SCORE UNIQUE ID = %i\n\n",hs[index].unique_id);
 		fputs(line,fp);
 
 		fputs("#ENTRIES\n",fp);
@@ -179,7 +179,7 @@ void HISCORES_save_hiscore_table (int unique_id, int filename_text_tag)
 
 		for(entry_number=0;entry_number<max_entries;entry_number++)
 		{
-			sprintf(line,"\t[%s][%i][%s]\n" , hs[index].scores[entry_number].name , hs[index].scores[entry_number].score , HISCORE_checkcode(hs[index].unique_id,hs[index].scores[entry_number].name,hs[index].scores[entry_number].score) );
+			snprintf(line, sizeof(line), "\t[%s][%i][%s]\n" , hs[index].scores[entry_number].name , hs[index].scores[entry_number].score , HISCORE_checkcode(hs[index].unique_id,hs[index].scores[entry_number].name,hs[index].scores[entry_number].score) );
 
 			fputs(line,fp);
 		}
@@ -401,7 +401,7 @@ char * HISCORE_get_hiscore_name (int unique_id, int entry)
 	else
 	{
 		char error[MAX_LINE_SIZE];
-		sprintf(error,"Entry %i wrong, table %i has %i entries!",entry,unique_id,hs[hiscore_number].entries);
+		snprintf(error, sizeof(error), "Entry %i wrong, table %i has %i entries!",entry,unique_id,hs[hiscore_number].entries);
 		OUTPUT_message(error);
 		assert(0);
 	}
@@ -430,7 +430,7 @@ char * HISCORE_get_hiscore_score (int unique_id, int entry, bool pad_with_zeros)
 	{
 		digits = hs[hiscore_number].score_size;
 
-		sprintf (word,"%i",hs[hiscore_number].scores[entry].score);
+		snprintf (word, sizeof(word), "%i",hs[hiscore_number].scores[entry].score);
 
 		if (strlen(word) < digits)
 		{
@@ -465,7 +465,7 @@ char * HISCORE_get_hiscore_score (int unique_id, int entry, bool pad_with_zeros)
 	}
 	else
 	{
-		sprintf(error,"Entry %i wrong, table %i has %i entries!",entry,unique_id,hs[hiscore_number].entries);
+		snprintf(error, sizeof(error), "Entry %i wrong, table %i has %i entries!",entry,unique_id,hs[hiscore_number].entries);
 		OUTPUT_message(error);
 		assert(0);
 	}
@@ -504,11 +504,11 @@ char * HISCORE_get_hiscore_name_and_score (int unique_id, int entry, bool pad_wi
 
 	if (name_first)
 	{
-		sprintf(word,"%s%s%s",name_pointer,spaces,score_pointer);
+		snprintf(word, sizeof(word), "%s%s%s", name_pointer, spaces, score_pointer);
 	}
 	else
 	{
-		sprintf(word,"%s%s%s",score_pointer,spaces,name_pointer);
+		snprintf(word, sizeof(word), "%s%s%s", score_pointer, spaces, name_pointer);
 	}
 
 	return (&word[0]);
@@ -601,10 +601,10 @@ void HISCORES_append_new_hiscore (int unique_id, int score)
 	time ( &rawtime );
 	timeinfo = localtime ( &rawtime );
 
-	sprintf (date,asctime (timeinfo));
+	snprintf (date, sizeof(date), "%s", asctime (timeinfo));
 	STRING_strip_all_disposable (date);
 
-	sprintf (line , "Hi-score %i scored on %s = [%s]\n", score , date , &uuencoded_line[0]);
+	snprintf (line , sizeof(line), "Hi-score %i scored on %s = [%s]\n", score , date , &uuencoded_line[0]);
 
 	FILE *file_pointer = fopen (MAIN_get_project_filename("hiscore_upload_codes.txt", true),"a");
 

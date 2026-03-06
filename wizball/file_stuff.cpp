@@ -89,7 +89,7 @@ void FILE_put_string_to_file(FILE *file_pointer, char *word, bool flush)
 	if (first_time == true)
 	{
 		first_time = false;
-		sprintf(line, "");
+		line[0] = '\0';
 	}
 
 	if (strlen(word) > 0)
@@ -122,21 +122,21 @@ void FILE_put_string_to_file(FILE *file_pointer, char *word, bool flush)
 		// This is the last bit of data for this section so just flush it out.
 		strcat(line, "\n");
 		fputs(line, file_pointer);
-		sprintf(line, "");
+		line[0] = '\0';
 	}
 }
 
 void EDIT_put_int_to_file(FILE *file_pointer, int value, bool flush)
 {
 	static char word[TEXT_LINE_SIZE];
-	sprintf(word, "%d", value);
+	snprintf(word, sizeof(word), "%d", value);
 	FILE_put_string_to_file(file_pointer, word, flush);
 }
 
 void EDIT_put_float_to_file(FILE *file_pointer, float value, bool flush)
 {
 	static char word[TEXT_LINE_SIZE];
-	sprintf(word, "%6.6f", value);
+	snprintf(word, sizeof(word), "%6.6f", value);
 	FILE_put_string_to_file(file_pointer, word, flush);
 }
 
@@ -382,11 +382,11 @@ char *FILE_open_dir(char *dirname, char *extension, bool capitalise)
 {
 	if (strcmp(dirname, "") != 0)
 	{
-		sprintf(caCurrentDir, "%s\\*%s", dirname, extension);
+		snprintf(, sizeof(), "%s\\*%s", dirname, extension);
 	}
 	else
 	{
-		sprintf(caCurrentDir, "*%s", extension);
+		snprintf(, sizeof(), "*%s", extension);
 	}
 
 	hFiles = _findfirst(caCurrentDir, &finder);

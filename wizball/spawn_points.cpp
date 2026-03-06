@@ -87,7 +87,7 @@ int SPAWNPOINTS_get_free_spawn_point_uid (int tilemap_number)
 
 
 
-void SPAWNPOINTS_get_free_spawn_point_name (int tilemap_number , char *name, char *name_archetype)
+void SPAWNPOINTS_get_free_spawn_point_name (int tilemap_number , char *name, size_t name_size, char *name_archetype)
 {
 	int i;
 	int test_num;
@@ -110,7 +110,7 @@ void SPAWNPOINTS_get_free_spawn_point_name (int tilemap_number , char *name, cha
 
 		for (i=0; i<cm[tilemap_number].spawn_points; i++)
 		{
-			sprintf( name ,"%s%3d" ,name_prefix ,test_num );
+			snprintf(name, name_size, "%s%3d", name_prefix, test_num );
 			STRING_replace_char (name, ' ' , '0');
 			if (strcmp ( name , cm[tilemap_number].spawn_point_list_pointer[i].name ) == 0)
 			{
@@ -120,7 +120,7 @@ void SPAWNPOINTS_get_free_spawn_point_name (int tilemap_number , char *name, cha
 		}
 	} while (found_one == true);
 
-	sprintf( name ,"%s%3d" ,name_prefix ,test_num );
+	snprintf(name, name_size, "%s%3d", name_prefix, test_num );
 	STRING_replace_char (name, ' ' , '0');
 }
 
@@ -206,7 +206,7 @@ void SPAWNPOINTS_create_spawn_point (int tilemap_number , int x, int y , char *n
 
 	// GET NEW NAME HERE! REMEMBER TO INCLUDE MAP NAME IN NAME!
 
-	SPAWNPOINTS_get_free_spawn_point_name (tilemap_number , default_name, name_archetype);
+	SPAWNPOINTS_get_free_spawn_point_name (tilemap_number , default_name, NAME_SIZE, name_archetype);
 
 	strcpy ( cm[tilemap_number].spawn_point_list_pointer[total].name , default_name );
 
@@ -930,9 +930,9 @@ void SPAWNPOINTS_draw_spawn_points (int tilemap_number, int sx, int sy, int widt
 						OUTPUT_line (screen_spawn_point_x , screen_spawn_point_y+SPAWN_POINT_HANDLE_RADIUS+(SPAWN_POINT_HANDLE_RADIUS*2) , screen_spawn_point_x + (SPAWN_POINT_HANDLE_RADIUS/2) , screen_spawn_point_y + SPAWN_POINT_HANDLE_RADIUS+(SPAWN_POINT_HANDLE_RADIUS*2) - (SPAWN_POINT_HANDLE_RADIUS/2) , red , green , blue );
 
 						// And then display the position in tile_x, tile_y and offset.
-						sprintf (text_line,"X=%i", cm[tilemap_number].spawn_point_list_pointer[spawn_point_number].x );
+						snprintf (text_line, sizeof(text_line), "X=%i", cm[tilemap_number].spawn_point_list_pointer[spawn_point_number].x );
 						OUTPUT_text (screen_spawn_point_x-(16+SPAWN_POINT_HANDLE_RADIUS), screen_spawn_point_y-(16+SPAWN_POINT_HANDLE_RADIUS) , text_line );
-						sprintf (text_line,"Y=%i", cm[tilemap_number].spawn_point_list_pointer[spawn_point_number].y );
+						snprintf (text_line, sizeof(text_line), "Y=%i", cm[tilemap_number].spawn_point_list_pointer[spawn_point_number].y );
 						OUTPUT_text (screen_spawn_point_x-(16+SPAWN_POINT_HANDLE_RADIUS), screen_spawn_point_y-(8+SPAWN_POINT_HANDLE_RADIUS) , text_line );
 					}
 				}
@@ -2558,7 +2558,7 @@ void SPAWNPOINTS_output_altered_flags_to_file (char *filename)
 					uid = cm[tilemap_number].spawn_point_list_pointer[spawnpoint_number].uid;
 					flag = cm[tilemap_number].spawn_point_list_pointer[spawnpoint_number].flag;
 
-					sprintf (line,"\t#SPAWN_POINT_MAP_UID = %i SPAWN_POINT_UID = %i SPAWN_POINT_FLAG_VALUE = %i\n",map_uid,uid,flag);
+					snprintf (line, sizeof(line), "\t#SPAWN_POINT_MAP_UID = %i SPAWN_POINT_UID = %i SPAWN_POINT_FLAG_VALUE = %i\n",map_uid,uid,flag);
 
 					fputs (line,file_pointer);
 				}

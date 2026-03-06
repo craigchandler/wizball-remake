@@ -511,14 +511,14 @@ int game_main(void)
 		if (game_trigger > 0)
 		{
 #ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-			sprintf(wheres_wally, "I'm in the game loop!");
+			snprintf(wheres_wally, sizeof(wheres_wally), "I'm in the game loop!");
 #endif
 
 			SOUND_check_persistant_channel_validity();
 			SOUND_fade_channels();
 
 #ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-			sprintf(wheres_wally, "Just updated the control!");
+			snprintf(wheres_wally, sizeof(wheres_wally), "Just updated the control!");
 #endif
 
 			while ((game_trigger > 0) && (logic_steps < max_logic_steps_per_frame) && (exit_game == false))
@@ -557,7 +557,7 @@ int game_main(void)
 		if (draw == true)
 		{
 #ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-			sprintf(wheres_wally, "I'm in the render loop!");
+			snprintf(wheres_wally, sizeof(wheres_wally), "I'm in the render loop!");
 #endif
 
 			OUTPUT_clear_screen();
@@ -578,55 +578,55 @@ int game_main(void)
 			{
 				SCRIPTING_confirm_entity_counts();
 
-				sprintf(word, "Total process count : %i", total_process_counter);
+				snprintf(word, sizeof(word), "Total process count : %i", total_process_counter);
 				OUTPUT_text(0, 0, word, 255, 255, 255);
 
-				sprintf(word, "Drawn process count : %i", drawn_process_counter);
+				snprintf(word, sizeof(word), "Drawn process count : %i", drawn_process_counter);
 				OUTPUT_text(0, 8, word, 255, 255, 0);
 
-				sprintf(word, "Alive process count : %i", alive_process_counter);
+				snprintf(word, sizeof(word), "Alive process count : %i", alive_process_counter);
 				OUTPUT_text(0, 16, word, 0, 255, 255);
 
-				sprintf(word, "Script line process count : %i", script_lines_executed);
+				snprintf(word, sizeof(word), "Script line process count : %i", script_lines_executed);
 				OUTPUT_text(0, 24, word, 0, 255, 0);
 
-				sprintf(word, "Free Entities : %i", free_entities);
+				snprintf(word, sizeof(word), "Free Entities : %i", free_entities);
 				OUTPUT_text(0, 40, word, 255, 255, 0);
 
-				sprintf(word, "Used Entities : %i", used_entities);
+				snprintf(word, sizeof(word), "Used Entities : %i", used_entities);
 				OUTPUT_text(0, 48, word, 0, 255, 255);
 
-				sprintf(word, "Limbo'd Entities : %i", limboed_entities);
+				snprintf(word, sizeof(word), "Limbo'd Entities : %i", limboed_entities);
 				OUTPUT_text(0, 56, word, 0, 255, 0);
 
-				sprintf(word, "Lost Entities : %i", lost_entities);
+				snprintf(word, sizeof(word), "Lost Entities : %i", lost_entities);
 				OUTPUT_text(0, 64, word, 255, 0, 255);
 
 				total = free_entities + used_entities + limboed_entities;
 
-				sprintf(word, "Total Entities : %i", total);
+				snprintf(word, sizeof(word), "Total Entities : %i", total);
 				OUTPUT_text(0, 72, word, 255, 0, 0);
 
-				sprintf(word, "Persistant Channels : %i", current_persistant_channels);
+				snprintf(word, sizeof(word), "Persistant Channels : %i", current_persistant_channels);
 				OUTPUT_text(0, 80, word, 0, 255, 255);
 
-				sprintf(word, "Fader Channels : %i", fading_channel_count);
+				snprintf(word, sizeof(word), "Fader Channels : %i", fading_channel_count);
 				OUTPUT_text(0, 88, word, 0, 255, 0);
 
-				sprintf(word, "Collision Count : %i", collision_entity_count);
+				snprintf(word, sizeof(word), "Collision Count : %i", collision_entity_count);
 				OUTPUT_text(0, 96, word, 0, 255, 0);
 
-				sprintf(word, "Actual Collision Count : %i", collision_actual_count);
+				snprintf(word, sizeof(word), "Actual Collision Count : %i", collision_actual_count);
 				OUTPUT_text(0, 104, word, 0, 255, 0);
 
-				sprintf(word, "Total Entities Drawn : %i", total_entities_drawn);
+				snprintf(word, sizeof(word), "Total Entities Drawn : %i", total_entities_drawn);
 				OUTPUT_text(0, 112, word, 0, 255, 0);
 
 				SCRIPTING_display_script_list(128);
 
 				SCRIPTING_display_flag_list(256, 0);
 
-				sprintf(word, "Frame : %i", frames_so_far);
+				snprintf(word, sizeof(word), "Frame : %i", frames_so_far);
 				OUTPUT_text(game_screen_width - 128, 0, word, 0, 255, 0);
 			}
 
@@ -641,7 +641,7 @@ int game_main(void)
 				if (current_second != perf_log_last_second)
 				{
 					char perf_line[MAX_LINE_SIZE];
-					sprintf(perf_line,
+					snprintf(perf_line, sizeof(perf_line),
 									"PERF frame=%d fps=%d trigger=%d drawn=%d software=%d",
 									frames_so_far,
 									fps,
@@ -814,7 +814,7 @@ void MAIN_load_project_settings(void)
 	bool exitmainloop = false;
 	char *pointer;
 
-	sprintf(loading_screen_image_name, "");
+	loading_screen_image_name[0] = '\0';
 
 	FILE *file_pointer = FILE_open_project_read_case_fallback("project_settings.txt");
 
@@ -956,11 +956,11 @@ char *MAIN_create_project_selector(void)
 	char project_menu_text[TEXT_LINE_SIZE] = "";
 	int t;
 
-	for (t = 0; t < project_counter; t++)
-	{
-		sprintf(text_line, "%c = %s\n", t + 65, project_list[t].name);
-		strcat(project_menu_text, text_line);
-	}
+		for (t = 0; t < project_counter; t++)
+		{
+			snprintf(text_line, sizeof(text_line), "%c = %s\n", t + 65, project_list[t].name);
+			strcat(project_menu_text, text_line);
+		}
 
 	OUTPUT_setup_project_list(project_menu_text);
 
@@ -1125,11 +1125,11 @@ void MAIN_save_rand_log(bool playback)
 
 	if (!playback)
 	{
-		sprintf(filename, "demos\\random_log_original_%i.txt", demo_file_index);
+		snprintf(filename, sizeof(filename), "demos\\random_log_original_%i.txt", demo_file_index);
 	}
 	else
 	{
-		sprintf(filename, "demos\\random_log_playback.txt");
+		snprintf(filename, sizeof(filename), "demos\\random_log_playback.txt");
 	}
 
 	FILE *file_pointer = fopen(MAIN_get_project_filename(filename, true), "w");
@@ -1141,7 +1141,7 @@ void MAIN_save_rand_log(bool playback)
 
 		for (l = 0; l < rand_log_length; l++)
 		{
-			sprintf(text_line, "%6i V=%i F=%i S=%i L=%i\n", l, rand_log[l].random_value, rand_log[l].frame_number, rand_log[l].entity_script_number, rand_log[l].line_number);
+			snprintf(text_line, sizeof(text_line), "%6i V=%i F=%i S=%i L=%i\n", l, rand_log[l].random_value, rand_log[l].frame_number, rand_log[l].entity_script_number, rand_log[l].line_number);
 			fputs(text_line, file_pointer);
 		}
 
@@ -1354,7 +1354,7 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-		sprintf(project, MAIN_create_project_selector());
+		snprintf(project, sizeof(project), "%s", MAIN_create_project_selector());
 
 		MAIN_add_to_log("Setting graphics mode to text...");
 		MAIN_add_to_log("\tOK!");
@@ -1427,7 +1427,7 @@ int main(int argc, char *argv[])
 
 	{
 		char timer_line[256];
-		sprintf(timer_line, "\tTimer IDs: fps=%d game=%d%s",
+		snprintf(timer_line, sizeof(timer_line), "\tTimer IDs: fps=%d game=%d%s",
 				ms_time_id, bps_time_id,
 				(ms_time_id == 0 || bps_time_id == 0) ? " WARNING: id=0 means SDL_AddTimer FAILED" : " OK");
 		MAIN_add_to_log(timer_line);

@@ -53,7 +53,7 @@ void GRAPHICS_load_graphics()
 
 	#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 		char debug_text[MAX_LINE_SIZE];
-		sprintf(debug_text,"Entered graphic loading function...");
+		snprintf(debug_text, sizeof(debug_text), "Entered graphic loading function...");
 		MAIN_debug_last_thing (debug_text);
 	#endif
 
@@ -62,14 +62,14 @@ void GRAPHICS_load_graphics()
 		// Okay, check the file to see if it contains the "-arb" or "-set"
 
 		#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-			sprintf(debug_text,"About to get filename.",filename);
+			snprintf(debug_text, sizeof(debug_text), "About to get filename.");
 			MAIN_debug_last_thing (debug_text);
 		#endif
 
-		sprintf (filename , "%s%s" , GPL_what_is_word_name (list_pointer) , extension_pointer );
+		snprintf (filename , sizeof(filename), "%s%s" , GPL_what_is_word_name (list_pointer) , extension_pointer );
 
 		#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-			sprintf(debug_text,"Got filename '%s'.",filename);
+			snprintf(debug_text, sizeof(debug_text), "Got filename '%s'.",filename);
 			MAIN_debug_last_thing (debug_text);
 		#endif
 
@@ -78,7 +78,7 @@ void GRAPHICS_load_graphics()
 			strcpy(full_filename,filename);
 
 			#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-				sprintf(debug_text,"Copied '%s' to '%s'.",filename,full_filename);
+				snprintf(debug_text, sizeof(debug_text), "Copied '%s' to '%s'.",filename,full_filename);
 				MAIN_debug_last_thing (debug_text);
 			#endif
 		}
@@ -92,7 +92,7 @@ void GRAPHICS_load_graphics()
 		if (word_pointer == NULL)
 		{
 			char skip_text[MAX_LINE_SIZE];
-			sprintf(skip_text, "Skipping malformed sprite entry '%s'.", GPL_what_is_word_name(list_pointer));
+			snprintf(skip_text, sizeof(skip_text), "Skipping malformed sprite entry '%s'.", GPL_what_is_word_name(list_pointer));
 			MAIN_add_to_log(skip_text);
 			continue;
 		}
@@ -115,17 +115,17 @@ void GRAPHICS_load_graphics()
 			if (word_pointer == NULL) { continue; }
 			pivot_y = atoi(word_pointer);
 
-			#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-				sprintf(debug_text,"About to load file %s",full_filename);
-				MAIN_debug_last_thing (debug_text);
-			#endif
+				#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
+					snprintf(debug_text, sizeof(debug_text), "About to load file %s",full_filename);
+					MAIN_debug_last_thing (debug_text);
+				#endif
 
 			if (load_from_dat_file)
 			{
 				bitmap_number = INPUT_load_bitmap (full_filename); // Because we're just using the filename to find the stuff in the packfile.
 
 				#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-					sprintf(debug_text,"Loaded file %s",full_filename);
+					snprintf(debug_text, sizeof(debug_text), "Loaded file %s",full_filename);
 					MAIN_debug_last_thing (debug_text);
 				#endif
 			}
@@ -140,10 +140,10 @@ void GRAPHICS_load_graphics()
 		{
 			strcpy (text_desc_filename,full_filename);
 			letter_counter = STRING_instr_char (text_desc_filename , '.' , 0);
-			sprintf (&text_desc_filename[letter_counter],".TXT");
+			snprintf (&text_desc_filename[letter_counter], sizeof(text_desc_filename) - letter_counter, ".TXT");
 
 			#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-				sprintf(debug_text,"About to load file %s",full_filename);
+				snprintf(debug_text, sizeof(debug_text),"About to load file %s",full_filename);
 				MAIN_debug_last_thing (debug_text);
 			#endif
 
@@ -152,7 +152,7 @@ void GRAPHICS_load_graphics()
 				bitmap_number = INPUT_load_bitmap (full_filename); // Because we're just using the filename to find the stuff in the packfile.
 
 				#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-					sprintf(debug_text,"Loaded file %s",full_filename);
+					snprintf(debug_text, sizeof(debug_text),"Loaded file %s",full_filename);
 					MAIN_debug_last_thing (debug_text);
 				#endif
 					

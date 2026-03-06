@@ -171,7 +171,7 @@ bool EDIT_add_data_to_line (char *line, int int_value , unsigned int max_line_le
 	char string_value[32];
 	int length;
 	
-	sprintf(string_value,"%d",int_value);
+	snprintf(string_value, sizeof(string_value),"%d",int_value);
 
 	if (strlen(line)>0)
 	{
@@ -385,7 +385,7 @@ static bool EDIT_tilemaps_have_valid_dimensions(void)
 		if ((cm[map_number].map_width <= 0) || (cm[map_number].map_height <= 0) || (cm[map_number].map_layers <= 0))
 		{
 			char line[MAX_LINE_SIZE];
-			sprintf(line,
+			snprintf(line, sizeof(line),
 				"Tilemap validation failed: map=%d width=%d height=%d layers=%d tileset=%d name=%s",
 				map_number,
 				cm[map_number].map_width,
@@ -1163,7 +1163,7 @@ bool EDIT_gpl_list_menu (int x, int y, char *list_name , char *list_entry, bool 
 	}
 	else
 	{
-		sprintf (number_word,"%d",number);
+		snprintf (number_word, sizeof(number_word), "%d", number);
 		OUTPUT_centred_text ( x+(GPL_LIST_MENU_LEFT_WIDTH)+(GPL_LIST_MENU_RIGHT_WIDTH/2) , y+(FONT_HEIGHT/2)+GPL_LIST_MENU_HEADER_SIZE+(FONT_HEIGHT*1) , number_word , 255 , 255 , 255 );
 
 		OUTPUT_centred_text ( x+(GPL_LIST_MENU_LEFT_WIDTH)+(GPL_LIST_MENU_RIGHT_WIDTH/2) , y+(FONT_HEIGHT/2)+GPL_LIST_MENU_HEADER_SIZE+(FONT_HEIGHT*9) , "DELETE" , 255 , 255 , 0 );
@@ -1191,7 +1191,7 @@ bool EDIT_gpl_list_menu (int x, int y, char *list_name , char *list_entry, bool 
 
 		for (t=0; t<10; t++)
 		{
-			sprintf (number_word,"%d",t);
+			snprintf (number_word, sizeof(number_word), "%d", t);
 			OUTPUT_text ( x+(FONT_WIDTH/2)+(GPL_LIST_MENU_LEFT_WIDTH)+(t*FONT_WIDTH*2)+(FONT_WIDTH*5) , y+(FONT_HEIGHT/2)+GPL_LIST_MENU_HEADER_SIZE+(FONT_HEIGHT*5) , number_word , 0 , 255 , 255 );
 			OUTPUT_rectangle ( x+(GPL_LIST_MENU_LEFT_WIDTH)+(t*FONT_WIDTH*2)+(FONT_WIDTH*5) , y+GPL_LIST_MENU_HEADER_SIZE+(FONT_HEIGHT*5) , x+(GPL_LIST_MENU_LEFT_WIDTH)+(t*FONT_WIDTH*2)+(FONT_WIDTH*7) , y+GPL_LIST_MENU_HEADER_SIZE+(FONT_HEIGHT*7) , 0 , 255 , 0 );
 			if ( MATH_rectangle_to_point_intersect (x+(GPL_LIST_MENU_LEFT_WIDTH)+(t*FONT_WIDTH*2)+(FONT_WIDTH*5) , y+GPL_LIST_MENU_HEADER_SIZE+(FONT_HEIGHT*5) , x+(GPL_LIST_MENU_LEFT_WIDTH)+(t*FONT_WIDTH*2)+(FONT_WIDTH*7) , y+GPL_LIST_MENU_HEADER_SIZE+(FONT_HEIGHT*7) , mx , my ) == true )
@@ -1305,7 +1305,7 @@ bool EDIT_gpl_list_menu (int x, int y, char *list_name , char *list_entry, bool 
 					number /= 10;
 				}
 
-				sprintf(number_word, "%d", number);
+				snprintf(number_word, sizeof(number_word), "%d", number);
 				strcpy (list_entry , number_word );
 
 				if (selected_number_option == 12)

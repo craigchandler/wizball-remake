@@ -1795,12 +1795,12 @@ bool AIZONES_edit_ai_zones ( int state , bool overlay_display, int *current_curs
 			
 			OUTPUT_draw_masked_sprite ( first_icon , SELECT_LAYER_ICON, editor_view_width+(ICON_SIZE/2)+(0*ICON_SIZE) , ICON_SIZE*2 );
 
-			sprintf (word_string, "LAYER = %d", editing_layer );
+			snprintf (word_string, sizeof(word_string), "LAYER = %d", editing_layer );
 			TILEMAPS_dialogue_box ( editor_view_width+(ICON_SIZE/2)+(2*ICON_SIZE) , ICON_SIZE*2 , ICON_SIZE*4, ICON_SIZE*1 , word_string );
 
 			memory_usage = AIZONES_calculate_probable_memory_usage (tilemap_number);
 
-			sprintf (word_string, "MEMORY USAGE = %5dK", (memory_usage/1024) );
+			snprintf (word_string, sizeof(word_string), "MEMORY USAGE = %5dK", (memory_usage/1024) );
 			TILEMAPS_dialogue_box ( editor_view_width+(ICON_SIZE/2) , ICON_SIZE*7 , ICON_SIZE*7, ICON_SIZE*1 , word_string );
 
 			SIMPGUI_check_all_buttons ();

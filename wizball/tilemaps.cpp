@@ -223,13 +223,13 @@ void TILEMAPS_save_editor_settings (void)
 
 	if (file_pointer != NULL)
 	{
-		sprintf(line,"#DEFAULT_ROOM_WIDTH = %i\n",guide_box_width);
+		snprintf(line, sizeof(line), "#DEFAULT_ROOM_WIDTH = %i\n", guide_box_width);
 		fputs(line,file_pointer);
 
-		sprintf(line,"#DEFAULT_ROOM_HEIGHT = %i\n",guide_box_height);
+		snprintf(line, sizeof(line), "#DEFAULT_ROOM_HEIGHT = %i\n", guide_box_height);
 		fputs(line,file_pointer);
 
-		sprintf(line,"#NEXT_MAP_UID = %i\n",next_free_map_uid);
+		snprintf(line, sizeof(line), "#NEXT_MAP_UID = %i\n", next_free_map_uid);
 		fputs(line,file_pointer);
 
 		fputs("#END_OF_FILE\n",file_pointer);
@@ -1290,7 +1290,7 @@ void TILEMAPS_get_free_map_name (char *name)
 
 	for (i=0; i<number_of_tilemaps_loaded; i++)
 	{
-		sprintf(name,"TILEMAP_#%3d",test_num);
+		snprintf(name, NAME_SIZE, "TILEMAP_#%3d", test_num);
 		STRING_replace_char (name, ' ' , '0');
 		if (strcmp(name,cm[i].name) == 0)
 		{
@@ -1300,7 +1300,7 @@ void TILEMAPS_get_free_map_name (char *name)
 		// up pointing to the first free name of the "Tilemap_#num" variety.
 	}
 
-	sprintf(name,"TILEMAP_#%3d",test_num);
+	snprintf(name, NAME_SIZE, "TILEMAP_#%3d", test_num);
 	STRING_replace_char (name, ' ' , '0');
 }
 
@@ -2468,13 +2468,13 @@ void TILEMAPS_save_all (void)
 	{
 		if (cm[tilemap_number].altered_this_load == true)
 		{
-			if (strcmp (cm[tilemap_number].old_name,"UNSET") != 0)
-			{
-				sprintf(filename, "%s.txt", cm[tilemap_number].old_name);
-				FILE_append_filename (full_filename, "tilemaps", filename, sizeof(full_filename) );
+				if (strcmp (cm[tilemap_number].old_name,"UNSET") != 0)
+				{
+					snprintf(filename, sizeof(filename), "%.*s.txt", (int)(sizeof(filename)-5), cm[tilemap_number].old_name);
+					FILE_append_filename (full_filename, "tilemaps", filename, sizeof(full_filename) );
 
-				remove (MAIN_get_project_filename (full_filename));
-			}
+					remove (MAIN_get_project_filename (full_filename));
+				}
 		}
 	}
 
@@ -2525,7 +2525,7 @@ void TILEMAPS_save (int tilemap_number)
 	// Goes through all the map data saving all the lovely guff.
 
 	char filename[NAME_SIZE];
-	sprintf(filename,"%s%s",cm[tilemap_number].name, ".txt");
+	snprintf(filename, sizeof(filename), "%.*s%s", (int)(sizeof(filename)-5), cm[tilemap_number].name, ".txt");
 
 	char full_filename [TEXT_LINE_SIZE];
 
@@ -2546,51 +2546,51 @@ void TILEMAPS_save (int tilemap_number)
 	if (file_pointer != NULL)
 	{
 		// Output default tile set name.
-		sprintf(temp_char,"#DEFAULT TILE SET = %s\n\n",cm[tilemap_number].default_tile_set);
+		snprintf(temp_char, sizeof(temp_char), "#DEFAULT TILE SET = %s\n\n", cm[tilemap_number].default_tile_set);
 		fputs(temp_char,file_pointer);
 
 		// Output map size.
-		sprintf(temp_char,"#MAP WIDTH = %d\n",cm[tilemap_number].map_width);
+		snprintf(temp_char, sizeof(temp_char), "#MAP WIDTH = %d\n", cm[tilemap_number].map_width);
 		fputs(temp_char,file_pointer);
 
-		sprintf(temp_char,"#MAP HEIGHT = %d\n",cm[tilemap_number].map_height);
+		snprintf(temp_char, sizeof(temp_char), "#MAP HEIGHT = %d\n", cm[tilemap_number].map_height);
 		fputs(temp_char,file_pointer);
 
-		sprintf(temp_char,"#MAP LAYERS = %d\n",cm[tilemap_number].map_layers);
+		snprintf(temp_char, sizeof(temp_char), "#MAP LAYERS = %d\n", cm[tilemap_number].map_layers);
 		fputs(temp_char,file_pointer);
 
-		sprintf(temp_char,"#MAP UID = %d\n",cm[tilemap_number].uid);
+		snprintf(temp_char, sizeof(temp_char), "#MAP UID = %d\n", cm[tilemap_number].uid);
 		fputs(temp_char,file_pointer);
 
-		sprintf(temp_char,"#MAP SPAWN POINT NEXT UID = %d\n",cm[tilemap_number].spawn_point_next_uid);
+		snprintf(temp_char, sizeof(temp_char), "#MAP SPAWN POINT NEXT UID = %d\n", cm[tilemap_number].spawn_point_next_uid);
 		fputs(temp_char,file_pointer);
 
-		sprintf(temp_char,"#MAP WAYPOINT NEXT UID = %d\n",cm[tilemap_number].waypoint_next_uid);
+		snprintf(temp_char, sizeof(temp_char), "#MAP WAYPOINT NEXT UID = %d\n", cm[tilemap_number].waypoint_next_uid);
 		fputs(temp_char,file_pointer);
 
-		sprintf(temp_char,"#MAP ZONE NEXT UID = %d\n",cm[tilemap_number].zone_next_uid);
+		snprintf(temp_char, sizeof(temp_char), "#MAP ZONE NEXT UID = %d\n", cm[tilemap_number].zone_next_uid);
 		fputs(temp_char,file_pointer);
 
 		// Output if we're using RLE MAP format yet, which we ain't.
-		sprintf(temp_char,"#RLE MAP = FALSE\n\n");
+		snprintf(temp_char, sizeof(temp_char), "#RLE MAP = FALSE\n\n");
 		fputs(temp_char,file_pointer);
 
 		switch(cm[tilemap_number].vertex_colour_mode)
 		{
 		case VERTEX_MODE_NONE:
-			sprintf(temp_char,"#VERTEX_MODE_NONE\n\n");
+			snprintf(temp_char, sizeof(temp_char), "#VERTEX_MODE_NONE\n\n");
 			break;
 
 		case VERTEX_MODE_SINGLE_MAP_VALUE:
-			sprintf(temp_char,"#VERTEX_MODE_SINGLE_MAP_VALUE\n\n");
+			snprintf(temp_char, sizeof(temp_char), "#VERTEX_MODE_SINGLE_MAP_VALUE\n\n");
 			break;
 
 		case VERTEX_MODE_SIMPLE_TILE_VALUES:
-			sprintf(temp_char,"#VERTEX_MODE_SIMPLE_TILE_VALUES\n\n");
+			snprintf(temp_char, sizeof(temp_char), "#VERTEX_MODE_SIMPLE_TILE_VALUES\n\n");
 			break;
 
 		case VERTEX_MODE_COMPLEX_TILE_VALUES:
-			sprintf(temp_char,"#VERTEX_MODE_COMPLEX_TILE_VALUES\n\n");
+			snprintf(temp_char, sizeof(temp_char), "#VERTEX_MODE_COMPLEX_TILE_VALUES\n\n");
 			break;
 
 		default:
@@ -2600,7 +2600,7 @@ void TILEMAPS_save (int tilemap_number)
 		fputs(temp_char,file_pointer);
 
 		// Output map tile data.
-		sprintf(temp_char,"#MAP TILE DATA\n");
+		snprintf(temp_char, sizeof(temp_char), "#MAP TILE DATA\n");
 		fputs(temp_char,file_pointer);
 		for (t = 0 ; t < map_data_size ; t++)
 		{
@@ -2610,7 +2610,7 @@ void TILEMAPS_save (int tilemap_number)
 		fputs("\n",file_pointer);
 
 		// Output map group data.
-		sprintf(temp_char,"#MAP GROUP DATA\n");
+		snprintf(temp_char, sizeof(temp_char), "#MAP GROUP DATA\n");
 		fputs(temp_char,file_pointer);
 		for (t = 0 ; t < map_data_size ; t++)
 		{
@@ -2620,7 +2620,7 @@ void TILEMAPS_save (int tilemap_number)
 		fputs("\n",file_pointer);
 
 		// Output map helper tag data.
-		sprintf(temp_char,"#MAP HELPER TAG DATA\n");
+		snprintf(temp_char, sizeof(temp_char), "#MAP HELPER TAG DATA\n");
 		fputs(temp_char,file_pointer);
 		for (t = 0 ; t < map_data_size ; t++)
 		{
@@ -2634,7 +2634,7 @@ void TILEMAPS_save (int tilemap_number)
 		if (cm[tilemap_number].vertex_colour_mode == VERTEX_MODE_SINGLE_MAP_VALUE)
 		{
 			// Output map main vertex colour
-			sprintf(temp_char,"#MAP DEFAULT VERTEX COLOUR\n");
+			snprintf(temp_char, sizeof(temp_char), "#MAP DEFAULT VERTEX COLOUR\n");
 			fputs(temp_char,file_pointer);
 			for (layer=0; layer<cm[tilemap_number].map_layers; layer++)
 			{
@@ -2650,7 +2650,7 @@ void TILEMAPS_save (int tilemap_number)
 		if (cm[tilemap_number].vertex_colour_mode == VERTEX_MODE_SIMPLE_TILE_VALUES)
 		{
 			// Output map vertex data.
-			sprintf(temp_char,"#MAP VERTEX DATA\n");
+			snprintf(temp_char, sizeof(temp_char), "#MAP VERTEX DATA\n");
 			fputs(temp_char,file_pointer);
 			for (t = 0 ; t < map_data_size ; t++)
 			{
@@ -2666,7 +2666,7 @@ void TILEMAPS_save (int tilemap_number)
 		if (cm[tilemap_number].vertex_colour_mode == VERTEX_MODE_COMPLEX_TILE_VALUES)
 		{
 			// Output map detailed vertex data.
-			sprintf(temp_char,"#MAP DETAILED VERTEX DATA\n");
+			snprintf(temp_char, sizeof(temp_char), "#MAP DETAILED VERTEX DATA\n");
 			fputs(temp_char,file_pointer);
 			for (t = 0 ; t < map_data_size ; t++)
 			{
@@ -2680,33 +2680,33 @@ void TILEMAPS_save (int tilemap_number)
 		}
 
 		// Output zone data!
-		sprintf(temp_char,"#ZONE DATA = %d\n\n",cm[tilemap_number].zones);
+		snprintf(temp_char, sizeof(temp_char), "#ZONE DATA = %d\n\n", cm[tilemap_number].zones);
 		fputs(temp_char,file_pointer);
 
 		for (i=0 ; i<cm[tilemap_number].zones ; i++)
 		{
-			sprintf(temp_char,"\t#ZONE NUMBER = %d\n",i); // number - used to mark the start of a new zone
+			snprintf(temp_char, sizeof(temp_char), "\t#ZONE NUMBER = %d\n", i); // number - used to mark the start of a new zone
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#NAME = %s\n",cm[tilemap_number].zone_list_pointer[i].text_tag);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#NAME = %s\n", cm[tilemap_number].zone_list_pointer[i].text_tag);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#X POS = %d\n",cm[tilemap_number].zone_list_pointer[i].x);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#X POS = %d\n", cm[tilemap_number].zone_list_pointer[i].x);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#Y POS = %d\n",cm[tilemap_number].zone_list_pointer[i].y);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#Y POS = %d\n", cm[tilemap_number].zone_list_pointer[i].y);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#WIDTH = %d\n",cm[tilemap_number].zone_list_pointer[i].width);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#WIDTH = %d\n", cm[tilemap_number].zone_list_pointer[i].width);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#HEIGHT = %d\n",cm[tilemap_number].zone_list_pointer[i].height);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#HEIGHT = %d\n", cm[tilemap_number].zone_list_pointer[i].height);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#ID TYPE = %s\n",cm[tilemap_number].zone_list_pointer[i].type);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#ID TYPE = %s\n", cm[tilemap_number].zone_list_pointer[i].type);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#UID = %i\n\n",cm[tilemap_number].zone_list_pointer[i].uid);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#UID = %i\n\n", cm[tilemap_number].zone_list_pointer[i].uid);
 			fputs(temp_char,file_pointer);
 		}
 
@@ -2714,46 +2714,46 @@ void TILEMAPS_save (int tilemap_number)
 
 		// Output spawn point data!
 
-		sprintf(temp_char,"#SPAWN POINT DATA = %d\n",cm[tilemap_number].spawn_points);
+		snprintf(temp_char, sizeof(temp_char), "#SPAWN POINT DATA = %d\n", cm[tilemap_number].spawn_points);
 		fputs(temp_char,file_pointer);
 
 		for (i=0 ; i<cm[tilemap_number].spawn_points ; i++)
 		{
-			sprintf(temp_char,"\t#SPAWN POINT NUMBER = %d\n",i); // number - used to mark the start of a new spawn point
+			snprintf(temp_char, sizeof(temp_char), "\t#SPAWN POINT NUMBER = %d\n", i); // number - used to mark the start of a new spawn point
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#UNIQUE IDENTIFIER NUMBER = %d\n",cm[tilemap_number].spawn_point_list_pointer[i].uid); // number - used to mark the start of a new spawn point
+			snprintf(temp_char, sizeof(temp_char), "\t#UNIQUE IDENTIFIER NUMBER = %d\n", cm[tilemap_number].spawn_point_list_pointer[i].uid); // number - used to mark the start of a new spawn point
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#PARENT UID = %d\n",cm[tilemap_number].spawn_point_list_pointer[i].parent_uid); // number - used to mark the start of a new spawn point
+			snprintf(temp_char, sizeof(temp_char), "\t#PARENT UID = %d\n", cm[tilemap_number].spawn_point_list_pointer[i].parent_uid); // number - used to mark the start of a new spawn point
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#NEXT SIBLING UID = %d\n",cm[tilemap_number].spawn_point_list_pointer[i].next_sibling_uid); // number - used to mark the start of a new spawn point
+			snprintf(temp_char, sizeof(temp_char), "\t#NEXT SIBLING UID = %d\n", cm[tilemap_number].spawn_point_list_pointer[i].next_sibling_uid); // number - used to mark the start of a new spawn point
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#NAME = %s\n",cm[tilemap_number].spawn_point_list_pointer[i].name); // name
+			snprintf(temp_char, sizeof(temp_char), "\t\t#NAME = %s\n", cm[tilemap_number].spawn_point_list_pointer[i].name); // name
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#SCRIPT = %s\n",cm[tilemap_number].spawn_point_list_pointer[i].script_name); // script
+			snprintf(temp_char, sizeof(temp_char), "\t\t#SCRIPT = %s\n", cm[tilemap_number].spawn_point_list_pointer[i].script_name); // script
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#X POS = %d\n" , cm[tilemap_number].spawn_point_list_pointer[i].x ); // size and number of params
+			snprintf(temp_char, sizeof(temp_char), "\t\t#X POS = %d\n", cm[tilemap_number].spawn_point_list_pointer[i].x ); // size and number of params
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#Y POS = %d\n" , cm[tilemap_number].spawn_point_list_pointer[i].y ); // size and number of params
+			snprintf(temp_char, sizeof(temp_char), "\t\t#Y POS = %d\n", cm[tilemap_number].spawn_point_list_pointer[i].y ); // size and number of params
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#ID TYPE = %s\n",cm[tilemap_number].spawn_point_list_pointer[i].type);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#ID TYPE = %s\n", cm[tilemap_number].spawn_point_list_pointer[i].type);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#PARAMETERS = %d\n" , cm[tilemap_number].spawn_point_list_pointer[i].params ); // size and number of params
+			snprintf(temp_char, sizeof(temp_char), "\t\t#PARAMETERS = %d\n", cm[tilemap_number].spawn_point_list_pointer[i].params ); // size and number of params
 			fputs(temp_char,file_pointer);
 
 			if (cm[tilemap_number].spawn_point_list_pointer[i].params > 0)
 			{
 				for (p=0 ; p<cm[tilemap_number].spawn_point_list_pointer[i].params ; p++)
 				{
-					sprintf(temp_char,"\t\t\t#PARAMETER %s=%s:%s\n" , cm[tilemap_number].spawn_point_list_pointer[i].param_list_pointer[p].param_dest_var , cm[tilemap_number].spawn_point_list_pointer[i].param_list_pointer[p].param_list_type , cm[tilemap_number].spawn_point_list_pointer[i].param_list_pointer[p].param_name );
+					snprintf(temp_char, sizeof(temp_char), "\t\t\t#PARAMETER %s=%s:%s\n", cm[tilemap_number].spawn_point_list_pointer[i].param_list_pointer[p].param_dest_var, cm[tilemap_number].spawn_point_list_pointer[i].param_list_pointer[p].param_list_type, cm[tilemap_number].spawn_point_list_pointer[i].param_list_pointer[p].param_name );
 					fputs(temp_char,file_pointer);
 				}
 			}
@@ -2765,24 +2765,24 @@ void TILEMAPS_save (int tilemap_number)
 
 		// Output AI Zone Gate data...
 
-		sprintf(temp_char,"#AI ZONE GATE DATA = %d\n\n",cm[tilemap_number].gates);
+		snprintf(temp_char, sizeof(temp_char), "#AI ZONE GATE DATA = %d\n\n", cm[tilemap_number].gates);
 		fputs(temp_char,file_pointer);
 
 		for (i=0 ; i<cm[tilemap_number].gates ; i++)
 		{
-			sprintf(temp_char,"\t#GATE NUMBER = %d\n",i);
+			snprintf(temp_char, sizeof(temp_char), "\t#GATE NUMBER = %d\n", i);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#START X = %d\n",cm[tilemap_number].gate_list_pointer[i].x1);
+			snprintf(temp_char, sizeof(temp_char), "\t#START X = %d\n", cm[tilemap_number].gate_list_pointer[i].x1);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#START Y = %d\n",cm[tilemap_number].gate_list_pointer[i].y1);
+			snprintf(temp_char, sizeof(temp_char), "\t#START Y = %d\n", cm[tilemap_number].gate_list_pointer[i].y1);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#END X = %d\n",cm[tilemap_number].gate_list_pointer[i].x2);
+			snprintf(temp_char, sizeof(temp_char), "\t#END X = %d\n", cm[tilemap_number].gate_list_pointer[i].x2);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#END Y = %d\n",cm[tilemap_number].gate_list_pointer[i].y2);
+			snprintf(temp_char, sizeof(temp_char), "\t#END Y = %d\n", cm[tilemap_number].gate_list_pointer[i].y2);
 			fputs(temp_char,file_pointer);
 
 			fputs("\n",file_pointer);
@@ -2792,27 +2792,27 @@ void TILEMAPS_save (int tilemap_number)
 
 		// Output AI Zone Remote data...
 
-		sprintf(temp_char,"#AI ZONE REMOTE DATA = %d\n\n",cm[tilemap_number].remotes);
+						snprintf(temp_char, sizeof(temp_char),"#AI ZONE REMOTE DATA = %d\n\n",cm[tilemap_number].remotes);
 		fputs(temp_char,file_pointer);
 
 		for (i=0 ; i<cm[tilemap_number].remotes ; i++)
 		{
-			sprintf(temp_char,"\t#REMOTE CONNECTION NUMBER = %d\n",i);
+						snprintf(temp_char, sizeof(temp_char),"\t#REMOTE CONNECTION NUMBER = %d\n",i);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#CONNECTIVE DIRECTION = %d\n",cm[tilemap_number].connection_list_pointer[i].connective_direction);
+						snprintf(temp_char, sizeof(temp_char),"\t#CONNECTIVE DIRECTION = %d\n",cm[tilemap_number].connection_list_pointer[i].connective_direction);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#START X = %d\n",cm[tilemap_number].connection_list_pointer[i].x1);
+						snprintf(temp_char, sizeof(temp_char),"\t#START X = %d\n",cm[tilemap_number].connection_list_pointer[i].x1);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#START Y = %d\n",cm[tilemap_number].connection_list_pointer[i].y1);
+						snprintf(temp_char, sizeof(temp_char),"\t#START Y = %d\n",cm[tilemap_number].connection_list_pointer[i].y1);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#END X = %d\n",cm[tilemap_number].connection_list_pointer[i].x2);
+						snprintf(temp_char, sizeof(temp_char),"\t#END X = %d\n",cm[tilemap_number].connection_list_pointer[i].x2);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#END Y = %d\n",cm[tilemap_number].connection_list_pointer[i].y2);
+						snprintf(temp_char, sizeof(temp_char),"\t#END Y = %d\n",cm[tilemap_number].connection_list_pointer[i].y2);
 			fputs(temp_char,file_pointer);
 
 			fputs("\n",file_pointer);
@@ -2822,35 +2822,35 @@ void TILEMAPS_save (int tilemap_number)
 		
 		// Output AI Node data...
 
-		sprintf(temp_char,"#AI NODE DATA = %d\n\n",cm[tilemap_number].waypoints);
+				snprintf(temp_char, sizeof(temp_char),"#AI NODE DATA = %d\n\n",cm[tilemap_number].waypoints);
 		fputs(temp_char,file_pointer);
 
 		for (i=0 ; i<cm[tilemap_number].waypoints ; i++)
 		{
-			sprintf(temp_char,"\t#WAYPOINT NUMBER = %d\n",i); // number - used to mark the start of a new spawn point
+						snprintf(temp_char, sizeof(temp_char),"\t#WAYPOINT NUMBER = %d\n",i); // number - used to mark the start of a new spawn point
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#UNIQUE IDENTIFIER NUMBER = %d\n",cm[tilemap_number].waypoint_list_pointer[i].uid); // number - used to mark the start of a new spawn point
+						snprintf(temp_char, sizeof(temp_char),"\t\t#UNIQUE IDENTIFIER NUMBER = %d\n",cm[tilemap_number].waypoint_list_pointer[i].uid); // number - used to mark the start of a new spawn point
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#X POS = %d\n" , cm[tilemap_number].waypoint_list_pointer[i].x ); // size and number of params
+						snprintf(temp_char, sizeof(temp_char),"\t\t#X POS = %d\n" , cm[tilemap_number].waypoint_list_pointer[i].x ); // size and number of params
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#Y POS = %d\n" , cm[tilemap_number].waypoint_list_pointer[i].y ); // size and number of params
+						snprintf(temp_char, sizeof(temp_char),"\t\t#Y POS = %d\n" , cm[tilemap_number].waypoint_list_pointer[i].y ); // size and number of params
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#ID TYPE: %s\n",cm[tilemap_number].waypoint_list_pointer[i].type);
+						snprintf(temp_char, sizeof(temp_char),"\t\t#ID TYPE: %s\n",cm[tilemap_number].waypoint_list_pointer[i].type);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#LOCATION TYPE: %s\n",cm[tilemap_number].waypoint_list_pointer[i].location);
+						snprintf(temp_char, sizeof(temp_char),"\t\t#LOCATION TYPE: %s\n",cm[tilemap_number].waypoint_list_pointer[i].location);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#CONNECTIONS = %d\n" , cm[tilemap_number].waypoint_list_pointer[i].connections ); // size and number of params
+						snprintf(temp_char, sizeof(temp_char),"\t\t#CONNECTIONS = %d\n" , cm[tilemap_number].waypoint_list_pointer[i].connections ); // size and number of params
 			fputs(temp_char,file_pointer);
 
 			for (c=0; c<cm[tilemap_number].waypoint_list_pointer[i].connections; c++)
 			{
-				sprintf(temp_char,"\t\t\t#CONNECTION (%i) = %i(%i)\n" , c , cm[tilemap_number].waypoint_list_pointer[i].connection_list_uids[c] , cm[tilemap_number].waypoint_list_pointer[i].connection_list_types[c] ); // size and number of params
+						snprintf(temp_char, sizeof(temp_char),"\t\t\t#CONNECTION (%i) = %i(%i)\n" , c , cm[tilemap_number].waypoint_list_pointer[i].connection_list_uids[c] , cm[tilemap_number].waypoint_list_pointer[i].connection_list_types[c] ); // size and number of params
 				fputs(temp_char,file_pointer);
 			}
 
@@ -2894,7 +2894,7 @@ void TILEMAPS_load_all (void)
 		{
 			strcpy(filename,GPL_what_is_word_name(i));
 
-			sprintf(description,"LOADING TILEMAP : %s",filename);
+			snprintf(description, sizeof(description), "LOADING TILEMAP : %s", filename);
 			MAIN_draw_loading_picture (description,20);
 
 			strcpy(extension, GPL_what_is_list_extension("TILEMAPS"));
@@ -2916,7 +2916,7 @@ void TILEMAPS_load_all (void)
 			}
 			else
 			{
-				sprintf(description, "Skipping missing tilemap source '%s'.", full_filename);
+				snprintf(description, sizeof(description), "Skipping missing tilemap source '%.*s'.", (int)(sizeof(description)-40), full_filename);
 				MAIN_add_to_log(description);
 			}
 		}
@@ -2931,7 +2931,7 @@ void TILEMAPS_load_all (void)
 			do
 			{
 				strcpy(filename, dir_entry);
-				sprintf(description, "LOADING TILEMAP : %s", filename);
+				snprintf(description, sizeof(description), "LOADING TILEMAP : %s", filename);
 				MAIN_draw_loading_picture(description, 20);
 				TILEMAPS_load(filename, TILEMAPS_create(false));
 			}
@@ -3060,7 +3060,7 @@ bool TILEMAPS_confirm_links (void)
 				cm[t].tile_set_index = fallback_index;
 				strcpy(cm[t].default_tile_set, TILESETS_get_name(fallback_index));
 
-				sprintf ( line , "'%s' FALLBACK TILESET APPLIED: '%s'.\n" , cm[t].name , cm[t].default_tile_set );
+				snprintf ( line , sizeof(line), "'%s' FALLBACK TILESET APPLIED: '%s'.\n", cm[t].name, cm[t].default_tile_set );
 				EDIT_add_line_to_report (line);
 			}
 			else
@@ -3068,13 +3068,13 @@ bool TILEMAPS_confirm_links (void)
 			if (strcmp (cm[t].default_tile_set,"UNSET") == 0)
 			{
 				// Used to be Unset and still is - no worries...
-				sprintf ( line , "'%s' STILL NEEDS TILESET ASSIGNED.\n" , cm[t].name );
+				snprintf ( line , sizeof(line), "'%s' STILL NEEDS TILESET ASSIGNED.\n", cm[t].name );
 				EDIT_add_line_to_report (line);
 			}
 			else
 			{
 				// Used to be something but is now UNSET! SHIIIIIIT!
-				sprintf ( line , "'%s' CANNOT FIND TILESET '%s'.\n" , cm[t].name , cm[t].default_tile_set );
+				snprintf ( line , sizeof(line), "'%s' CANNOT FIND TILESET '%s'.\n", cm[t].name, cm[t].default_tile_set );
 				EDIT_add_line_to_report (line);
 				all_okay = false;
 			}
@@ -3082,7 +3082,7 @@ bool TILEMAPS_confirm_links (void)
 		}
 		else
 		{
-			sprintf ( line , "'%s' HAS A TILESET ASSIGNED.\n" , cm[t].name );
+			snprintf ( line , sizeof(line), "'%s' HAS A TILESET ASSIGNED.\n", cm[t].name );
 			EDIT_add_line_to_report (line);
 		}
 
@@ -3106,7 +3106,7 @@ bool TILEMAPS_confirm_links (void)
 				{
 					// Used to be something but is now UNSET! SHIIIIIIT!
 					cm[t].spawn_point_list_pointer[i].script_index = BROKEN_LINK;
-					sprintf ( line , "   TILEMAP '%s' SPAWN POINT '%s' CANNOT FIND SCRIPT '%s'.\n" , cm[t].name , cm[t].spawn_point_list_pointer[i].name , cm[t].spawn_point_list_pointer[i].script_name );
+					snprintf ( line , sizeof(line), "   TILEMAP '%s' SPAWN POINT '%s' CANNOT FIND SCRIPT '%s'.\n", cm[t].name, cm[t].spawn_point_list_pointer[i].name, cm[t].spawn_point_list_pointer[i].script_name );
 					EDIT_add_line_to_report (line);
 					okay = false;
 				}
@@ -3124,7 +3124,7 @@ bool TILEMAPS_confirm_links (void)
 				else if (result == BROKEN_LINK)
 				{
 					// The word in the list was not recognised.
-					sprintf ( line , "   TILEMAP '%s' SPAWN POINT '%s' PARAMETER %i = '%s' CANNOT FIND '%s' IN WORD LIST '%s'.\n" , cm[t].name , cm[t].spawn_point_list_pointer[i].name , j , cm[t].spawn_point_list_pointer[i].param_list_pointer[j].param_dest_var , cm[t].spawn_point_list_pointer[i].param_list_pointer[j].param_name , cm[t].spawn_point_list_pointer[i].param_list_pointer[j].param_list_type );
+					snprintf ( line , sizeof(line), "   TILEMAP '%s' SPAWN POINT '%s' PARAMETER %i = '%s' CANNOT FIND '%s' IN WORD LIST '%s'.\n", cm[t].name, cm[t].spawn_point_list_pointer[i].name, j, cm[t].spawn_point_list_pointer[i].param_list_pointer[j].param_dest_var, cm[t].spawn_point_list_pointer[i].param_list_pointer[j].param_name, cm[t].spawn_point_list_pointer[i].param_list_pointer[j].param_list_type );
 					EDIT_add_line_to_report (line);
 					okay = false;
 					cm[t].spawn_point_list_pointer[i].param_list_pointer[j].param_value = 0;
@@ -3132,7 +3132,7 @@ bool TILEMAPS_confirm_links (void)
 				else if (result == VERY_BROKEN_LINK)
 				{
 					// Can't even find the word list...
-					sprintf ( line , "   TILEMAP '%s' SPAWN POINT '%s' PARAMETER %i = '%s' CANNOT FIND WORD LIST '%s'.\n" , cm[t].name , cm[t].spawn_point_list_pointer[i].name , j , cm[t].spawn_point_list_pointer[i].param_list_pointer[j].param_dest_var , cm[t].spawn_point_list_pointer[i].param_list_pointer[j].param_list_type );
+					snprintf ( line , sizeof(line), "   TILEMAP '%s' SPAWN POINT '%s' PARAMETER %i = '%s' CANNOT FIND WORD LIST '%s'.\n", cm[t].name, cm[t].spawn_point_list_pointer[i].name, j, cm[t].spawn_point_list_pointer[i].param_list_pointer[j].param_dest_var, cm[t].spawn_point_list_pointer[i].param_list_pointer[j].param_list_type );
 					EDIT_add_line_to_report (line);
 					okay = false;
 					cm[t].spawn_point_list_pointer[i].param_list_pointer[j].param_value = 0;
@@ -3144,7 +3144,7 @@ bool TILEMAPS_confirm_links (void)
 
 		if (okay)
 		{
-			sprintf ( line , "ALL SPAWN POINTS IN TILEMAP '%s' ARE OKAY.\n" , cm[t].name );
+			snprintf ( line , sizeof(line), "ALL SPAWN POINTS IN TILEMAP '%s' ARE OKAY.\n", cm[t].name );
 			EDIT_add_line_to_report (line);
 		}
 
@@ -3496,16 +3496,16 @@ bool TILEMAPS_edit_tilemap (int state , bool overlay_display, int *current_curso
 			OUTPUT_draw_masked_sprite ( first_icon , TOOL_FILL_ICON, editor_view_width+(ICON_SIZE/2)+(6*ICON_SIZE) , ICON_SIZE*9 );
 			OUTPUT_draw_masked_sprite ( first_icon , FORWARD_ARROW, editor_view_width+(ICON_SIZE/2)+(2*ICON_SIZE*draw_tool_mode)+ICON_SIZE , ICON_SIZE*9 );
 
-			sprintf (word_string, " WIDTH = %d", current_width );
+			snprintf (word_string, sizeof(word_string), " WIDTH = %d", current_width );
 			TILEMAPS_dialogue_box ( editor_view_width+(ICON_SIZE/2)+(2*ICON_SIZE) , ICON_SIZE*1 , ICON_SIZE*4, ICON_SIZE*1 , word_string );
 
-			sprintf (word_string, "HEIGHT = %d", current_height );
+			snprintf (word_string, sizeof(word_string), "HEIGHT = %d", current_height );
 			TILEMAPS_dialogue_box ( editor_view_width+(ICON_SIZE/2)+(2*ICON_SIZE) , ICON_SIZE*2 , ICON_SIZE*4, ICON_SIZE*1 , word_string );
 
-			sprintf (word_string, "LAYERS = %d", current_layers );
+			snprintf (word_string, sizeof(word_string), "LAYERS = %d", current_layers );
 			TILEMAPS_dialogue_box ( editor_view_width+(ICON_SIZE/2)+(2*ICON_SIZE) , ICON_SIZE*3 , ICON_SIZE*4, ICON_SIZE*1 , word_string );
 
-			sprintf (word_string, "%s", cm[tilemap_number].default_tile_set );
+			snprintf (word_string, sizeof(word_string), "%s", cm[tilemap_number].default_tile_set );
 			TILEMAPS_dialogue_box ( editor_view_width+(ICON_SIZE/2)+(1*ICON_SIZE) , ICON_SIZE*10 , ICON_SIZE*6, ICON_SIZE*1 , word_string );
 
 			OUTPUT_draw_masked_sprite ( first_icon , PLONK_TILES_ICON, editor_view_width+(ICON_SIZE/2) , ICON_SIZE*12 );
@@ -4008,13 +4008,13 @@ bool TILEMAPS_edit_vertex_colours (int state , bool overlay_display, int *curren
 			OUTPUT_draw_masked_sprite ( first_icon , BRIGHT_OVERLAY, (ICON_SIZE*1)+(ICON_SIZE*draw_tool_mode) , editor_view_height+ICON_SIZE/2 );
 			OUTPUT_draw_masked_sprite ( first_icon , BRIGHT_OVERLAY, (ICON_SIZE*10)+(ICON_SIZE*tile_paint_mode) , editor_view_height+ICON_SIZE/2 );
 
-			sprintf (word_string, "DSP WDTH = %d", guide_box_width );
+			snprintf (word_string, sizeof(word_string), "DSP WDTH = %d", guide_box_width );
 			TILEMAPS_dialogue_box ( (15*ICON_SIZE) , editor_view_height+(ICON_SIZE*0)+(ICON_SIZE/2) , ICON_SIZE*4, ICON_SIZE*1 , word_string );
 
-			sprintf (word_string, "DSP HGHT = %d", guide_box_height );
+			snprintf (word_string, sizeof(word_string), "DSP HGHT = %d", guide_box_height );
 			TILEMAPS_dialogue_box ( (15*ICON_SIZE) , editor_view_height+(ICON_SIZE*1)+(ICON_SIZE/2) , ICON_SIZE*4, ICON_SIZE*1 , word_string );
 
-			sprintf (word_string, "LAYER = %d", editing_layer );
+			snprintf (word_string, sizeof(word_string), "LAYER = %d", editing_layer );
 			TILEMAPS_dialogue_box ( (15*ICON_SIZE) , editor_view_height+(ICON_SIZE*2)+(ICON_SIZE/2) , ICON_SIZE*4, ICON_SIZE*1 , word_string );
 
 			OUTPUT_text (0,editor_view_height+(ICON_SIZE*1)+(ICON_SIZE/2),"RED",255,0,0,20000);
@@ -4394,7 +4394,7 @@ bool TILEMAPS_edit (bool initialise, int starting_map_number)
 
 		initialise = false;
 
-		sprintf(stat_altered_message,"");
+		stat_altered_message[0] = '\0';
 		stat_altered_timer = 0;
 
 		stat_altered_red = stat_altered_green = stat_altered_blue = 0;
@@ -4459,7 +4459,7 @@ bool TILEMAPS_edit (bool initialise, int starting_map_number)
 			}
 			TILEMAPS_draw_guides (tilemap_number , sx, sy, tilesize, zoom_level,guide_box_width,guide_box_height);
 
-			sprintf(co_ordinate_text,"%i,%i (%i,%i)",(sx*tilesize)+int(float(mx)/zoom_level),(sy*tilesize)+int(float(my)/zoom_level), tx*tilesize,ty*tilesize);
+			snprintf(co_ordinate_text, sizeof(co_ordinate_text),"%i,%i (%i,%i)",(sx*tilesize)+int(float(mx)/zoom_level),(sy*tilesize)+int(float(my)/zoom_level), tx*tilesize,ty*tilesize);
 			OUTPUT_text(0,480-8,co_ordinate_text);
 		}
 
@@ -4628,7 +4628,7 @@ bool TILEMAPS_edit (bool initialise, int starting_map_number)
 				stat_altered_blue = stat_altered_green = 255;
 				stat_altered_red = 0;
 				stat_altered_timer = 60;
-				sprintf (stat_altered_message,"EDITING LAYER : %i",editing_layer);
+				snprintf (stat_altered_message, sizeof(stat_altered_message), "EDITING LAYER : %i",editing_layer);
 			}
 
 			if (CONTROL_key_hit(KEY_O))
@@ -4643,7 +4643,7 @@ bool TILEMAPS_edit (bool initialise, int starting_map_number)
 				stat_altered_blue = stat_altered_green = 255;
 				stat_altered_red = 0;
 				stat_altered_timer = 60;
-				sprintf (stat_altered_message,"EDITING LAYER : %i",editing_layer);
+				snprintf (stat_altered_message, sizeof(stat_altered_message), "EDITING LAYER : %i",editing_layer);
 			}
 
 			if (CONTROL_key_hit(KEY_P))
@@ -4658,7 +4658,7 @@ bool TILEMAPS_edit (bool initialise, int starting_map_number)
 				stat_altered_blue = stat_altered_green = 255;
 				stat_altered_red = 0;
 				stat_altered_timer = 60;
-				sprintf (stat_altered_message,"EDITING LAYER : %i",editing_layer);
+				snprintf (stat_altered_message, sizeof(stat_altered_message), "EDITING LAYER : %i",editing_layer);
 			}
 
 			if (CONTROL_key_hit(KEY_G))
@@ -4666,14 +4666,14 @@ bool TILEMAPS_edit (bool initialise, int starting_map_number)
 				draw_grid = !draw_grid;
 				if (draw_grid)
 				{
-					sprintf (stat_altered_message,"GRID DISPLAY ON");
+					snprintf (stat_altered_message, sizeof(stat_altered_message), "GRID DISPLAY ON");
 					stat_altered_blue = stat_altered_green = 0;
 					stat_altered_red = 255;
 					stat_altered_timer = 60;
 				}
 				else
 				{
-					sprintf (stat_altered_message,"GRID DISPLAY OFF");
+					snprintf (stat_altered_message, sizeof(stat_altered_message), "GRID DISPLAY OFF");
 					stat_altered_blue = stat_altered_green = 0;
 					stat_altered_red = 255;
 					stat_altered_timer = 60;
@@ -4687,7 +4687,7 @@ bool TILEMAPS_edit (bool initialise, int starting_map_number)
 				{
 					colour_display_mode=COLOUR_DISPLAY_MODE_NONE;
 				}
-				sprintf (stat_altered_message,"VERTEX COLOUR DISPLAY = %s",colour_display_mode_names[colour_display_mode]);
+				snprintf (stat_altered_message, sizeof(stat_altered_message), "VERTEX COLOUR DISPLAY = %s",colour_display_mode_names[colour_display_mode]);
 				stat_altered_green = 0;
 				stat_altered_red = stat_altered_blue = 255;
 				stat_altered_timer = 60;
@@ -4782,18 +4782,18 @@ bool TILEMAPS_edit (bool initialise, int starting_map_number)
 				{
 					if (grid_size > 1)
 					{
-						sprintf (stat_altered_message,"GRID NOT VISIBLE AT THIS ZOOM!");
+						snprintf (stat_altered_message, sizeof(stat_altered_message), "GRID NOT VISIBLE AT THIS ZOOM!");
 					}
 					else
 					{
-						sprintf (stat_altered_message,"NO GRID!");
+						snprintf (stat_altered_message, sizeof(stat_altered_message), "NO GRID!");
 					}
 					stat_altered_green = stat_altered_blue = 0;
 					stat_altered_red = 255;
 				}
 				else
 				{
-					sprintf (stat_altered_message,"GRID = %i   ZOOM = %f",grid_size,zoom_level);
+					snprintf (stat_altered_message, sizeof(stat_altered_message), "GRID = %i   ZOOM = %f",grid_size,zoom_level);
 					stat_altered_green = 255;
 					stat_altered_red = stat_altered_blue = 0;
 				}
@@ -4842,7 +4842,7 @@ bool TILEMAPS_edit (bool initialise, int starting_map_number)
 
 			if (guide_box_size_changed)
 			{
-				sprintf (stat_altered_message,"WIDTH = %i   HEIGHT = %i",guide_box_width,guide_box_height);
+				snprintf (stat_altered_message, sizeof(stat_altered_message), "WIDTH = %i   HEIGHT = %i",guide_box_width,guide_box_height);
 				stat_altered_blue = 0;
 				stat_altered_red = stat_altered_green = 255;
 				stat_altered_timer = 60;
@@ -4944,7 +4944,7 @@ bool TILEMAPS_edit (bool initialise, int starting_map_number)
 
 			if (co_ord_altered)
 			{
-				sprintf (stat_altered_message,"TOP LEFT = %i,%i",sx*tilesize,sy*tilesize,sx,sy);
+				snprintf (stat_altered_message, sizeof(stat_altered_message), "TOP LEFT = %i,%i", sx*tilesize, sy*tilesize);
 				stat_altered_timer = 60;
 				stat_altered_green = 0;
 				stat_altered_red = stat_altered_blue = 255;
@@ -5065,7 +5065,7 @@ void TILEMAPS_output_altered_zone_flags_to_file (char *filename)
 					flag = cm[tilemap_number].zone_list_pointer[zone_number].flag;
 					uid = cm[tilemap_number].zone_list_pointer[zone_number].uid;
 
-					sprintf (line,"\t#ZONE_FLAG_MAP_UID = %i ZONE_FLAG_UID = %i ZONE_FLAG_VALUE = %i\n",map_uid,uid,flag);
+					snprintf (line, sizeof(line), "\t#ZONE_FLAG_MAP_UID = %i ZONE_FLAG_UID = %i ZONE_FLAG_VALUE = %i\n",map_uid,uid,flag);
 
 					fputs (line,file_pointer);
 				}

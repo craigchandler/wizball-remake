@@ -257,7 +257,7 @@ Fortify_Allocate(size_t size, unsigned char allocator, const char *file, unsigne
         if(rand() % 100 < st_AllocateFailRate)
         {
 #ifdef FORTIFY_WARN_ON_FALSE_FAIL
-            sprintf(st_Buffer, 
+                snprintf(st_Buffer, sizeof(st_Buffer), 
                     "\nFortify: A \"%s\" of %lu bytes \"false failed\" at %s.%lu\n",
                     st_AllocatorName[allocator], (unsigned long)size, file, line);
             st_Output(st_Buffer);
@@ -272,9 +272,9 @@ Fortify_Allocate(size_t size, unsigned char allocator, const char *file, unsigne
     if(st_CurAllocation + size > st_AllocationLimit)
     {
 #ifdef FORTIFY_WARN_ON_FALSE_FAIL
-        sprintf(st_Buffer, 
-                "\nFortify: A \"%s\" of %lu bytes \"false failed\" at %s.%lu\n",
-                st_AllocatorName[allocator], (unsigned long)size, file, line);
+        snprintf(st_Buffer, sizeof(st_Buffer), 
+            "\nFortify: A \"%s\" of %lu bytes \"false failed\" at %s.%lu\n",
+            st_AllocatorName[allocator], (unsigned long)size, file, line);
         st_Output(st_Buffer);
 #endif
         return(0);
@@ -285,10 +285,10 @@ Fortify_Allocate(size_t size, unsigned char allocator, const char *file, unsigne
                      allocator == Fortify_Allocator_calloc ||
                      allocator == Fortify_Allocator_realloc ))
 	{                     
-		sprintf(st_Buffer, 
+    		snprintf(st_Buffer, sizeof(st_Buffer), 
         		"\nFortify: A \"%s\" of 0 bytes attempted at %s.%lu\n",
                 st_AllocatorName[allocator], file, line);
-       	st_Output(st_Buffer);
+        	st_Output(st_Buffer);
 	}
 #endif /* FORTIFY_WARN_ON_ZERO_MALLOC */
 
@@ -298,8 +298,8 @@ Fortify_Allocate(size_t size, unsigned char allocator, const char *file, unsigne
                      allocator == Fortify_Allocator_realloc ))
 	{                     
 #ifdef FORTIFY_WARN_ON_ALLOCATE_FAIL
-        sprintf(st_Buffer, "\nFortify: A \"%s\" of %lu bytes failed at %s.%lu\n",
-                st_AllocatorName[allocator], (unsigned long)size, file, line);
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: A \"%s\" of %lu bytes failed at %s.%lu\n",
+            st_AllocatorName[allocator], (unsigned long)size, file, line);
         st_Output(st_Buffer);
 #endif /* FORTIFY_WARN_ON_ALLOCATE_FAIL */
 		return 0;
@@ -318,10 +318,10 @@ Fortify_Allocate(size_t size, unsigned char allocator, const char *file, unsigne
 
         if(private_size < size)
         {
-            sprintf(st_Buffer, 
+                snprintf(st_Buffer, sizeof(st_Buffer), 
                     "\nFortify: A \"%s\" of %lu bytes has overflowed size_t at %s.%lu\n",
                     st_AllocatorName[allocator], (unsigned long)size, file, line);
-            st_Output(st_Buffer);
+                st_Output(st_Buffer);
             return(0);
         }                              
     }
@@ -357,9 +357,9 @@ Fortify_Allocate(size_t size, unsigned char allocator, const char *file, unsigne
     if(!ptr)
     {
 #ifdef FORTIFY_WARN_ON_ALLOCATE_FAIL
-        sprintf(st_Buffer, "\nFortify: A \"%s\" of %lu bytes failed at %s.%lu\n",
-                st_AllocatorName[allocator], (unsigned long)size, file, line);
-        st_Output(st_Buffer);
+    snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: A \"%s\" of %lu bytes failed at %s.%lu\n",
+        st_AllocatorName[allocator], (unsigned long)size, file, line);
+    st_Output(st_Buffer);
 #endif
         return(0);       
     }
@@ -518,12 +518,12 @@ Fortify_Deallocate(void *uptr, unsigned char deallocator, const char *file, unsi
 #ifdef FORTIFY_TRACK_DEALLOCATED_MEMORY
         if(st_IsOnDeallocatedList(h))
         {
-            sprintf(st_Buffer, "\nFortify: \"%s\" twice of %s detected at %s.%lu\n",
+            snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: \"%s\" twice of %s detected at %s.%lu\n",
                                 st_DeallocatorName[deallocator],
                                 st_MemoryBlockString(h), file, line);
             st_Output(st_Buffer);
 
-            sprintf(st_Buffer, "         Memory block was deallocated by \"%s\" at %s.%lu\n",
+            snprintf(st_Buffer, sizeof(st_Buffer), "         Memory block was deallocated by \"%s\" at %s.%lu\n",
                                 st_DeallocatorName[h->Deallocator], h->FreedFile, h->FreedLine);
             st_Output(st_Buffer);
             st_OutputDeleteTrace();
@@ -532,12 +532,12 @@ Fortify_Deallocate(void *uptr, unsigned char deallocator, const char *file, unsi
 #endif /* FORTIFY_TRACK_DEALLOCATED_MEMORY */
 
 #ifdef FORTIFY_NO_PERCENT_P
-        sprintf(st_Buffer, "\nFortify: Possible \"%s\" twice of (0x%08lx) was detected at %s.%lu\n",
-#else
-        sprintf(st_Buffer, "\nFortify: Possible \"%s\" twice of (%p) was detected at %s.%lu\n",
-#endif
-                            st_DeallocatorName[deallocator],
-                            uptr, file, line);
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Possible \"%s\" twice of (0x%08lx) was detected at %s.%lu\n",
+    #else
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Possible \"%s\" twice of (%p) was detected at %s.%lu\n",
+    #endif
+                    st_DeallocatorName[deallocator],
+                    uptr, file, line);
         st_Output(st_Buffer);
         st_OutputDeleteTrace();
         return;
@@ -565,12 +565,12 @@ Fortify_Deallocate(void *uptr, unsigned char deallocator, const char *file, unsi
      */
     if(h->Deallocator != Fortify_Deallocator_nobody)
     {
-        sprintf(st_Buffer, "\nFortify: \"%s\" twice of %s detected at %s.%lu\n",
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: \"%s\" twice of %s detected at %s.%lu\n",
                               st_DeallocatorName[deallocator],
                             st_MemoryBlockString(h), file, line);
         st_Output(st_Buffer);
 
-        sprintf(st_Buffer, "         Memory block was deallocated by \"%s\" at %s.%lu\n",
+        snprintf(st_Buffer, sizeof(st_Buffer), "         Memory block was deallocated by \"%s\" at %s.%lu\n",
                             st_DeallocatorName[h->Deallocator], h->FreedFile, h->FreedLine);
         st_Output(st_Buffer);
         st_OutputDeleteTrace();
@@ -584,10 +584,10 @@ Fortify_Deallocate(void *uptr, unsigned char deallocator, const char *file, unsi
      */
     if((st_ValidDeallocator[h->Allocator] & (1<<deallocator)) == 0)
     {
-        sprintf(st_Buffer, "\nFortify: Incorrect deallocator \"%s\" detected at %s.%lu\n",
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Incorrect deallocator \"%s\" detected at %s.%lu\n",
                               st_DeallocatorName[deallocator], file, line);
         st_Output(st_Buffer);
-        sprintf(st_Buffer,   "         %s was allocated with \"%s\"\n",
+        snprintf(st_Buffer, sizeof(st_Buffer),   "         %s was allocated with \"%s\"\n",
                               st_MemoryBlockString(h), st_AllocatorName[h->Allocator]);
         st_Output(st_Buffer);
         st_OutputDeleteTrace();
@@ -788,31 +788,31 @@ Fortify_CheckPointer(void *uptr, const char *file, unsigned long line)
 
     FORTIFY_LOCK();
 
-    if(!st_IsOnAllocatedList(h))
-    {
-#ifdef FORTIFY_NO_PERCENT_P
-        sprintf(st_Buffer, "\nFortify: Invalid pointer (0x%08lx) detected at %s.%lu\n",
-#else
-        sprintf(st_Buffer, "\nFortify: Invalid pointer (%p) detected at %s.%lu\n",
-#endif
-                                 uptr, file, line);
+        if(!st_IsOnAllocatedList(h))
+        {
+    #ifdef FORTIFY_NO_PERCENT_P
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Invalid pointer (0x%08lx) detected at %s.%lu\n",
+    #else
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Invalid pointer (%p) detected at %s.%lu\n",
+    #endif
+                     uptr, file, line);
         st_Output(st_Buffer);
         FORTIFY_UNLOCK();
         return(0);
     }
 
 #ifdef FORTIFY_TRACK_DEALLOCATED_MEMORY
-    if(st_IsOnDeallocatedList(h))
-    {
-#ifdef FORTIFY_NO_PERCENT_P
-        sprintf(st_Buffer, "\nFortify: Deallocated pointer (0x%08lx) detected at %s.%lu\n",
-#else
-        sprintf(st_Buffer, "\nFortify: Deallocated pointer (%p) detected at %s.%lu\n",
-#endif
-                           uptr, file, line);
+        if(st_IsOnDeallocatedList(h))
+        {
+    #ifdef FORTIFY_NO_PERCENT_P
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Deallocated pointer (0x%08lx) detected at %s.%lu\n",
+    #else
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Deallocated pointer (%p) detected at %s.%lu\n",
+    #endif
+                   uptr, file, line);
         st_Output(st_Buffer);
-        sprintf(st_Buffer, "         Memory block was deallocated by \"%s\" at %s.%lu\n",
-                           st_DeallocatorName[h->Deallocator], h->FreedFile, h->FreedLine);
+        snprintf(st_Buffer, sizeof(st_Buffer), "         Memory block was deallocated by \"%s\" at %s.%lu\n",
+                   st_DeallocatorName[h->Deallocator], h->FreedFile, h->FreedLine);
         st_Output(st_Buffer);
         FORTIFY_UNLOCK();
         return(0);
@@ -953,9 +953,9 @@ Fortify_LeaveScope(const char *file, unsigned long line)
         {
             if(count == 0)
             {
-                sprintf(st_Buffer, "\nFortify: Memory leak detected leaving scope at %s.%lu\n", file, line);
+                snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Memory leak detected leaving scope at %s.%lu\n", file, line);
                 st_Output(st_Buffer);
-                sprintf(st_Buffer, "%10s %8s %s\n", "Address", "Size", "Allocator");
+                snprintf(st_Buffer, sizeof(st_Buffer), "%10s %8s %s\n", "Address", "Size", "Allocator");
                 st_Output(st_Buffer);
             }
             
@@ -969,8 +969,8 @@ Fortify_LeaveScope(const char *file, unsigned long line)
 
     if(count)
     {
-        sprintf(st_Buffer,"%10s %8lu bytes in %lu blocks with %lu bytes overhead\n", 
-                "total", size, count, count * FORTIFY_OVERHEAD);
+        snprintf(st_Buffer,sizeof(st_Buffer),"%10s %8lu bytes in %lu blocks with %lu bytes overhead\n", 
+            "total", size, count, count * FORTIFY_OVERHEAD);
         st_Output(st_Buffer);
     }
 
@@ -1015,9 +1015,9 @@ Fortify_ListAllMemory(const char *file, unsigned long line)
 
     if(curr)
     {
-        sprintf(st_Buffer, "\nFortify: Memory List at %s.%lu\n", file, line);
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Memory List at %s.%lu\n", file, line);
         st_Output(st_Buffer);
-        sprintf(st_Buffer, "%10s %8s %s\n", "Address", "Size", "Allocator");
+        snprintf(st_Buffer, sizeof(st_Buffer), "%10s %8s %s\n", "Address", "Size", "Allocator");
         st_Output(st_Buffer);
                                 
         while(curr)
@@ -1028,8 +1028,8 @@ Fortify_ListAllMemory(const char *file, unsigned long line)
             curr = curr->Next;      
         }
                      
-        sprintf(st_Buffer, "%10s %8lu bytes in %lu blocks and %lu bytes overhead\n", 
-                           "total", size, count, count * FORTIFY_OVERHEAD);
+        snprintf(st_Buffer, sizeof(st_Buffer), "%10s %8lu bytes in %lu blocks and %lu bytes overhead\n", 
+                   "total", size, count, count * FORTIFY_OVERHEAD);
         st_Output(st_Buffer);
     }
   
@@ -1061,8 +1061,8 @@ Fortify_DumpAllMemory(const char *file, unsigned long line)
 
     while(curr)
     {
-        sprintf(st_Buffer, "\nFortify: Hex Dump of %s at %s.%lu\n",
-                st_MemoryBlockString(curr), file, line);
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Hex Dump of %s at %s.%lu\n",
+            st_MemoryBlockString(curr), file, line);
         st_Output(st_Buffer);
         st_OutputMemory(curr);
         st_Output("\n");
@@ -1085,26 +1085,26 @@ Fortify_OutputStatistics(const char *file, unsigned long line)
     if(st_Disabled)
         return;
 
-    sprintf(st_Buffer, "\nFortify: Statistics at %s.%lu\n", file, line);
+    snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Statistics at %s.%lu\n", file, line);
     st_Output(st_Buffer);
 
-    sprintf(st_Buffer, "         Memory currently allocated: %lu bytes in %lu blocks\n",
+    snprintf(st_Buffer, sizeof(st_Buffer), "         Memory currently allocated: %lu bytes in %lu blocks\n",
                                  st_CurAllocation, st_CurBlocks);
     st_Output(st_Buffer);
-    sprintf(st_Buffer, "         Maximum memory allocated at one time: %lu bytes in %lu blocks\n", 
+    snprintf(st_Buffer, sizeof(st_Buffer), "         Maximum memory allocated at one time: %lu bytes in %lu blocks\n", 
                                  st_MaxAllocation, st_MaxBlocks);
     st_Output(st_Buffer);
-    sprintf(st_Buffer, "         There have been %lu allocations and %lu deallocations\n",
+    snprintf(st_Buffer, sizeof(st_Buffer), "         There have been %lu allocations and %lu deallocations\n",
                                  st_Allocations, st_Frees);
     st_Output(st_Buffer);
-    sprintf(st_Buffer, "         There was a total of %lu bytes allocated\n",
+    snprintf(st_Buffer, sizeof(st_Buffer), "         There was a total of %lu bytes allocated\n",
                                  st_TotalAllocation);
     st_Output(st_Buffer);
     
     if(st_Allocations > 0)
     {
-        sprintf(st_Buffer, "         The average allocation was %lu bytes\n",
-                                     st_TotalAllocation / st_Allocations);
+        snprintf(st_Buffer, sizeof(st_Buffer), "         The average allocation was %lu bytes\n",
+                         st_TotalAllocation / st_Allocations);
         st_Output(st_Buffer);                   
     }    
 }
@@ -1167,7 +1167,7 @@ st_CheckBlock(struct Header *h, const char *file, unsigned long line)
 
     if(!st_IsHeaderValid(h))
     {
-        sprintf(st_Buffer,
+        snprintf(st_Buffer,
 #ifdef FORTIFY_NO_PERCENT_P
                 "\nFortify: Invalid pointer (0x%08lx) or corrupted header detected at %s.%lu\n",
 #else
@@ -1182,8 +1182,8 @@ st_CheckBlock(struct Header *h, const char *file, unsigned long line)
     if(!st_CheckFortification(ptr + FORTIFY_HEADER_SIZE,
                            FORTIFY_BEFORE_VALUE, FORTIFY_ALIGNED_BEFORE_SIZE))
     {
-        sprintf(st_Buffer, "\nFortify: Underwrite detected before block %s at %s.%lu\n",
-                           st_MemoryBlockString(h), file, line);
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Underwrite detected before block %s at %s.%lu\n",
+                   st_MemoryBlockString(h), file, line);
         st_Output(st_Buffer);
 
         st_OutputLastVerifiedPoint();
@@ -1199,8 +1199,8 @@ st_CheckBlock(struct Header *h, const char *file, unsigned long line)
     if(!st_CheckFortification(ptr + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE + h->Size,
                            FORTIFY_AFTER_VALUE, FORTIFY_AFTER_SIZE))
     {
-        sprintf(st_Buffer, "\nFortify: Overwrite detected after block %s at %s.%lu\n",
-                           st_MemoryBlockString(h), file, line);
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Overwrite detected after block %s at %s.%lu\n",
+                   st_MemoryBlockString(h), file, line);
         st_Output(st_Buffer);
 
         st_OutputLastVerifiedPoint();
@@ -1231,7 +1231,7 @@ st_CheckDeallocatedBlock(struct Header *h, const char *file, unsigned long line)
 
     if(!st_IsHeaderValid(h))
     {
-        sprintf(st_Buffer,
+        snprintf(st_Buffer, sizeof(st_Buffer)
 #ifdef FORTIFY_NO_PERCENT_P
                 "\nFortify: Invalid deallocated pointer (0x%08lx) or corrupted header detected at %s.%lu\n",
 #else
@@ -1246,11 +1246,11 @@ st_CheckDeallocatedBlock(struct Header *h, const char *file, unsigned long line)
     if(!st_CheckFortification(ptr + FORTIFY_HEADER_SIZE,
                            FORTIFY_BEFORE_VALUE, FORTIFY_ALIGNED_BEFORE_SIZE))
     {
-        sprintf(st_Buffer, "\nFortify: Underwrite detected before deallocated block %s at %s.%lu\n",
-                           st_MemoryBlockString(h), file, line);
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Underwrite detected before deallocated block %s at %s.%lu\n",
+                   st_MemoryBlockString(h), file, line);
         st_Output(st_Buffer);
-        sprintf(st_Buffer, "         Memory block was deallocated by \"%s\" at %s.%lu\n",
-                           st_DeallocatorName[h->Deallocator], h->FreedFile, h->FreedLine);
+        snprintf(st_Buffer, sizeof(st_Buffer), "         Memory block was deallocated by \"%s\" at %s.%lu\n",
+                   st_DeallocatorName[h->Deallocator], h->FreedFile, h->FreedLine);
         st_Output(st_Buffer);
 
         st_OutputLastVerifiedPoint();
@@ -1266,11 +1266,11 @@ st_CheckDeallocatedBlock(struct Header *h, const char *file, unsigned long line)
     if(!st_CheckFortification(ptr + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE + h->Size,
                            FORTIFY_AFTER_VALUE, FORTIFY_AFTER_SIZE))
     {
-        sprintf(st_Buffer, "\nFortify: Overwrite detected after deallocated block %s at %s.%lu\n",
-                           st_MemoryBlockString(h), file, line);
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Overwrite detected after deallocated block %s at %s.%lu\n",
+                   st_MemoryBlockString(h), file, line);
         st_Output(st_Buffer);
-        sprintf(st_Buffer, "         Memory block was deallocated by \"%s\" at %s.%lu\n",
-                           st_DeallocatorName[h->Deallocator], h->FreedFile, h->FreedLine);
+        snprintf(st_Buffer, sizeof(st_Buffer), "         Memory block was deallocated by \"%s\" at %s.%lu\n",
+                   st_DeallocatorName[h->Deallocator], h->FreedFile, h->FreedLine);
         st_Output(st_Buffer);
 
         st_OutputLastVerifiedPoint();
@@ -1288,12 +1288,12 @@ st_CheckDeallocatedBlock(struct Header *h, const char *file, unsigned long line)
     if(!st_CheckFortification(ptr + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE,
                            FORTIFY_FILL_ON_DEALLOCATE_VALUE, h->Size))
     {
-        sprintf(st_Buffer, "\nFortify: Write to deallocated block %s detected at %s.%lu\n",
-                           st_MemoryBlockString(h), file, line);
+        snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Write to deallocated block %s detected at %s.%lu\n",
+                   st_MemoryBlockString(h), file, line);
         st_Output(st_Buffer);
 
-        sprintf(st_Buffer, "         Memory block was deallocated by \"%s\" at %s.%lu\n",
-                           st_DeallocatorName[h->Deallocator], h->FreedFile, h->FreedLine);
+        snprintf(st_Buffer, sizeof(st_Buffer), "         Memory block was deallocated by \"%s\" at %s.%lu\n",
+                   st_DeallocatorName[h->Deallocator], h->FreedFile, h->FreedLine);
         st_Output(st_Buffer);
         st_OutputLastVerifiedPoint();
     
@@ -1346,7 +1346,7 @@ st_OutputFortification(unsigned char *ptr, unsigned char value, size_t size)
     size_t offset, skipped, advance;
     offset = 0;
 
-    sprintf(st_Buffer, "   Address   Offset Data (%02x)", value);
+    snprintf(st_Buffer, sizeof(st_Buffer), "   Address   Offset Data (%02x)", value);
     st_Output(st_Buffer);
 
     while(offset < size)
@@ -1377,7 +1377,7 @@ st_OutputFortification(unsigned char *ptr, unsigned char value, size_t size)
                 else
                     advance = 16;
             }    
-            sprintf(st_Buffer, "\n                        ...%lu bytes skipped...", (unsigned long)skipped);
+            snprintf(st_Buffer, sizeof(st_Buffer), "\n                        ...%lu bytes skipped...", (unsigned long)skipped);
             st_Output(st_Buffer);
             continue;
         }
@@ -1417,14 +1417,14 @@ st_HexDump(unsigned char *ptr, size_t offset, size_t size, int title)
         if(column == 0)
         {
 #ifdef FORTIFY_NO_PERCENT_P
-            sprintf(st_Buffer, "\n0x%08lx %8lu ", ptr, (unsigned long)offset);
+            snprintf(st_Buffer, sizeof(st_Buffer), "\n0x%08lx %8lu ", ptr, (unsigned long)offset);
 #else
-            sprintf(st_Buffer, "\n%10p %8lu ", ptr, (unsigned long)offset);
+            snprintf(st_Buffer, sizeof(st_Buffer), "\n%10p %8lu ", ptr, (unsigned long)offset);
 #endif
             st_Output(st_Buffer);
         }
 
-        sprintf(st_Buffer, "%02x%s", *ptr, ((column % 4) == 3) ? " " : "");
+        snprintf(st_Buffer, sizeof(st_Buffer), "%02x%s", *ptr, ((column % 4) == 3) ? " " : "");
         st_Output(st_Buffer);
 
         ascii[ column ] = isprint( *ptr ) ? (char)(*ptr) : (char)('.');
@@ -1560,7 +1560,7 @@ st_PurgeDeallocatedBlocks(unsigned long Bytes, const char *file, unsigned long l
     unsigned long FreedBlocks = 0;
 
 #ifdef FORTIFY_WARN_WHEN_DISCARDING_DEALLOCATED_MEMORY
-    sprintf(st_Buffer, "\nFortify: Warning - Discarding deallocated memory at %s.%lu\n", 
+    snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Warning - Discarding deallocated memory at %s.%lu\n", 
                        file, line);
     st_Output(st_Buffer);
 #endif /* FORTIFY_WARN_WHEN_DISCARDING_DEALLOCATED_MEMORY */
@@ -1572,8 +1572,8 @@ st_PurgeDeallocatedBlocks(unsigned long Bytes, const char *file, unsigned long l
         FreedBlocks++;
 #ifdef FORTIFY_WARN_WHEN_DISCARDING_DEALLOCATED_MEMORY
 #ifdef FORTIFY_VERBOSE_WARN_WHEN_DISCARDING_DEALLOCATED_MEMORY
-        sprintf(st_Buffer, "                %s\n",
-                           st_DeallocatedMemoryBlockString(st_DeallocatedTail));
+        snprintf(st_Buffer, sizeof(st_Buffer), "                %s\n",
+                   st_DeallocatedMemoryBlockString(st_DeallocatedTail));
         st_Output(st_Buffer);
 #endif /* FORTIFY_VERBOSE_WARN_WHEN_DISCARDING_DEALLOCATED_MEMORY */
 #endif /* FORTIFY_WARN_WHEN_DISCARDING_DEALLOCATED_MEMORY */
@@ -1698,24 +1698,24 @@ st_OutputHeader(struct Header *h)
 	if(h->Label == NULL)
 	{
 #ifdef FORTIFY_NO_PERCENT_P
-	    sprintf(st_Buffer, "0x%08lx %8lu %s.%lu\n", 
+    snprintf(st_Buffer, sizeof(st_Buffer), "0x%08lx %8lu %s.%lu\n", 
 #else
-	    sprintf(st_Buffer, "%10p %8lu %s.%lu\n", 
+    snprintf(st_Buffer, sizeof(st_Buffer), "%10p %8lu %s.%lu\n", 
 #endif
-	                       (unsigned char*)h + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE,
-    	                   (unsigned long)h->Size,
-        	               h->File, h->Line);
+                       (unsigned char*)h + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE,
+                       (unsigned long)h->Size,
+                       h->File, h->Line);
     }                   
     else
     {
 #ifdef FORTIFY_NO_PERCENT_P
-	    sprintf(st_Buffer, "0x%08lx %8lu %s.%lu %s\n", 
+    snprintf(st_Buffer, sizeof(st_Buffer), "0x%08lx %8lu %s.%lu %s\n", 
 #else
-	    sprintf(st_Buffer, "%10p %8lu %s.%lu %s\n", 
+    snprintf(st_Buffer, sizeof(st_Buffer), "%10p %8lu %s.%lu %s\n", 
 #endif
-    	                   (unsigned char*)h + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE,
-        	               (unsigned long)h->Size,
-            	           h->File, h->Line, h->Label);
+                       (unsigned char*)h + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE,
+                       (unsigned long)h->Size,
+                       h->File, h->Line, h->Label);
     }
 
 //	char *a = (char*)h + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE;
@@ -1730,7 +1730,7 @@ st_OutputHeader(struct Header *h)
 static void 
 st_OutputLastVerifiedPoint()
 {
-    sprintf(st_Buffer, "         Memory integrity was last verified at %s.%lu\n", 
+    snprintf(st_Buffer, sizeof(st_Buffer), "         Memory integrity was last verified at %s.%lu\n", 
                        st_LastVerifiedFile,
                        st_LastVerifiedLine);
     st_Output(st_Buffer);
@@ -1748,22 +1748,22 @@ st_MemoryBlockString(struct Header *h)
     if(h->Label == 0)
     {
 #ifdef FORTIFY_NO_PERCENT_P
-	    sprintf(st_BlockString,"(0x%08lx,%lu,%s.%lu)",
+    snprintf(st_BlockString, sizeof(st_BlockString), "(0x%08lx,%lu,%s.%lu)",
 #else
-	    sprintf(st_BlockString,"(%p,%lu,%s.%lu)",
+    snprintf(st_BlockString, sizeof(st_BlockString), "(%p,%lu,%s.%lu)",
 #endif
-    	        (char*)h + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE,
-	            (unsigned long)h->Size, h->File, h->Line);
+        (char*)h + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE,
+            (unsigned long)h->Size, h->File, h->Line);
 	}            
 	else
 	{
 #ifdef FORTIFY_NO_PERCENT_P
-	    sprintf(st_BlockString,"(0x%08lx,%lu,%s.%lu,%s)",
+    snprintf(st_BlockString, sizeof(st_BlockString), "(0x%08lx,%lu,%s.%lu,%s)",
 #else
-	    sprintf(st_BlockString,"(%p,%lu,%s.%lu,%s)",
+    snprintf(st_BlockString, sizeof(st_BlockString), "(%p,%lu,%s.%lu,%s)",
 #endif
-    	        (char*)h + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE,
-	            (unsigned long)h->Size, h->File, h->Line, h->Label);
+        (char*)h + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE,
+            (unsigned long)h->Size, h->File, h->Line, h->Label);
 	}
 
     return st_BlockString;
@@ -1786,22 +1786,22 @@ st_DeallocatedMemoryBlockString(struct Header *h)
 	if(h->Label == 0)
 	{
 #ifdef FORTIFY_NO_PERCENT_P
-	    sprintf(st_BlockString,"(0x%08lx,%lu,%s.%lu,%s.%lu)",
+    snprintf(st_BlockString, sizeof(st_BlockString),"(0x%08lx,%lu,%s.%lu,%s.%lu)",
 #else
-	    sprintf(st_BlockString,"(%p,%lu,%s.%lu,%s.%lu)",
+    snprintf(st_BlockString, sizeof(st_BlockString),"(%p,%lu,%s.%lu,%s.%lu)",
 #endif
-    	        (char*)h + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE,
-	            (unsigned long)h->Size, h->File, h->Line, h->FreedFile, h->FreedLine);
+        (char*)h + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE,
+            (unsigned long)h->Size, h->File, h->Line, h->FreedFile, h->FreedLine);
 	}            
 	else
 	{
 #ifdef FORTIFY_NO_PERCENT_P
-	    sprintf(st_BlockString,"(0x%08lx,%lu,%s.%lu,%s.%lu,%s)",
+    snprintf(st_BlockString, sizeof(st_BlockString),"(0x%08lx,%lu,%s.%lu,%s.%lu,%s)",
 #else
-	    sprintf(st_BlockString,"(%p,%lu,%s.%lu,%s.%lu,%s)",
+    snprintf(st_BlockString, sizeof(st_BlockString),"(%p,%lu,%s.%lu,%s.%lu,%s)",
 #endif
-    	        (char*)h + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE,
-	            (unsigned long)h->Size, h->File, h->Line, h->FreedFile, h->FreedLine, h->Label);
+        (char*)h + FORTIFY_HEADER_SIZE + FORTIFY_ALIGNED_BEFORE_SIZE,
+            (unsigned long)h->Size, h->File, h->Line, h->FreedFile, h->FreedLine, h->Label);
 	}
 
     return st_BlockString;
@@ -1854,10 +1854,10 @@ Fortify_realloc(void *uptr, size_t new_size, const char *file, unsigned long lin
 #ifdef FORTIFY_TRACK_DEALLOCATED_MEMORY
             if(st_IsOnDeallocatedList(h))
             {
-                sprintf(st_Buffer, "\nFortify: Deallocated memory block passed to \"%s\" at %s.%lu\n",
+                snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Deallocated memory block passed to \"%s\" at %s.%lu\n",
                                     st_AllocatorName[Fortify_Allocator_realloc], file, line);
                 st_Output(st_Buffer);
-                sprintf(st_Buffer,   "         Memory block %s was deallocated by \"%s\" at %s.%lu\n",
+                snprintf(st_Buffer, sizeof(st_Buffer),   "         Memory block %s was deallocated by \"%s\" at %s.%lu\n",
                                    st_MemoryBlockString(h),
                                    st_DeallocatorName[h->Deallocator], h->FreedFile, h->FreedLine);
                 st_Output(st_Buffer);
@@ -1865,13 +1865,13 @@ Fortify_realloc(void *uptr, size_t new_size, const char *file, unsigned long lin
             }
 #endif
 
-            sprintf(st_Buffer, 
-#ifdef FORTIFY_NO_PERCENT_P
-                    "\nFortify: Invalid pointer (0x%08lx) passed to realloc at %s.%lu\n",
-#else
-                    "\nFortify: Invalid pointer (%p) passed to realloc at %s.%lu\n",
-#endif            
-                    ptr, file, line);
+        #ifdef FORTIFY_NO_PERCENT_P
+            snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Invalid pointer (0x%08lx) passed to realloc at %s.%lu\n",
+                 ptr, file, line);
+        #else
+            snprintf(st_Buffer, sizeof(st_Buffer), "\nFortify: Invalid pointer (%p) passed to realloc at %s.%lu\n",
+                 ptr, file, line);
+        #endif
             st_Output(st_Buffer);
             return 0;
         }
@@ -1984,12 +1984,12 @@ st_OutputDeleteTrace()
 #ifdef __cplusplus
     if(st_DeleteStackTop > 1)
     {
-        sprintf(st_Buffer, "Delete Trace: %s.%lu\n", st_DeleteFile[st_DeleteStackTop-1],
-                                                     st_DeleteLine[st_DeleteStackTop-1]);
+        snprintf(st_Buffer, sizeof(st_Buffer), "Delete Trace: %s.%lu\n", st_DeleteFile[st_DeleteStackTop-1],
+                                 st_DeleteLine[st_DeleteStackTop-1]);
         st_Output(st_Buffer);
         for(int c = st_DeleteStackTop-2; c >= 0; c--)
         {
-            sprintf(st_Buffer, "              %s.%lu\n", st_DeleteFile[c],
+            snprintf(st_Buffer, sizeof(st_Buffer), "              %s.%lu\n", st_DeleteFile[c],
                                                          st_DeleteLine[c]);
             st_Output(st_Buffer);
         }

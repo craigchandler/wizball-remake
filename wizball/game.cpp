@@ -169,7 +169,7 @@ void GAME_output_list_to_bat_file(FILE *fp, char *list, char *tags, char *packna
 
 	GPL_list_extents(list, &start, &end);
 
-	sprintf(extension, "%s", GPL_what_is_list_extension(list));
+	snprintf(extension, sizeof(extension), "%s", GPL_what_is_list_extension(list));
 
 	for (t = start; t < end; t++)
 	{
@@ -179,14 +179,14 @@ void GAME_output_list_to_bat_file(FILE *fp, char *list, char *tags, char *packna
 			{
 				// Well, it looks like we've got a thingummy. Eep!
 
-				sprintf(text, "dat %s%s.dat -a %s%s\\%s%s -k -t DATA\n", project_dir, packname, project_dir, list, GPL_what_is_word_name(t), ".TXT");
+				snprintf(text, sizeof(text), "dat %s%s.dat -a %s%s\\%s%s -k -t DATA\n", project_dir, packname, project_dir, list, GPL_what_is_word_name(t), ".TXT");
 				FILE_fix_filename_slashes(text);
 				fputs(text, fp);
 			}
 		}
 		else
 		{
-			sprintf(text, "dat %s%s.dat -a %s%s\\%s%s %s\n", project_dir, packname, project_dir, list, GPL_what_is_word_name(t), extension, tags);
+			snprintf(text, sizeof(text), "dat %s%s.dat -a %s%s\\%s%s %s\n", project_dir, packname, project_dir, list, GPL_what_is_word_name(t), extension, tags);
 			FILE_fix_filename_slashes(text);
 			fputs(text, fp);
 		}
@@ -203,7 +203,7 @@ void GAME_output_list_to_bat_file(FILE *fp, char *list, char *tags, char *packna
 #define DEL_CMD "rm -f"
 #define PREAMBLE "#!/bin/sh\n"
 #define EXECUTE(f)           \
-	sprintf(text, "sh %s", f); \
+	snprintf(text, sizeof(text), "sh %s", f); \
 	system(text)
 #endif
 
@@ -213,7 +213,7 @@ void GAME_create_resource_bat_file(void)
 	char project_dir[MAX_LINE_SIZE];
 	char text[MAX_LINE_SIZE];
 
-	sprintf(filename, "data_compile_%s" BAT_EXT, MAIN_get_project_name());
+	snprintf(filename, sizeof(filename), "data_compile_%s" BAT_EXT, MAIN_get_project_name());
 	strcpy(project_dir, MAIN_get_project_name());
 	FILE_put_backslash(project_dir, MAX_LINE_SIZE);
 
@@ -232,59 +232,59 @@ void GAME_create_resource_bat_file(void)
 	}
 
 	// Tell the .bat file to remove the current "data.dat"
-	sprintf(text, DEL_CMD " %sdata.dat\n", project_dir);
+	snprintf(text, sizeof(text), DEL_CMD " %sdata.dat\n", project_dir);
 	fputs(text, fp);
 
 	// Add all the data files.
-	sprintf(text, "dat %sdata.dat -a %sglobal_parameter_list.txt -k -t DATA -c0\n", project_dir, project_dir);
+	snprintf(text, sizeof(text), "dat %sdata.dat -a %sglobal_parameter_list.txt -k -t DATA -c0\n", project_dir, project_dir);
 	fputs(text, fp);
 
-	sprintf(text, "dat %sdata.dat -a %sgpl_list_size.txt -k -t DATA -c0\n", project_dir, project_dir);
+	snprintf(text, sizeof(text), "dat %sdata.dat -a %sgpl_list_size.txt -k -t DATA -c0\n", project_dir, project_dir);
 	fputs(text, fp);
 
-	sprintf(text, "dat %sdata.dat -a %scptf.txt -k -t DATA -c0\n", project_dir, project_dir);
+	snprintf(text, sizeof(text), "dat %sdata.dat -a %scptf.txt -k -t DATA -c0\n", project_dir, project_dir);
 	fputs(text, fp);
 
-	sprintf(text, "dat %sdata.dat -a %sproject_settings.txt -k -t DATA -c0\n", project_dir, project_dir);
+	snprintf(text, sizeof(text), "dat %sdata.dat -a %sproject_settings.txt -k -t DATA -c0\n", project_dir, project_dir);
 	fputs(text, fp);
 
 	// Delete the "gfx.dat"
-	sprintf(text, "\n" DEL_CMD " %sgfx.dat\n", project_dir);
+	snprintf(text, sizeof(text), "\n" DEL_CMD " %sgfx.dat\n", project_dir);
 	fputs(text, fp);
 
 	// Stick 'em back in...
 	GAME_output_list_to_bat_file(fp, "SPRITES", "-k -t BMP -c0", "gfx", true); // So all the text files are added first which'll speed dat production
 	GAME_output_list_to_bat_file(fp, "SPRITES", "-k -t BMP -c0", "gfx");			 // Then the actual graphics...
 	// And the editor graphics...
-	sprintf(text, "dat %sgfx.dat -a editor\\editor_gui.bmp -k -t BMP -c0\n", project_dir);
+	snprintf(text, sizeof(text), "dat %sgfx.dat -a editor\\editor_gui.bmp -k -t BMP -c0\n", project_dir);
 	FILE_fix_filename_slashes(text);
 	fputs(text, fp);
 
-	sprintf(text, "dat %sgfx.dat -a editor\\editor_bitmask.bmp -k -t BMP -c0\n", project_dir);
+	snprintf(text, sizeof(text), "dat %sgfx.dat -a editor\\editor_bitmask.bmp -k -t BMP -c0\n", project_dir);
 	FILE_fix_filename_slashes(text);
 	fputs(text, fp);
 
-	sprintf(text, "dat %sgfx.dat -a editor\\editor_object_sides.bmp -k -t BMP -c0\n", project_dir);
+	snprintf(text, sizeof(text), "dat %sgfx.dat -a editor\\editor_object_sides.bmp -k -t BMP -c0\n", project_dir);
 	FILE_fix_filename_slashes(text);
 	fputs(text, fp);
 
 	// And now the sound effects...
-	sprintf(text, "\n" DEL_CMD " %ssfx.dat\n", project_dir);
+	snprintf(text, sizeof(text), "\n" DEL_CMD " %ssfx.dat\n", project_dir);
 	fputs(text, fp);
 	GAME_output_list_to_bat_file(fp, "SOUND_FX", "-k -t DATA -c0", "sfx");
 
 	// And the streams...
-	sprintf(text, "\n" DEL_CMD " %sstream.dat\n", project_dir);
+	snprintf(text, sizeof(text), "\n" DEL_CMD " %sstream.dat\n", project_dir);
 	fputs(text, fp);
 	GAME_output_list_to_bat_file(fp, "STREAMS", "-k -t DATA -c0", "stream");
 
 	// And music...
-	sprintf(text, "\n" DEL_CMD " %smusic.dat\n", project_dir);
+	snprintf(text, sizeof(text), "\n" DEL_CMD " %smusic.dat\n", project_dir);
 	fputs(text, fp);
 	GAME_output_list_to_bat_file(fp, "MUSIC", "-k -t DATA -c0", "music");
 
 	// And finally, the paths...
-	sprintf(text, "\n" DEL_CMD " %spaths.dat\n", project_dir);
+	snprintf(text, sizeof(text), "\n" DEL_CMD " %spaths.dat\n", project_dir);
 	fputs(text, fp);
 	GAME_output_list_to_bat_file(fp, "PATHS", "-k -t DATA -c0", "paths");
 

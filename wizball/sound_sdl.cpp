@@ -158,6 +158,9 @@ static Mix_Chunk *SOUND_load_chunk_from_file(const char *filename)
 	{
 		return Mix_LoadWAV(lower_filename);
 	}
+
+	/* If filename was already lower-case or unchanged, load the original. */
+	return Mix_LoadWAV(filename);
 }
 
 static void SOUND_reset_arrays(void)
@@ -326,7 +329,7 @@ void SOUND_setup(void)
 	{
 		if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0)
 		{
-			sprintf(line, "SDL audio init failed: %s", SDL_GetError());
+			snprintf(line, sizeof(line), "SDL audio init failed: %s", SDL_GetError());
 			SOUND_log(line);
 			sound_backend_ready = false;
 			return;
@@ -336,7 +339,7 @@ void SOUND_setup(void)
 
 	if (Mix_OpenAudio(44100, AUDIO_S16SYS, 2, 1024) != 0)
 	{
-		sprintf(line, "SDL_mixer open failed: %s", Mix_GetError());
+		snprintf(line, sizeof(line), "SDL_mixer open failed: %s", Mix_GetError());
 		SOUND_log(line);
 		sound_backend_ready = false;
 		return;
@@ -358,11 +361,11 @@ void SOUND_setup(void)
 	current_driver = SDL_GetCurrentAudioDriver();
 	if (current_driver != NULL)
 	{
-		sprintf(line, "SDL audio backend initialized (%s)", current_driver);
+		snprintf(line, sizeof(line), "SDL audio backend initialized (%s)", current_driver);
 	}
 	else
 	{
-		sprintf(line, "SDL audio backend initialized");
+		snprintf(line, sizeof(line), "SDL audio backend initialized");
 	}
 	SOUND_log(line);
 }
@@ -440,7 +443,7 @@ void SOUND_load_sound_effects(void)
 
 	for (list_pointer = list_start; list_pointer < list_end; list_pointer++)
 	{
-		sprintf(filename, "%s%s", GPL_what_is_word_name(list_pointer), extension_pointer);
+		snprintf(filename, sizeof(filename), "%s%s", GPL_what_is_word_name(list_pointer), extension_pointer);
 
 		PATH_UTIL_build_relative_path(full_filename, sizeof(full_filename), "sound_fx", filename);
 		sound_effects[counter] = SOUND_load_chunk_from_file(MAIN_get_project_filename(full_filename));
@@ -457,7 +460,7 @@ void SOUND_load_sound_effects(void)
 		counter++;
 	}
 
-	sprintf(line, "SDL audio SFX load: loaded=%d failed=%d", loaded_count, failed_count);
+	snprintf(line, sizeof(line), "SDL audio SFX load: loaded=%d failed=%d", loaded_count, failed_count);
 	SOUND_log(line);
 }
 
@@ -622,13 +625,13 @@ void SOUND_open_sound_streams(void)
 
 	for (list_pointer = list_start; list_pointer < list_end; list_pointer++)
 	{
-		sprintf(filename, "%s%s", GPL_what_is_word_name(list_pointer), extension_pointer);
+		snprintf(filename, sizeof(filename), "%s%s", GPL_what_is_word_name(list_pointer), extension_pointer);
 
 		PATH_UTIL_build_relative_path(full_filename, sizeof(full_filename), "streams", filename);
 		sound_streams[counter] = SOUND_load_chunk_from_file(MAIN_get_project_filename(full_filename));
 		if (sound_streams[counter] == NULL)
 		{
-			sprintf(line, "SDL stream load failed: %s (err=%s)", filename, Mix_GetError());
+			snprintf(line, sizeof(line), "SDL stream load failed: %.400s (err=%s)", filename, Mix_GetError());
 			SOUND_log(line);
 		}
 
@@ -644,7 +647,7 @@ void SOUND_open_sound_streams(void)
 		counter++;
 	}
 
-	sprintf(line, "SDL audio stream load: loaded=%d failed=%d", loaded_count, failed_count);
+	snprintf(line, sizeof(line), "SDL audio stream load: loaded=%d failed=%d", loaded_count, failed_count);
 	SOUND_log(line);
 }
 

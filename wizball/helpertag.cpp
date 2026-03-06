@@ -338,7 +338,7 @@ bool HELPERTAGS_edit_helper_tagging (int state , bool overlay_display, int *curr
 			
 			TILEMAPS_dialogue_box ( editor_view_width-(4*ICON_SIZE) , editor_view_height+(ICON_SIZE/2) , ICON_SIZE*4, ICON_SIZE , "EDITING LAYER");
 
-			sprintf (word_string,"%3d",editing_layer);
+			snprintf (word_string,sizeof(word_string),"%3d",editing_layer);
 			TILEMAPS_dialogue_box ( editor_view_width-(3*ICON_SIZE) , editor_view_height+(ICON_SIZE/2)+ICON_SIZE , ICON_SIZE*2, ICON_SIZE , word_string);
 
 			OUTPUT_hline (0,editor_view_height,game_screen_width,255,255,255);

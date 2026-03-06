@@ -137,7 +137,7 @@ static void OUTPUT_prepare_sdl_stub_bootstrap(bool windowed)
 	if (!PLATFORM_RENDERER_prepare_sdl2_stub(game_screen_width, game_screen_height, windowed))
 	{
 		char sdl_bootstrap_line[MAX_LINE_SIZE];
-		sprintf(sdl_bootstrap_line, "SDL2 native mode bootstrap failed: %s", PLATFORM_RENDERER_get_sdl2_stub_status());
+		snprintf(sdl_bootstrap_line, sizeof(sdl_bootstrap_line), "SDL2 native mode bootstrap failed: %s", PLATFORM_RENDERER_get_sdl2_stub_status());
 		MAIN_add_to_log(sdl_bootstrap_line);
 	}
 }
@@ -505,7 +505,7 @@ void OUTPUT_setup_allegro(bool windowed, int colour_depth, int base_screen_width
 	bool sdl_native_primary_enabled = true;
 	bool sdl_primary_active = PLATFORM_RENDERER_is_sdl2_stub_enabled();
 	char sdl_stub_line[MAX_LINE_SIZE];
-	sprintf(sdl_stub_line, "SDL2 renderer stub: enabled=%d native_sprites=%d native_primary=%d sdl_primary=%d lazy_init=1 status=%s", sdl_stub_enabled ? 1 : 0, sdl_native_sprites_enabled ? 1 : 0, sdl_native_primary_enabled ? 1 : 0, sdl_primary_active ? 1 : 0, PLATFORM_RENDERER_get_sdl2_stub_status());
+	snprintf(sdl_stub_line, sizeof(sdl_stub_line), "SDL2 renderer stub: enabled=%d native_sprites=%d native_primary=%d sdl_primary=%d lazy_init=1 status=%s", sdl_stub_enabled ? 1 : 0, sdl_native_sprites_enabled ? 1 : 0, sdl_native_primary_enabled ? 1 : 0, sdl_primary_active ? 1 : 0, PLATFORM_RENDERER_get_sdl2_stub_status());
 	MAIN_add_to_log(sdl_stub_line);
 
 	MAIN_add_to_log("SDL2 renderer mode active.");
@@ -771,13 +771,13 @@ void INPUT_create_sprite_space(int parent_bitmap, int total_sprites)
 
 	if (!OUTPUT_is_valid_bitmap_index(parent_bitmap))
 	{
-		sprintf(error, "Invalid parent bitmap index %i while creating sprite space.", parent_bitmap);
+			snprintf(error, sizeof(error), "Invalid parent bitmap index %i while creating sprite space.", parent_bitmap);
 		OUTPUT_fatal_exit(error);
 	}
 
 	if ((total_sprites <= 0) || (total_sprites > 50000))
 	{
-		sprintf(error, "Invalid sprite count %i for bitmap index %i.", total_sprites, parent_bitmap);
+			snprintf(error, sizeof(error), "Invalid sprite count %i for bitmap index %i.", total_sprites, parent_bitmap);
 		OUTPUT_fatal_exit(error);
 	}
 
@@ -786,7 +786,7 @@ void INPUT_create_sprite_space(int parent_bitmap, int total_sprites)
 
 	if (ACTIVE_BMPS[parent_bitmap].sprite_list == NULL)
 	{
-		sprintf(error, "Out of memory while allocating %i sprites for bitmap %i.", total_sprites, parent_bitmap);
+			snprintf(error, sizeof(error), "Out of memory while allocating %i sprites for bitmap %i.", total_sprites, parent_bitmap);
 		OUTPUT_fatal_exit(error);
 	}
 }
@@ -811,7 +811,7 @@ void INPUT_create_equal_sized_sprite_series(int parent_bitmap, char *name_base, 
 	{
 		for (x = 0; x < (ACTIVE_BMPS[parent_bitmap].width - (sprite_width - 1)); x += sprite_width)
 		{
-			sprintf(full_name, "%s%i", name_base, counter);
+			snprintf(full_name, sizeof(full_name), "%s%i", name_base, counter);
 			INPUT_create_sprite(parent_bitmap, counter, full_name, x, y, sprite_width, sprite_height, pivot_x, pivot_y);
 			counter++;
 		}
@@ -869,7 +869,7 @@ void INPUT_create_arbitrary_sized_sprite_series(int parent_bitmap, char *name_ba
 	// if (load_from_dat_file)
 	// {
 	// 	fprintf(stderr, "[SPRITE-DESCRIPTOR] Attempting to load sprite descriptor '%s' from gfx.dat.\n", descriptor_file);
-	// 	sprintf(full_pack_filename, "%s\\gfx.dat#%s", MAIN_get_pack_project_name(), normalised_descriptor_file);
+	// 	snprintf(, sizeof(), "%s\\gfx.dat#%s", MAIN_get_pack_project_name(), normalised_descriptor_file);
 	// 	fix_filename_slashes(full_pack_filename);
 	// 	PACKFILE *packfile_pointer = pack_fopen(full_pack_filename, "r");
 
@@ -884,7 +884,7 @@ void INPUT_create_arbitrary_sized_sprite_series(int parent_bitmap, char *name_ba
 
 	// 		for (t = 0; t < counter; t++)
 	// 		{
-	// 			sprintf(full_name, "%s%i", name_base, t);
+	// 			snprintf(, sizeof(), "%s%i", name_base, t);
 
 	// 			pack_fgets(line, MAX_LINE_SIZE, packfile_pointer);
 
@@ -933,7 +933,7 @@ void INPUT_create_arbitrary_sized_sprite_series(int parent_bitmap, char *name_ba
 	// else
 	// 	{
 	// 		char error[MAX_LINE_SIZE];
-	// 		sprintf(error, "Sprite descriptor not found in gfx.dat: '%s' (normalised '%s').",
+	// 		snprintf(, sizeof(), "Sprite descriptor not found in gfx.dat: '%s' (normalised '%s').",
 	// 						descriptor_file, normalised_descriptor_file);
 	// 		OUTPUT_fatal_exit(error);
 	// 	}
@@ -959,7 +959,7 @@ void INPUT_create_arbitrary_sized_sprite_series(int parent_bitmap, char *name_ba
 
 			for (t = 0; t < counter; t++)
 			{
-				sprintf(full_name, "%s%i", name_base, t);
+				snprintf(full_name, sizeof(full_name), "%s%i", name_base, t);
 
 				fgets(line, MAX_LINE_SIZE, file_pointer);
 
@@ -1008,7 +1008,7 @@ void INPUT_create_arbitrary_sized_sprite_series(int parent_bitmap, char *name_ba
 		else
 		{
 			char error[MAX_LINE_SIZE];
-			sprintf(error, "Sprite descriptor not found on disk: '%s' (normalised '%s').",
+				snprintf(error, sizeof(error), "Sprite descriptor not found on disk: '%s' (normalised '%s').",
 							descriptor_file, normalised_descriptor_file);
 			OUTPUT_fatal_exit(error);
 		}
@@ -1040,7 +1040,7 @@ int INPUT_load_bitmap_SDL(const char *filename, SDL_Renderer *renderer)
 
 		if (sdl_bmps == NULL)
 		{
-			sprintf(error, "Out of memory while allocating bitmap storage for '%s'.", filename);
+			snprintf(error, sizeof(error), "Out of memory while allocating bitmap storage for '%s'.", filename);
 			OUTPUT_message(error);
 			MAIN_add_to_log(error);
 			exit(1);
@@ -1109,26 +1109,26 @@ void INPUT_create_sprite(int parent_bitmap, int sprite_number, char *name, int x
 
 	if (!OUTPUT_is_valid_bitmap_index(parent_bitmap))
 	{
-		sprintf(error, "Invalid parent bitmap index %i while creating sprite.", parent_bitmap);
+		snprintf(error, sizeof(error), "Invalid parent bitmap index %i while creating sprite.", parent_bitmap);
 		OUTPUT_fatal_exit(error);
 	}
 
 	if (ACTIVE_BMPS[parent_bitmap].sprite_list == NULL)
 	{
-		sprintf(error, "Sprite list is NULL for bitmap index %i.", parent_bitmap);
+		snprintf(error, sizeof(error), "Sprite list is NULL for bitmap index %i.", parent_bitmap);
 		OUTPUT_fatal_exit(error);
 	}
 
 	if ((sprite_number < 0) || (sprite_number >= ACTIVE_BMPS[parent_bitmap].sprite_count))
 	{
-		sprintf(error, "Sprite frame index %i is out of range [0,%i) for bitmap index %i.",
+		snprintf(error, sizeof(error), "Sprite frame index %i is out of range [0,%i) for bitmap index %i.",
 						sprite_number, ACTIVE_BMPS[parent_bitmap].sprite_count, parent_bitmap);
 		OUTPUT_fatal_exit(error);
 	}
 
 	if ((ACTIVE_BMPS[parent_bitmap].width <= 0) || (ACTIVE_BMPS[parent_bitmap].height <= 0))
 	{
-		sprintf(error, "Invalid bitmap dimensions %ix%i for bitmap index %i while creating sprite.",
+		snprintf(error, sizeof(error), "Invalid bitmap dimensions %ix%i for bitmap index %i while creating sprite.",
 						ACTIVE_BMPS[parent_bitmap].width, ACTIVE_BMPS[parent_bitmap].height, parent_bitmap);
 		OUTPUT_fatal_exit(error);
 	}
@@ -1487,7 +1487,7 @@ void OUTPUT_draw_window_collision_contents(int window_number, bool draw_world_co
 #endif
 
 #ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-	sprintf(debug_text, "Collision window number %i = %i %i ", window_number, window_details[window_number].width, window_details[window_number].height);
+	snprintf(debug_text, sizeof(debug_text), "Collision window number %i = %i %i ", window_number, window_details[window_number].width, window_details[window_number].height);
 	MAIN_debug_last_thing(debug_text);
 #endif
 
@@ -1786,7 +1786,7 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 #endif
 
 #ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-	sprintf(debug_text, "Window number %i = %i %i ", window_number, window_details[window_number].width, window_details[window_number].height);
+	snprintf(debug_text, sizeof(debug_text), "Window number %i = %i %i ", window_number, window_details[window_number].width, window_details[window_number].height);
 	MAIN_debug_last_thing(debug_text);
 #endif
 
@@ -2093,19 +2093,19 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 							max_frame = ACTIVE_BMPS[sprite_index].sprite_count - 1;
 						}
 
-						sprintf(debug_text, "Entity %s is trying to access frame %i (max is %i)", GPL_get_entry_name("SCRIPTS", entity_pointer[ENT_SCRIPT_NUMBER]), frame_index, max_frame);
+						snprintf(debug_text, sizeof(debug_text), "Entity %s is trying to access frame %i (max is %i)", GPL_get_entry_name("SCRIPTS", entity_pointer[ENT_SCRIPT_NUMBER]), frame_index, max_frame);
 						MAIN_add_to_log(debug_text);
 					}
 				}
 #endif
 
 #ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-				sprintf(debug_text, "Entity %i = %s ", current_entity, GPL_get_entry_name("SCRIPTS", entity_pointer[ENT_SCRIPT_NUMBER]));
+				snprintf(debug_text, sizeof(debug_text), "Entity %i = %s ", current_entity, GPL_get_entry_name("SCRIPTS", entity_pointer[ENT_SCRIPT_NUMBER]));
 				MAIN_debug_last_thing(debug_text);
 #endif
 
 #ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-				sprintf(debug_text, "Draw Type = %i", draw_type);
+				snprintf(debug_text, sizeof(debug_text), "Draw Type = %i", draw_type);
 				MAIN_debug_last_thing(debug_text);
 
 				MAIN_debug_last_thing("About to check multitexture sprite...");
@@ -2440,7 +2440,7 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 #ifdef RETRENGINE_DEBUG_VERSION
 				if ((entity_pointer[ENT_OPENGL_SCALE_X] == 0) || (entity_pointer[ENT_OPENGL_SCALE_Y] == 0))
 				{
-					sprintf(debug_text, "Tiny scale error in entity '%s'!", GPL_get_entry_name("SCRIPTS", entity_pointer[ENT_SCRIPT_NUMBER]));
+					snprintf(debug_text, sizeof(debug_text), "Tiny scale error in entity '%s'!", GPL_get_entry_name("SCRIPTS", entity_pointer[ENT_SCRIPT_NUMBER]));
 					OUTPUT_message(debug_text);
 					assert(0);
 				}

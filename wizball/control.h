@@ -1,4 +1,5 @@
 #include "string_size_constants.h"
+#include <stddef.h>
 
 #ifndef _CONTROL_H_
 #define _CONTROL_H_
@@ -79,7 +80,7 @@ int CONTROL_get_mouse_sensitivity (void);
 void CONTROL_set_mouse_smoothing (int mouse_button, int sampling_rate);
 void CONTROL_update_sequences (void);
 void CONTROL_constrain_mouse (int x, int y, int distance);
-bool CONTROL_get_keypress (int player, int control, char *description, bool check_previous_for_match);
+bool CONTROL_get_keypress (int player, int control, char *description, size_t description_size, bool check_previous_for_match);
 void CONTROL_define_control_keyboard (int player_number, int control_number, int input_key);
 void CONTROL_get_input (int *device_type, int *device_button);
 void CONTROL_set_dupe_check_value (int player_number, int control_number, bool boolean_value);

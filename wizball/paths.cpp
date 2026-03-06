@@ -376,9 +376,9 @@ void PATHS_get_free_name (char *name)
 
 		for (i=0; i<number_of_paths_loaded; i++)
 		{
-			sprintf(name,"PATH_%4d",test_num);
+			snprintf(name, NAME_SIZE, "PATH_%4d", test_num);
 			STRING_replace_char (name, ' ' , '0');
-			
+            
 			if (strcmp(name,pt[i].name) == 0)
 			{
 				found_one = true;
@@ -390,7 +390,7 @@ void PATHS_get_free_name (char *name)
 	}
 	while (found_one);
 
-	sprintf(name,"PATH_%4d",test_num);
+	snprintf(name, NAME_SIZE, "PATH_%4d", test_num);
 	STRING_replace_char (name, ' ' , '0');
 }
 
@@ -627,9 +627,9 @@ void PATHS_load (char *filename , int path_number)
 		strcpy ( pt[path_number].old_name , filename );
 	}
 	else
-	{
+		{
 		char line[MAX_LINE_SIZE];
-		sprintf(line, "PATH load failed for '%s' (resolved '%s').", filename, full_filename);
+		snprintf(line, sizeof(line), "PATH load failed for '%.200s' (resolved '%.240s').", filename, full_filename);
 		MAIN_add_to_log(line);
 	}
 
@@ -656,11 +656,11 @@ void PATHS_save (int path_number)
 	if (file_pointer != NULL) // It's the path data.
 	{
 		// Put line type...
-		sprintf( temp_char, "#PATH TYPE = %s\n" , &path_type_names[pt[path_number].line_type][0] );
+		snprintf( temp_char, sizeof(temp_char), "#PATH TYPE = %s\n" , &path_type_names[pt[path_number].line_type][0] );
 		fputs( temp_char , file_pointer );
 
 		// Put looping behaviour type...
-		sprintf( temp_char, "#LOOPING TYPE = %s\n" , &path_looping_behaviour_name[pt[path_number].loop_type][0] );
+		snprintf( temp_char, sizeof(temp_char), "#LOOPING TYPE = %s\n" , &path_looping_behaviour_name[pt[path_number].loop_type][0] );
 		fputs( temp_char , file_pointer );
 
 		// Then put looped status...
@@ -675,60 +675,60 @@ void PATHS_save (int path_number)
 		fputs ( temp_char , file_pointer );
 
 		// Put the default position...
-		sprintf( temp_char, "#INITIAL X POSITION = %i\n" , pt[path_number].x );
+		snprintf( temp_char, sizeof(temp_char), "#INITIAL X POSITION = %i\n" , pt[path_number].x );
 		fputs( temp_char , file_pointer );
-		sprintf( temp_char, "#INITIAL Y POSITION = %i\n" , pt[path_number].y );
+		snprintf( temp_char, sizeof(temp_char), "#INITIAL Y POSITION = %i\n" , pt[path_number].y );
 		fputs( temp_char , file_pointer );
 
 		// First thing is to put the number of nodes...
-		sprintf(temp_char,"#NODE DATA = %i\n\n",pt[path_number].nodes);
+		snprintf(temp_char, sizeof(temp_char), "#NODE DATA = %i\n\n",pt[path_number].nodes);
 		fputs ( temp_char , file_pointer );
 
 		node_counter = 0;
 
 		for (node_counter = 0; node_counter < pt[path_number].nodes ; node_counter++)
 		{
-			sprintf(temp_char,"\t#NODE NUMBER = %d\n",node_counter);
+			snprintf(temp_char, sizeof(temp_char), "\t#NODE NUMBER = %d\n",node_counter);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#X POS = %d\n" , pt[path_number].node_list_pointer[node_counter].x);
+			snprintf(temp_char, sizeof(temp_char), "\t#X POS = %d\n" , pt[path_number].node_list_pointer[node_counter].x);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#Y POS = %d\n" , pt[path_number].node_list_pointer[node_counter].y);
+			snprintf(temp_char, sizeof(temp_char), "\t#Y POS = %d\n" , pt[path_number].node_list_pointer[node_counter].y);
 			fputs(temp_char,file_pointer);
 
 			if (pt[path_number].line_type == BEZIER)
 			{
-				sprintf(temp_char,"\t\t#PRE X POS = %d\n" , pt[path_number].node_list_pointer[node_counter].pre_cx);
+				snprintf(temp_char, sizeof(temp_char), "\t\t#PRE X POS = %d\n" , pt[path_number].node_list_pointer[node_counter].pre_cx);
 				fputs(temp_char,file_pointer);
 
-				sprintf(temp_char,"\t\t#PRE Y POS = %d\n" , pt[path_number].node_list_pointer[node_counter].pre_cy);
+				snprintf(temp_char, sizeof(temp_char), "\t\t#PRE Y POS = %d\n" , pt[path_number].node_list_pointer[node_counter].pre_cy);
 				fputs(temp_char,file_pointer);
 
-				sprintf(temp_char,"\t\t#AFT X POS = %d\n" , pt[path_number].node_list_pointer[node_counter].aft_cx);
+				snprintf(temp_char, sizeof(temp_char), "\t\t#AFT X POS = %d\n" , pt[path_number].node_list_pointer[node_counter].aft_cx);
 				fputs(temp_char,file_pointer);
 
-				sprintf(temp_char,"\t\t#AFT Y POS = %d\n" , pt[path_number].node_list_pointer[node_counter].aft_cy);
+				snprintf(temp_char, sizeof(temp_char), "\t\t#AFT Y POS = %d\n" , pt[path_number].node_list_pointer[node_counter].aft_cy);
 				fputs(temp_char,file_pointer);
 			}
 
-			sprintf(temp_char,"\t#FLAG = %s\n" , pt[path_number].node_list_pointer[node_counter].flag_name);
+			snprintf(temp_char, sizeof(temp_char), "\t#FLAG = %s\n" , pt[path_number].node_list_pointer[node_counter].flag_name);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#SPEED = %i\n" , pt[path_number].node_list_pointer[node_counter].speed);
+			snprintf(temp_char, sizeof(temp_char), "\t#SPEED = %i\n" , pt[path_number].node_list_pointer[node_counter].speed);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#SPEED IN CURVE = %i\n" , pt[path_number].node_list_pointer[node_counter].speed_in_curve_type);
+			snprintf(temp_char, sizeof(temp_char), "\t#SPEED IN CURVE = %i\n" , pt[path_number].node_list_pointer[node_counter].speed_in_curve_type);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#SPEED OUT CURVE = %i\n" , pt[path_number].node_list_pointer[node_counter].speed_out_curve_type);
+			snprintf(temp_char, sizeof(temp_char), "\t#SPEED OUT CURVE = %i\n" , pt[path_number].node_list_pointer[node_counter].speed_out_curve_type);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t#SEGMENTS = %i\n\n" , pt[path_number].node_list_pointer[node_counter].line_segments);
+			snprintf(temp_char, sizeof(temp_char), "\t#SEGMENTS = %i\n\n" , pt[path_number].node_list_pointer[node_counter].line_segments);
 			fputs(temp_char,file_pointer);
 		}
 
-		sprintf(temp_char,"#END OF NODE DATA\n",node_counter);
+		snprintf(temp_char, sizeof(temp_char), "#END OF NODE DATA\n");
 		fputs(temp_char,file_pointer);
 
 		fclose(file_pointer);
@@ -907,7 +907,7 @@ void PATHS_load_all (void)
 		if ((pt[path_number].node_list_pointer == NULL) || (pt[path_number].nodes < 2))
 		{
 			char line[MAX_LINE_SIZE];
-			sprintf(line, "PATH '%s' invalid after load (nodes=%i). Creating fallback 2-node path.",
+			snprintf(line, sizeof(line), "PATH '%s' invalid after load (nodes=%i). Creating fallback 2-node path.",
 			        filename, pt[path_number].nodes);
 			MAIN_add_to_log(line);
 
@@ -1407,7 +1407,7 @@ void PATHS_create_lookup_from_path (int path_number)
 	if ((pt[path_number].node_list_pointer == NULL) || (pt[path_number].nodes < 2))
 	{
 		char line[MAX_LINE_SIZE];
-		sprintf(line, "PATH lookup skipped for invalid path index %i (nodes=%i).",
+		snprintf(line, sizeof(line), "PATH lookup skipped for invalid path index %i (nodes=%i).",
 		        path_number, pt[path_number].nodes);
 		MAIN_add_to_log(line);
 		return;
@@ -2177,7 +2177,7 @@ void PATHS_draw_node (int path_number, int node_number, float path_angle, int st
 
 		// And show the speed of the node...
 
-		sprintf (word, "%i", pt[path_number].node_list_pointer[node_number].speed);
+		snprintf (word, sizeof(word), "%i", pt[path_number].node_list_pointer[node_number].speed);
 		OUTPUT_centred_text (screen_x, screen_y-PATH_NODE_HANDLE_SIZE-FONT_HEIGHT, word);
 
 	}
@@ -2185,7 +2185,7 @@ void PATHS_draw_node (int path_number, int node_number, float path_angle, int st
 	{
 		// Show the speed of the node, but in a duller colour...
 
-		sprintf (word, "%i", pt[path_number].node_list_pointer[node_number].speed);
+		snprintf (word, sizeof(word), "%i", pt[path_number].node_list_pointer[node_number].speed);
 		OUTPUT_centred_text (screen_x, screen_y-PATH_NODE_HANDLE_SIZE-FONT_HEIGHT, word, 255,0,255);
 	}
 }
@@ -3192,7 +3192,7 @@ bool PATHS_edit_paths (int state , bool overlay_display, int *current_cursor ,in
 					OUTPUT_draw_masked_sprite ( first_icon , BACKWARD_ARROW, editor_view_width+(ICON_SIZE/2)+(ICON_SIZE*6) , (ICON_SIZE*7) );
 				}
 
-				sprintf (text,"PATH LENGTH = %i",PATHS_length(selected_path));
+				snprintf (text, sizeof(text), "PATH LENGTH = %i", PATHS_length(selected_path));
 
 				OUTPUT_rectangle_by_size (editor_view_width+(ICON_SIZE/2),(ICON_SIZE*8),(ICON_SIZE*7),ICON_SIZE,0,0,255);
 				OUTPUT_centred_text (editor_view_width+(ICON_SIZE*4),(ICON_SIZE*8)+(ICON_SIZE/2)-(FONT_HEIGHT/2),text);
@@ -3219,7 +3219,7 @@ bool PATHS_edit_paths (int state , bool overlay_display, int *current_cursor ,in
 			{
 				// Will only be set if an individual node is selected and not multiple nodes.
 
-				sprintf (text,"%s",PATHS_node_flag(selected_path,single_selected_node));
+				snprintf (text, sizeof(text), "%s", PATHS_node_flag(selected_path,single_selected_node));
 
 				OUTPUT_rectangle_by_size (editor_view_width+(ICON_SIZE/2),(ICON_SIZE*10),(ICON_SIZE*7),ICON_SIZE,0,0,255);
 				

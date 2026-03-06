@@ -113,15 +113,16 @@ char *STRING_get_number_as_string(int value, int number_of_digits, bool pad_with
 	static char word[32]; // I doubt we'll have numbers longer than that! In fact we *can't* have so that's peachy.
 	char workspace[32];
 
-	sprintf(workspace, "%i\0", value);
-	sprintf(word, "");
+	snprintf(workspace, sizeof(workspace), "%i", value);
+	word[0] = '\0';
 
 	int current_length = strlen(workspace);
 	int remainder;
 	int counter;
 
-	char pad_char[1];
+	char pad_char[2];
 	pad_char[0] = pad_with_zeroes ? '0' : ' ';
+	pad_char[1] = '\0';
 
 	if (current_length < number_of_digits)
 	{

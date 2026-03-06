@@ -99,10 +99,10 @@ char upper_character_array[MAX_KEYS] =
 { '\0' , 'A' , 'B' , 'C' , 'D' , 'E' , 'F' , 'G' , 'H' , 'I' ,
   'J' , 'K' , 'L' , 'M' , 'N' , 'O' , 'P' , 'Q' , 'R' , 'S' ,
   'T' , 'U' , 'V' , 'W' , 'X' , 'Y' , 'Z' , ')' , '!' , '\"' ,
-  '�' , '$' , '%' , '^' , '&' , '*' , '(' , '0' , '1' , '2' ,
+	'?' , '$' , '%' , '^' , '&' , '*' , '(' , '0' , '1' , '2' ,
   '3' , '4' , '5' , '6' , '7' , '8' , '9' , '\0' , '\0' , '\0' ,
   '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' ,
-  '�' , '_' , '+' , '\0' , '\0' , '{' , '}' , '\0' , ':' , '@' ,
+	'?' , '_' , '+' , '\0' , '\0' , '{' , '}' , '\0' , ':' , '@' ,
   '|' , '|' , '<' , '>' , '\?' , ' ' , '\0' , '\0' , '\0' , '\0' ,
   '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '/' , '*' , '-' , '+' ,
   '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0' ,
@@ -199,7 +199,7 @@ char * CONTROL_get_control_description (int player_number, int control_number)
 	static char word[MAX_LINE_SIZE];
 	char temp_word[MAX_LINE_SIZE];
 
-	sprintf (word, "#PLAYER_INPUT %i ", player_number+1);
+	snprintf (word, sizeof(word), "#PLAYER_INPUT %i ", player_number+1);
 
 	strcat (word, GPL_get_entry_name ("CONTROL_CONSTANTS", control_number) );
 
@@ -214,19 +214,19 @@ char * CONTROL_get_control_description (int player_number, int control_number)
 	else if (controls[player_number][control_number].device == DEVICE_JOYPAD)
 	{
 		strcat (word, "(JOYPAD)(");
-		sprintf (temp_word,"%i)(%i)",controls[player_number][control_number].port,controls[player_number][control_number].button);
+		snprintf (temp_word, sizeof(temp_word), "%i)(%i)", controls[player_number][control_number].port, controls[player_number][control_number].button);
 		strcat (word,temp_word);
 	}
 	else if (controls[player_number][control_number].device == DEVICE_JOYSTICK_POS)
 	{
 		strcat (word, "(JOYSTICK_AXIS_POSITIVE)(");
-		sprintf (temp_word,"%i)(%i)(%i)",controls[player_number][control_number].port,controls[player_number][control_number].stick,controls[player_number][control_number].axis);
+		snprintf (temp_word, sizeof(temp_word), "%i)(%i)(%i)", controls[player_number][control_number].port, controls[player_number][control_number].stick, controls[player_number][control_number].axis);
 		strcat (word,temp_word);
 	}
 	else if (controls[player_number][control_number].device == DEVICE_JOYSTICK_NEG)
 	{
 		strcat (word, "(JOYSTICK_AXIS_NEGATIVE)(");
-		sprintf (temp_word,"%i)(%i)(%i)",controls[player_number][control_number].port,controls[player_number][control_number].stick,controls[player_number][control_number].axis);
+		snprintf (temp_word, sizeof(temp_word), "%i)(%i)(%i)", controls[player_number][control_number].port, controls[player_number][control_number].stick, controls[player_number][control_number].axis);
 		strcat (word,temp_word);
 	}
 
@@ -1873,7 +1873,7 @@ int CONTROL_get_word (char *word , int status , unsigned int max_length , bool c
 
 		if (CONTROL_key_repeat(KEY_DEL) == true)
 		{
-			sprintf(word,"");
+			word[0] = '\0';
 		}
 
 		if ( (CONTROL_key_hit(KEY_ENTER) == true) || (CONTROL_key_hit(KEY_ESC) == true) || (CONTROL_key_hit(KEY_ENTER_PAD) == true))
@@ -2016,7 +2016,7 @@ int CONTROL_read_back_player_control_axis (int player, int control)
 
 
 
-bool CONTROL_get_keypress (int player, int control, char *description, bool check_for_match)
+bool CONTROL_get_keypress (int player, int control, char *description, size_t description_size, bool check_for_match)
 {
 	// This function polls the keyboard and joysticks and then finds what's been pressed and stores
 	// it in the correct place in the player control array of structs.
@@ -2058,7 +2058,7 @@ bool CONTROL_get_keypress (int player, int control, char *description, bool chec
 					controls[player][control].button = button;
 					if (description != NULL)
 					{
-						sprintf (description,"Keyboard button %s",&key_name[button][0]);
+						snprintf (description, description_size, "Keyboard button %s", &key_name[button][0]);
 					}
 					defined = true;
 				}
@@ -2098,7 +2098,7 @@ bool CONTROL_get_keypress (int player, int control, char *description, bool chec
 						controls[player][control].button = button;
 						if (description != NULL)
 						{
-							sprintf (description,"Joypad on port %d, button %d",port,button);
+							snprintf (description, description_size, "Joypad on port %d, button %d", port, button);
 						}
 						defined = true;
 					}
@@ -2144,7 +2144,7 @@ bool CONTROL_get_keypress (int player, int control, char *description, bool chec
 
 							if (description != NULL)
 							{
-								sprintf (description,"Joypad on port %d, stick %d and axis %d set to +ve. Value = %d. Default = %d.",port,stick,axis,result,default_axis_value [port][stick][axis].default_position);
+								snprintf (description, description_size, "Joypad on port %d, stick %d and axis %d set to +ve. Value = %d. Default = %d.", port, stick, axis, result, default_axis_value [port][stick][axis].default_position);
 							}
 						}
 					}
@@ -2176,10 +2176,10 @@ bool CONTROL_get_keypress (int player, int control, char *description, bool chec
 							
 							defined = true;
 
-							if (description != NULL)
-							{
-								sprintf (description,"Joypad on port %d, stick %d and axis %d set to -ve. Value = %d. Default = %d.",port,stick,axis,result,default_axis_value [port][stick][axis].default_position);
-							}
+								if (description != NULL)
+								{
+									snprintf (description, description_size, "Joypad on port %d, stick %d and axis %d set to -ve. Value = %d. Default = %d.", port, stick, axis, result, default_axis_value [port][stick][axis].default_position);
+								}
 						}
 					}
 				}
@@ -2609,7 +2609,7 @@ void CONTROL_save_recorded_input (int player_number, char *filename_pointer)
 {
 	char compress_filename[MAX_LINE_SIZE];
 
-	sprintf (compress_filename,"demos\\%s_%4i.dem",filename_pointer,demo_file_index);
+	snprintf (compress_filename, sizeof(compress_filename), "demos\\%s_%4i.dem", filename_pointer, demo_file_index);
 	STRING_replace_char(compress_filename,' ','0');
 	FILE_fix_filename_slashes(compress_filename);
 
@@ -2690,14 +2690,14 @@ void CONTROL_save_recorded_input (int player_number, char *filename_pointer)
 				{
 					int state_number;
 
-					sprintf(text_line,"Realtime Compressed Button %i has %i boolean states.\n",button_number,rpi[player_number].realtime_compressed_button_data[button_number].allocated_bool_states);
+					snprintf(text_line, sizeof(text_line), "Realtime Compressed Button %i has %i boolean states.\n",button_number,rpi[player_number].realtime_compressed_button_data[button_number].allocated_bool_states);
 					fputs(text_line,file_pointer);
-					sprintf(text_line,"Processed Compressed Button %i has %i boolean states.\n\n",button_number,rpi[player_number].compressed_button_data[button_number].total_bool_states);
+					snprintf(text_line, sizeof(text_line), "Processed Compressed Button %i has %i boolean states.\n\n",button_number,rpi[player_number].compressed_button_data[button_number].total_bool_states);
 					fputs(text_line,file_pointer);
 
 					for (state_number=0; state_number<rpi[player_number].realtime_compressed_button_data[button_number].allocated_bool_states; state_number++)
 					{
-						sprintf(text_line,"Realtime Compressed Button %i State %i Value = %i and Length = %i.\n",button_number, state_number, rpi[player_number].realtime_compressed_button_data[button_number].new_bool_state_value[state_number], rpi[player_number].realtime_compressed_button_data[button_number].new_bool_state_length[state_number]);
+						snprintf(text_line, sizeof(text_line), "Realtime Compressed Button %i State %i Value = %i and Length = %i.\n",button_number, state_number, rpi[player_number].realtime_compressed_button_data[button_number].new_bool_state_value[state_number], rpi[player_number].realtime_compressed_button_data[button_number].new_bool_state_length[state_number]);
 						fputs(text_line,file_pointer);
 					}
 
@@ -2705,7 +2705,7 @@ void CONTROL_save_recorded_input (int player_number, char *filename_pointer)
 
 					for (state_number=0; state_number<rpi[player_number].compressed_button_data[button_number].total_bool_states; state_number++)
 					{
-						sprintf(text_line,"Processed Compressed Button %i State %i Value = %i and Length = %i.\n",button_number, state_number, rpi[player_number].compressed_button_data[button_number].new_bool_state_value[state_number], rpi[player_number].compressed_button_data[button_number].new_bool_state_length[state_number]);
+						snprintf(text_line, sizeof(text_line), "Processed Compressed Button %i State %i Value = %i and Length = %i.\n",button_number, state_number, rpi[player_number].compressed_button_data[button_number].new_bool_state_value[state_number], rpi[player_number].compressed_button_data[button_number].new_bool_state_length[state_number]);
 						fputs(text_line,file_pointer);
 					}
 
@@ -2757,7 +2757,7 @@ void CONTROL_stop_and_save_active_channels (char *filename_prefix)
 		if (rpi[player_number].recording)
 		{
 			CONTROL_stop_recording_input (player_number);
-			sprintf(filename,"%s_%i",filename_prefix,player_number);
+			snprintf(filename, sizeof(filename), "%s_%i",filename_prefix,player_number);
 			CONTROL_save_recorded_input (player_number,filename);
 		}
 	}
@@ -2769,7 +2769,7 @@ void CONTROL_load_compressed_recorded_input_and_inflate (int player_number, char
 {
 	char filename[MAX_LINE_SIZE];
 
-	sprintf (filename,"demos\\%s.dem",filename_pointer);
+	snprintf (filename, sizeof(filename), "demos\\%s.dem", filename_pointer);
 	FILE_fix_filename_slashes(filename);
 
 	FILE *file_pointer = FILE_open_project_case_fallback(filename, "rb");
@@ -2953,7 +2953,7 @@ void CONTROL_load_recorded_input (int player_number, char *filename_pointer)
 {
 	char filename[MAX_LINE_SIZE];
 
-	sprintf (filename,"%s.dem",filename_pointer);
+	snprintf (filename, sizeof(filename), "%s.dem", filename_pointer);
 
 	FILE *file_pointer = FILE_open_project_case_fallback(filename, "rb");
 
@@ -3503,7 +3503,7 @@ int CONTROL_setup_joypad(void)
 	{
 		joystick_setup_okay = false;
 
-		sprintf(error_string , "Error initialising joystick\n%s\n", 0);
+		snprintf(error_string, sizeof(error_string), "Error initialising joystick\n");
 		OUTPUT_message(error_string);
 		return 1;
 	}
@@ -3552,7 +3552,7 @@ int CONTROL_setup_mouse(void)
 	if (PLATFORM_INPUT_install_mouse() == -1)
 	{
 		mouse_setup_okay = false;
-		sprintf(error_string , "Error initialising mouse!\n");
+		snprintf(error_string , sizeof(error_string), "Error initialising mouse!\n");
 		return 1;
 	}
 	else
@@ -3574,7 +3574,7 @@ int CONTROL_setup_keyboard(void)
 	if (PLATFORM_INPUT_install_keyboard() != 0)
 	{
 		keyboard_setup_okay = false;
-		sprintf(error_string , "Error initialising keyboard!\n");
+		snprintf(error_string , sizeof(error_string), "Error initialising keyboard!\n");
 		return 1;
 	}
 	else

@@ -330,10 +330,10 @@ bool ROOMZONES_autozone_dialogue (int tilemap_number , int *autozoning_progress,
 	case 2:
 		TILEMAPS_dialogue_box (x,y,ICON_SIZE*8,ICON_SIZE,"ZONE SIZE (IN TILES):");
 
-		sprintf (line,"WIDTH %5d",zone_width);
+		snprintf (line, sizeof(line), "WIDTH %5d", zone_width);
 		TILEMAPS_dialogue_box (x+ICON_SIZE,y+ICON_SIZE,ICON_SIZE*6,ICON_SIZE,line);
 
-		sprintf (line,"HEIGHT %5d",zone_height);
+		snprintf (line, sizeof(line), "HEIGHT %5d", zone_height);
 		TILEMAPS_dialogue_box (x+ICON_SIZE,y+ICON_SIZE*2,ICON_SIZE*6,ICON_SIZE,line);
 
 		OUTPUT_draw_masked_sprite ( first_icon , LEFT_ARROW_ICON, x , y+ICON_SIZE );
@@ -382,10 +382,10 @@ bool ROOMZONES_autozone_dialogue (int tilemap_number , int *autozoning_progress,
 	case 3:
 		TILEMAPS_dialogue_box (x,y,ICON_SIZE*8,ICON_SIZE,"GAP SIZE (IN TILES):");
 
-		sprintf (line,"WIDTH %5d",gap_width);
+		snprintf (line, sizeof(line), "WIDTH %5d", gap_width);
 		TILEMAPS_dialogue_box (x+ICON_SIZE,y+ICON_SIZE,ICON_SIZE*6,ICON_SIZE,line);
 
-		sprintf (line,"HEIGHT %5d",gap_height);
+		snprintf (line, sizeof(line), "HEIGHT %5d", gap_height);
 		TILEMAPS_dialogue_box (x+ICON_SIZE,y+ICON_SIZE*2,ICON_SIZE*6,ICON_SIZE,line);
 
 		OUTPUT_draw_masked_sprite ( first_icon , LEFT_ARROW_ICON, x , y+ICON_SIZE );
@@ -436,10 +436,10 @@ bool ROOMZONES_autozone_dialogue (int tilemap_number , int *autozoning_progress,
 	case 4:
 		TILEMAPS_dialogue_box (x,y,ICON_SIZE*8,ICON_SIZE,"START OFFSET (IN TILES):");
 
-		sprintf (line,"WIDTH %5d",start_x);
+		snprintf (line, sizeof(line), "WIDTH %5d", start_x);
 		TILEMAPS_dialogue_box (x+ICON_SIZE,y+ICON_SIZE,ICON_SIZE*6,ICON_SIZE,line);
 
-		sprintf (line,"HEIGHT %5d",start_y);
+		snprintf (line, sizeof(line), "HEIGHT %5d", start_y);
 		TILEMAPS_dialogue_box (x+ICON_SIZE,y+ICON_SIZE*2,ICON_SIZE*6,ICON_SIZE,line);
 
 		OUTPUT_draw_masked_sprite ( first_icon , LEFT_ARROW_ICON, x , y+ICON_SIZE );
@@ -776,19 +776,19 @@ bool ROOMZONES_edit_room_zones (int state , bool overlay_display, int *current_c
 			}
 			else
 			{
-				sprintf (text_line,"ZONE %4d SELECTED",selected_zone);
+				snprintf (text_line, sizeof(text_line), "ZONE %4d SELECTED", selected_zone);
 				OUTPUT_centred_text ( editor_view_width+(ICON_SIZE*4) , ICON_SIZE + (FONT_HEIGHT*0) , text_line );
 
-				sprintf (text_line,"     X = %5d" , (cm[tilemap_number].zone_list_pointer[selected_zone].x)*tilesize );
+				snprintf (text_line, sizeof(text_line), "     X = %5d", (cm[tilemap_number].zone_list_pointer[selected_zone].x) * tilesize );
 				OUTPUT_centred_text ( editor_view_width+(ICON_SIZE*4) , ICON_SIZE + (FONT_HEIGHT*2) , text_line );
 
-				sprintf (text_line,"     Y = %5d" , (cm[tilemap_number].zone_list_pointer[selected_zone].y)*tilesize );
+				snprintf (text_line, sizeof(text_line), "     Y = %5d", (cm[tilemap_number].zone_list_pointer[selected_zone].y) * tilesize );
 				OUTPUT_centred_text ( editor_view_width+(ICON_SIZE*4) , ICON_SIZE + (FONT_HEIGHT*3) , text_line );
 
-				sprintf (text_line," WIDTH = %5d" , (cm[tilemap_number].zone_list_pointer[selected_zone].width)*tilesize );
+				snprintf (text_line, sizeof(text_line), " WIDTH = %5d", (cm[tilemap_number].zone_list_pointer[selected_zone].width) * tilesize );
 				OUTPUT_centred_text ( editor_view_width+(ICON_SIZE*4) , ICON_SIZE + (FONT_HEIGHT*4) , text_line );
 
-				sprintf (text_line,"HEIGHT = %5d" , (cm[tilemap_number].zone_list_pointer[selected_zone].height)*tilesize );
+				snprintf (text_line, sizeof(text_line), "HEIGHT = %5d", (cm[tilemap_number].zone_list_pointer[selected_zone].height) * tilesize );
 				OUTPUT_centred_text ( editor_view_width+(ICON_SIZE*4) , ICON_SIZE + (FONT_HEIGHT*5) , text_line );
 
 				OUTPUT_draw_masked_sprite ( first_icon , ZONE_NAME_ICON, editor_view_width+(ICON_SIZE/2) , ICON_SIZE*3 );

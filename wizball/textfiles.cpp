@@ -74,7 +74,7 @@ void TEXTFILE_load_text (void)
 		for (file_number=start; file_number<end; file_number++)
 		{
 			// Create a valid filename from the directory entry...
-			sprintf(filename, "%s%s", GPL_what_is_word_name(file_number), GPL_what_is_list_extension("TEXTFILES") );
+			snprintf(filename, sizeof(filename), "%s%s", GPL_what_is_word_name(file_number), GPL_what_is_list_extension("TEXTFILES") );
 			FILE_append_filename(filename, "TEXTFILES", filename, sizeof (filename) );
 			
 			// Then open it and read it just like with the SOURCE_FILE stuff
@@ -123,7 +123,7 @@ void TEXTFILE_load_text (void)
 			}
 			else
 			{
-				sprintf (error,"ERROR! TEXTFILE '%s' NOT FOUND FOR LOADING FOR DESCRIPTIVE TEXT FILES!",filename);
+				snprintf (error, sizeof(error), "ERROR! TEXTFILE '%s' NOT FOUND FOR LOADING FOR DESCRIPTIVE TEXT FILES!",filename);
 				OUTPUT_message (error);
 			}
 
@@ -152,15 +152,15 @@ void TEXTFILE_save_compiled_text (void)
 
 	if (file_pointer != NULL)
 	{
-		sprintf(line,"%i\n",textfile_line_count);
+		snprintf(line, sizeof(line), "%i\n",textfile_line_count);
 		fputs(line,file_pointer);
 
 		for (counter=0; counter<textfile_line_count; counter++)
 		{
-			sprintf(line,"%i\n",tx[counter].line_size);
+			snprintf(line, sizeof(line), "%i\n",tx[counter].line_size);
 			fputs(line,file_pointer);
 
-			sprintf(line,"%s\n",tx[counter].line);
+			snprintf(line, sizeof(line), "%s\n",tx[counter].line);
 			fputs(line,file_pointer);
 		}
 
@@ -259,7 +259,7 @@ char * TEXTFILE_get_line_by_tag (char *tag)
 
 	if (index == UNSET)
 	{
-		sprintf (error_space,"TAG '%s' CANNOT BE FOUND!",tag);
+		snprintf (error_space, sizeof(error_space), "TAG '%s' CANNOT BE FOUND!", tag);
 		return error_space;
 	}
 	else
@@ -293,7 +293,7 @@ char * TEXTFILE_get_line_by_index (int index)
 {
 	if (index == UNSET)
 	{
-		sprintf (error_space,"INVALID INDEX!");
+		snprintf (error_space, sizeof(error_space), "INVALID INDEX!");
 		return error_space;
 	}
 	else

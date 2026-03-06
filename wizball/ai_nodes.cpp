@@ -312,35 +312,35 @@ void AINODES_output_waypoint_lookup_tables (void)
 
 		if (total_families == 1)
 		{
-			sprintf(text,"Tilemap %i : %i Family...\n\n",tilemap_number,total_families);
+			snprintf(text, sizeof(text), "Tilemap %i : %i Family...\n\n",tilemap_number,total_families);
 		}
 		else
 		{
-			sprintf(text,"Tilemap %i : %i Families..\n\n",tilemap_number,total_families);
+			snprintf(text, sizeof(text), "Tilemap %i : %i Families..\n\n",tilemap_number,total_families);
 		}
 		fputs(text,file_pointer);
 
 		for (family_number=0; family_number<total_families; family_number++)
 		{
-			sprintf(text,"\tFamily Number %i\n\n",family_number);
+			snprintf(text, sizeof(text), "\tFamily Number %i\n\n",family_number);
 			fputs(text,file_pointer);
 			
 			family_size = cm[tilemap_number].ai_node_lookup_table_list_pointer[family_number].size;
 			first_member = cm[tilemap_number].ai_node_lookup_table_list_pointer[family_number].first_member;
 
-			sprintf(text,"\t\t       ");
+			snprintf(text, sizeof(text), "\t\t       ");
 			for (start_node = first_member; start_node<first_member+family_size; start_node++)
 			{
-				sprintf(small_text,"%3i ",start_node);
+				snprintf(small_text, sizeof(small_text), "%3i ",start_node);
 				strcat(text,small_text);
 			}
 			strcat(text,"\n");
 			fputs(text,file_pointer);
 
-			sprintf(text,"\t\t       ");
+			snprintf(text, sizeof(text), "\t\t       ");
 			for (start_node = 0; start_node<family_size; start_node++)
 			{
-				sprintf(small_text,"--- %d",start_node);
+				snprintf(small_text, sizeof(small_text), "--- %d",start_node);
 				strcat(text,small_text);
 			}
 			strcat(text,"\n");
@@ -348,13 +348,13 @@ void AINODES_output_waypoint_lookup_tables (void)
 
 			for (start_node = first_member; start_node<first_member+family_size; start_node++)
 			{
-				sprintf(text,"\t\t %3i | ",start_node);
+				snprintf(text, sizeof(text), "\t\t %3i | ",start_node);
 
 				for (destination_node = first_member; destination_node<first_member+family_size; destination_node++)
 				{
 					offset = ((destination_node-first_member) * family_size) + (start_node-first_member);
 					
-					sprintf (small_text,"%3i ",cm[tilemap_number].ai_node_lookup_table_list_pointer[family_number].pathfinding_data[offset]);
+					snprintf (small_text, sizeof(small_text), "%3i ",cm[tilemap_number].ai_node_lookup_table_list_pointer[family_number].pathfinding_data[offset]);
 					strcat (text,small_text);
 				}
 
@@ -1181,9 +1181,9 @@ void AINODES_draw_waypoints (int tilemap_number, int sx, int sy, int width, int 
 					OUTPUT_line (screen_waypoint_x , screen_waypoint_y+WAYPOINT_HANDLE_RADIUS+(WAYPOINT_HANDLE_RADIUS*2) , screen_waypoint_x + (WAYPOINT_HANDLE_RADIUS/2) , screen_waypoint_y + WAYPOINT_HANDLE_RADIUS+(WAYPOINT_HANDLE_RADIUS*2) - (WAYPOINT_HANDLE_RADIUS/2) , red , green , blue );
 
 					// And then display the position in tile_x, tile_y and offset.
-					sprintf (text_line,"X=%i", cm[tilemap_number].waypoint_list_pointer[waypoint_number].x );
+					snprintf (text_line, sizeof(text_line), "X=%i", cm[tilemap_number].waypoint_list_pointer[waypoint_number].x );
 					OUTPUT_text (screen_waypoint_x-(16+WAYPOINT_HANDLE_RADIUS), screen_waypoint_y-(16+WAYPOINT_HANDLE_RADIUS) , text_line );
-					sprintf (text_line,"Y=%i", cm[tilemap_number].waypoint_list_pointer[waypoint_number].y );
+					snprintf (text_line, sizeof(text_line), "Y=%i", cm[tilemap_number].waypoint_list_pointer[waypoint_number].y );
 					OUTPUT_text (screen_waypoint_x-(16+WAYPOINT_HANDLE_RADIUS), screen_waypoint_y-(8+WAYPOINT_HANDLE_RADIUS) , text_line );
 				}
 			}

@@ -1043,7 +1043,7 @@ void OBCOLL_add_to_collision_bucket (int entity_id)
 				if (searching_entity_id == entity_id)
 				{
 					char filename[MAX_LINE_SIZE];
-					sprintf(filename,"duplicate_bucket_on_frame_%i",frames_so_far);
+					snprintf(filename, sizeof(filename),"duplicate_bucket_on_frame_%i",frames_so_far);
 					CONTROL_stop_and_save_active_channels (filename);
 					
 					OUTPUT_message("Attempting to add duplicate to collision bucket!");
@@ -1062,7 +1062,7 @@ void OBCOLL_add_to_collision_bucket (int entity_id)
 				if ( (bucket_x < active_collision_area.shifted_start_x) || (bucket_y < active_collision_area.shifted_start_y) || (bucket_x >= active_collision_area.shifted_end_x) || (bucket_y >= active_collision_area.shifted_end_y) )
 				{
 					char filename[MAX_LINE_SIZE];
-					sprintf(filename,"adding_to_bucket_out_of_range_on_frame_%i",frames_so_far);
+					snprintf(filename, sizeof(filename),"adding_to_bucket_out_of_range_on_frame_%i",frames_so_far);
 					CONTROL_stop_and_save_active_channels (filename);
 					
 					OUTPUT_message("Attempting to add to out of range bucket which isn't locked!");
@@ -1126,7 +1126,7 @@ void OBCOLL_remove_from_collision_bucket (int entity_id)
 		if ( (bucket_x < active_collision_area.shifted_start_x) || (bucket_y < active_collision_area.shifted_start_y) || (bucket_x >= active_collision_area.shifted_end_x) || (bucket_y >= active_collision_area.shifted_end_y) )
 		{
 			char filename[MAX_LINE_SIZE];
-			sprintf(filename,"removing_from_bucket_out_of_range_on_frame_%i",frames_so_far);
+			snprintf(filename, sizeof(filename),"removing_from_bucket_out_of_range_on_frame_%i",frames_so_far);
 			CONTROL_stop_and_save_active_channels (filename);
 			
 			OUTPUT_message("Attempting to remove from out of range bucket which isn't locked!");
@@ -1548,7 +1548,7 @@ void OBCOLL_collide_rectangle_with_buckets (int entity_id)
 		//				SCRIPTING_check_for_collide_type_offset_mismatch();
 
 						#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-						sprintf (wheres_wally,"Now I'm really dealing with entity %i (%i) and entity %i (%i)",entity_id,entity[entity_id][ENT_SCRIPT_NUMBER],other_entity_id,entity[other_entity_id][ENT_SCRIPT_NUMBER]);
+						snprintf (wheres_wally, sizeof(wheres_wally), "Now I'm really dealing with entity %i (%i) and entity %i (%i)", entity_id, entity[entity_id][ENT_SCRIPT_NUMBER], other_entity_id, entity[other_entity_id][ENT_SCRIPT_NUMBER]);
 						#endif
 
 						if (( entity_pointer[ENT_COLLIDE_WITH] & other_entity_pointer[ENT_COLLIDE_TYPE] ) > 0)
@@ -1588,7 +1588,7 @@ void OBCOLL_collide_rectangle_with_buckets (int entity_id)
 							if (collide == true)
 							{
 								#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-								sprintf (wheres_wally,"Now I'm smacking the heads together with entity %i",entity_id);
+								snprintf (wheres_wally, sizeof(wheres_wally), "Now I'm smacking the heads together with entity %i", entity_id);
 								#endif
 
 								if (OBCOLL_collide_entity_pair (entity_id, other_entity_id) == true)
@@ -1814,7 +1814,7 @@ void OBCOLL_collision_handler (void)
 			{
 				// I'm farming it out to other routines just for clarity and brevity of functions.
 				#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-				sprintf (wheres_wally,"Now I'm dealing with entity %i",entity_id);
+				snprintf (wheres_wally, sizeof(wheres_wally), "Now I'm dealing with entity %i", entity_id);
 				#endif
 
 //				SCRIPTING_check_for_collide_type_offset_mismatch();

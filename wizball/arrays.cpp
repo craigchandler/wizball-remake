@@ -187,7 +187,7 @@ int ARRAY_add_text_number_to_array (int entity_number, int unique_id, int number
 	entity_array *ap = &ent_arrays[entity_number].array_pointer[array_number];
 
 	char text_number[MAX_LINE_SIZE];
-	sprintf(text_number,"%i",number_value);
+	snprintf(text_number, sizeof(text_number), "%i", number_value);
 
 	char *c_pointer = &text_number[0];
 
@@ -331,7 +331,7 @@ int ARRAY_read_value (int entity_number, int array_unique_id, int x, int y, int 
 	else
 	{
 		char error[MAX_LINE_SIZE];
-		sprintf(error,"Reading (%ix%ix%i) outside of array which is (%ix%ix%i)!",x,y,z,ap->width,ap->height,ap->depth);
+		snprintf(error, sizeof(error), "Reading (%ix%ix%i) outside of array which is (%ix%ix%i)!",x,y,z,ap->width,ap->height,ap->depth);
 		OUTPUT_message(error);
 	}
 
@@ -353,7 +353,7 @@ void ARRAY_write_value (int entity_number, int array_unique_id, int value, int x
 	else
 	{
 		char error[MAX_LINE_SIZE];
-		sprintf(error,"Writing (%ix%ix%i) outside of array which is (%ix%ix%i)!",x,y,z,ap->width,ap->height,ap->depth);
+		snprintf(error, sizeof(error), "Writing (%ix%ix%i) outside of array which is (%ix%ix%i)!",x,y,z,ap->width,ap->height,ap->depth);
 		OUTPUT_message(error);
 	}
 }
@@ -405,24 +405,24 @@ void ARRAY_output_entity_arrays_to_file(int entity_number, FILE *file_pointer)
 
 	if (ent_arrays[entity_number].array_count > 0)
 	{
-		sprintf(line,"\t#ARRAY_COUNT = %i\n\n",ent_arrays[entity_number].array_count);
+		snprintf(line, sizeof(line), "\t#ARRAY_COUNT = %i\n\n",ent_arrays[entity_number].array_count);
 		fputs(line,file_pointer);
 
 		for (array_number=0; array_number<ent_arrays[entity_number].array_count; array_number++)
 		{
 			fputs("\t\t#ARRAY_START\n",file_pointer);
-			sprintf(line,"\t\t\t#ARRAY_SIZE = %i * %i * %i\n",ent_arrays[entity_number].array_pointer[array_number].width,ent_arrays[entity_number].array_pointer[array_number].height,ent_arrays[entity_number].array_pointer[array_number].depth);
+			snprintf(line, sizeof(line), "\t\t\t#ARRAY_SIZE = %i * %i * %i\n",ent_arrays[entity_number].array_pointer[array_number].width,ent_arrays[entity_number].array_pointer[array_number].height,ent_arrays[entity_number].array_pointer[array_number].depth);
 			fputs(line,file_pointer);
-			sprintf(line,"\t\t\t#ARRAY_UID = %i\n",ent_arrays[entity_number].array_pointer[array_number].unique_id);
+			snprintf(line, sizeof(line), "\t\t\t#ARRAY_UID = %i\n",ent_arrays[entity_number].array_pointer[array_number].unique_id);
 			fputs(line,file_pointer);
-			sprintf(line,"\t\t\t#ARRAY_DATA = ");
+			snprintf(line, sizeof(line), "\t\t\t#ARRAY_DATA = ");
 
 			size = ent_arrays[entity_number].array_pointer[array_number].total_size;
 			value_pointer = ent_arrays[entity_number].array_pointer[array_number].values;
 
 			for (value_index=0; value_index<size; value_index++)
 			{
-				sprintf(word,"%i,",value_pointer);
+				snprintf(word, sizeof(word), "%i,", *value_pointer);
 				value_pointer++;
 				strcat(line,word);
 
@@ -433,7 +433,7 @@ void ARRAY_output_entity_arrays_to_file(int entity_number, FILE *file_pointer)
 					line[strlen(line)-1] = '\0'; // Clip off the final comma.
 					fputs(line,file_pointer);
 					fputs("\n",file_pointer);
-					sprintf(line,"\t\t\t#ARRAY_DATA = ");
+					snprintf(line, sizeof(line), "\t\t\t#ARRAY_DATA = ");
 					just_cleared = true;
 				}
 			}

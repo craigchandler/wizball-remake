@@ -323,7 +323,7 @@ void TILESETS_get_free_name (char *name)
 
 	for (i=0; i<number_of_tilesets_loaded; i++)
 	{
-		sprintf(name,"TILESET_#%3d",test_num);
+		snprintf(name, MAX_LINE_SIZE, "TILESET_#%3d",test_num);
 		STRING_replace_char (name, ' ' , '0');
 		if (strcmp(name,ts[i].name) == 0)
 		{
@@ -333,7 +333,7 @@ void TILESETS_get_free_name (char *name)
 		// up pointing to the first free name of the "Tileset_#num" variety.
 	}
 
-	sprintf(name,"TILESET_#%3d",test_num);
+	snprintf(name, MAX_LINE_SIZE, "TILESET_#%3d",test_num);
 	STRING_replace_char (name, ' ' , '0');
 
 }
@@ -755,7 +755,7 @@ void TILESETS_save (int tileset_number)
 	char boolean_props[22][NAME_SIZE] = {"CONVEY","ACCELLERATE","SLIPPERY","CLIMBABLE_UP_DOWN","CLIMBABLE_LEFT_RIGHT","CLIMBABLE_OMNI","CLIMBABLE_WALL_UP_DOWN","CLIMBABLE_MONKEY_BARS","STICKY_WALL","STICKY_FLOOR","DEADLY","KLUDGE BLOCK","DEKLUDGER","TILE PATHFIND IGNORE","ZONE PATHFIND IGNORE","SPECIAL_1","SPECIAL_2","SPECIAL_3","SPECIAL_4","WATER","DEEP_WATER","HARMFUL"};
 
 	char filename[NAME_SIZE];
-	sprintf (filename , "%s.TXT", ts[tileset_number].name);
+	snprintf (filename , sizeof(filename), "%.*s.TXT", (int)(sizeof(filename)-5), ts[tileset_number].name);
 
 	char full_filename [TEXT_LINE_SIZE];
 
@@ -774,26 +774,26 @@ void TILESETS_save (int tileset_number)
 	if (file_pointer != NULL)
 	{
 		// Tileset Image
-		sprintf(temp_char,"#TILESET IMAGE = %s\n\n",ts[tileset_number].tileset_sprite_name);
+		snprintf(temp_char, sizeof(temp_char), "#TILESET IMAGE = %s\n\n",ts[tileset_number].tileset_sprite_name);
 		fputs(temp_char,file_pointer);
 
 		// Tile data header
-		sprintf(temp_char,"#TILE DATA = %d\n\n",ts[tileset_number].tile_count);
+		snprintf(temp_char, sizeof(temp_char), "#TILE DATA = %d\n\n",ts[tileset_number].tile_count);
 		fputs(temp_char,file_pointer);
 
 		for (i=0 ; i<ts[tileset_number].tile_count ; i++)
 		{
-			sprintf(temp_char,"\t#TILE NUMBER = %d\n",i);
+			snprintf(temp_char, sizeof(temp_char), "\t#TILE NUMBER = %d\n",i);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#TILE SHAPE = %d\n",ts[tileset_number].tileset_pointer[i].shape);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#TILE SHAPE = %d\n",ts[tileset_number].tileset_pointer[i].shape);
 			fputs(temp_char,file_pointer);
 //			fputs(&block_shape_names [ ts[tileset_number].tileset_pointer[i].shape ][0] , file_pointer);
 
-			sprintf(temp_char,"\t\t#SOLID SIDES = %d\n",ts[tileset_number].tileset_pointer[i].solid_sides);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#SOLID SIDES = %d\n",ts[tileset_number].tileset_pointer[i].solid_sides);
 			fputs(temp_char,file_pointer);
 /*
-			sprintf(temp_char,"\\\\ ");
+			snprintf(temp_char, sizeof(temp_char), "\\\\ ");
 			sideflag = false;
 			for (t=0; t<4; t++)
 			{
@@ -826,24 +826,24 @@ void TILESETS_save (int tileset_number)
 				fputs("\t\t#VULNERABLE = FALSE\n",file_pointer);
 			}
 
-			sprintf(temp_char,"\t\t#DEFAULT ENERGY = %d\n",ts[tileset_number].tileset_pointer[i].default_energy);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#DEFAULT ENERGY = %d\n",ts[tileset_number].tileset_pointer[i].default_energy);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#NEXT OF KIN = %d\n",ts[tileset_number].tileset_pointer[i].next_of_kin);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#NEXT OF KIN = %d\n",ts[tileset_number].tileset_pointer[i].next_of_kin);
 			fputs(temp_char,file_pointer);
 
 			for (j=0; j<4; j++)
 			{
-				sprintf(temp_char,"\t\t#VULNERABILITY (%s) = %d\n",&sides[j][0],ts[tileset_number].tileset_pointer[i].vulnerabilities[j]);
+				snprintf(temp_char, sizeof(temp_char), "\t\t#VULNERABILITY (%s) = %d\n",&sides[j][0],ts[tileset_number].tileset_pointer[i].vulnerabilities[j]);
 				fputs(temp_char,file_pointer);
 				if (ts[tileset_number].tileset_pointer[i].vulnerabilities[j] > 0)
 				{
-					sprintf(temp_char,"\\ ");
+					snprintf(temp_char, sizeof(temp_char), "\\ ");
 					for (t=0; t<16 ; t++)
 					{
 						if ( (ts[tileset_number].tileset_pointer[i].vulnerabilities[j] & MATH_pow (t) ) > 0 )
 						{
-							sprintf( temp_char_2 , "%c" , t+'A' );
+							snprintf( temp_char_2 , sizeof(temp_char_2), "%c" , t+'A' );
 							strcat( temp_char , temp_char_2 );
 						}
 						else
@@ -857,39 +857,39 @@ void TILESETS_save (int tileset_number)
 				
 			}
 
-			sprintf(temp_char,"\t\t#COLLISION MASK =  %i\n",ts[tileset_number].tileset_pointer[i].collision_bitmask);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#COLLISION MASK =  %i\n",ts[tileset_number].tileset_pointer[i].collision_bitmask);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#BOOLEAN PROPERTIES = %i\n",ts[tileset_number].tileset_pointer[i].boolean_properties);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#BOOLEAN PROPERTIES = %i\n",ts[tileset_number].tileset_pointer[i].boolean_properties);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#X CONVEY = %i\n",ts[tileset_number].tileset_pointer[i].convey_x);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#X CONVEY = %i\n",ts[tileset_number].tileset_pointer[i].convey_x);
 			fputs(temp_char,file_pointer);
-			sprintf(temp_char,"\t\t#Y CONVEY = %i\n",ts[tileset_number].tileset_pointer[i].convey_y);
-			fputs(temp_char,file_pointer);
-
-			sprintf(temp_char,"\t\t#X ACCELL = %i\n",ts[tileset_number].tileset_pointer[i].accel_x);
-			fputs(temp_char,file_pointer);
-			sprintf(temp_char,"\t\t#Y ACCELL = %i\n",ts[tileset_number].tileset_pointer[i].accel_y);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#Y CONVEY = %i\n",ts[tileset_number].tileset_pointer[i].convey_y);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#FRICTION = %i\n",ts[tileset_number].tileset_pointer[i].friction);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#X ACCELL = %i\n",ts[tileset_number].tileset_pointer[i].accel_x);
+			fputs(temp_char,file_pointer);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#Y ACCELL = %i\n",ts[tileset_number].tileset_pointer[i].accel_y);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#PRIORITY = %i\n",ts[tileset_number].tileset_pointer[i].priority);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#FRICTION = %i\n",ts[tileset_number].tileset_pointer[i].friction);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#DEAD SCRIPT = %s\n",ts[tileset_number].tileset_pointer[i].dead_script);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#PRIORITY = %i\n",ts[tileset_number].tileset_pointer[i].priority);
 			fputs(temp_char,file_pointer);
 
-			sprintf(temp_char,"\t\t#PARAMETERS = %i\n",ts[tileset_number].tileset_pointer[i].params);
+			snprintf(temp_char, sizeof(temp_char), "\t\t#DEAD SCRIPT = %s\n",ts[tileset_number].tileset_pointer[i].dead_script);
+			fputs(temp_char,file_pointer);
+
+			snprintf(temp_char, sizeof(temp_char), "\t\t#PARAMETERS = %i\n",ts[tileset_number].tileset_pointer[i].params);
 			fputs(temp_char,file_pointer);
 
 			if (ts[tileset_number].tileset_pointer[i].params > 0)
 			{
 				for (p=0 ; p<ts[tileset_number].tileset_pointer[i].params ; p++)
 				{
-					sprintf(temp_char,"\t\t\t#PARAMETER %s=%s:%s\n" , ts[tileset_number].tileset_pointer[i].param_list_pointer[p].param_dest_var , ts[tileset_number].tileset_pointer[i].param_list_pointer[p].param_list_type , ts[tileset_number].tileset_pointer[i].param_list_pointer[p].param_name );
+					snprintf(temp_char, sizeof(temp_char), "\t\t\t#PARAMETER %s=%s:%s\n" , ts[tileset_number].tileset_pointer[i].param_list_pointer[p].param_dest_var , ts[tileset_number].tileset_pointer[i].param_list_pointer[p].param_list_type , ts[tileset_number].tileset_pointer[i].param_list_pointer[p].param_name );
 					fputs(temp_char,file_pointer);
 				}
 			}
@@ -1124,7 +1124,7 @@ void TILESETS_save_all (void)
 		{
 			if (strcmp (ts[tileset_number].old_name,"UNSET") != 0)
 			{
-				sprintf(filename,"%s.TXT", ts[tileset_number].old_name);
+								snprintf(filename, sizeof(filename), "%.*s.TXT", (int)(sizeof(filename)-5), ts[tileset_number].old_name);
 				FILE_append_filename(full_filename, "tilesets", filename, sizeof(full_filename) );
 
 				remove (MAIN_get_project_filename (full_filename));
@@ -1186,7 +1186,7 @@ void TILESETS_load_all (void)
 	{
 		strcpy(filename,GPL_what_is_word_name(i));
 
-		sprintf(description,"LOADING TILEMAP : %s",filename);
+		snprintf(description, sizeof(description), "LOADING TILEMAP : %s",filename);
 		MAIN_draw_loading_picture (description,20);
 
 		strcat(filename,GPL_what_is_list_extension ("TILESETS"));
@@ -1757,22 +1757,22 @@ bool TILESETS_edit_tile_accell_properties (int state , int *current_cursor ,  in
 		OUTPUT_centred_text (512,window_height+ICON_SIZE*3,"FRICTION");
 		OUTPUT_centred_text (608,window_height+ICON_SIZE*3,"BOUNCE");
 
-		sprintf(text,"%d",accel_x);
+		snprintf(text, sizeof(text), "%d",accel_x);
 		OUTPUT_centred_text (32,window_height+ICON_SIZE*3+8,text);
 
-		sprintf(text,"%d",accel_y);
+		snprintf(text, sizeof(text), "%d",accel_y);
 		OUTPUT_centred_text (128,window_height+ICON_SIZE*3+8,text);
 
-		sprintf(text,"%d",convey_x);
+		snprintf(text, sizeof(text), "%d",convey_x);
 		OUTPUT_centred_text (224,window_height+ICON_SIZE*3+8,text);
 
-		sprintf(text,"%d",convey_y);
+		snprintf(text, sizeof(text), "%d",convey_y);
 		OUTPUT_centred_text (320,window_height+ICON_SIZE*3+8,text);
 
-		sprintf(text,"%d%%",friction);
+		snprintf(text, sizeof(text), "%d%%",friction);
 		OUTPUT_centred_text (512,window_height+ICON_SIZE*3+8,text);
 
-		sprintf(text,"%d%%",bounciness);
+		snprintf(text, sizeof(text), "%d%%",bounciness);
 		OUTPUT_centred_text (608,window_height+ICON_SIZE*3+8,text);
 
 		SIMPGUI_draw_all_buttons ();
@@ -2216,7 +2216,7 @@ bool TILESETS_edit_tile_vulnerability (int state , int *current_cursor ,  int ti
 
 				for (i=0 ; i<16; i++)
 				{
-					sprintf(text,"%d",i);
+					snprintf(text, sizeof(text), "%d",i);
 					temp = ( current_vulnerability[t] & MATH_pow(i) );
 					if (temp)
 					{
@@ -2227,10 +2227,10 @@ bool TILESETS_edit_tile_vulnerability (int state , int *current_cursor ,  int ti
 				}
 			}
 
-			sprintf (text,"ENERGY = %i",current_energy);
+			snprintf (text, sizeof(text), "ENERGY = %i", current_energy);
 			OUTPUT_text (left_of_table , top_of_table + (box_height*5) , text);
 
-			sprintf (text,"0-%d",bar_range);
+			snprintf (text, sizeof(text), "0-%d", bar_range);
 			OUTPUT_right_aligned_text (64 , top_of_table + (box_height*6) , text);
 		}
 
@@ -3148,7 +3148,7 @@ bool TILESETS_edit_tile_family (int state , int *current_cursor , int tileset_nu
 		}
 		else
 		{
-			sprintf(word_string,"FAMILY ID = %d",family_id);
+			snprintf(word_string, sizeof(word_string), "FAMILY ID = %d",family_id);
 			OUTPUT_centred_text (320,window_height+ICON_SIZE*2+12,word_string);
 		}
 
@@ -4187,7 +4187,7 @@ bool TILESETS_confirm_tile_links (int tileset_number, int tile_number , bool rep
 			// Used to be something but is now UNSET! SHIIIIIIT!
 			if (report == true)
 			{
-				sprintf ( line , "   TILE %i CANNOT FIND SCRIPT '%s'.\n" , tile_number , ts[tileset_number].tileset_pointer[tile_number].dead_script );
+				snprintf ( line , sizeof(line), "   TILE %i CANNOT FIND SCRIPT '%s'.\n", tile_number, ts[tileset_number].tileset_pointer[tile_number].dead_script );
 				EDIT_add_line_to_report (line);
 			}
 			ts[tileset_number].tileset_pointer[tile_number].dead_script_index = BROKEN_LINK;
@@ -4210,7 +4210,7 @@ bool TILESETS_confirm_tile_links (int tileset_number, int tile_number , bool rep
 			// The variable name wasn't recognised - most probably just UNSET.
 			if (report == true)
 			{
-				sprintf ( line , "   TILESET '%s' TILE #%d PARAMETER VARIABLE %d = '%s' CANNOT FIND THAT IN VARIABLE LIST.\n" , ts[tileset_number].name , tile_number , j , ts[tileset_number].tileset_pointer[tile_number].param_list_pointer[j].param_dest_var );
+				snprintf ( line , sizeof(line), "   TILESET '%s' TILE #%d PARAMETER VARIABLE %d = '%s' CANNOT FIND THAT IN VARIABLE LIST.\n", ts[tileset_number].name, tile_number, j, ts[tileset_number].tileset_pointer[tile_number].param_list_pointer[j].param_dest_var );
 				EDIT_add_line_to_report (line);
 			}
 			okay = false;
@@ -4221,7 +4221,7 @@ bool TILESETS_confirm_tile_links (int tileset_number, int tile_number , bool rep
 			// Can't even find the word list...
 			if (report == true)
 			{
-				sprintf ( line , "   TILESET '%s' TILE #%d PARAMETER %d = '%s' CANNOT FIND VARIABLE LIST.\n" , ts[tileset_number].name , tile_number , j , ts[tileset_number].tileset_pointer[tile_number].param_list_pointer[j].param_dest_var );
+				snprintf ( line , sizeof(line), "   TILESET '%s' TILE #%d PARAMETER %d = '%s' CANNOT FIND VARIABLE LIST.\n", ts[tileset_number].name, tile_number, j, ts[tileset_number].tileset_pointer[tile_number].param_list_pointer[j].param_dest_var );
 				EDIT_add_line_to_report (line);
 			}
 			okay = false;
@@ -4244,7 +4244,7 @@ bool TILESETS_confirm_tile_links (int tileset_number, int tile_number , bool rep
 			// The word in the list was not recognised.
 			if (report == true)
 			{
-				sprintf ( line , "   TILESET '%s' TILE #%d PARAMETER %d = '%s' CANNOT FIND '%s' IN WORD LIST '%s'.\n" , ts[tileset_number].name , tile_number , j , ts[tileset_number].tileset_pointer[tile_number].param_list_pointer[j].param_dest_var , ts[tileset_number].tileset_pointer[tile_number].param_list_pointer[j].param_name , ts[tileset_number].tileset_pointer[tile_number].param_list_pointer[j].param_list_type );
+				snprintf ( line , sizeof(line), "   TILESET '%s' TILE #%d PARAMETER %d = '%s' CANNOT FIND '%s' IN WORD LIST '%s'.\n", ts[tileset_number].name, tile_number, j, ts[tileset_number].tileset_pointer[tile_number].param_list_pointer[j].param_dest_var, ts[tileset_number].tileset_pointer[tile_number].param_list_pointer[j].param_name, ts[tileset_number].tileset_pointer[tile_number].param_list_pointer[j].param_list_type );
 				EDIT_add_line_to_report (line);
 			}
 			okay = false;
@@ -4255,7 +4255,7 @@ bool TILESETS_confirm_tile_links (int tileset_number, int tile_number , bool rep
 			// Can't even find the word list...
 			if (report == true)
 			{
-				sprintf ( line , "   TILESET '%s' TILE #%d PARAMETER %d = '%s' CANNOT FIND WORD LIST '%s'.\n" , ts[tileset_number].name , tile_number , j , ts[tileset_number].tileset_pointer[tile_number].param_list_pointer[j].param_dest_var , ts[tileset_number].tileset_pointer[tile_number].param_list_pointer[j].param_list_type );
+				snprintf ( line , sizeof(line), "   TILESET '%s' TILE #%d PARAMETER %d = '%s' CANNOT FIND WORD LIST '%s'.\n", ts[tileset_number].name, tile_number, j, ts[tileset_number].tileset_pointer[tile_number].param_list_pointer[j].param_dest_var, ts[tileset_number].tileset_pointer[tile_number].param_list_pointer[j].param_list_type );
 				EDIT_add_line_to_report (line);
 			}
 			okay = false;
@@ -4279,7 +4279,7 @@ bool TILESETS_confirm_tileset_links (int tileset_number , bool report)
 
 	if (report == true)
 	{
-		sprintf ( line , "TILESET '%s' REPORT:\n" , ts[tileset_number].name );
+		snprintf ( line , sizeof(line), "TILESET '%s' REPORT:\n", ts[tileset_number].name );
 		EDIT_add_line_to_report (line);
 	}
 
@@ -4304,7 +4304,7 @@ bool TILESETS_confirm_tileset_links (int tileset_number , bool report)
 				// Used to be something but is now UNSET! SHIIIIIIT!
 				if (report == true)
 				{
-					sprintf ( line , "    CANNOT FIND SPRITE '%s'.\n" , ts[tileset_number].tileset_sprite_name );
+					snprintf ( line , sizeof(line), "    CANNOT FIND SPRITE '%s'.\n", ts[tileset_number].tileset_sprite_name );
 					EDIT_add_line_to_report (line);
 				}
 				ts[tileset_number].tileset_image_index = BROKEN_LINK;

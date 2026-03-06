@@ -248,7 +248,7 @@ int GPL_find_word_index (char *word_list, char *word)
 
 	if (start == UNSET)
 	{
-//		sprintf(error,"Word list '%s' does not exist!",word_list,word);
+//		snprintf(, sizeof(),"Word list '%s' does not exist!",word_list,word);
 //		OUTPUT_message(error);
 //		assert(0);
 		return UNSET; // Word list not found
@@ -257,7 +257,7 @@ int GPL_find_word_index (char *word_list, char *word)
 	index = GPL_get_word_index (word_list,word);
 	if (index == UNSET)
 	{
-//		sprintf(error,"Word list '%s' does not contain word '%s'!",word_list,word);
+//		snprintf(, sizeof(),"Word list '%s' does not contain word '%s'!",word_list,word);
 //		OUTPUT_message(error);
 //		assert(0);
 		return UNSET; // Word in word list not found
@@ -628,7 +628,7 @@ int GPL_draw_list (char *list_name , int x , int y , int width , int height , in
 	{
 		if (numbered)
 		{
-			sprintf( word , "%3i" , i-start );
+			snprintf(word, sizeof(word), "%3i" , i-start );
 			STRING_replace_char (word, ' ' , '0');
 			strcat( word , " : " );
 			strcat( word , GPL_what_is_word_name (i) );

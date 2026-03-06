@@ -133,6 +133,8 @@
 #define KEY_CAPSLOCK        114
 
 // First scancode index that is considered a "modifier" in some loops.
+#ifndef KEY_MODIFIERS
 #define KEY_MODIFIERS       KEY_LSHIFT
+#endif
 
 #endif

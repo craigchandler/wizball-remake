@@ -233,8 +233,8 @@ static void SCRIPTING_log_focus_kill(int target_entity, const char *reason)
 		}
 	}
 
-	char line[MAX_LINE_SIZE];
-	sprintf(line,
+    char line[MAX_LINE_SIZE];
+    snprintf(line, sizeof(line),
 		"FOCUS_KILL target=%d(%s) by=%d(%s) src_line=%d frame=%d reason=%s",
 		target_entity,
 		target_name,
@@ -937,7 +937,7 @@ void SCRIPTING_display_flag_list (int x_pos, int y_pos)
 
 	for (t=0; t<count; t++)
 	{
-		sprintf(text,"%3i * %s",flag_array[t],GPL_what_is_word_name(t+start));
+		snprintf(text, sizeof(text),"%3i * %s",flag_array[t],GPL_what_is_word_name(t+start));
 		OUTPUT_text (x_pos,y_pos,text,0,255,0);
 		y_pos += 8;
 	}
@@ -976,7 +976,7 @@ void SCRIPTING_display_script_list (int y_pos)
 	{
 		if (script_counter[t] > 0)
 		{
-			sprintf(text,"%3i * %s",script_counter[t],GPL_what_is_word_name(t+start));
+			snprintf(text, sizeof(text),"%3i * %s",script_counter[t],GPL_what_is_word_name(t+start));
 			OUTPUT_text (0,y_pos,text,0,255,0);
 			y_pos += 8;
 		}
@@ -1179,7 +1179,7 @@ void SCRIPTING_output_tracer_script_to_file (bool called_from_script)
 		FILE *fp = fopen (MAIN_get_project_filename("traced_script_lines.txt"),"w");
 		int l,e;
 
-		sprintf(line,"Total entities traced = %i.\n\n",tracer_output_entity_list_size);
+		snprintf(line, sizeof(line),"Total entities traced = %i.\n\n",tracer_output_entity_list_size);
 		fputs(line,fp);
 
 		if (fp != NULL)
@@ -1199,7 +1199,7 @@ void SCRIPTING_output_tracer_script_to_file (bool called_from_script)
 			{
 				for (e=0; e<tracer_output_entity_list_size; e++)
 				{
-					sprintf(line,"Entity %i tracer lines.\n\n",tracer_output_entity_list[e]);
+					snprintf(line, sizeof(line),"Entity %i tracer lines.\n\n",tracer_output_entity_list[e]);
 					fputs(line,fp);
 
 					for (l=0;l<tracer_output_script_length;l++)
@@ -1278,14 +1278,14 @@ void SCRIPTING_add_tracer_script_header (int entity_id)
 
 	if (last_frame_added != frames_so_far)
 	{
-		sprintf(line,"-------- START OF NEW FRAME %i--------\n\n",frames_so_far);
+		snprintf(line, sizeof(line), "-------- START OF NEW FRAME %i--------\n\n",frames_so_far);
 		SCRIPTING_add_output_tracer_script_line (line,UNSET);
 		last_frame_added = frames_so_far;
 	}
 
 	SCRIPTING_add_entity_id_to_tracer_entity_list (entity_id);
 
-	sprintf(line,"Script '%s' (Entity %i) on frame %i...\n\n",GPL_get_entry_name("SCRIPTS",entity[entity_id][ENT_SCRIPT_NUMBER]),entity_id,frames_so_far);
+	snprintf(line, sizeof(line), "Script '%s' (Entity %i) on frame %i...\n\n",GPL_get_entry_name("SCRIPTS",entity[entity_id][ENT_SCRIPT_NUMBER]),entity_id,frames_so_far);
 	SCRIPTING_add_output_tracer_script_line (line,entity_id);
 }
 
@@ -1375,7 +1375,7 @@ void SCRIPTING_output_tracer_script_line (int line_number, int new_line_number, 
 	char line[TEXTFILE_SUPER_SIZE];
 	char word[MAX_LINE_SIZE];
 
-	sprintf(line,"%5.0i:\t",line_number);
+	snprintf(line, sizeof(line), "%5.0i:\t",line_number);
 
 	int t;
 
@@ -1390,15 +1390,15 @@ void SCRIPTING_output_tracer_script_line (int line_number, int new_line_number, 
 		{
 			if (tracer_script[line_number].argument_list[argument_number].argument_type_bitflag & (TRACER_ARGUMENT_TYPE_VARIABLE) )
 			{
-				sprintf ( word , "%s(%i -> %i) " , tracer_script[line_number].argument_list[argument_number].text_word , tracer_before_values[argument_number] , tracer_after_values[argument_number] );
+				snprintf ( word , sizeof(word), "%s(%i -> %i) " , tracer_script[line_number].argument_list[argument_number].text_word , tracer_before_values[argument_number] , tracer_after_values[argument_number] );
 			}
 			else if (tracer_script[line_number].argument_list[argument_number].argument_type_bitflag & (TRACER_ARGUMENT_TYPE_PARAMETER|TRACER_ARGUMENT_TYPE_FIXED_VALUE|TRACER_ARGUMENT_TYPE_OPERAND) )
 			{
-				sprintf ( word , "%s(%i) " , tracer_script[line_number].argument_list[argument_number].text_word , tracer_before_values[argument_number] );
+				snprintf ( word , sizeof(word), "%s(%i) " , tracer_script[line_number].argument_list[argument_number].text_word , tracer_before_values[argument_number] );
 			}
 			else
 			{
-				sprintf ( word , "%s " , tracer_script[line_number].argument_list[argument_number].text_word );
+				snprintf ( word , sizeof(word), "%s " , tracer_script[line_number].argument_list[argument_number].text_word );
 			}
 
 			strcat(line,word);
@@ -1409,13 +1409,13 @@ void SCRIPTING_output_tracer_script_line (int line_number, int new_line_number, 
 	{
 		if (line_number != new_line_number)
 		{
-			sprintf(word,"(Check Failed - heading to line %i)\n",new_line_number+1);
+			snprintf(word, sizeof(word), "(Check Failed - heading to line %i)\n",new_line_number+1);
 			strcat(line,word);
 		}
 	}
 	else if (tracer_script[line_number].line_type_bitflag & TRACER_LINE_TYPE_REDIRECT)
 	{
-		sprintf(word,"(Heading to line %i)\n",new_line_number+1);
+		snprintf(word, sizeof(word), "(Heading to line %i)\n",new_line_number+1);
 		strcat(line,word);
 	}
 
@@ -2653,7 +2653,7 @@ int SCRIPTING_spawn_entity_from_spawn_point (int tilemap_number, int parent_spaw
 	if (SCRIPTING_is_valid_script_index(script_number) == false)
 	{
 		char line[MAX_LINE_SIZE];
-		sprintf(line, "Invalid spawn-point script index (%d) at map %d spawn %d.", script_number, tilemap_number, parent_spawn_point);
+		snprintf(line, sizeof(line), "Invalid spawn-point script index (%d) at map %d spawn %d.", script_number, tilemap_number, parent_spawn_point);
 		MAIN_add_to_log(line);
 		return UNSET;
 	}
@@ -3552,7 +3552,7 @@ void SCRIPTING_output_interaction_table (void)
 
 		for (entity_number=0; entity_number<script_list_size; entity_number++)
 		{
-			sprintf (line,"%s\n",GPL_get_entry_name("SCRIPTS",entity_number));
+			snprintf (line, sizeof(line), "%s\n", GPL_get_entry_name("SCRIPTS", entity_number));
 			fputs (line,file_pointer);
 
 #ifdef DEBUG_INTERACTION_READ
@@ -3565,7 +3565,7 @@ void SCRIPTING_output_interaction_table (void)
 				{
 					if (SCRIPTING_read_from_interaction_table(entity_number,other_entity_number,DEBUG_INTERACTION_READ))
 					{
-						sprintf (line,"\t\t%s\n",GPL_get_entry_name("SCRIPTS",other_entity_number));
+						snprintf (line, sizeof(line), "\t\t%s\n", GPL_get_entry_name("SCRIPTS", other_entity_number));
 						fputs (line,file_pointer);
 					}
 				}
@@ -3581,7 +3581,7 @@ void SCRIPTING_output_interaction_table (void)
 				{
 					if (SCRIPTING_read_from_interaction_table(entity_number,other_entity_number,DEBUG_INTERACTION_WRITE))
 					{
-						sprintf (line,"\t\t%s\n",GPL_get_entry_name("SCRIPTS",other_entity_number));
+						snprintf (line, sizeof(line), "\t\t%s\n", GPL_get_entry_name("SCRIPTS", other_entity_number));
 						fputs (line,file_pointer);
 					}
 				}
@@ -3597,7 +3597,7 @@ void SCRIPTING_output_interaction_table (void)
 				{
 					if (SCRIPTING_read_from_interaction_table(entity_number,other_entity_number,DEBUG_INTERACTION_KILL))
 					{
-						sprintf (line,"\t\t%s\n",GPL_get_entry_name("SCRIPTS",other_entity_number));
+						snprintf (line, sizeof(line), "\t\t%s\n", GPL_get_entry_name("SCRIPTS", other_entity_number));
 						fputs (line,file_pointer);
 					}
 				}
@@ -3613,7 +3613,7 @@ void SCRIPTING_output_interaction_table (void)
 				{
 					if (SCRIPTING_read_from_interaction_table(other_entity_number,entity_number,DEBUG_INTERACTION_READ))
 					{
-						sprintf (line,"\t\t%s\n",GPL_get_entry_name("SCRIPTS",other_entity_number));
+						snprintf (line, sizeof(line), "\t\t%s\n", GPL_get_entry_name("SCRIPTS", other_entity_number));
 						fputs (line,file_pointer);
 					}
 				}
@@ -3629,7 +3629,7 @@ void SCRIPTING_output_interaction_table (void)
 				{
 					if (SCRIPTING_read_from_interaction_table(other_entity_number,entity_number,DEBUG_INTERACTION_WRITE))
 					{
-						sprintf (line,"\t\t%s\n",GPL_get_entry_name("SCRIPTS",other_entity_number));
+						snprintf (line, sizeof(line), "\t\t%s\n", GPL_get_entry_name("SCRIPTS", other_entity_number));
 						fputs (line,file_pointer);
 					}
 				}
@@ -3645,7 +3645,7 @@ void SCRIPTING_output_interaction_table (void)
 				{
 					if (SCRIPTING_read_from_interaction_table(other_entity_number,entity_number,DEBUG_INTERACTION_KILL))
 					{
-						sprintf (line,"\t\t%s\n",GPL_get_entry_name("SCRIPTS",other_entity_number));
+						snprintf (line, sizeof(line), "\t\t%s\n", GPL_get_entry_name("SCRIPTS", other_entity_number));
 						fputs (line,file_pointer);
 					}
 				}
@@ -3901,7 +3901,7 @@ bool SCRIPTING_load_script ( char *filename )
 		scr[t].script_line_pointer = (script_data *) malloc (scr[t].script_line_size * sizeof(script_data));
 		if (scr[t].script_line_pointer == NULL)
 		{
-			sprintf (line,"Could not allocate script data of size %d for line %d of script.",scr[t].script_line_size,t);
+			snprintf (line, sizeof(line), "Could not allocate script data of size %d for line %d of script.", scr[t].script_line_size, t);
 			OUTPUT_message(line);
 			assert(0);
 		}
@@ -4182,7 +4182,7 @@ int SCRIPTING_spawn_entity (int calling_entity_id , int script_number , int x_of
 	if (SCRIPTING_is_valid_script_index(script_number) == false)
 	{
 		char line[MAX_LINE_SIZE];
-		sprintf(line, "Invalid spawn script index (%d) requested by entity %d.", script_number, calling_entity_id);
+		snprintf(line, sizeof(line), "Invalid spawn script index (%d) requested by entity %d.", script_number, calling_entity_id);
 		MAIN_add_to_log(line);
 		return UNSET;
 	}
@@ -4387,7 +4387,7 @@ int SCRIPTING_spawn_entity (int calling_entity_id , int script_number , int x_of
 				}
 
 				char line[MAX_LINE_SIZE];
-				sprintf(line, "FOCUS_SPAWN child=%d(%s) caller=%d(%s) frame=%d", just_created_entity, created_name, calling_entity_id, caller_name, frames_so_far);
+				snprintf(line, sizeof(line), "FOCUS_SPAWN child=%d(%s) caller=%d(%s) frame=%d", just_created_entity, created_name, calling_entity_id, caller_name, frames_so_far);
 				MAIN_add_to_log(line);
 			}
 
@@ -4851,7 +4851,7 @@ void SCRIPTING_spawn_entity_by_name (char *script_name , int x , int y , int v0 
 	if (SCRIPTING_is_valid_script_index(script_number) == false)
 	{
 		char line[MAX_LINE_SIZE];
-		sprintf(line, "Invalid top-level spawn script '%s' (index %d).", script_name, script_number);
+		snprintf(line, sizeof(line), "Invalid top-level spawn script '%s' (index %d).", script_name, script_number);
 		MAIN_add_to_log(line);
 		return;
 	}
@@ -4878,7 +4878,7 @@ void SCRIPTING_spawn_entity_by_name (char *script_name , int x , int y , int v0 
 	if (output_debug_information && SCRIPTING_is_focus_script_index(script_number))
 	{
 		char line[MAX_LINE_SIZE];
-		sprintf(line, "FOCUS_TOPLEVEL entity=%d(%s) frame=%d", just_created_entity, GPL_get_entry_name("SCRIPTS", script_number), frames_so_far);
+		snprintf(line, sizeof(line), "FOCUS_TOPLEVEL entity=%d(%s) frame=%d", just_created_entity, GPL_get_entry_name("SCRIPTS", script_number), frames_so_far);
 		MAIN_add_to_log(line);
 	}
 
@@ -5316,7 +5316,7 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 				scripting_kill_source_line = line_number;
 
 				#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-					sprintf (wheres_wally,"Line %i Instruction %i",line_number,instruction);
+					snprintf (wheres_wally, sizeof(wheres_wally), "Line %i Instruction %i", line_number, instruction);
 				#endif
 
 			#ifdef RETRENGINE_DEBUG_VERSION_SCRIPT_TRACER
@@ -7444,7 +7444,7 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 					check_previous_for_match = false;
 				}
 				
-				if (CONTROL_get_keypress(first_value,second_value,NULL,check_previous_for_match))
+				if (CONTROL_get_keypress(first_value, second_value, NULL, 0, check_previous_for_match))
 				{
 					SCRIPTING_put_value (entity_id,line_number,1,1);
 				}
@@ -8645,7 +8645,7 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 				{
 					CONTROL_stop_and_save_active_channels("STOP encountered!");
 					
-					sprintf(line,"STOP in script '%s' at line %i.",GPL_get_entry_name("SCRIPTS",entity_pointer[ENT_SCRIPT_NUMBER]),line_number);
+					snprintf(line, sizeof(line),"STOP in script '%s' at line %i.",GPL_get_entry_name("SCRIPTS",entity_pointer[ENT_SCRIPT_NUMBER]),line_number);
 					OUTPUT_message(line);
 					assert(0);
 				}
@@ -8690,16 +8690,16 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 
 			case COM_WRITE_VOLUMES_TO_CONFIG_FILE:
 				first_value = SOUND_get_global_sound_volume ();
-				sprintf(line,"#SOUND EFFECTS VOLUME = %i",first_value);
+				snprintf(line, sizeof(line),"#SOUND EFFECTS VOLUME = %i",first_value);
 				FILE_add_line_to_config_file (line);
 
 				first_value = SOUND_get_global_music_volume ();
-				sprintf(line,"#MUSIC VOLUME = %i",first_value);
+				snprintf(line, sizeof(line),"#MUSIC VOLUME = %i",first_value);
 				FILE_add_line_to_config_file (line);
 			break;
 
 			case COM_WRITE_DEMO_INDEX_TO_CONFIG_FILE:
-				sprintf(line,"#NEXT DEMO INDEX = %i",demo_file_index);
+				snprintf(line, sizeof(line),"#NEXT DEMO INDEX = %i",demo_file_index);
 				FILE_add_line_to_config_file (line);
 			break;
 
@@ -9400,7 +9400,7 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 							map_tileset = cm[first_value].tile_set_index;
 							map_tilesize = TILESETS_get_tilesize(map_tileset);
 						}
-						sprintf(line,
+							snprintf(line, sizeof(line),
 							"DEBUG_TILEMAP_WIDTH caller=%s map=%d in_pixels=%d result=%d map_width_tiles=%d tile_set_index=%d tile_size=%d",
 							caller,
 							first_value,
@@ -9834,7 +9834,7 @@ bool SCRIPTING_process_entities (void)
 	// Update positions, add to collision buckets and window buckets.
 
 	#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-	sprintf (wheres_wally,"Just about to move all the entities...");
+	snprintf (wheres_wally, sizeof(wheres_wally), "Just about to move all the entities...");
 	#endif
 
 	while (entity_id != UNSET)
@@ -9879,7 +9879,7 @@ bool SCRIPTING_process_entities (void)
 				#ifdef RETRENGINE_DEBUG_VERSION_FORGOTTEN_SET_PRIVATE
 					if ( (entity_pointer[ENT_WORLD_X] != 0) && (entity_pointer[ENT_X] == 0) && (entity_pointer[ENT_WORLD_Y] != 0) && (entity_pointer[ENT_Y] == 0) )
 					{
-						sprintf (error_message,"Forgotten SET_PRIVATE_CO_ORDS in entity %i (%s)?",entity_id, GPL_get_entry_name("SCRIPTS",entity[entity_id][ENT_SCRIPT_NUMBER]) );
+						snprintf (error_message, sizeof(error_message), "Forgotten SET_PRIVATE_CO_ORDS in entity %i (%s)?", entity_id, GPL_get_entry_name("SCRIPTS", entity[entity_id][ENT_SCRIPT_NUMBER]));
 						OUTPUT_message(error_message);
 					}
 				#endif
@@ -9908,7 +9908,7 @@ bool SCRIPTING_process_entities (void)
 
 	// Go through the entities again, only this time purely for script processing.
 	#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-	sprintf (wheres_wally,"Now I'm doing the scripting and adding to windows...");
+						snprintf (wheres_wally, sizeof(wheres_wally), "Now I'm doing the scripting and adding to windows...");
 	#endif
 
 	entity_id = first_processed_entity_in_list;
@@ -9941,13 +9941,13 @@ bool SCRIPTING_process_entities (void)
 		{
 			alive_process_counter++;
 			#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-			sprintf (wheres_wally,"I'm about to script entity %i",entity_id);
+			snprintf (wheres_wally, sizeof(wheres_wally), "I'm about to script entity %i", entity_id);
 			#endif
 
 			script_lines_executed += SCRIPTING_interpret_script (entity_id,UNSET); // Do the real business stuff.
 			
 			#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-			sprintf (wheres_wally,"I've scripted entity %i",entity_id);
+			snprintf (wheres_wally, sizeof(wheres_wally), "I've scripted entity %i", entity_id);
 			#endif
 		}
 		else
@@ -9955,7 +9955,7 @@ bool SCRIPTING_process_entities (void)
 			if (entity_pointer[ENT_ALIVE] <= DEAD)
 			{
 				#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-				sprintf (wheres_wally,"There's a problem with entity %i so I'm saving the demo.",entity_id);
+				snprintf (wheres_wally, sizeof(wheres_wally), "There's a problem with entity %i so I'm saving the demo.", entity_id);
 				#endif
 
 				CONTROL_stop_and_save_active_channels ("limbo_error");
@@ -9971,7 +9971,7 @@ bool SCRIPTING_process_entities (void)
 			window_number = entity_pointer[ENT_WINDOW_NUMBER];
 
 			#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-			sprintf (wheres_wally,"I'm adding entity %i to window %i.",entity_id,window_number);
+			snprintf (wheres_wally, sizeof(wheres_wally), "I'm adding entity %i to window %i.", entity_id, window_number);
 			#endif
 
 			#ifdef RETRENGINE_DEBUG_VERSION_ENTITY_DEBUG_FLAG_CHECKS
@@ -9991,7 +9991,7 @@ bool SCRIPTING_process_entities (void)
 			}
 
 			#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-			sprintf (wheres_wally,"I've added entity %i to window %i successfully.",entity_id,window_number);
+			snprintf (wheres_wally, sizeof(wheres_wally), "I've added entity %i to window %i successfully.", entity_id, window_number);
 			#endif
 		}
 
@@ -10011,7 +10011,7 @@ bool SCRIPTING_process_entities (void)
 	// them during the obcoll phase.
 
 	#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-	sprintf (wheres_wally,"Moving the queues from Y to Z...");
+	snprintf (wheres_wally, sizeof(wheres_wally), "Moving the queues from Y to Z...");
 	#endif
 
 	for (window_number=0; window_number<number_of_windows; window_number++)
@@ -10079,7 +10079,7 @@ bool SCRIPTING_process_entities (void)
 	}
 
 	#ifdef RETRENGINE_DEBUG_VERSION_WHERES_WALLY
-	sprintf (wheres_wally,"Calling the collision handler...");
+	snprintf (wheres_wally, sizeof(wheres_wally), "Calling the collision handler...");
 	#endif
 
 //	SCRIPTING_confirm_entity_counts();
@@ -10258,7 +10258,7 @@ bool SCRIPTING_process_entities (void)
 			(first_wizball_window_br_y != last_first_wizball_window_br_y))
 		{
 			char line[MAX_LINE_SIZE];
-			sprintf(line,
+						snprintf(line, sizeof(line),
 				"FOCUS_COUNTS frame=%d WIZBALL=%d/%d MAIN_GAME_CONTROLLER=%d/%d GAME_WINDOW_HANDLER=%d/%d GET_READY_SCREEN=%d/%d CHOOSE_WIZBALL_START_POSITION=%d/%d START_GAME=%d/%d WIZBALL_STATE id=%d alive=%d draw_mode=%d draw_order=%d window=%d wx=%d wy=%d override=%d win_tl=(%d,%d) win_br=(%d,%d)",
 				frames_so_far,
 				focus_wizball,
@@ -10698,7 +10698,7 @@ void SCRIPTING_load_prefabs (void)
 
 	for (list_pointer = list_start; list_pointer < list_end ; list_pointer++)
 	{
-		sprintf (filename , "%s%s" , GPL_what_is_word_name (list_pointer) , extension_pointer );
+		snprintf (filename, sizeof(filename), "%s%s", GPL_what_is_word_name(list_pointer), extension_pointer );
 
 		// Okay, check the file to see if it contains the "-arb" or "-set"
 		FILE_append_filename(full_filename, "prefabs", filename, sizeof(full_filename) );
@@ -11309,7 +11309,7 @@ void SCRIPTING_output_flags_to_file (char *filename)
 		{
 			flag_index = save_data.saved_flag_list[flag_num];
 			flag_name = GPL_get_entry_name ("FLAG", flag_index);
-			sprintf(line,"\tGLOBAL_FLAG_NAME = '%s' GLOBAL_FLAG_VALUE = %i\n",flag_name,flag_array[flag_index]);
+							snprintf(line, sizeof(line),"\tGLOBAL_FLAG_NAME = '%s' GLOBAL_FLAG_VALUE = %i\n",flag_name,flag_array[flag_index]);
 
 			fputs(line,file_pointer);
 		}
@@ -11339,12 +11339,12 @@ void SCRIPTING_output_entity_non_relation_properties_to_file (int ent_index, FIL
 
 	int actual_length = length - GPL_find_word_value ("VARIABLE", "ALIVE");
 
-	sprintf(line,"\t\t#START_OF_VARIABLES_COUNT = %i\n",actual_length);
+		snprintf(line,sizeof(line),"\t\t#START_OF_VARIABLES_COUNT = %i\n",actual_length);
 	fputs(line,file_pointer);
 
 	for (var_index = GPL_find_word_value ("VARIABLE", "ALIVE"); var_index<length; var_index++)
 	{
-		sprintf(line,"\t\t\t#ENTITY_VARIABLE '%s' = %i\n",GPL_get_entry_name ("VARIABLE", var_index) , entity[ent_index][var_index]);
+				snprintf(line,sizeof(line),"\t\t\t#ENTITY_VARIABLE '%s' = %i\n",GPL_get_entry_name ("VARIABLE", var_index) , entity[ent_index][var_index]);
 		fputs(line,file_pointer);
 	}
 
@@ -11628,7 +11628,7 @@ void SCRIPTING_output_entity_to_file (int ent_index, int ent_tag, FILE *file_poi
 {
 	char line[MAX_LINE_SIZE];
 
-	sprintf(line, "\t#ENTITY_TAG = %i\n", ent_tag);
+		snprintf(line, sizeof(line), "\t#ENTITY_TAG = %i\n", ent_tag);
 	fputs(line, file_pointer);
 
 	// This first outputs all the variable names and values... Note when it's reloaded it won't overwrite the parents or other relational variables.
@@ -11656,7 +11656,7 @@ void SCRIPTING_output_entities_to_file (char *filename)
 
 	if (file_pointer != NULL)
 	{
-		sprintf(word ,"#START_OF_ENTITY_DATA_COUNT = %i\n\n",save_data.saved_entity_count);
+		 snprintf(word, sizeof(word),"#START_OF_ENTITY_DATA_COUNT = %i\n\n",save_data.saved_entity_count);
 		fputs(word,file_pointer);
 
 		for (ent_num=0; ent_num<save_data.saved_entity_count; ent_num++)
@@ -11698,7 +11698,7 @@ void SCRIPTING_output_save_data_to_file (int filename_text_tag)
 
 	if (file_pointer != NULL)
 	{
-		sprintf (line,"#SAVE_DATA (ID = %i)\n\n",MATH_rand(100000,999999));
+		snprintf (line, sizeof(line), "#SAVE_DATA (ID = %i)\n\n", MATH_rand(100000,999999));
 		fputs (line,file_pointer);
 		fclose (file_pointer);
 	}
@@ -11828,7 +11828,7 @@ char *SCRIPTING_get_checksum_from_save_file (char *filename)
 
 	static char checkcode[MAX_LINE_SIZE];
 
-	sprintf (checkcode,"UNSET");
+	snprintf (checkcode, sizeof(checkcode), "UNSET");
 
 	bool exit_loop = false;
 
@@ -11895,7 +11895,7 @@ char *SCRIPTING_generate_checkcode_for_save_file (char *filename)
 					if (save_file_text == NULL)
 					{
 						save_file_text = (char *) malloc (sizeof(char) * save_file_text_length);
-						sprintf(save_file_text,line);
+						snprintf(save_file_text, save_file_text_length, "%s", line);
 					}
 					else
 					{
@@ -11928,7 +11928,7 @@ void SCRIPTING_append_checksum_to_save_file (char *filename)
 {
 	char line[MAX_LINE_SIZE];
 
-	sprintf (line,"#SAVE FILE CHECKSUM = %s\n",SCRIPTING_generate_checkcode_for_save_file(filename));
+	snprintf (line, sizeof(line), "#SAVE FILE CHECKSUM = %s\n", SCRIPTING_generate_checkcode_for_save_file(filename));
 
 	FILE *file_pointer = fopen (MAIN_get_project_filename (filename, true),"a");
 	
@@ -12029,13 +12029,13 @@ void SCRIPTING_state_dump (void)
 		{
 			entity_pointer = &entity[entity_id][0];
 
-			sprintf (line,"Entity #%i = %s\n",entity_id,GPL_get_entry_name("SCRIPTS",entity_pointer[ENT_SCRIPT_NUMBER]));
+			snprintf (line, sizeof(line), "Entity #%i = %s\n", entity_id, GPL_get_entry_name("SCRIPTS", entity_pointer[ENT_SCRIPT_NUMBER]));
 
 			fputs(line,fp);
 
 			for (variable=0; variable<variable_list_size; variable++)
 			{
-				sprintf(line,"\t%s = %i\n",GPL_get_entry_name("VARIABLE",variable),entity_pointer[variable]);
+					snprintf(line, sizeof(line),"\t%s = %i\n",GPL_get_entry_name("VARIABLE",variable),entity_pointer[variable]);
 				
 				fputs(line,fp);
 			}
@@ -12051,7 +12051,7 @@ void SCRIPTING_state_dump (void)
 
 		for (flag_number=0; flag_number<flag_count; flag_number++)
 		{
-			sprintf(line,"\t%s = %i\n",GPL_get_entry_name("FLAG",flag_number),flag_array[flag_number]);
+				snprintf(line, sizeof(line),"\t%s = %i\n",GPL_get_entry_name("FLAG",flag_number),flag_array[flag_number]);
 			fputs(line,fp);
 		}
 
@@ -12081,7 +12081,7 @@ void SCRIPTING_add_report_to_watch_report (int causing_entity, int affected_enti
 
 	if (fp != NULL)
 	{
-		sprintf (line,"Entity %i(%s) altered entity %i(%s) on line number %i. The variable %s was changed from %i to %i. Frame count = %i.\n" , causing_entity , GPL_get_entry_name("SCRIPTS",entity[causing_entity][ENT_SCRIPT_NUMBER]) , affected_entity , GPL_get_entry_name("SCRIPTS",entity[causing_entity][ENT_SCRIPT_NUMBER]) , line_number , GPL_get_entry_name("VARIABLE",variable_altered) , old_value , new_value , frames_so_far );
+		snprintf (line, sizeof(line), "Entity %i(%s) altered entity %i(%s) on line number %i. The variable %s was changed from %i to %i. Frame count = %i.\n", causing_entity, GPL_get_entry_name("SCRIPTS", entity[causing_entity][ENT_SCRIPT_NUMBER]), affected_entity, GPL_get_entry_name("SCRIPTS", entity[causing_entity][ENT_SCRIPT_NUMBER]), line_number, GPL_get_entry_name("VARIABLE", variable_altered), old_value, new_value, frames_so_far );
 		fputs (line,fp);
 		fclose (fp);
 	}
