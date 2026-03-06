@@ -1,0 +1,50 @@
+baseURL = "https://craigchandler.github.io/wizball-remake/"
+languageCode = "en-au"
+title = "Wizball Remake"
+
+enableRobotsTXT = true
+paginate = 10
+
+theme = "github.com/adityatelange/hugo-PaperMod"
+
+[module]
+  [[module.imports]]
+    path = "github.com/adityatelange/hugo-PaperMod"
+
+[params]
+  env = "production"
+  description = "A Wizball remake (Allegro -> SDL2) targeting PortMaster and desktop builds."
+  author = "Craig Chandler"
+
+  ShowReadingTime = true
+  ShowShareButtons = true
+  ShowPostNavLinks = true
+  ShowBreadCrumbs = true
+  ShowCodeCopyButtons = true
+
+  defaultTheme = "auto"
+  disableThemeToggle = false
+
+  [params.homeInfoParams]
+    Title = "Wizball Remake"
+    Content = "Retro remake porting Allegro -> SDL2 to run under PortMaster. Devlog + builds + notes."
+
+  [[params.socialIcons]]
+    name = "github"
+    url = "https://github.com/craigchandler/wizball-remake"
+
+[menu]
+  [[menu.main]]
+    name = "Devlog"
+    url = "/posts/"
+    weight = 10
+
+  [[menu.main]]
+    name = "Build & Install"
+    url = "/build/"
+    weight = 20
+
+  [[menu.main]]
+    name = "About"
+    url = "/about/"
+    weight = 30
