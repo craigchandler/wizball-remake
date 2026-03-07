@@ -1,6 +1,6 @@
 # WizBall (Retrospec remake source archive)
 
-A preserved source release of the 2007 *Wizball* PC/Mac remake by Graham Goring and collaborators, now being brought back to life for modern Linux (and eventually PortMaster handhelds).
+A preserved source release of the 2007 *Wizball* PC/Mac remake by Graham Goring and collaborators, now updated to run through an **SDL2-based runtime** for modern Linux and eventually PortMaster handhelds.
 
 ## Why this repository exists
 
@@ -12,6 +12,16 @@ In February 2026, I reached out to Graham Goring to ask whether the source still
 At first, the code appeared to be lost. Graham did "have a shufty on a few dusty old drives" and came up empty, but as a last-ditch resort he emailed the Mac porter. Then, in Graham's words: "happy days" - Peter Hull still had a copy (with some Mac-specific bits).
 
 This repository is that recovered codebase.
+
+## Current runtime status
+
+The active branch now uses **SDL2** for the modern Linux/PortMaster build path. It no longer uses the old **Allegro + AllegroGL + desktop OpenGL** runtime as the main supported build.
+
+If you want the earlier Linux restoration branch that still used the old Allegro/OpenGL path, use:
+
+```bash
+git checkout original-linux-build
+```
 
 ## A short history
 
@@ -79,7 +89,8 @@ If I've missed anyone, open an issue or PR and I'll fix it.
 
 The recovered codebase was not originally in a state that built and ran cleanly on a modern Linux desktop toolchain. Notable 2026 revival changes:
 
-- Build system: added a CMake-based build and Linux compile path, while keeping the original C++98-era constraints.
+- Runtime/platform: migrated the active Linux build away from the old Allegro/OpenGL path to an SDL2-based runtime more suitable for current desktops and PortMaster targets.
+- Build system: added a CMake-based build and Linux compile path, while keeping the original codebase constraints intact.
 - Audio: migrated off the legacy FMOD path onto the SDL2 audio stack, using `SDL_mixer` for sound effects and streamed audio.
 - Frame pacing/input: stabilized the main loop so simulation/input handling is less coupled to render refresh rate, and added optional safeguards for timer/refresh stalls during compositor/display transitions.
 - Data/asset loading: hardened resource loading for Linux (case sensitivity and path assumptions) and added runtime diagnostics/validation to fail fast on bad or partial loads.
