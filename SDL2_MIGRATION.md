@@ -1,6 +1,6 @@
 # SDL2 Migration Tracker
 
-This document tracks migration of WizBall from Allegro 4 + FMOD to SDL2.
+This document tracks the remaining cleanup from the original Allegro/FMOD codebase to the current SDL2-based build.
 
 ## Scope
 
@@ -15,7 +15,7 @@ Keep these working throughout migration so existing workflows are not lost.
 ### Configure + Build (current)
 
 ```bash
-cmake -S . -B build
+cmake -S . -B build -DWIZBALL_PORTMASTER=OFF
 cmake --build build -j
 ```
 
@@ -25,49 +25,29 @@ cmake --build build -j
 # from repository root
 cd wizball
 ../build/wizball
-
-# datafile mode
-../build/wizball -dat
 ```
 
-### Rebuild scripts + repack data
+### Rebuild scripts
 
 ```bash
-# one-shot target (recommended)
-cmake --build build --target rebuild_wizball_scripts_and_data
-
-# equivalent manual flow
-cd wizball
-../build/wizball -rebuildscripts wizball
-cd ..
-python3 tools/repack_wizball_data.py --root . --dat-tool dat --include-core-data
-```
-
-### Repack only
-
-```bash
-cmake --build build --target repack_wizball_data
-cmake --build build --target repack_wizball_data_full
+cmake --build build --target rebuild_wizball_scripts
 ```
 
 ### Optional build variants already in use
 
 ```bash
-# FMOD-enabled build
-cmake -S . -B build_fmod -DWIZBALL_ENABLE_FMOD=ON
-cmake --build build_fmod -j
-
 # ASan build
-cmake -S . -B build_asan -DWIZBALL_ENABLE_ASAN=ON
+cmake -S . -B build_asan -DWIZBALL_ENABLE_ASAN=ON -DWIZBALL_PORTMASTER=OFF
 cmake --build build_asan -j
 ```
 
 ## Current State (Baseline)
 
-- Engine: Allegro 4 + AllegroGL + OpenGL fixed pipeline.
-- Audio: FMOD Ex (plus stub backend for non-FMOD builds).
-- Data: mixed text + compiled data assets (`.dat`, `.tsl`, `.datatable`, etc.).
-- Linux non-`-dat` path handling has case-fallback hardening.
+- Build dependencies: CMake 3.16+, `pkg-config`, SDL2, SDL2_mixer, and SDL2_image.
+- Engine/runtime: SDL2-based desktop build with legacy rendering cleanup still in progress internally.
+- Audio: SDL_mixer backend in `sound_sdl.cpp`.
+- Data: mixed text + compiled data assets (`.tsl`, some legacy `.dat` tables, etc.).
+- Linux path handling has case-fallback hardening.
 
 ## Migration Strategy
 
@@ -134,8 +114,8 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 ### 2. Build System
 
 - [x] Add SDL2 find/link options in CMake.
-- [x] Add feature toggle (e.g. `WIZBALL_ENABLE_SDL2`).
-- [x] Keep Allegro build path compiling during transition.
+- [x] Make SDL2 the default build path in CMake.
+- [x] Remove stale SDL2/FMOD build-toggle requirements from active docs/workflow.
 - [ ] Add CI matrix target for SDL2 build.
 
 ### 3. Rendering
@@ -168,7 +148,7 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 ### 6. File + Asset I/O
 
 - [ ] Replace Allegro packfile/datafile dependencies if needed.
-- [ ] Validate `-dat` and non-`-dat` modes under SDL2 build.
+- [ ] Remove or finish decommissioning the remaining legacy compiled-data mode switches.
 - [ ] Keep case-fallback path behavior in shared file layer.
 
 ### 7. Timing + Main Loop
@@ -221,7 +201,7 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 ### M5: Decommission Allegro/FMOD
 
 - [ ] Legacy GL/AllegroGL removed from SDL2 migration build path.
-- [ ] Allegro/FMOD removed from default build.
+- [x] FMOD removed from the default build.
 - [ ] Docs and packaging updated.
 
 ## Risks
@@ -235,7 +215,7 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 
 - [x] `SDL_Renderer` vs SDL + OpenGL backend
 - [x] `SDL_mixer` vs custom mixer
-- [ ] Keep `.dat` workflow as-is or replace over time
+- [ ] Fully remove obsolete `.dat` runtime branches or document the remaining compiled-data cases precisely
 
 ## Progress Snapshot (2026-02-28)
 
@@ -264,13 +244,13 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 
 - Remove legacy GL/AllegroGL path from SDL2 runtime and make SDL renderer unconditionally primary.
 - Complete remaining visual parity edge cases under SDL primary path.
-- Full parity validation pass (menu/gameplay, `-dat`/non-`-dat`, regression matrix).
+- Full parity validation pass across menu/gameplay and remaining compiled-data branches.
 
 ## Change Log
 
 - 2026-02-26: Tracker created.
 - 2026-02-26: Added preserved build/repack command reference.
-- 2026-02-26: Added `WIZBALL_ENABLE_SDL2` CMake option + SDL2 link/discovery path.
+- 2026-02-26: Added SDL2 link/discovery path in CMake during the migration phase.
 - 2026-02-26: Added initial platform abstraction files (`platform.h/.cpp`) and routed wall-clock timing through `PLATFORM_get_wall_time_ms()`.
 - 2026-02-26: Verified both default build (`build`) and SDL2-enabled build (`build_sdl2`) compile.
 - 2026-02-26: Added `platform_input.h/.cpp` abstraction seam and routed keyboard/mouse polling in `control.cpp` through platform input helpers.
@@ -286,10 +266,10 @@ For the PortMaster target (Linux handhelds across mixed ARM SoCs/drivers), prefe
 - 2026-02-26: Added `PLATFORM_WINDOW_begin_text_screen()/end_text_screen()` and routed both `OUTPUT_setup_project_list()` and `OUTPUT_setup_running_mode()` text screen prep through `platform_window`.
 - 2026-02-26: Added `PLATFORM_WINDOW_set_software_game_mode()` and `PLATFORM_WINDOW_set_opengl_game_mode()` and routed `OUTPUT_setup_allegro()` display mode selection through `platform_window`.
 - 2026-02-28: Adopted GL-first decommission order (remove legacy AllegroGL path before broad Allegro runtime removal).
-- 2026-02-28: Added SDL audio backend (`sound_sdl.cpp`) selected when `WIZBALL_ENABLE_SDL2=ON` and `WIZBALL_ENABLE_FMOD=OFF`.
+- 2026-02-28: Added SDL audio backend (`sound_sdl.cpp`) and wired the build to `SDL2_mixer`.
 - 2026-02-28: Added `SDL2_mixer` CMake discovery/linking for SDL2 audio path.
 - 2026-02-28: Ported sound/stream playback, channel control, persistent/fader channels, and global sound/music volume to SDL_mixer backend.
-- 2026-02-28: Fixed missing bonus-level music by repairing malformed `wizball_bonus.mp3` and repacking `stream.dat`.
+- 2026-02-28: Fixed missing bonus-level music by repairing malformed `wizball_bonus.mp3`.
 - 2026-02-28: Added reserved stream/music channels in SDL audio backend to reduce stream-start starvation under SFX load.
 - 2026-02-28: Centralized non-Allegro relative path helper in `path_utils.h/.cpp` and switched SDL audio backend to shared utility.
 - 2026-02-28: Replaced direct `set_gfx_mode(GFX_TEXT,...)` callsites in `control.cpp` setup error paths with `PLATFORM_WINDOW_set_text_mode()`.

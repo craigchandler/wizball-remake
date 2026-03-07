@@ -13,7 +13,7 @@ theme = "github.com/adityatelange/hugo-PaperMod"
 
 [params]
   env = "production"
-  description = "A Wizball remake (Allegro -> SDL2) targeting PortMaster and desktop builds."
+  description = "The Retrospec Wizball remake, its history, preserved source release, and modern builds."
   author = "Craig Chandler"
 
   ShowReadingTime = true
@@ -27,7 +27,7 @@ theme = "github.com/adityatelange/hugo-PaperMod"
 
   [params.homeInfoParams]
     Title = "Wizball Remake"
-    Content = "Retro remake porting Allegro -> SDL2 to run under PortMaster. Devlog + builds + notes."
+    Content = "History of the Retrospec remake, preserved source, devlog, and modern downloads/build notes."
 
   [[params.socialIcons]]
     name = "github"
@@ -35,14 +35,24 @@ theme = "github.com/adityatelange/hugo-PaperMod"
 
 [menu]
   [[menu.main]]
+    name = "The Game"
+    url = "/game/"
+    weight = 5
+
+  [[menu.main]]
     name = "Devlog"
     url = "/posts/"
     weight = 10
 
   [[menu.main]]
-    name = "Build & Install"
-    url = "/build/"
+    name = "Downloads"
+    url = "/downloads/"
     weight = 20
+
+  [[menu.main]]
+    name = "Build From Source"
+    url = "/build/"
+    weight = 25
 
   [[menu.main]]
     name = "About"

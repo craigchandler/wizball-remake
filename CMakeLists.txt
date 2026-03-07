@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(WizBall LANGUAGES CXX)
-
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
 include(CheckCXXSymbolExists)
 include(CheckCXXSourceCompiles)
 
@@ -11,10 +9,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
 option(WIZBALL_ENABLE_ASAN "Build with AddressSanitizer (debug heap corruption)" OFF)
-
-# If you still use the old Allegro 'dat' tool for packing, keep this.
-# If you no longer use .dat packing, you can remove this option and the custom targets below.
-set(WIZBALL_DAT_TOOL "dat" CACHE STRING "Path/name of dat packing tool")
 
 # ---------------------------
 # Sources
@@ -169,43 +163,22 @@ endif()
 # ---------------------------
 # Existing custom targets (optional)
 # ---------------------------
-add_custom_target(run_wizball_dat
-  COMMAND $<TARGET_FILE:wizball> -dat
+add_custom_target(run_wizball
+  COMMAND $<TARGET_FILE:wizball>
   DEPENDS wizball
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wizball
   USES_TERMINAL
 )
 
-add_custom_target(run_wizball_dat_debug
-  COMMAND $<TARGET_FILE:wizball> -dat -debug
+add_custom_target(run_wizball_debug
+  COMMAND $<TARGET_FILE:wizball> -debug
   DEPENDS wizball
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wizball
   USES_TERMINAL
 )
 
-add_custom_target(repack_wizball_data
-  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/repack_wizball_data.py
-          --root ${CMAKE_CURRENT_SOURCE_DIR}
-          --dat-tool ${WIZBALL_DAT_TOOL}
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  USES_TERMINAL
-)
-
-add_custom_target(repack_wizball_data_full
-  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/repack_wizball_data.py
-          --root ${CMAKE_CURRENT_SOURCE_DIR}
-          --dat-tool ${WIZBALL_DAT_TOOL}
-          --include-core-data
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  USES_TERMINAL
-)
-
-add_custom_target(rebuild_wizball_scripts_and_data
+add_custom_target(rebuild_wizball_scripts
   COMMAND $<TARGET_FILE:wizball> -rebuildscripts wizball
-  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/repack_wizball_data.py
-          --root ${CMAKE_CURRENT_SOURCE_DIR}
-          --dat-tool ${WIZBALL_DAT_TOOL}
-          --include-core-data
   DEPENDS wizball
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wizball
   USES_TERMINAL

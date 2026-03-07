@@ -64,7 +64,7 @@ If I've missed anyone, open an issue or PR and I'll fix it.
 
 ## Status
 
-- Tested on modern Arch Linux (including building with modern FMOD enabled).
+- Tested on modern Arch Linux.
 
 ## Project goals (2026 revival)
 
@@ -80,38 +80,38 @@ If I've missed anyone, open an issue or PR and I'll fix it.
 The recovered codebase was not originally in a state that built and ran cleanly on a modern Linux desktop toolchain. Notable 2026 revival changes:
 
 - Build system: added a CMake-based build and Linux compile path, while keeping the original C++98-era constraints.
-- Audio: migrated from the legacy FMOD `FSOUND_*` API usage to the modern FMOD Ex/Core `FMOD_System_*` API, with basic output-driver enumeration/selection.
+- Audio: migrated off the legacy FMOD path onto the SDL2 audio stack, using `SDL_mixer` for sound effects and streamed audio.
 - Frame pacing/input: stabilized the main loop so simulation/input handling is less coupled to render refresh rate, and added optional safeguards for timer/refresh stalls during compositor/display transitions.
 - Data/asset loading: hardened resource loading for Linux (case sensitivity and path assumptions) and added runtime diagnostics/validation to fail fast on bad or partial loads.
 - Safety hardening: added guard rails around collision/map/tile-set handling to avoid crashes from malformed or missing data during bring-up.
-- Packaging workflow: added repack tooling and stopped tracking generated `.dat` packfiles and other runtime-generated artifacts in git.
+- Packaging workflow: moved the active Linux/PortMaster path to direct on-disk assets and stopped tracking generated runtime artifacts in git.
 
 ## Build (Linux)
 
 ### Dependencies
 
-This is an old-school codebase and expects classic desktop OpenGL + CMake.
+The current build is SDL2-based and uses `pkg-config` for dependency discovery.
 
-- Allegro 4
-- AllegroGL
-- OpenGL + GLU
+- C++ compiler with C++11 support
 - CMake 3.16+
-- Python 3 (used by data repack tooling)
-- optional FMOD (OFF by default)
+- pkg-config
+- SDL2
+- SDL2_mixer
+- SDL2_image
 
 ### Build
 
-Default build (no FMOD):
+Default desktop build:
 
 ```bash
-cmake -S . -B build
+cmake -S . -B build -DWIZBALL_PORTMASTER=OFF
 cmake --build build -j
 ```
 
 Release build (recommended for playtesting):
 
 ```bash
-cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release -DWIZBALL_PORTMASTER=OFF
 cmake --build build_release -j
 ```
 
@@ -121,45 +121,17 @@ Run from the `wizball/` data directory:
 
 ```bash
 cd wizball
-../build/wizball -dat
+../build/wizball
 ```
 
 Useful flags:
 
 - `-debug` enables extra logging.
-- `-dat` tells the game to load packed `.dat` resources.
 
-### (Re)pack data
-
-The game can load resources from packed Allegro `.dat` files. If you change assets or need to regenerate packed data, use the repack targets:
+If you changed script/global-parameter content and need to regenerate the compiled script output:
 
 ```bash
-cmake --build build --target repack_wizball_data
-cmake --build build --target repack_wizball_data_full
-```
-
-Outputs are written under `wizball/wizball/` (for example: `gfx.dat`, `sfx.dat`, `stream.dat`, `paths.dat`, `data.dat`).
-
-`repack_wizball_data_full` also refreshes the core runtime `.dat` files used by `-dat` mode (tilemaps/tilesets/prefabs/data tables/scripts).
-
-If you changed script/global-parameter content (for example adding new rotating credit entries), run the full rebuild target first:
-
-```bash
-cmake --build build --target rebuild_wizball_scripts_and_data
-```
-
-This target runs script/global-parameter rebuild for project `wizball`, then performs the full repack.
-
-If the Allegro `dat` tool is not on your `PATH` (it usually comes with Allegro 4 tooling), point CMake at it:
-
-```bash
-cmake -S . -B build -D WIZBALL_DAT_TOOL=/path/to/dat
-```
-
-You can also run the repacker directly:
-
-```bash
-python3 tools/repack_wizball_data.py --root . --dat-tool dat --include-core-data
+cmake --build build --target rebuild_wizball_scripts
 ```
 
 ## Legal and licensing notes
