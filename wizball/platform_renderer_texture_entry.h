@@ -13,6 +13,11 @@ typedef struct
     unsigned char *sdl_rgba_pixels;
     int width;
     int height;
+    int sdl_atlas_x;
+    int sdl_atlas_y;
+    int sdl_atlas_w;
+    int sdl_atlas_h;
+    bool sdl_atlas_mapped;
 } platform_renderer_texture_entry;
 
 #endif // PLATFORM_RENDERER_TEXTURE_ENTRY_H
