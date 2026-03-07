@@ -2364,21 +2364,15 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 					MAIN_debug_last_thing("Set primary vertex colour and alpha.");
 #endif
 					/*
-					 * SDL port: VERTEX_COLOUR_ALPHA was originally an alpha-only control in
-					 * most scripts (fade in/out: only opengl_vertex_alpha is set, rgb stays
-					 * at reset_entity default 0,0,0).  Passing rgb=0 to SDL_SetTextureColorMod
-					 * would multiply the texture to black.
-					 *
-					 * However some scripts (e.g. new_cauldron_liquid_underlay) use
-					 * VERTEX_COLOUR_ALPHA and also explicitly set rgb to carry a tint colour.
-					 * We must honour those non-zero values.
-					 *
-					 * Heuristic: if rgb is still (0,0,0) — the reset_entity default — treat
-					 * it as unset and substitute white (1,1,1).  If a script has written any
-					 * non-zero value to any channel, use the entity values as-is.
-					 * VERTEX_COLOUR always uses entity rgb regardless.
+					 * SDL port: VERTEX_COLOUR_ALPHA is often alpha-only on textured sprites
+					 * (rgb left at reset default 0,0,0). For those, substitute white rgb to
+					 * avoid unintentionally black-multiplying the texture. Do not apply that
+					 * substitution to non-textured draw modes (e.g. solid rectangles), where
+					 * explicit black is a valid authored colour.
 					 */
+					const bool draw_mode_uses_texture_rgb = OUTPUT_draw_mode_requires_bitmap(draw_type);
 					const bool vcalpha_rgb_is_default =
+						draw_mode_uses_texture_rgb &&
 						(entity_pointer[ENT_OPENGL_VERTEX_RED]   == 0) &&
 						(entity_pointer[ENT_OPENGL_VERTEX_GREEN] == 0) &&
 						(entity_pointer[ENT_OPENGL_VERTEX_BLUE]  == 0) &&
