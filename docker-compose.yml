@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  qemu:
+    image: multiarch/qemu-user-static
+    command: --reset -p yes
+    privileged: true
+    network_mode: "host"
+    restart: "no"
+
+  builder:
+    image: ghcr.io/monkeyx-net/portmaster-build-templates/portmaster-builder:aarch64-latest
+    platform: linux/arm64
+    volumes:
+      - ./:/workspace
+    working_dir: /workspace
+    network_mode: "host"
+    stdin_open: true
+    tty: true
+    depends_on:
+      - qemu
+    restart: "no"
