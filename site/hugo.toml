@@ -3,13 +3,11 @@ languageCode = "en-au"
 title = "Wizball Remake"
 
 enableRobotsTXT = true
-paginate = 10
 
 theme = "github.com/adityatelange/hugo-PaperMod"
 
-[module]
-  [[module.imports]]
-    path = "github.com/adityatelange/hugo-PaperMod"
+[pagination]
+  pagerSize = 10
 
 [params]
   env = "production"
