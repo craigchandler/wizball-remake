@@ -145,7 +145,7 @@ void FILE_reset_to_file(FILE *file_pointer)
 	FILE_put_string_to_file(file_pointer, "", true);
 }
 
-void FILE_get_data_from_file(FILE *file_pointer, char *word, bool reset)
+void FILE_get_data_from_file(FILE *file_pointer, char *word, size_t word_size, bool reset)
 {
 	// This grabs a line from the given file and then gradually digests it until all the values
 	// from it have been used up, whereupon it gets another value. Lubbly.
@@ -163,10 +163,11 @@ void FILE_get_data_from_file(FILE *file_pointer, char *word, bool reset)
 			pointer = strtok(line, ",\r\t\n");
 		}
 		if (pointer != NULL)
-			strcpy(word, pointer);
+			strncpy(word, pointer, word_size - 1), word[word_size - 1] = '\0';
 		else
 		{
-			strcpy(word, "");
+			if (word_size > 0)
+				word[0] = '\0';
 		}
 
 		pointer = strtok(NULL, ",\r\t\n");
@@ -179,12 +180,12 @@ void FILE_get_data_from_file(FILE *file_pointer, char *word, bool reset)
 
 void FILE_reset_from_file(FILE *file_pointer)
 {
-	FILE_get_data_from_file(file_pointer, "", true);
+	FILE_get_data_from_file(file_pointer, (char *)"", 0, true);
 }
 
-void FILE_get_string_from_file(FILE *file_pointer, char *word)
+void FILE_get_string_from_file(FILE *file_pointer, char *word, size_t word_size)
 {
-	FILE_get_data_from_file(file_pointer, word, false);
+	FILE_get_data_from_file(file_pointer, word, word_size, false);
 }
 
 float FILE_get_float_from_file(FILE *file_pointer)
@@ -192,7 +193,7 @@ float FILE_get_float_from_file(FILE *file_pointer)
 	static char word[TEXT_LINE_SIZE];
 	float value;
 
-	FILE_get_data_from_file(file_pointer, word, false);
+	FILE_get_data_from_file(file_pointer, word, sizeof(word), false);
 
 	value = float(atof(word));
 
@@ -204,7 +205,7 @@ int FILE_get_int_from_file(FILE *file_pointer)
 	static char word[TEXT_LINE_SIZE];
 	int value;
 
-	FILE_get_data_from_file(file_pointer, word, false);
+	FILE_get_data_from_file(file_pointer, word, sizeof(word), false);
 
 	value = atoi(word);
 

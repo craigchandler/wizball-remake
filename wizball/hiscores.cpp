@@ -102,7 +102,7 @@ char *HISCORE_checkcode (int unique_id, char *name, int score)
 
 	static char checkword[9] = {"        "};
 
-	char line[MAX_LINE_SIZE];
+	char line[2048];
 
 	snprintf (line, sizeof(line), "%i%s%i",unique_id,name,score);
 
@@ -584,9 +584,9 @@ void HISCORES_append_new_hiscore (int unique_id, int score)
 
 	HISCORES_check_for_and_replace_upload_code_file();
 
-	char line[MAX_LINE_SIZE];
-	char date[MAX_LINE_SIZE];
-	char uuencoded_line[MAX_LINE_SIZE];
+	char line[2048];
+	char date[2048];
+	char uuencoded_line[2048];
 
 	int scores[1];
 	scores[0] = score;
@@ -604,7 +604,21 @@ void HISCORES_append_new_hiscore (int unique_id, int score)
 	snprintf (date, sizeof(date), "%s", asctime (timeinfo));
 	STRING_strip_all_disposable (date);
 
-	snprintf (line , sizeof(line), "Hi-score %i scored on %s = [%s]\n", score , date , &uuencoded_line[0]);
+	{
+		int len = snprintf(line, sizeof(line), "Hi-score %i scored on %s = [", score, date);
+		if (len < 0) len = 0;
+		size_t used = (size_t)len;
+		size_t cap = sizeof(line);
+		if (used < cap - 2) {
+			size_t remain = cap - used - 2; /* reserve for ]\n and NUL */
+			strncpy(line + used, &uuencoded_line[0], remain);
+			line[used + remain] = '\0';
+			size_t appended = strnlen(line + used, remain);
+			snprintf(line + used + appended, cap - used - appended, "]\n");
+		} else {
+			if (used < cap) line[used] = '\0';
+		}
+	}
 
 	FILE *file_pointer = fopen (MAIN_get_project_filename("hiscore_upload_codes.txt", true),"a");
 

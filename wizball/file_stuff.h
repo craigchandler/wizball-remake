@@ -7,9 +7,9 @@ void FILE_put_string_to_file (FILE *file_pointer, char *word, bool flush);
 void EDIT_put_int_to_file (FILE *file_pointer, int value, bool flush);
 void EDIT_put_float_to_file (FILE *file_pointer, float value, bool flush);
 void FILE_reset_to_file (FILE *file_pointer);
-void FILE_get_data_from_file (FILE *file_pointer, char *word, bool reset);
+void FILE_get_data_from_file (FILE *file_pointer, char *word, size_t word_size, bool reset);
 void FILE_reset_from_file (FILE *file_pointer);
-void FILE_get_string_from_file (FILE *file_pointer, char *word);
+void FILE_get_string_from_file (FILE *file_pointer, char *word, size_t word_size);
 float FILE_get_float_from_file (FILE *file_pointer);
 int FILE_get_int_from_file (FILE *file_pointer);
 

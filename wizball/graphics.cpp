@@ -52,7 +52,7 @@ void GRAPHICS_load_graphics()
 	}
 
 	#ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
-		char debug_text[MAX_LINE_SIZE];
+		char debug_text[2048];
 		snprintf(debug_text, sizeof(debug_text), "Entered graphic loading function...");
 		MAIN_debug_last_thing (debug_text);
 	#endif

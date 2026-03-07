@@ -158,7 +158,7 @@ void GAME_game(void)
 
 void GAME_output_list_to_bat_file(FILE *fp, char *list, char *tags, char *packname, bool special_tag = false)
 {
-	char text[MAX_LINE_SIZE];
+	char text[2048];
 	char extension[MAX_LINE_SIZE];
 	char project_dir[MAX_LINE_SIZE];
 	int t;
@@ -211,7 +211,7 @@ void GAME_create_resource_bat_file(void)
 {
 	char filename[MAX_LINE_SIZE];
 	char project_dir[MAX_LINE_SIZE];
-	char text[MAX_LINE_SIZE];
+	char text[2048];
 
 	snprintf(filename, sizeof(filename), "data_compile_%s" BAT_EXT, MAIN_get_project_name());
 	strcpy(project_dir, MAIN_get_project_name());

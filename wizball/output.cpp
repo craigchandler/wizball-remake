@@ -2685,8 +2685,8 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 
 							if (opengl_booleans & OPENGL_BOOLEAN_ROTATE_CLOCKWISE)
 							{
-								const float quad_x[4] = {aq_pointer->x[1], aq_pointer->x[0], aq_pointer->x[2], aq_pointer->x[3]};
-								const float quad_y[4] = {aq_pointer->y[1], aq_pointer->y[0], aq_pointer->y[2], aq_pointer->y[3]};
+								const float quad_x[4] = {(float)aq_pointer->x[1], (float)aq_pointer->x[0], (float)aq_pointer->x[2], (float)aq_pointer->x[3]};
+								const float quad_y[4] = {(float)aq_pointer->y[1], (float)aq_pointer->y[0], (float)aq_pointer->y[2], (float)aq_pointer->y[3]};
 								const float quad_u0[4] = {u1, u1, u2, u2};
 								const float quad_v0[4] = {v1, v2, v2, v1};
 								const float quad_u1[4] = {secondary_u1, secondary_u1, secondary_u2, secondary_u2};
@@ -2695,8 +2695,8 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 							}
 							else
 							{
-								const float quad_x[4] = {aq_pointer->x[0], aq_pointer->x[2], aq_pointer->x[3], aq_pointer->x[1]};
-								const float quad_y[4] = {aq_pointer->y[0], aq_pointer->y[2], aq_pointer->y[3], aq_pointer->y[1]};
+								const float quad_x[4] = {(float)aq_pointer->x[0], (float)aq_pointer->x[2], (float)aq_pointer->x[3], (float)aq_pointer->x[1]};
+								const float quad_y[4] = {(float)aq_pointer->y[0], (float)aq_pointer->y[2], (float)aq_pointer->y[3], (float)aq_pointer->y[1]};
 								const float quad_u0[4] = {u1, u1, u2, u2};
 								const float quad_v0[4] = {v1, v1, v2, v1};
 								const float quad_u1[4] = {secondary_u1, secondary_u1, secondary_u2, secondary_u2};
@@ -2749,8 +2749,8 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 
 								if (opengl_booleans & OPENGL_BOOLEAN_ROTATE_CLOCKWISE)
 								{
-									const float quad_x[4] = {aq_pointer->x[1], aq_pointer->x[0], aq_pointer->x[2], aq_pointer->x[3]};
-									const float quad_y[4] = {aq_pointer->y[1], aq_pointer->y[0], aq_pointer->y[2], aq_pointer->y[3]};
+									const float quad_x[4] = {(float)aq_pointer->x[1], (float)aq_pointer->x[0], (float)aq_pointer->x[2], (float)aq_pointer->x[3]};
+									const float quad_y[4] = {(float)aq_pointer->y[1], (float)aq_pointer->y[0], (float)aq_pointer->y[2], (float)aq_pointer->y[3]};
 									const float quad_u[4] = {u1, u1, u2, u2};
 									const float quad_v[4] = {v1, v2, v2, v1};
 									const float quad_r[4] = {avc_pointer->red[1], avc_pointer->red[0], avc_pointer->red[2], avc_pointer->red[3]};
@@ -2761,8 +2761,8 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 								}
 								else
 								{
-									const float quad_x[4] = {aq_pointer->x[0], aq_pointer->x[2], aq_pointer->x[3], aq_pointer->x[1]};
-									const float quad_y[4] = {aq_pointer->y[0], aq_pointer->y[2], aq_pointer->y[3], aq_pointer->y[1]};
+									const float quad_x[4] = {(float)aq_pointer->x[0], (float)aq_pointer->x[2], (float)aq_pointer->x[3], (float)aq_pointer->x[1]};
+									const float quad_y[4] = {(float)aq_pointer->y[0], (float)aq_pointer->y[2], (float)aq_pointer->y[3], (float)aq_pointer->y[1]};
 									const float quad_u[4] = {u1, u1, u2, u2};
 									const float quad_v[4] = {v1, v2, v2, v1};
 									const float quad_r[4] = {avc_pointer->red[0], avc_pointer->red[2], avc_pointer->red[3], avc_pointer->red[1]};
