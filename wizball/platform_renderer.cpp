@@ -36,11 +36,6 @@ static void PLATFORM_RENDERER_gles2_shutdown(void);
 static bool PLATFORM_RENDERER_gles2_is_ready(void);
 static bool PLATFORM_RENDERER_build_gles2_texture_from_entry(platform_renderer_texture_entry *entry);
 static void PLATFORM_RENDERER_gles2_prewarm_registered_textures(void);
-static void PLATFORM_RENDERER_gles2_prepare_viewport(void);
-static void PLATFORM_RENDERER_gles2_bind_program(GLuint program, GLint screen_uniform);
-static void PLATFORM_RENDERER_gles2_set_masked_uniform(GLint uniform_location);
-static void PLATFORM_RENDERER_gles2_bind_texture_unit(int texture_unit, GLuint tex);
-static void PLATFORM_RENDERER_gles2_apply_texture_params(platform_renderer_texture_entry *entry, bool filter_linear, bool repeat_s, bool repeat_t);
 static void PLATFORM_RENDERER_gles2_apply_blend_state(void);
 static bool PLATFORM_RENDERER_gles2_draw_textured_geometry_gltex(
 		GLuint tex,
@@ -72,8 +67,6 @@ static bool PLATFORM_RENDERER_gles2_draw_textured_subrect_geometry(
 		int index_count,
 		int source_id);
 static float PLATFORM_RENDERER_convert_v_to_sdl(float v);
-static bool PLATFORM_RENDERER_is_power_of_two_dimension(int value);
-static bool PLATFORM_RENDERER_gles2_source_supports_wrapped_quads(int source_id);
 static bool PLATFORM_RENDERER_gles2_indices_are_sequential_quads(const int *indices, int index_count);
 static void PLATFORM_RENDERER_gles2_interp_vertex(SDL_Vertex *out, const SDL_Vertex *a, const SDL_Vertex *b, float t);
 static void PLATFORM_RENDERER_gles2_normalize_quad_uv_band(SDL_Vertex quad[4]);
@@ -167,16 +160,6 @@ static GLint platform_renderer_gles2_multitex_uniform_sampler1 = -1;
 static GLint platform_renderer_gles2_multitex_uniform_mode = -1;
 static GLint platform_renderer_gles2_multitex_uniform_masked = -1;
 static GLuint platform_renderer_gles2_white_texture = 0;
-static GLint platform_renderer_gles2_cached_viewport_w = -1;
-static GLint platform_renderer_gles2_cached_viewport_h = -1;
-static GLuint platform_renderer_gles2_cached_program = 0;
-static GLint platform_renderer_gles2_cached_active_texture_unit = -1;
-static GLuint platform_renderer_gles2_cached_texture_unit0 = 0;
-static GLuint platform_renderer_gles2_cached_texture_unit1 = 0;
-static int platform_renderer_gles2_cached_masked_simple = -1;
-static int platform_renderer_gles2_cached_masked_multitex = -1;
-static int platform_renderer_gles2_cached_blend_enabled = -1;
-static int platform_renderer_gles2_cached_blend_mode = -1;
 #endif
 static bool platform_renderer_sdl_stub_show_checked_env = false;
 static bool platform_renderer_sdl_stub_show_enabled = false;
@@ -913,16 +896,6 @@ static void PLATFORM_RENDERER_gles2_shutdown(void)
 		SDL_GL_DeleteContext(platform_renderer_gles2_context);
 		platform_renderer_gles2_context = NULL;
 	}
-	platform_renderer_gles2_cached_viewport_w = -1;
-	platform_renderer_gles2_cached_viewport_h = -1;
-	platform_renderer_gles2_cached_program = 0;
-	platform_renderer_gles2_cached_active_texture_unit = -1;
-	platform_renderer_gles2_cached_texture_unit0 = 0;
-	platform_renderer_gles2_cached_texture_unit1 = 0;
-	platform_renderer_gles2_cached_masked_simple = -1;
-	platform_renderer_gles2_cached_masked_multitex = -1;
-	platform_renderer_gles2_cached_blend_enabled = -1;
-	platform_renderer_gles2_cached_blend_mode = -1;
 }
 
 static bool PLATFORM_RENDERER_build_gles2_texture_from_entry(platform_renderer_texture_entry *entry)
@@ -969,86 +942,6 @@ static void PLATFORM_RENDERER_gles2_prewarm_registered_textures(void)
 		{
 			(void)PLATFORM_RENDERER_build_gles2_texture_from_entry(entry);
 		}
-	}
-}
-
-static void PLATFORM_RENDERER_gles2_prepare_viewport(void)
-{
-	if ((platform_renderer_gles2_cached_viewport_w != platform_renderer_present_width) ||
-			(platform_renderer_gles2_cached_viewport_h != platform_renderer_present_height))
-	{
-		glViewport(0, 0, platform_renderer_present_width, platform_renderer_present_height);
-		platform_renderer_gles2_cached_viewport_w = platform_renderer_present_width;
-		platform_renderer_gles2_cached_viewport_h = platform_renderer_present_height;
-	}
-}
-
-static void PLATFORM_RENDERER_gles2_bind_program(GLuint program, GLint screen_uniform)
-{
-	if (platform_renderer_gles2_cached_program != program)
-	{
-		glUseProgram(program);
-		platform_renderer_gles2_cached_program = program;
-		if (screen_uniform >= 0)
-		{
-			glUniform2f(screen_uniform, (GLfloat)platform_renderer_present_width, (GLfloat)platform_renderer_present_height);
-		}
-	}
-}
-
-static void PLATFORM_RENDERER_gles2_set_masked_uniform(GLint uniform_location)
-{
-	int masked = platform_renderer_texture_masked ? 1 : 0;
-	int *cached = (uniform_location == platform_renderer_gles2_uniform_masked)
-		? &platform_renderer_gles2_cached_masked_simple
-		: &platform_renderer_gles2_cached_masked_multitex;
-
-	if ((*cached != masked) && (uniform_location >= 0))
-	{
-		glUniform1i(uniform_location, masked);
-		*cached = masked;
-	}
-}
-
-static void PLATFORM_RENDERER_gles2_bind_texture_unit(int texture_unit, GLuint tex)
-{
-	GLuint *cached_tex = (texture_unit == GL_TEXTURE1)
-		? &platform_renderer_gles2_cached_texture_unit1
-		: &platform_renderer_gles2_cached_texture_unit0;
-
-	if (platform_renderer_gles2_cached_active_texture_unit != texture_unit)
-	{
-		glActiveTexture(texture_unit);
-		platform_renderer_gles2_cached_active_texture_unit = texture_unit;
-	}
-	if (*cached_tex != tex)
-	{
-		glBindTexture(GL_TEXTURE_2D, tex);
-		*cached_tex = tex;
-	}
-}
-
-static void PLATFORM_RENDERER_gles2_apply_texture_params(platform_renderer_texture_entry *entry, bool filter_linear, bool repeat_s, bool repeat_t)
-{
-	if (entry == NULL)
-	{
-		return;
-	}
-	if (entry->gles2_filter_linear != filter_linear)
-	{
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter_linear ? GL_LINEAR : GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter_linear ? GL_LINEAR : GL_NEAREST);
-		entry->gles2_filter_linear = filter_linear;
-	}
-	if (entry->gles2_wrap_s_repeat != repeat_s)
-	{
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, repeat_s ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-		entry->gles2_wrap_s_repeat = repeat_s;
-	}
-	if (entry->gles2_wrap_t_repeat != repeat_t)
-	{
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, repeat_t ? GL_REPEAT : GL_CLAMP_TO_EDGE);
-		entry->gles2_wrap_t_repeat = repeat_t;
 	}
 }
 
@@ -1211,7 +1104,10 @@ static bool PLATFORM_RENDERER_gles2_draw_textured_geometry(unsigned int texture_
 	}
 
 	if ((repeat_s || repeat_t) &&
-			PLATFORM_RENDERER_gles2_source_supports_wrapped_quads(source_id) &&
+			((source_id == PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD) ||
+			 (source_id == PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD_CUSTOM) ||
+			 (source_id == PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE) ||
+			 (source_id == PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE)) &&
 			PLATFORM_RENDERER_gles2_draw_wrapped_quad_geometry_gltex(
 				tex,
 				texture_handle,
@@ -1578,33 +1474,33 @@ static bool PLATFORM_RENDERER_gles2_draw_multitextured_perspective_quad(
 		positions[(base_vertex + 0) * 2 + 0] = tx;
 		positions[(base_vertex + 0) * 2 + 1] = (float)platform_renderer_present_height - ty;
 		primary_uv[(base_vertex + 0) * 2 + 0] = u0_1;
-		primary_uv[(base_vertex + 0) * 2 + 1] = 1.0f - primary_v0;
+		primary_uv[(base_vertex + 0) * 2 + 1] = primary_v0;
 		secondary_uv[(base_vertex + 0) * 2 + 0] = u1_1;
-		secondary_uv[(base_vertex + 0) * 2 + 1] = 1.0f - secondary_v0;
+		secondary_uv[(base_vertex + 0) * 2 + 1] = secondary_v0;
 
 		PLATFORM_RENDERER_transform_point(left_x1, left_y1, &tx, &ty);
 		positions[(base_vertex + 1) * 2 + 0] = tx;
 		positions[(base_vertex + 1) * 2 + 1] = (float)platform_renderer_present_height - ty;
 		primary_uv[(base_vertex + 1) * 2 + 0] = u0_1;
-		primary_uv[(base_vertex + 1) * 2 + 1] = 1.0f - primary_v1;
+		primary_uv[(base_vertex + 1) * 2 + 1] = primary_v1;
 		secondary_uv[(base_vertex + 1) * 2 + 0] = u1_1;
-		secondary_uv[(base_vertex + 1) * 2 + 1] = 1.0f - secondary_v1;
+		secondary_uv[(base_vertex + 1) * 2 + 1] = secondary_v1;
 
 		PLATFORM_RENDERER_transform_point(right_x1, right_y1, &tx, &ty);
 		positions[(base_vertex + 2) * 2 + 0] = tx;
 		positions[(base_vertex + 2) * 2 + 1] = (float)platform_renderer_present_height - ty;
 		primary_uv[(base_vertex + 2) * 2 + 0] = u0_2;
-		primary_uv[(base_vertex + 2) * 2 + 1] = 1.0f - primary_v1;
+		primary_uv[(base_vertex + 2) * 2 + 1] = primary_v1;
 		secondary_uv[(base_vertex + 2) * 2 + 0] = u1_2;
-		secondary_uv[(base_vertex + 2) * 2 + 1] = 1.0f - secondary_v1;
+		secondary_uv[(base_vertex + 2) * 2 + 1] = secondary_v1;
 
 		PLATFORM_RENDERER_transform_point(right_x0, right_y0, &tx, &ty);
 		positions[(base_vertex + 3) * 2 + 0] = tx;
 		positions[(base_vertex + 3) * 2 + 1] = (float)platform_renderer_present_height - ty;
 		primary_uv[(base_vertex + 3) * 2 + 0] = u0_2;
-		primary_uv[(base_vertex + 3) * 2 + 1] = 1.0f - primary_v0;
+		primary_uv[(base_vertex + 3) * 2 + 1] = primary_v0;
 		secondary_uv[(base_vertex + 3) * 2 + 0] = u1_2;
-		secondary_uv[(base_vertex + 3) * 2 + 1] = 1.0f - secondary_v0;
+		secondary_uv[(base_vertex + 3) * 2 + 1] = secondary_v0;
 
 		for (i = 0; i < 4; i++)
 		{
@@ -2610,115 +2506,6 @@ static void PLATFORM_RENDERER_build_safe_gles2_uv_bounds(
 	if (out_v_bottom != NULL) *out_v_bottom = bottom;
 }
 
-static float PLATFORM_RENDERER_estimate_alpha_coverage(
-		const platform_renderer_texture_entry *entry,
-		const SDL_Rect *src_rect)
-{
-	int x;
-	int y;
-	int opaque = 0;
-	int total = 0;
-
-	if ((entry == NULL) || (entry->sdl_rgba_pixels == NULL) || (src_rect == NULL))
-	{
-		return -1.0f;
-	}
-	if ((src_rect->w <= 0) || (src_rect->h <= 0))
-	{
-		return -1.0f;
-	}
-
-	for (y = 0; y < src_rect->h; y++)
-	{
-		for (x = 0; x < src_rect->w; x++)
-		{
-			const int px = src_rect->x + x;
-			const int py = src_rect->y + y;
-			if ((px < 0) || (px >= entry->width) || (py < 0) || (py >= entry->height))
-			{
-				continue;
-			}
-			{
-				const size_t idx = ((size_t)py * (size_t)entry->width + (size_t)px) * 4u + 3u;
-				if (entry->sdl_rgba_pixels[idx] > 0u)
-				{
-					opaque++;
-				}
-				total++;
-			}
-		}
-	}
-
-	if (total <= 0)
-	{
-		return -1.0f;
-	}
-	return (float)opaque / (float)total;
-}
-
-static void PLATFORM_RENDERER_estimate_rect_colour_stats(
-		const platform_renderer_texture_entry *entry,
-		const SDL_Rect *src_rect,
-		float *out_avg_r,
-		float *out_avg_g,
-		float *out_avg_b,
-		float *out_avg_a)
-{
-	int x;
-	int y;
-	double sum_r = 0.0;
-	double sum_g = 0.0;
-	double sum_b = 0.0;
-	double sum_a = 0.0;
-	int total = 0;
-
-	if (out_avg_r != NULL)
-		*out_avg_r = -1.0f;
-	if (out_avg_g != NULL)
-		*out_avg_g = -1.0f;
-	if (out_avg_b != NULL)
-		*out_avg_b = -1.0f;
-	if (out_avg_a != NULL)
-		*out_avg_a = -1.0f;
-
-	if ((entry == NULL) || (entry->sdl_rgba_pixels == NULL) || (src_rect == NULL) || (src_rect->w <= 0) || (src_rect->h <= 0))
-	{
-		return;
-	}
-
-	for (y = 0; y < src_rect->h; y++)
-	{
-		for (x = 0; x < src_rect->w; x++)
-		{
-			const int px = src_rect->x + x;
-			const int py = src_rect->y + y;
-			size_t idx;
-			if ((px < 0) || (px >= entry->width) || (py < 0) || (py >= entry->height))
-			{
-				continue;
-			}
-			idx = ((size_t)py * (size_t)entry->width + (size_t)px) * 4u;
-			sum_r += (double)entry->sdl_rgba_pixels[idx + 0u];
-			sum_g += (double)entry->sdl_rgba_pixels[idx + 1u];
-			sum_b += (double)entry->sdl_rgba_pixels[idx + 2u];
-			sum_a += (double)entry->sdl_rgba_pixels[idx + 3u];
-			total++;
-		}
-	}
-
-	if (total > 0)
-	{
-		if (out_avg_r != NULL)
-			*out_avg_r = (float)(sum_r / (double)total);
-		if (out_avg_g != NULL)
-			*out_avg_g = (float)(sum_g / (double)total);
-		if (out_avg_b != NULL)
-			*out_avg_b = (float)(sum_b / (double)total);
-		if (out_avg_a != NULL)
-			*out_avg_a = (float)(sum_a / (double)total);
-	}
-}
-
 static float PLATFORM_RENDERER_wrap01(float value)
 {
 	float wrapped = fmodf(value, 1.0f);
@@ -2729,23 +2516,117 @@ static float PLATFORM_RENDERER_wrap01(float value)
 	return wrapped;
 }
 
-static bool PLATFORM_RENDERER_is_power_of_two_dimension(int value)
+typedef struct platform_renderer_axis_wrap_split
 {
-	return (value > 0) && ((value & (value - 1)) == 0);
-}
+	float t_split;
+	float a_u1;
+	float a_u2;
+	float b_u1;
+	float b_u2;
+} platform_renderer_axis_wrap_split;
 
-static bool PLATFORM_RENDERER_gles2_source_supports_wrapped_quads(int source_id)
+static bool PLATFORM_RENDERER_build_axis_wrap_u_split(
+		float u1,
+		float v1,
+		float u2,
+		float v2,
+		platform_renderer_axis_wrap_split *out_split)
 {
-	switch (source_id)
+	const float du = u2 - u1;
+	const float abs_du = fabsf(du);
+	float t_split;
+
+	if (out_split == NULL)
 	{
-	case PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD:
-	case PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD_CUSTOM:
-	case PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE:
-	case PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE:
-		return true;
-	default:
 		return false;
 	}
+	if (abs_du < 0.00001f)
+	{
+		return false;
+	}
+	if (abs_du > 1.001f)
+	{
+		return false;
+	}
+	if ((v1 < 0.0f) || (v1 > 1.0f) || (v2 < 0.0f) || (v2 > 1.0f))
+	{
+		return false;
+	}
+	if ((floorf(u1) == floorf(u2)) && (u1 >= 0.0f) && (u1 <= 1.0f) && (u2 >= 0.0f) && (u2 <= 1.0f))
+	{
+		return false;
+	}
+
+	if (du > 0.0f)
+	{
+		const float boundary = floorf(u1) + 1.0f;
+		t_split = (boundary - u1) / du;
+		if ((t_split <= 0.00001f) || (t_split >= 0.99999f))
+		{
+			return false;
+		}
+
+		out_split->a_u1 = PLATFORM_RENDERER_wrap01(u1);
+		out_split->a_u2 = 1.0f;
+		out_split->b_u1 = 0.0f;
+		out_split->b_u2 = PLATFORM_RENDERER_wrap01(u2);
+	}
+	else
+	{
+		const float boundary = floorf(u1);
+		t_split = (u1 - boundary) / abs_du;
+		if ((t_split <= 0.00001f) || (t_split >= 0.99999f))
+		{
+			return false;
+		}
+
+		out_split->a_u1 = PLATFORM_RENDERER_wrap01(u1);
+		out_split->a_u2 = 0.0f;
+		out_split->b_u1 = 1.0f;
+		out_split->b_u2 = PLATFORM_RENDERER_wrap01(u2);
+	}
+
+	out_split->t_split = t_split;
+	return true;
+}
+
+static bool PLATFORM_RENDERER_build_axis_wrap_split_rects(
+		const SDL_Rect *dst_rect,
+		const platform_renderer_axis_wrap_split *split,
+		SDL_Rect *out_a,
+		SDL_Rect *out_b)
+{
+	int split_x;
+
+	if ((dst_rect == NULL) || (split == NULL) || (out_a == NULL) || (out_b == NULL))
+	{
+		return false;
+	}
+	if ((dst_rect->w <= 0) || (dst_rect->h <= 0))
+	{
+		return false;
+	}
+
+	split_x = dst_rect->x + (int)floorf(((float)dst_rect->w * split->t_split) + 0.5f);
+	if (split_x <= dst_rect->x)
+	{
+		split_x = dst_rect->x + 1;
+	}
+	if (split_x >= (dst_rect->x + dst_rect->w))
+	{
+		split_x = dst_rect->x + dst_rect->w - 1;
+	}
+
+	out_a->x = dst_rect->x;
+	out_a->y = dst_rect->y;
+	out_a->w = split_x - dst_rect->x;
+	out_a->h = dst_rect->h;
+	out_b->x = split_x;
+	out_b->y = dst_rect->y;
+	out_b->w = (dst_rect->x + dst_rect->w) - split_x;
+	out_b->h = dst_rect->h;
+
+	return (out_a->w > 0) && (out_b->w > 0);
 }
 
 static bool PLATFORM_RENDERER_gles2_indices_are_sequential_quads(const int *indices, int index_count)
@@ -3046,50 +2927,6 @@ static bool PLATFORM_RENDERER_gles2_draw_wrapped_quad_geometry_gltex(
 				if (quads[current][vi].tex_coord.y > max_v) max_v = quads[current][vi].tex_coord.y;
 			}
 
-			if ((logical_texture_handle == 41u) &&
-					((source_id == PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE) ||
-					 (source_id == PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE)))
-			{
-				static unsigned int gles2_wrapped_perspective_final_logs = 0;
-				if (gles2_wrapped_perspective_final_logs < 120)
-				{
-					float min_x = quads[current][0].position.x;
-					float min_y = quads[current][0].position.y;
-					float max_x = quads[current][0].position.x;
-					float max_y = quads[current][0].position.y;
-					float min_u = quads[current][0].tex_coord.x;
-					float min_v = quads[current][0].tex_coord.y;
-					float max_u = quads[current][0].tex_coord.x;
-					float max_v = quads[current][0].tex_coord.y;
-					int vi;
-					for (vi = 1; vi < 4; vi++)
-					{
-						if (quads[current][vi].position.x < min_x) min_x = quads[current][vi].position.x;
-						if (quads[current][vi].position.y < min_y) min_y = quads[current][vi].position.y;
-						if (quads[current][vi].position.x > max_x) max_x = quads[current][vi].position.x;
-						if (quads[current][vi].position.y > max_y) max_y = quads[current][vi].position.y;
-						if (quads[current][vi].tex_coord.x < min_u) min_u = quads[current][vi].tex_coord.x;
-						if (quads[current][vi].tex_coord.y < min_v) min_v = quads[current][vi].tex_coord.y;
-						if (quads[current][vi].tex_coord.x > max_u) max_u = quads[current][vi].tex_coord.x;
-						if (quads[current][vi].tex_coord.y > max_v) max_v = quads[current][vi].tex_coord.y;
-					}
-					gles2_wrapped_perspective_final_logs++;
-					fprintf(
-						stderr,
-						"[GLES2-FINAL %u] tag=wrapped_perspective_quad tex=%u src=%d bounds=(%.1f,%.1f)-(%.1f,%.1f) uv=(%.4f,%.4f)-(%.4f,%.4f) scissor=%d(%d,%d,%d,%d)\n",
-						gles2_wrapped_perspective_final_logs,
-						logical_texture_handle,
-						source_id,
-						min_x, min_y, max_x, max_y,
-						min_u, min_v, max_u, max_v,
-						platform_renderer_legacy_scissor_enabled_last,
-						platform_renderer_legacy_scissor_last[0],
-						platform_renderer_legacy_scissor_last[1],
-						platform_renderer_legacy_scissor_last[2],
-						platform_renderer_legacy_scissor_last[3]);
-				}
-			}
-
 			if ((entry != NULL) &&
 					PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, min_u, min_v, max_u, max_v, &src_rect))
 			{
@@ -3143,16 +2980,9 @@ static bool PLATFORM_RENDERER_draw_axis_wrapped_u_repeat(
 		Uint8 mod_r, Uint8 mod_g, Uint8 mod_b, Uint8 mod_a,
 		int source_id)
 {
-	float du;
-	float abs_du;
-	int split_x;
-	float t_split;
+	platform_renderer_axis_wrap_split split;
 	SDL_Rect dst_a;
 	SDL_Rect dst_b;
-	float a_u1;
-	float a_u2;
-	float b_u1;
-	float b_u2;
 
 	if ((entry == NULL) || (draw_texture == NULL) || (dst_rect == NULL))
 	{
@@ -3163,80 +2993,11 @@ static bool PLATFORM_RENDERER_draw_axis_wrapped_u_repeat(
 		return false;
 	}
 
-	/*
-	 * This path emulates GL_REPEAT for axis-aligned quads where U spans across a
-	 * texture seam (common in scrolling level backgrounds). The current content
-	 * only needs one seam split (|du| ~= 1.0), so keep the implementation tight.
-	 */
-	du = u2 - u1;
-	abs_du = fabsf(du);
-	if (abs_du < 0.00001f)
+	if (!PLATFORM_RENDERER_build_axis_wrap_u_split(u1, v1, u2, v2, &split))
 	{
 		return false;
 	}
-	if (abs_du > 1.001f)
-	{
-		return false;
-	}
-	if ((v1 < 0.0f) || (v1 > 1.0f) || (v2 < 0.0f) || (v2 > 1.0f))
-	{
-		return false;
-	}
-
-	if ((floorf(u1) == floorf(u2)) && (u1 >= 0.0f) && (u1 <= 1.0f) && (u2 >= 0.0f) && (u2 <= 1.0f))
-	{
-		return false;
-	}
-
-	if (du > 0.0f)
-	{
-		float boundary = floorf(u1) + 1.0f;
-		t_split = (boundary - u1) / du;
-		if ((t_split <= 0.00001f) || (t_split >= 0.99999f))
-		{
-			return false;
-		}
-
-		a_u1 = PLATFORM_RENDERER_wrap01(u1);
-		a_u2 = 1.0f;
-		b_u1 = 0.0f;
-		b_u2 = PLATFORM_RENDERER_wrap01(u2);
-	}
-	else
-	{
-		float boundary = floorf(u1);
-		t_split = (u1 - boundary) / abs_du;
-		if ((t_split <= 0.00001f) || (t_split >= 0.99999f))
-		{
-			return false;
-		}
-
-		a_u1 = PLATFORM_RENDERER_wrap01(u1);
-		a_u2 = 0.0f;
-		b_u1 = 1.0f;
-		b_u2 = PLATFORM_RENDERER_wrap01(u2);
-	}
-
-	split_x = dst_rect->x + (int)floorf(((float)dst_rect->w * t_split) + 0.5f);
-	if (split_x <= dst_rect->x)
-	{
-		split_x = dst_rect->x + 1;
-	}
-	if (split_x >= (dst_rect->x + dst_rect->w))
-	{
-		split_x = dst_rect->x + dst_rect->w - 1;
-	}
-
-	dst_a.x = dst_rect->x;
-	dst_a.y = dst_rect->y;
-	dst_a.w = split_x - dst_rect->x;
-	dst_a.h = dst_rect->h;
-	dst_b.x = split_x;
-	dst_b.y = dst_rect->y;
-	dst_b.w = (dst_rect->x + dst_rect->w) - split_x;
-	dst_b.h = dst_rect->h;
-
-	if ((dst_a.w <= 0) || (dst_b.w <= 0))
+	if (!PLATFORM_RENDERER_build_axis_wrap_split_rects(dst_rect, &split, &dst_a, &dst_b))
 	{
 		return false;
 	}
@@ -3244,13 +3005,13 @@ static bool PLATFORM_RENDERER_draw_axis_wrapped_u_repeat(
 	{
 		SDL_Vertex vertices[4];
 		int indices[6] = {0, 1, 2, 0, 2, 3};
-		const bool a_flip_x = (a_u2 < a_u1);
-		const bool b_flip_x = (b_u2 < b_u1);
+		const bool a_flip_x = (split.a_u2 < split.a_u1);
+		const bool b_flip_x = (split.b_u2 < split.b_u1);
 		const bool flip_y = PLATFORM_RENDERER_src_flip_y_for_sdl(v1, v2);
-		const float a_u_left = a_flip_x ? a_u2 : a_u1;
-		const float a_u_right = a_flip_x ? a_u1 : a_u2;
-		const float b_u_left = b_flip_x ? b_u2 : b_u1;
-		const float b_u_right = b_flip_x ? b_u1 : b_u2;
+		const float a_u_left = a_flip_x ? split.a_u2 : split.a_u1;
+		const float a_u_right = a_flip_x ? split.a_u1 : split.a_u2;
+		const float b_u_left = b_flip_x ? split.b_u2 : split.b_u1;
+		const float b_u_right = b_flip_x ? split.b_u1 : split.b_u2;
 		const float v_top = flip_y ? v2 : v1;
 		const float v_bottom = flip_y ? v1 : v2;
 		int before = platform_renderer_sdl_native_draw_count;
@@ -3312,153 +3073,6 @@ static bool PLATFORM_RENDERER_draw_axis_wrapped_u_repeat(
 	return false;
 }
 
-static bool PLATFORM_RENDERER_gles2_draw_axis_wrapped_u_repeat(
-		unsigned int logical_texture_handle,
-		const SDL_Rect *dst_rect,
-		float u1, float v1, float u2, float v2,
-		Uint8 mod_r, Uint8 mod_g, Uint8 mod_b, Uint8 mod_a,
-		int source_id)
-{
-	float du;
-	float abs_du;
-	int split_x;
-	float t_split;
-	SDL_Rect dst_a;
-	SDL_Rect dst_b;
-	float a_u1;
-	float a_u2;
-	float b_u1;
-	float b_u2;
-	SDL_Vertex vertices[8];
-	const int indices[12] = {0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7};
-	const bool flip_y = PLATFORM_RENDERER_src_flip_y_for_sdl(v1, v2);
-	const float v_top = flip_y ? v2 : v1;
-	const float v_bottom = flip_y ? v1 : v2;
-
-	if (dst_rect == NULL)
-	{
-		return false;
-	}
-	if ((dst_rect->w <= 0) || (dst_rect->h <= 0))
-	{
-		return false;
-	}
-
-	du = u2 - u1;
-	abs_du = fabsf(du);
-	if (abs_du < 0.00001f)
-	{
-		return false;
-	}
-	if (abs_du > 1.001f)
-	{
-		return false;
-	}
-	if ((v1 < 0.0f) || (v1 > 1.0f) || (v2 < 0.0f) || (v2 > 1.0f))
-	{
-		return false;
-	}
-	if ((floorf(u1) == floorf(u2)) && (u1 >= 0.0f) && (u1 <= 1.0f) && (u2 >= 0.0f) && (u2 <= 1.0f))
-	{
-		return false;
-	}
-
-	if (du > 0.0f)
-	{
-		const float boundary = floorf(u1) + 1.0f;
-		t_split = (boundary - u1) / du;
-		if ((t_split <= 0.00001f) || (t_split >= 0.99999f))
-		{
-			return false;
-		}
-		a_u1 = PLATFORM_RENDERER_wrap01(u1);
-		a_u2 = 1.0f;
-		b_u1 = 0.0f;
-		b_u2 = PLATFORM_RENDERER_wrap01(u2);
-	}
-	else
-	{
-		const float boundary = floorf(u1);
-		t_split = (u1 - boundary) / abs_du;
-		if ((t_split <= 0.00001f) || (t_split >= 0.99999f))
-		{
-			return false;
-		}
-		a_u1 = PLATFORM_RENDERER_wrap01(u1);
-		a_u2 = 0.0f;
-		b_u1 = 1.0f;
-		b_u2 = PLATFORM_RENDERER_wrap01(u2);
-	}
-
-	split_x = dst_rect->x + (int)floorf(((float)dst_rect->w * t_split) + 0.5f);
-	if (split_x <= dst_rect->x)
-	{
-		split_x = dst_rect->x + 1;
-	}
-	if (split_x >= (dst_rect->x + dst_rect->w))
-	{
-		split_x = dst_rect->x + dst_rect->w - 1;
-	}
-
-	dst_a.x = dst_rect->x;
-	dst_a.y = dst_rect->y;
-	dst_a.w = split_x - dst_rect->x;
-	dst_a.h = dst_rect->h;
-	dst_b.x = split_x;
-	dst_b.y = dst_rect->y;
-	dst_b.w = (dst_rect->x + dst_rect->w) - split_x;
-	dst_b.h = dst_rect->h;
-
-	if ((dst_a.w <= 0) || (dst_b.w <= 0))
-	{
-		return false;
-	}
-
-	vertices[0].position.x = (float)dst_a.x;
-	vertices[0].position.y = (float)dst_a.y;
-	vertices[1].position.x = (float)dst_a.x;
-	vertices[1].position.y = (float)(dst_a.y + dst_a.h);
-	vertices[2].position.x = (float)(dst_a.x + dst_a.w);
-	vertices[2].position.y = (float)(dst_a.y + dst_a.h);
-	vertices[3].position.x = (float)(dst_a.x + dst_a.w);
-	vertices[3].position.y = (float)dst_a.y;
-	vertices[0].tex_coord.x = a_u1;
-	vertices[0].tex_coord.y = v_top;
-	vertices[1].tex_coord.x = a_u1;
-	vertices[1].tex_coord.y = v_bottom;
-	vertices[2].tex_coord.x = a_u2;
-	vertices[2].tex_coord.y = v_bottom;
-	vertices[3].tex_coord.x = a_u2;
-	vertices[3].tex_coord.y = v_top;
-
-	vertices[4].position.x = (float)dst_b.x;
-	vertices[4].position.y = (float)dst_b.y;
-	vertices[5].position.x = (float)dst_b.x;
-	vertices[5].position.y = (float)(dst_b.y + dst_b.h);
-	vertices[6].position.x = (float)(dst_b.x + dst_b.w);
-	vertices[6].position.y = (float)(dst_b.y + dst_b.h);
-	vertices[7].position.x = (float)(dst_b.x + dst_b.w);
-	vertices[7].position.y = (float)dst_b.y;
-	vertices[4].tex_coord.x = b_u1;
-	vertices[4].tex_coord.y = v_top;
-	vertices[5].tex_coord.x = b_u1;
-	vertices[5].tex_coord.y = v_bottom;
-	vertices[6].tex_coord.x = b_u2;
-	vertices[6].tex_coord.y = v_bottom;
-	vertices[7].tex_coord.x = b_u2;
-	vertices[7].tex_coord.y = v_top;
-
-	for (int i = 0; i < 8; i++)
-	{
-		vertices[i].color.r = mod_r;
-		vertices[i].color.g = mod_g;
-		vertices[i].color.b = mod_b;
-		vertices[i].color.a = mod_a;
-	}
-
-	return PLATFORM_RENDERER_gles2_draw_textured_geometry(logical_texture_handle, vertices, 8, indices, 12, source_id);
-}
-
 static bool PLATFORM_RENDERER_gles2_draw_axis_wrapped_u_repeat_geometry(
 		unsigned int logical_texture_handle,
 		const float *screen_x,
@@ -3469,13 +3083,7 @@ static bool PLATFORM_RENDERER_gles2_draw_axis_wrapped_u_repeat_geometry(
 {
 	platform_renderer_texture_entry *entry;
 	GLuint tex;
-	float du;
-	float abs_du;
-	float t_split;
-	float a_u1;
-	float a_u2;
-	float b_u1;
-	float b_u2;
+	platform_renderer_axis_wrap_split split;
 	SDL_Vertex vertices[8];
 	const int indices[12] = {0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7};
 	const bool flip_y = PLATFORM_RENDERER_src_flip_y_for_sdl(v1, v2);
@@ -3497,56 +3105,15 @@ static bool PLATFORM_RENDERER_gles2_draw_axis_wrapped_u_repeat_geometry(
 	}
 	tex = entry->gles2_texture;
 
-	du = u2 - u1;
-	abs_du = fabsf(du);
-	if (abs_du < 0.00001f)
-	{
-		return false;
-	}
-	if (abs_du > 1.001f)
-	{
-		return false;
-	}
-	if ((v1 < 0.0f) || (v1 > 1.0f) || (v2 < 0.0f) || (v2 > 1.0f))
-	{
-		return false;
-	}
-	if ((floorf(u1) == floorf(u2)) && (u1 >= 0.0f) && (u1 <= 1.0f) && (u2 >= 0.0f) && (u2 <= 1.0f))
+	if (!PLATFORM_RENDERER_build_axis_wrap_u_split(u1, v1, u2, v2, &split))
 	{
 		return false;
 	}
 
-	if (du > 0.0f)
-	{
-		const float boundary = floorf(u1) + 1.0f;
-		t_split = (boundary - u1) / du;
-		if ((t_split <= 0.00001f) || (t_split >= 0.99999f))
-		{
-			return false;
-		}
-		a_u1 = PLATFORM_RENDERER_wrap01(u1);
-		a_u2 = 1.0f;
-		b_u1 = 0.0f;
-		b_u2 = PLATFORM_RENDERER_wrap01(u2);
-	}
-	else
-	{
-		const float boundary = floorf(u1);
-		t_split = (u1 - boundary) / abs_du;
-		if ((t_split <= 0.00001f) || (t_split >= 0.99999f))
-		{
-			return false;
-		}
-		a_u1 = PLATFORM_RENDERER_wrap01(u1);
-		a_u2 = 0.0f;
-		b_u1 = 1.0f;
-		b_u2 = PLATFORM_RENDERER_wrap01(u2);
-	}
-
-	split_top_x = screen_x[0] + ((screen_x[3] - screen_x[0]) * t_split);
-	split_top_y = screen_y[0] + ((screen_y[3] - screen_y[0]) * t_split);
-	split_bottom_x = screen_x[1] + ((screen_x[2] - screen_x[1]) * t_split);
-	split_bottom_y = screen_y[1] + ((screen_y[2] - screen_y[1]) * t_split);
+	split_top_x = screen_x[0] + ((screen_x[3] - screen_x[0]) * split.t_split);
+	split_top_y = screen_y[0] + ((screen_y[3] - screen_y[0]) * split.t_split);
+	split_bottom_x = screen_x[1] + ((screen_x[2] - screen_x[1]) * split.t_split);
+	split_bottom_y = screen_y[1] + ((screen_y[2] - screen_y[1]) * split.t_split);
 
 	vertices[0].position.x = screen_x[0];
 	vertices[0].position.y = screen_y[0];
@@ -3565,21 +3132,21 @@ static bool PLATFORM_RENDERER_gles2_draw_axis_wrapped_u_repeat_geometry(
 	vertices[7].position.x = screen_x[3];
 	vertices[7].position.y = screen_y[3];
 
-	vertices[0].tex_coord.x = a_u1;
+	vertices[0].tex_coord.x = split.a_u1;
 	vertices[0].tex_coord.y = v_top;
-	vertices[1].tex_coord.x = a_u1;
+	vertices[1].tex_coord.x = split.a_u1;
 	vertices[1].tex_coord.y = v_bottom;
-	vertices[2].tex_coord.x = a_u2;
+	vertices[2].tex_coord.x = split.a_u2;
 	vertices[2].tex_coord.y = v_bottom;
-	vertices[3].tex_coord.x = a_u2;
+	vertices[3].tex_coord.x = split.a_u2;
 	vertices[3].tex_coord.y = v_top;
-	vertices[4].tex_coord.x = b_u1;
+	vertices[4].tex_coord.x = split.b_u1;
 	vertices[4].tex_coord.y = v_top;
-	vertices[5].tex_coord.x = b_u1;
+	vertices[5].tex_coord.x = split.b_u1;
 	vertices[5].tex_coord.y = v_bottom;
-	vertices[6].tex_coord.x = b_u2;
+	vertices[6].tex_coord.x = split.b_u2;
 	vertices[6].tex_coord.y = v_bottom;
-	vertices[7].tex_coord.x = b_u2;
+	vertices[7].tex_coord.x = split.b_u2;
 	vertices[7].tex_coord.y = v_top;
 
 	for (int i = 0; i < 8; i++)
@@ -3588,37 +3155,6 @@ static bool PLATFORM_RENDERER_gles2_draw_axis_wrapped_u_repeat_geometry(
 		vertices[i].color.g = mod_g;
 		vertices[i].color.b = mod_b;
 		vertices[i].color.a = mod_a;
-	}
-
-	if (logical_texture_handle == 1u)
-	{
-		static unsigned int gles2_axis_wrap_final_logs = 0;
-		if (gles2_axis_wrap_final_logs < 40)
-		{
-			float min_x = vertices[0].position.x;
-			float min_y = vertices[0].position.y;
-			float max_x = vertices[0].position.x;
-			float max_y = vertices[0].position.y;
-			for (int i = 1; i < 8; i++)
-			{
-				if (vertices[i].position.x < min_x) min_x = vertices[i].position.x;
-				if (vertices[i].position.y < min_y) min_y = vertices[i].position.y;
-				if (vertices[i].position.x > max_x) max_x = vertices[i].position.x;
-				if (vertices[i].position.y > max_y) max_y = vertices[i].position.y;
-			}
-			gles2_axis_wrap_final_logs++;
-			fprintf(
-				stderr,
-				"[GLES2-FINAL %u] tag=bound_quad_axis_wrap_final tex=%u bounds=(%.1f,%.1f)-(%.1f,%.1f) scissor=%d(%d,%d,%d,%d)\n",
-				gles2_axis_wrap_final_logs,
-				logical_texture_handle,
-				min_x, min_y, max_x, max_y,
-				platform_renderer_legacy_scissor_enabled_last,
-				platform_renderer_legacy_scissor_last[0],
-				platform_renderer_legacy_scissor_last[1],
-				platform_renderer_legacy_scissor_last[2],
-				platform_renderer_legacy_scissor_last[3]);
-		}
 	}
 
 	return PLATFORM_RENDERER_gles2_draw_textured_geometry_gltex(
@@ -5696,7 +5232,6 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 	 * When alpha is zero the draw contributes nothing visible. */
 	if (platform_renderer_current_colour_a < (1.0f / 256.0f))
 		return;
-	static unsigned int sdl_bound_colour_diag_counter = 0;
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 #if SDL_VERSION_ATLEAST(2, 0, 18)
@@ -5844,12 +5379,6 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 						mod_a = 0;
 					if (mod_a > 255)
 						mod_a = 255;
-					sdl_bound_colour_diag_counter++;
-					if ((sdl_bound_colour_diag_counter <= 120u) &&
-							((mod_r < 8) || (mod_g < 8) || (mod_b < 8)))
-					{
-					}
-
 					if (PLATFORM_RENDERER_draw_axis_wrapped_u_repeat(
 									entry,
 									draw_texture,
@@ -5861,18 +5390,6 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 						return;
 					}
 					{
-						if (PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, v1, u2, v2, &src_rect) &&
-								PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, 1.0f - v1, u2, 1.0f - v2, &src_rect_no_vflip))
-						{
-							static unsigned int uv_diag_counter = 0;
-							uv_diag_counter++;
-							if ((uv_diag_counter <= 120u) || ((uv_diag_counter % 1000u) == 0u))
-							{
-								const float cov_current = PLATFORM_RENDERER_estimate_alpha_coverage(entry, &src_rect);
-								const float cov_alt = PLATFORM_RENDERER_estimate_alpha_coverage(entry, &src_rect_no_vflip);
-							}
-						}
-
 						/*
 						 * Geometry path keeps vertex orientation, so only apply
 						 * source UV flips here. geom_flip_* was only needed for
@@ -6586,20 +6103,6 @@ void PLATFORM_RENDERER_set_colour3f(float r, float g, float b)
 
 void PLATFORM_RENDERER_set_colour4f(float r, float g, float b, float a)
 {
-	/*
-	 * Diagnostic: log when colour is set to zero-alpha or all-black so we can
-	 * track down which code path causes entity sprites to become invisible.
-	 */
-	if ((a < 0.01f) || (r < 0.01f && g < 0.01f && b < 0.01f))
-	{
-		static unsigned int colour_zero_count = 0;
-		colour_zero_count++;
-		if (colour_zero_count <= 20)
-		{
-			fprintf(stderr, "[COLOUR-ZERO %u] set_colour4f(%.3f, %.3f, %.3f, %.3f)\n",
-				colour_zero_count, r, g, b, a);
-		}
-	}
 	platform_renderer_current_colour_r = r;
 	platform_renderer_current_colour_g = g;
 	platform_renderer_current_colour_b = b;
@@ -8564,7 +8067,7 @@ static bool PLATFORM_RENDERER_draw_bound_perspective_textured_quad_batch_immedia
 			vertices[base_vertex + 0].position.x = tx;
 			vertices[base_vertex + 0].position.y = (float)platform_renderer_present_height - ty;
 			vertices[base_vertex + 0].tex_coord.x = quad->u1;
-			vertices[base_vertex + 0].tex_coord.y = gles_ready ? strip_v0 : (1.0f - strip_v0);
+			vertices[base_vertex + 0].tex_coord.y = strip_v0;
 			vertices[base_vertex + 0].color.r = cr;
 			vertices[base_vertex + 0].color.g = cg;
 			vertices[base_vertex + 0].color.b = cb;
@@ -8574,7 +8077,7 @@ static bool PLATFORM_RENDERER_draw_bound_perspective_textured_quad_batch_immedia
 			vertices[base_vertex + 1].position.x = tx;
 			vertices[base_vertex + 1].position.y = (float)platform_renderer_present_height - ty;
 			vertices[base_vertex + 1].tex_coord.x = quad->u1;
-			vertices[base_vertex + 1].tex_coord.y = gles_ready ? strip_v1 : (1.0f - strip_v1);
+			vertices[base_vertex + 1].tex_coord.y = strip_v1;
 			vertices[base_vertex + 1].color.r = cr;
 			vertices[base_vertex + 1].color.g = cg;
 			vertices[base_vertex + 1].color.b = cb;
@@ -8584,7 +8087,7 @@ static bool PLATFORM_RENDERER_draw_bound_perspective_textured_quad_batch_immedia
 			vertices[base_vertex + 2].position.x = tx;
 			vertices[base_vertex + 2].position.y = (float)platform_renderer_present_height - ty;
 			vertices[base_vertex + 2].tex_coord.x = quad->u2;
-			vertices[base_vertex + 2].tex_coord.y = gles_ready ? strip_v1 : (1.0f - strip_v1);
+			vertices[base_vertex + 2].tex_coord.y = strip_v1;
 			vertices[base_vertex + 2].color.r = cr;
 			vertices[base_vertex + 2].color.g = cg;
 			vertices[base_vertex + 2].color.b = cb;
@@ -8594,7 +8097,7 @@ static bool PLATFORM_RENDERER_draw_bound_perspective_textured_quad_batch_immedia
 			vertices[base_vertex + 3].position.x = tx;
 			vertices[base_vertex + 3].position.y = (float)platform_renderer_present_height - ty;
 			vertices[base_vertex + 3].tex_coord.x = quad->u2;
-			vertices[base_vertex + 3].tex_coord.y = gles_ready ? strip_v0 : (1.0f - strip_v0);
+			vertices[base_vertex + 3].tex_coord.y = strip_v0;
 			vertices[base_vertex + 3].color.r = cr;
 			vertices[base_vertex + 3].color.g = cg;
 			vertices[base_vertex + 3].color.b = cb;
@@ -8741,7 +8244,7 @@ static bool PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batc
 			vertices[base_vertex + 0].position.x = tx;
 			vertices[base_vertex + 0].position.y = (float)platform_renderer_present_height - ty;
 			vertices[base_vertex + 0].tex_coord.x = quad->quad.u1;
-			vertices[base_vertex + 0].tex_coord.y = gles_ready ? strip_v0 : (1.0f - strip_v0);
+			vertices[base_vertex + 0].tex_coord.y = strip_v0;
 			cr = (int)(((quad->r[0] * one_minus_t0) + (quad->r[1] * t0)) * 255.0f);
 			cg = (int)(((quad->g[0] * one_minus_t0) + (quad->g[1] * t0)) * 255.0f);
 			cb = (int)(((quad->b[0] * one_minus_t0) + (quad->b[1] * t0)) * 255.0f);
@@ -8759,7 +8262,7 @@ static bool PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batc
 			vertices[base_vertex + 1].position.x = tx;
 			vertices[base_vertex + 1].position.y = (float)platform_renderer_present_height - ty;
 			vertices[base_vertex + 1].tex_coord.x = quad->quad.u1;
-			vertices[base_vertex + 1].tex_coord.y = gles_ready ? strip_v1 : (1.0f - strip_v1);
+			vertices[base_vertex + 1].tex_coord.y = strip_v1;
 			cr = (int)(((quad->r[0] * one_minus_t1) + (quad->r[1] * t1)) * 255.0f);
 			cg = (int)(((quad->g[0] * one_minus_t1) + (quad->g[1] * t1)) * 255.0f);
 			cb = (int)(((quad->b[0] * one_minus_t1) + (quad->b[1] * t1)) * 255.0f);
@@ -8777,7 +8280,7 @@ static bool PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batc
 			vertices[base_vertex + 2].position.x = tx;
 			vertices[base_vertex + 2].position.y = (float)platform_renderer_present_height - ty;
 			vertices[base_vertex + 2].tex_coord.x = quad->quad.u2;
-			vertices[base_vertex + 2].tex_coord.y = gles_ready ? strip_v1 : (1.0f - strip_v1);
+			vertices[base_vertex + 2].tex_coord.y = strip_v1;
 			cr = (int)(((quad->r[3] * one_minus_t1) + (quad->r[2] * t1)) * 255.0f);
 			cg = (int)(((quad->g[3] * one_minus_t1) + (quad->g[2] * t1)) * 255.0f);
 			cb = (int)(((quad->b[3] * one_minus_t1) + (quad->b[2] * t1)) * 255.0f);
@@ -8795,7 +8298,7 @@ static bool PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batc
 			vertices[base_vertex + 3].position.x = tx;
 			vertices[base_vertex + 3].position.y = (float)platform_renderer_present_height - ty;
 			vertices[base_vertex + 3].tex_coord.x = quad->quad.u2;
-			vertices[base_vertex + 3].tex_coord.y = gles_ready ? strip_v0 : (1.0f - strip_v0);
+			vertices[base_vertex + 3].tex_coord.y = strip_v0;
 			cr = (int)(((quad->r[3] * one_minus_t0) + (quad->r[2] * t0)) * 255.0f);
 			cg = (int)(((quad->g[3] * one_minus_t0) + (quad->g[2] * t0)) * 255.0f);
 			cb = (int)(((quad->b[3] * one_minus_t0) + (quad->b[2] * t0)) * 255.0f);
@@ -8824,57 +8327,6 @@ static bool PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batc
 	if (PLATFORM_RENDERER_gles2_is_ready())
 	{
 		if ((quad_count > 0) && (platform_renderer_last_bound_texture_handle == 41u))
-		{
-			static unsigned int gles2_coloured_perspective_final_logs = 0;
-			if (gles2_coloured_perspective_final_logs < 120)
-			{
-				float min_x = vertices[0].position.x;
-				float min_y = vertices[0].position.y;
-				float max_x = vertices[0].position.x;
-				float max_y = vertices[0].position.y;
-				unsigned int min_r = vertices[0].color.r;
-				unsigned int min_g = vertices[0].color.g;
-				unsigned int min_b = vertices[0].color.b;
-				unsigned int min_a = vertices[0].color.a;
-				unsigned int max_r = vertices[0].color.r;
-				unsigned int max_g = vertices[0].color.g;
-				unsigned int max_b = vertices[0].color.b;
-				unsigned int max_a = vertices[0].color.a;
-				int vi;
-				for (vi = 1; vi < total_vertices; vi++)
-				{
-					if (vertices[vi].position.x < min_x) min_x = vertices[vi].position.x;
-					if (vertices[vi].position.y < min_y) min_y = vertices[vi].position.y;
-					if (vertices[vi].position.x > max_x) max_x = vertices[vi].position.x;
-					if (vertices[vi].position.y > max_y) max_y = vertices[vi].position.y;
-					if (vertices[vi].color.r < min_r) min_r = vertices[vi].color.r;
-					if (vertices[vi].color.g < min_g) min_g = vertices[vi].color.g;
-					if (vertices[vi].color.b < min_b) min_b = vertices[vi].color.b;
-					if (vertices[vi].color.a < min_a) min_a = vertices[vi].color.a;
-					if (vertices[vi].color.r > max_r) max_r = vertices[vi].color.r;
-					if (vertices[vi].color.g > max_g) max_g = vertices[vi].color.g;
-					if (vertices[vi].color.b > max_b) max_b = vertices[vi].color.b;
-					if (vertices[vi].color.a > max_a) max_a = vertices[vi].color.a;
-				}
-				gles2_coloured_perspective_final_logs++;
-				fprintf(
-					stderr,
-					"[GLES2-FINAL %u] tag=coloured_perspective_batch_final tex=%u verts=%d bounds=(%.1f,%.1f)-(%.1f,%.1f) color=(%u,%u,%u,%u)-(%u,%u,%u,%u) blend=%d/%d scissor=%d(%d,%d,%d,%d)\n",
-					gles2_coloured_perspective_final_logs,
-					platform_renderer_last_bound_texture_handle,
-					total_vertices,
-					min_x, min_y, max_x, max_y,
-					min_r, min_g, min_b, min_a,
-					max_r, max_g, max_b, max_a,
-					platform_renderer_blend_enabled ? 1 : 0,
-					(int)platform_renderer_blend_mode,
-					platform_renderer_legacy_scissor_enabled_last,
-					platform_renderer_legacy_scissor_last[0],
-					platform_renderer_legacy_scissor_last[1],
-					platform_renderer_legacy_scissor_last[2],
-					platform_renderer_legacy_scissor_last[3]);
-			}
-		}
 		quad_index = PLATFORM_RENDERER_gles2_draw_textured_geometry(
 			platform_renderer_last_bound_texture_handle, vertices, total_vertices, indices, total_indices, PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE) ? 1 : 0;
 	}
@@ -8890,7 +8342,6 @@ static bool PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batc
 
 void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, int g, int b, float screen_x, float screen_y, int virtual_screen_height, float left, float right, float up, float down, float u1, float v1, float u2, float v2, bool alpha_test)
 {
-	static unsigned int sdl_quad_colour_diag_counter = 0;
 #if defined(WIZBALL_RENDER_BACKEND_GLES2)
 	if (PLATFORM_RENDERER_gles2_is_ready())
 	{
@@ -9032,11 +8483,6 @@ void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, in
 					}
 
 					(void)alpha_test;
-					sdl_quad_colour_diag_counter++;
-					if ((sdl_quad_colour_diag_counter <= 120u) &&
-							((r < 8) || (g < 8) || (b < 8)))
-					{
-					}
 					PLATFORM_RENDERER_apply_sdl_texture_blend_mode(draw_texture);
 					PLATFORM_RENDERER_set_texture_color_alpha_cached(draw_texture,
 							PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
@@ -9047,33 +8493,6 @@ void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, in
 					{
 						platform_renderer_sdl_native_draw_count++;
 						platform_renderer_sdl_native_textured_draw_count++;
-						{
-							static int quad_log = 0;
-							if (quad_log < 10)
-							{
-								quad_log++;
-								fprintf(stderr,
-									"[QUAD-DRAW %d] handle=%u dst=(%d,%d %dx%d) "
-									"src=(%d,%d %dx%d) sdl_h=%d\n",
-									quad_log, texture_handle,
-									dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h,
-									src_rect.x, src_rect.y, src_rect.w, src_rect.h,
-									sdl_height);
-							}
-						}
-					}
-					else
-					{
-						static int quad_fail_log = 0;
-						if (quad_fail_log < 3)
-						{
-							quad_fail_log++;
-							fprintf(stderr,
-								"[QUAD-FAIL %d] handle=%u SDL error: %s "
-								"dst=(%d,%d %dx%d)\n",
-								quad_fail_log, texture_handle, SDL_GetError(),
-								dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h);
-						}
 					}
 				}
 			}
@@ -9140,11 +8559,6 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 		float v_bottom;
 		float uv_x[4];
 		float uv_y[4];
-		float avg_r = -1.0f;
-		float avg_g = -1.0f;
-		float avg_b = -1.0f;
-		float avg_a = -1.0f;
-		float alpha_coverage = -1.0f;
 		int i;
 
 		if (!PLATFORM_RENDERER_build_gles2_texture_from_entry(entry))
@@ -9159,9 +8573,6 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 		{
 			return;
 		}
-		PLATFORM_RENDERER_estimate_rect_colour_stats(entry, &src_rect, &avg_r, &avg_g, &avg_b, &avg_a);
-		alpha_coverage = PLATFORM_RENDERER_estimate_alpha_coverage(entry, &src_rect);
-
 		/*
 		 * Match SDL's source-rect semantics exactly on the direct GLES2 path:
 		 * derive UVs from the normalized/clamped source rectangle rather than
@@ -9201,21 +8612,6 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 			vertices[i].color.b = cb;
 			vertices[i].color.a = ca;
 		}
-		{
-			static int ws_src_log = 0;
-			if (ws_src_log < 40)
-			{
-				ws_src_log++;
-				fprintf(stderr,
-					"[GLES2-WS-SRC %d] tex=%u src=(%d,%d %dx%d) avg=(%.1f,%.1f,%.1f,%.1f) cov=%.3f\n",
-					ws_src_log,
-					texture_handle,
-					src_rect.x, src_rect.y, src_rect.w, src_rect.h,
-					avg_r, avg_g, avg_b, avg_a,
-					alpha_coverage);
-			}
-		}
-
 		(void)PLATFORM_RENDERER_gles2_draw_textured_subrect_geometry(entry, texture_handle, &src_rect, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_SDL_CUSTOM);
 		return;
 	}
