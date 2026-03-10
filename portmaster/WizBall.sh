@@ -60,6 +60,13 @@ echo "DEVICE_ARCH=${DEVICE_ARCH}"
 # SDL controller mapping provided by PortMaster
 export SDL_GAMECONTROLLERCONFIG="$sdl_controllerconfig"
 
+# Phase 0 GLES2 migration:
+# Prefer the GLES2-targeted renderer path on handhelds by default.
+# The current runtime still uses SDL's renderer for drawing, but this ensures
+# the build/runtime selector and SDL driver preference stay aligned on device.
+export WIZBALL_RENDERER_BACKEND="${WIZBALL_RENDERER_BACKEND:-gles2}"
+echo "WIZBALL_RENDERER_BACKEND=${WIZBALL_RENDERER_BACKEND}"
+
 # Disable vsync so SDL_RenderPresent does not block waiting for vblank.
 # Remove this once the correct frame-pacing strategy is confirmed.
 export WIZBALL_SDL2_NOVSYNC=1

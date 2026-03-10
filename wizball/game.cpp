@@ -34,13 +34,22 @@
 #include "sound.h"
 #include "arrays.h"
 #include "file_stuff.h"
+#include "platform.h"
 #include "string_stuff.h"
+
+static void GAME_log_stage_time(const char *stage_name, unsigned int start_ms)
+{
+	unsigned int elapsed_ms = PLATFORM_get_wall_time_ms() - start_ms;
+	fprintf(stderr, "[STARTUP] %s took %u ms\n", stage_name, elapsed_ms);
+}
 
 void GAME_load_and_set_up_everything(void)
 {
 	bool result;
+	unsigned int stage_start_ms;
 
 	MAIN_add_to_log("Loading tokenised script file...");
+	stage_start_ms = PLATFORM_get_wall_time_ms();
 	result = SCRIPTING_load_script("scriptfile.tsl");
 	if (result == true)
 	{
@@ -48,84 +57,115 @@ void GAME_load_and_set_up_everything(void)
 		assert(0);
 	}
 	MAIN_add_to_log("\tOK!");
+	GAME_log_stage_time("SCRIPTING_load_script", stage_start_ms);
 
 	if (parse_all_data)
 	{
 		MAIN_add_to_log("Loading text files...");
+		stage_start_ms = PLATFORM_get_wall_time_ms();
 		TEXTFILE_load_text();
 		// This loads the lines of text who tags are featured in the GPL.
 		MAIN_add_to_log("\tOK!");
+		GAME_log_stage_time("TEXTFILE_load_text", stage_start_ms);
 	}
 	else
 	{
 		MAIN_add_to_log("Loading compiled text files...");
+		stage_start_ms = PLATFORM_get_wall_time_ms();
 		TEXTFILE_load_compiled_text();
 		// This loads the lines of text but not the tags.
 		MAIN_add_to_log("\tOK!");
+		GAME_log_stage_time("TEXTFILE_load_compiled_text", stage_start_ms);
 	}
 
 	MAIN_add_to_log("Loading graphics...");
+	stage_start_ms = PLATFORM_get_wall_time_ms();
 	GRAPHICS_load_graphics();
 	// Uses the above-loaded list to load all the graphics.
 	MAIN_add_to_log("\tOK!");
+	GAME_log_stage_time("GRAPHICS_load_graphics", stage_start_ms);
 
 	// At this point we can shove the loading picture up on screen! Woot!
+	stage_start_ms = PLATFORM_get_wall_time_ms();
 	MAIN_draw_loading_picture("", 0);
+	GAME_log_stage_time("MAIN_draw_loading_picture", stage_start_ms);
 
 	MAIN_add_to_log("Setting up sound...");
+	stage_start_ms = PLATFORM_get_wall_time_ms();
 	SOUND_setup();
 	// Sets up the sound stuff...
 	MAIN_add_to_log("\tOK!");
+	GAME_log_stage_time("SOUND_setup", stage_start_ms);
 
 	MAIN_add_to_log("Loading sound effects...");
+	stage_start_ms = PLATFORM_get_wall_time_ms();
 	SOUND_load_sound_effects();
 	// Uses the above-loaded list to load all the sound effects.
 	MAIN_add_to_log("\tOK!");
+	GAME_log_stage_time("SOUND_load_sound_effects", stage_start_ms);
 
 	MAIN_add_to_log("Opening sound streams...");
+	stage_start_ms = PLATFORM_get_wall_time_ms();
 	SOUND_open_sound_streams();
 	// Uses the above-loaded list to load all the sound effects.
 	MAIN_add_to_log("\tOK!");
+	GAME_log_stage_time("SOUND_open_sound_streams", stage_start_ms);
 
 	if (parse_all_data)
 	{
 		MAIN_add_to_log("Loading editor icons...");
+		stage_start_ms = PLATFORM_get_wall_time_ms();
 		EDIT_load_icons();
 		MAIN_add_to_log("\tOK!\n");
+		GAME_log_stage_time("EDIT_load_icons", stage_start_ms);
 	}
 
 	MAIN_add_to_log("Blanking entity data tables...");
+	stage_start_ms = PLATFORM_get_wall_time_ms();
 	SCRIPTING_setup_data_stores();
 	MAIN_add_to_log("\tOK!\n");
+	GAME_log_stage_time("SCRIPTING_setup_data_stores", stage_start_ms);
 
 	MAIN_add_to_log("Creating trigonometry tables...");
+	stage_start_ms = PLATFORM_get_wall_time_ms();
 	MATH_setup_trig_tables(10000, 36000);
 	MAIN_add_to_log("\tOK!\n");
+	GAME_log_stage_time("MATH_setup_trig_tables", stage_start_ms);
 
 	if (parse_all_data)
 	{
 		MAIN_add_to_log("Loading prefabs...");
+		stage_start_ms = PLATFORM_get_wall_time_ms();
 		SCRIPTING_load_prefabs();
 		MAIN_add_to_log("\tOK!\n");
+		GAME_log_stage_time("SCRIPTING_load_prefabs", stage_start_ms);
 	}
 	else
 	{
 #ifdef ALLEGRO_LINUX
 		MAIN_add_to_log("Linux compatibility mode: loading verbose prefabs...");
+		stage_start_ms = PLATFORM_get_wall_time_ms();
 		SCRIPTING_load_prefabs();
 		MAIN_add_to_log("\tOK!\n");
+		GAME_log_stage_time("SCRIPTING_load_prefabs", stage_start_ms);
 #else
 		MAIN_add_to_log("Loading compiled prefabs...");
+		stage_start_ms = PLATFORM_get_wall_time_ms();
 		SCRIPTING_load_compiled_prefabs();
 		MAIN_add_to_log("\tOK!\n");
+		GAME_log_stage_time("SCRIPTING_load_compiled_prefabs", stage_start_ms);
 #endif
 	}
 
 	MAIN_add_to_log("Loading datatables...");
+	stage_start_ms = PLATFORM_get_wall_time_ms();
 	ARRAY_load_datatables();
 	MAIN_add_to_log("\tOK!\n");
+	GAME_log_stage_time("ARRAY_load_datatables", stage_start_ms);
 
+	stage_start_ms = PLATFORM_get_wall_time_ms();
 	EDIT_setup(); // This does a LOAD of stuff, take a look inside, baby!
+	GAME_log_stage_time("EDIT_setup", stage_start_ms);
 }
 
 void GAME_game(void)

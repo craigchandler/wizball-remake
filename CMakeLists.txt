@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 
 option(WIZBALL_ENABLE_ASAN "Build with AddressSanitizer (debug heap corruption)" OFF)
+set(WIZBALL_RENDER_BACKEND "SDL" CACHE STRING "Renderer backend target (SDL or GLES2)")
+set_property(CACHE WIZBALL_RENDER_BACKEND PROPERTY STRINGS SDL GLES2)
 
 # ---------------------------
 # Sources
@@ -78,6 +80,14 @@ target_link_libraries(wizball PRIVATE
   PkgConfig::SDL2_IMAGE
   m
 )
+
+if(WIZBALL_RENDER_BACKEND STREQUAL "GLES2")
+  find_library(WIZBALL_GLES2_LIB NAMES GLESv2 OpenGLESv2 REQUIRED)
+  target_compile_definitions(wizball PRIVATE WIZBALL_RENDER_BACKEND_GLES2=1)
+  target_link_libraries(wizball PRIVATE ${WIZBALL_GLES2_LIB})
+elseif(NOT WIZBALL_RENDER_BACKEND STREQUAL "SDL")
+  message(FATAL_ERROR "Unsupported WIZBALL_RENDER_BACKEND='${WIZBALL_RENDER_BACKEND}'. Expected SDL or GLES2.")
+endif()
 
 # ---------------------------
 # Warnings / ASAN

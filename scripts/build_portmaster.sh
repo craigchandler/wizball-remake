@@ -2,6 +2,7 @@
 set -euo pipefail
 
 WORKDIR="$(pwd)"
+RENDER_BACKEND="${WIZBALL_RENDER_BACKEND:-GLES2}"
 
 echo "Pulling builder image..."
 docker compose pull builder
@@ -12,12 +13,13 @@ docker compose up -d qemu
 echo "Running builder container to build aarch64..."
 docker compose run --rm builder bash -lc '
   set -euo pipefail
+  RENDER_BACKEND='"$RENDER_BACKEND"'
   if command -v apt >/dev/null 2>&1; then
     apt update
     apt install -y ninja-build || true
   fi
   cd /workspace
-  cmake -S . -B build-aarch64 -G Ninja -DCMAKE_BUILD_TYPE=Release
+  cmake -S . -B build-aarch64 -G Ninja -DCMAKE_BUILD_TYPE=Release -DWIZBALL_RENDER_BACKEND=${RENDER_BACKEND}
   cmake --build build-aarch64 -j1
   cmake --install build-aarch64 --prefix /workspace/staging
 '

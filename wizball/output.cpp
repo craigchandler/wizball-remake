@@ -143,6 +143,35 @@ static void OUTPUT_prepare_sdl_stub_bootstrap(bool windowed)
 }
 static unsigned int output_sdl_script_trace_counter = 0;
 static int output_cached_main_menu_logo_section_script = UNSET;
+static int output_cached_main_menu_tunnel_light_script = UNSET;
+static int output_cached_menu_tunnel_starfield_script = UNSET;
+
+#define OUTPUT_TUNNEL_QUEUE_MAX 256
+typedef struct
+{
+	bool coloured;
+	platform_renderer_state_snapshot state;
+	float x0;
+	float y0;
+	float x1;
+	float y1;
+	float x2;
+	float y2;
+	float x3;
+	float y3;
+	float u1;
+	float v1;
+	float u2;
+	float v2;
+	float q;
+	float r[4];
+	float g[4];
+	float b[4];
+	float a[4];
+} output_tunnel_command;
+
+static output_tunnel_command output_tunnel_queue[OUTPUT_TUNNEL_QUEUE_MAX];
+static int output_tunnel_queue_count = 0;
 
 bool software_mode_active = false;
 
@@ -169,6 +198,237 @@ static int OUTPUT_get_main_menu_logo_section_script(void)
 		output_cached_main_menu_logo_section_script = GPL_find_word_value("SCRIPTS", "MAIN_MENU_LOGO_SECTION");
 	}
 	return output_cached_main_menu_logo_section_script;
+}
+
+static bool OUTPUT_is_hot_tunnel_script(int script_number)
+{
+	if (output_cached_main_menu_tunnel_light_script == UNSET)
+	{
+		output_cached_main_menu_tunnel_light_script = GPL_find_word_value("SCRIPTS", "MAIN_MENU_TUNNEL_LIGHT");
+	}
+	if (output_cached_menu_tunnel_starfield_script == UNSET)
+	{
+		output_cached_menu_tunnel_starfield_script = GPL_find_word_value("SCRIPTS", "MENU_TUNNEL_STARFIELD");
+	}
+
+	return
+		(script_number == output_cached_main_menu_tunnel_light_script) ||
+		(script_number == output_cached_menu_tunnel_starfield_script);
+}
+
+static bool OUTPUT_renderer_state_snapshots_match(const platform_renderer_state_snapshot *a, const platform_renderer_state_snapshot *b)
+{
+	if ((a == NULL) || (b == NULL))
+	{
+		return false;
+	}
+
+	return
+		(a->texture_handle == b->texture_handle) &&
+		(a->blend_enabled == b->blend_enabled) &&
+		(a->blend_mode == b->blend_mode) &&
+		(a->colour_r == b->colour_r) &&
+		(a->colour_g == b->colour_g) &&
+		(a->colour_b == b->colour_b) &&
+		(a->colour_a == b->colour_a) &&
+		(a->tx_a == b->tx_a) &&
+		(a->tx_b == b->tx_b) &&
+		(a->tx_c == b->tx_c) &&
+		(a->tx_d == b->tx_d) &&
+		(a->tx_x == b->tx_x) &&
+		(a->tx_y == b->tx_y);
+}
+
+static void OUTPUT_flush_hot_tunnel_queue(void)
+{
+	int run_start;
+	platform_renderer_state_snapshot saved_state;
+
+	if (output_tunnel_queue_count <= 0)
+	{
+		return;
+	}
+
+	PLATFORM_RENDERER_capture_state_snapshot(&saved_state);
+	for (run_start = 0; run_start < output_tunnel_queue_count;)
+	{
+		int run_end = run_start + 1;
+		const output_tunnel_command *first = &output_tunnel_queue[run_start];
+		PLATFORM_RENDERER_apply_state_snapshot(&first->state);
+		while (run_end < output_tunnel_queue_count)
+		{
+			const output_tunnel_command *next = &output_tunnel_queue[run_end];
+			if ((next->coloured != first->coloured) || !OUTPUT_renderer_state_snapshots_match(&next->state, &first->state))
+			{
+				break;
+			}
+			run_end++;
+		}
+
+		if (first->coloured)
+		{
+			const int run_count = run_end - run_start;
+			platform_renderer_coloured_perspective_quad *batch =
+				(platform_renderer_coloured_perspective_quad *)malloc((size_t)run_count * sizeof(*batch));
+			if (batch != NULL)
+			{
+				int i;
+				for (i = 0; i < run_count; i++)
+				{
+					const output_tunnel_command *cmd = &output_tunnel_queue[run_start + i];
+					batch[i].quad.x0 = cmd->x0;
+					batch[i].quad.y0 = cmd->y0;
+					batch[i].quad.x1 = cmd->x1;
+					batch[i].quad.y1 = cmd->y1;
+					batch[i].quad.x2 = cmd->x2;
+					batch[i].quad.y2 = cmd->y2;
+					batch[i].quad.x3 = cmd->x3;
+					batch[i].quad.y3 = cmd->y3;
+					batch[i].quad.u1 = cmd->u1;
+					batch[i].quad.v1 = cmd->v1;
+					batch[i].quad.u2 = cmd->u2;
+					batch[i].quad.v2 = cmd->v2;
+					batch[i].quad.q = cmd->q;
+					memcpy(batch[i].r, cmd->r, sizeof(batch[i].r));
+					memcpy(batch[i].g, cmd->g, sizeof(batch[i].g));
+					memcpy(batch[i].b, cmd->b, sizeof(batch[i].b));
+					memcpy(batch[i].a, cmd->a, sizeof(batch[i].a));
+				}
+				PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batch(batch, run_count);
+				free(batch);
+			}
+			else
+			{
+				int i;
+				for (i = run_start; i < run_end; i++)
+				{
+					const output_tunnel_command *cmd = &output_tunnel_queue[i];
+					PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(
+						cmd->x0, cmd->y0,
+						cmd->x1, cmd->y1,
+						cmd->x2, cmd->y2,
+						cmd->x3, cmd->y3,
+						cmd->u1, cmd->v1, cmd->u2, cmd->v2, cmd->q,
+						cmd->r, cmd->g, cmd->b, cmd->a);
+				}
+			}
+		}
+		else
+		{
+			const int run_count = run_end - run_start;
+			platform_renderer_perspective_quad *batch =
+				(platform_renderer_perspective_quad *)malloc((size_t)run_count * sizeof(*batch));
+			if (batch != NULL)
+			{
+				int i;
+				for (i = 0; i < run_count; i++)
+				{
+					const output_tunnel_command *cmd = &output_tunnel_queue[run_start + i];
+					batch[i].x0 = cmd->x0;
+					batch[i].y0 = cmd->y0;
+					batch[i].x1 = cmd->x1;
+					batch[i].y1 = cmd->y1;
+					batch[i].x2 = cmd->x2;
+					batch[i].y2 = cmd->y2;
+					batch[i].x3 = cmd->x3;
+					batch[i].y3 = cmd->y3;
+					batch[i].u1 = cmd->u1;
+					batch[i].v1 = cmd->v1;
+					batch[i].u2 = cmd->u2;
+					batch[i].v2 = cmd->v2;
+					batch[i].q = cmd->q;
+				}
+				PLATFORM_RENDERER_draw_bound_perspective_textured_quad_batch(batch, run_count);
+				free(batch);
+			}
+			else
+			{
+				int i;
+				for (i = run_start; i < run_end; i++)
+				{
+					const output_tunnel_command *cmd = &output_tunnel_queue[i];
+					PLATFORM_RENDERER_draw_bound_perspective_textured_quad(
+						cmd->x0, cmd->y0,
+						cmd->x1, cmd->y1,
+						cmd->x2, cmd->y2,
+						cmd->x3, cmd->y3,
+						cmd->u1, cmd->v1, cmd->u2, cmd->v2, cmd->q);
+				}
+			}
+		}
+		run_start = run_end;
+	}
+	PLATFORM_RENDERER_apply_state_snapshot(&saved_state);
+	output_tunnel_queue_count = 0;
+}
+
+static void OUTPUT_queue_hot_tunnel_perspective_quad(
+	float x0, float y0,
+	float x1, float y1,
+	float x2, float y2,
+	float x3, float y3,
+	float u1, float v1, float u2, float v2, float q)
+{
+	output_tunnel_command *cmd;
+	if (output_tunnel_queue_count >= OUTPUT_TUNNEL_QUEUE_MAX)
+	{
+		OUTPUT_flush_hot_tunnel_queue();
+	}
+
+	cmd = &output_tunnel_queue[output_tunnel_queue_count++];
+	memset(cmd, 0, sizeof(*cmd));
+	PLATFORM_RENDERER_capture_state_snapshot(&cmd->state);
+	cmd->coloured = false;
+	cmd->x0 = x0;
+	cmd->y0 = y0;
+	cmd->x1 = x1;
+	cmd->y1 = y1;
+	cmd->x2 = x2;
+	cmd->y2 = y2;
+	cmd->x3 = x3;
+	cmd->y3 = y3;
+	cmd->u1 = u1;
+	cmd->v1 = v1;
+	cmd->u2 = u2;
+	cmd->v2 = v2;
+	cmd->q = q;
+}
+
+static void OUTPUT_queue_hot_tunnel_coloured_perspective_quad(
+	float x0, float y0,
+	float x1, float y1,
+	float x2, float y2,
+	float x3, float y3,
+	float u1, float v1, float u2, float v2, float q,
+	const float *r, const float *g, const float *b, const float *a)
+{
+	output_tunnel_command *cmd;
+	if (output_tunnel_queue_count >= OUTPUT_TUNNEL_QUEUE_MAX)
+	{
+		OUTPUT_flush_hot_tunnel_queue();
+	}
+
+	cmd = &output_tunnel_queue[output_tunnel_queue_count++];
+	memset(cmd, 0, sizeof(*cmd));
+	PLATFORM_RENDERER_capture_state_snapshot(&cmd->state);
+	cmd->coloured = true;
+	cmd->x0 = x0;
+	cmd->y0 = y0;
+	cmd->x1 = x1;
+	cmd->y1 = y1;
+	cmd->x2 = x2;
+	cmd->y2 = y2;
+	cmd->x3 = x3;
+	cmd->y3 = y3;
+	cmd->u1 = u1;
+	cmd->v1 = v1;
+	cmd->u2 = u2;
+	cmd->v2 = v2;
+	cmd->q = q;
+	memcpy(cmd->r, r, sizeof(cmd->r));
+	memcpy(cmd->g, g, sizeof(cmd->g));
+	memcpy(cmd->b, b, sizeof(cmd->b));
+	memcpy(cmd->a, a, sizeof(cmd->a));
 }
 
 static void OUTPUT_sanitize_window_transform_values(
@@ -1248,7 +1508,11 @@ static void OUTPUT_apply_texture_parameters_from_flags(int opengl_booleans, int 
 {
 	bool filtered = (opengl_booleans & OPENGL_BOOLEAN_FILTERED) != 0;
 	bool old_filtered = (old_opengl_booleans & OPENGL_BOOLEAN_FILTERED) != 0;
-	bool state_changed = (opengl_booleans != old_opengl_booleans);
+
+	if (force_filter_apply || (filtered != old_filtered))
+	{
+		PLATFORM_RENDERER_set_texture_filter(filtered);
+	}
 }
 
 static void OUTPUT_configure_secondary_multitexture_state(int opengl_booleans, int secondary_opengl_booleans, int &old_secondary_opengl_booleans)
@@ -1257,6 +1521,15 @@ static void OUTPUT_configure_secondary_multitexture_state(int opengl_booleans, i
 
 	OUTPUT_apply_texture_parameters_from_flags(secondary_opengl_booleans, old_secondary_opengl_booleans);
 	old_secondary_opengl_booleans = secondary_opengl_booleans;
+
+	if (double_mask_mode)
+	{
+		PLATFORM_RENDERER_set_combiner_modulate_rgb_replace_alpha_previous();
+	}
+	else
+	{
+		PLATFORM_RENDERER_set_combiner_replace_rgb_modulate_alpha_previous();
+	}
 }
 
 void OUTPUT_draw_starfield(int starfield_id)
@@ -2032,9 +2305,20 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 
 				draw_type = entity_pointer[ENT_DRAW_MODE];
 				opengl_booleans = entity_pointer[ENT_OPENGL_BOOLEANS];
+				const int script_number = entity_pointer[ENT_SCRIPT_NUMBER];
+				const int current_secondary_bitmap_number = entity_pointer[ENT_SECONDARY_SPRITE];
+				const bool is_hot_tunnel_candidate =
+					(draw_type == DRAW_MODE_SPRITE) &&
+					(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD) &&
+					!OUTPUT_is_secondary_multitexture_active(texture_combiner_available, opengl_booleans, current_secondary_bitmap_number) &&
+					OUTPUT_is_hot_tunnel_script(script_number);
+				if (!is_hot_tunnel_candidate)
+				{
+					OUTPUT_flush_hot_tunnel_queue();
+				}
 				int effective_vertex_alpha = entity_pointer[ENT_OPENGL_VERTEX_ALPHA];
 				const int logo_section_script = OUTPUT_get_main_menu_logo_section_script();
-				if (entity_pointer[ENT_SCRIPT_NUMBER] == logo_section_script)
+				if (script_number == logo_section_script)
 				{
 					int parent_entity = entity_pointer[ENT_PARENT];
 					if ((parent_entity >= 0) &&
@@ -2045,7 +2329,6 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 					}
 				}
 				{
-					int script_number = entity_pointer[ENT_SCRIPT_NUMBER];
 					const char *script_name = "UNSET";
 					if ((script_number >= 0) && (script_number < GPL_list_size("SCRIPTS")))
 					{
@@ -2116,6 +2399,7 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 					secondary_bitmap_number = entity_pointer[ENT_SECONDARY_SPRITE];
 					if (OUTPUT_is_secondary_multitexture_active(texture_combiner_available, opengl_booleans, secondary_bitmap_number))
 					{
+						PLATFORM_RENDERER_bind_secondary_texture(ACTIVE_BMPS[secondary_bitmap_number].texture_handle);
 #ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 						MAIN_debug_last_thing("About to set multi-texture sprite...");
 #endif
@@ -2126,6 +2410,8 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 					}
 					else if (old_secondary_bitmap_number != UNSET)
 					{
+						PLATFORM_RENDERER_bind_secondary_texture(0);
+						PLATFORM_RENDERER_set_combiner_modulate_primary();
 #ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 						MAIN_debug_last_thing("About to reset multitexture sprite...");
 #endif
@@ -2273,6 +2559,7 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 					if (!(opengl_booleans & OPENGL_BOOLEAN_MASKED) && (old_opengl_booleans & OPENGL_BOOLEAN_MASKED))
 					{
 						// Turn off alpha test (masking)
+						PLATFORM_RENDERER_set_texture_masked(false);
 
 #ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 						MAIN_debug_last_thing("Turn off masking.");
@@ -2281,6 +2568,7 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 					else if ((opengl_booleans & OPENGL_BOOLEAN_MASKED) && !(old_opengl_booleans & OPENGL_BOOLEAN_MASKED))
 					{
 						// Turn on alpha test (masking)
+						PLATFORM_RENDERER_set_texture_masked(true);
 
 #ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 						MAIN_debug_last_thing("Turn on masking.");
@@ -2700,6 +2988,16 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 						}
 						else if (opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD)
 						{
+							aq_pointer = &arbitrary_quads[current_entity];
+							line_length_ratio = aq_pointer->line_lengths[0] / aq_pointer->line_lengths[2];
+							PLATFORM_RENDERER_draw_bound_multitextured_perspective_quad(
+									(float)aq_pointer->x[0], (float)aq_pointer->y[0],
+									(float)aq_pointer->x[2], (float)aq_pointer->y[2],
+									(float)aq_pointer->x[3], (float)aq_pointer->y[3],
+									(float)aq_pointer->x[1], (float)aq_pointer->y[1],
+									u1, v1, u2, v2,
+									secondary_u1, secondary_v1, secondary_u2, secondary_v2,
+									line_length_ratio);
 						}
 					}
 					else
@@ -2775,13 +3073,26 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 								const float quad_g[4] = {avc_pointer->green[0], avc_pointer->green[2], avc_pointer->green[3], avc_pointer->green[1]};
 								const float quad_b[4] = {avc_pointer->blue[0], avc_pointer->blue[2], avc_pointer->blue[3], avc_pointer->blue[1]};
 								const float quad_a[4] = {avc_pointer->alpha[0], avc_pointer->alpha[2], avc_pointer->alpha[3], avc_pointer->alpha[1]};
-								PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(
-										aq_pointer->x[0], aq_pointer->y[0],
-										aq_pointer->x[2], aq_pointer->y[2],
-										aq_pointer->x[3], aq_pointer->y[3],
-										aq_pointer->x[1], aq_pointer->y[1],
-										u1, v1, u2, v2, line_length_ratio,
-										quad_r, quad_g, quad_b, quad_a);
+								if (is_hot_tunnel_candidate)
+								{
+									OUTPUT_queue_hot_tunnel_coloured_perspective_quad(
+											aq_pointer->x[0], aq_pointer->y[0],
+											aq_pointer->x[2], aq_pointer->y[2],
+											aq_pointer->x[3], aq_pointer->y[3],
+											aq_pointer->x[1], aq_pointer->y[1],
+											u1, v1, u2, v2, line_length_ratio,
+											quad_r, quad_g, quad_b, quad_a);
+								}
+								else
+								{
+									PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(
+											aq_pointer->x[0], aq_pointer->y[0],
+											aq_pointer->x[2], aq_pointer->y[2],
+											aq_pointer->x[3], aq_pointer->y[3],
+											aq_pointer->x[1], aq_pointer->y[1],
+											u1, v1, u2, v2, line_length_ratio,
+											quad_r, quad_g, quad_b, quad_a);
+								}
 							}
 						}
 						else
@@ -2830,12 +3141,24 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 								aq_pointer = &arbitrary_quads[current_entity];
 
 								line_length_ratio = aq_pointer->line_lengths[0] / aq_pointer->line_lengths[2];
-								PLATFORM_RENDERER_draw_bound_perspective_textured_quad(
-										aq_pointer->x[0], aq_pointer->y[0],
-										aq_pointer->x[2], aq_pointer->y[2],
-										aq_pointer->x[3], aq_pointer->y[3],
-										aq_pointer->x[1], aq_pointer->y[1],
-										u1, v1, u2, v2, line_length_ratio);
+								if (is_hot_tunnel_candidate)
+								{
+									OUTPUT_queue_hot_tunnel_perspective_quad(
+											aq_pointer->x[0], aq_pointer->y[0],
+											aq_pointer->x[2], aq_pointer->y[2],
+											aq_pointer->x[3], aq_pointer->y[3],
+											aq_pointer->x[1], aq_pointer->y[1],
+											u1, v1, u2, v2, line_length_ratio);
+								}
+								else
+								{
+									PLATFORM_RENDERER_draw_bound_perspective_textured_quad(
+											aq_pointer->x[0], aq_pointer->y[0],
+											aq_pointer->x[2], aq_pointer->y[2],
+											aq_pointer->x[3], aq_pointer->y[3],
+											aq_pointer->x[1], aq_pointer->y[1],
+											u1, v1, u2, v2, line_length_ratio);
+								}
 							}
 						}
 					}
@@ -3396,6 +3719,8 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 
 				old_opengl_booleans = opengl_booleans;
 			}
+
+			OUTPUT_flush_hot_tunnel_queue();
 
 #ifndef RETRENGINE_DEBUG_VERSION_VIEW_WORLD_COLLISION
 #ifndef RETRENGINE_DEBUG_VERSION_VIEW_OBJECT_COLLISION

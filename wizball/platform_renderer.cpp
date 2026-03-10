@@ -4,6 +4,9 @@
 #include <math.h>
 #include <stdarg.h>
 #include <SDL.h>
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+#include <SDL_opengles2.h>
+#endif
 
 #include "platform_renderer.h"
 #include "main.h"
@@ -16,9 +19,94 @@ static Uint8 PLATFORM_RENDERER_get_sdl_texture_alpha_mod(Uint8 requested_alpha);
 static void PLATFORM_RENDERER_set_texture_color_alpha_cached(SDL_Texture *tex, Uint8 r, Uint8 g, Uint8 b, Uint8 a);
 static int PLATFORM_RENDERER_sdl_copy_ex(SDL_Renderer *renderer, SDL_Texture *texture, const SDL_Rect *src, const SDL_Rect *dst, double angle, const SDL_Point *center, SDL_RendererFlip flip);
 static void PLATFORM_RENDERER_flush_addq(void);
+static void PLATFORM_RENDERER_flush_command_queue(void);
 static bool PLATFORM_RENDERER_should_defer_add_geometry(SDL_Texture *texture, int vertex_count, const int *indices, int index_count, int source_id);
 static bool PLATFORM_RENDERER_prepare_geometry_texture_atlas(void);
 static bool PLATFORM_RENDERER_try_remap_geometry_texture_to_atlas(SDL_Texture **io_texture, SDL_Vertex *vertices, int vertex_count);
+static platform_renderer_texture_entry *PLATFORM_RENDERER_get_texture_entry(unsigned int texture_handle);
+static Uint8 PLATFORM_RENDERER_clamp_sdl_unit_to_byte(float value);
+static void PLATFORM_RENDERER_transform_point(float in_x, float in_y, float *out_x, float *out_y);
+static void PLATFORM_RENDERER_draw_bound_perspective_textured_quad_immediate(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2, float q);
+static void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_immediate(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2, float q, const float *r, const float *g, const float *b, const float *a);
+static bool PLATFORM_RENDERER_draw_bound_perspective_textured_quad_batch_immediate(const platform_renderer_perspective_quad *quads, int quad_count);
+static bool PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batch_immediate(const platform_renderer_coloured_perspective_quad *quads, int quad_count);
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+static bool PLATFORM_RENDERER_gles2_init_context(void);
+static void PLATFORM_RENDERER_gles2_shutdown(void);
+static bool PLATFORM_RENDERER_gles2_is_ready(void);
+static bool PLATFORM_RENDERER_build_gles2_texture_from_entry(platform_renderer_texture_entry *entry);
+static void PLATFORM_RENDERER_gles2_prewarm_registered_textures(void);
+static void PLATFORM_RENDERER_gles2_prepare_viewport(void);
+static void PLATFORM_RENDERER_gles2_bind_program(GLuint program, GLint screen_uniform);
+static void PLATFORM_RENDERER_gles2_set_masked_uniform(GLint uniform_location);
+static void PLATFORM_RENDERER_gles2_bind_texture_unit(int texture_unit, GLuint tex);
+static void PLATFORM_RENDERER_gles2_apply_texture_params(platform_renderer_texture_entry *entry, bool filter_linear, bool repeat_s, bool repeat_t);
+static void PLATFORM_RENDERER_gles2_apply_blend_state(void);
+static bool PLATFORM_RENDERER_gles2_draw_textured_geometry_gltex(
+		GLuint tex,
+		unsigned int logical_texture_handle,
+		const SDL_Vertex *vertices,
+		int vertex_count,
+		const int *indices,
+		int index_count,
+		int source_id,
+		bool repeat_s,
+		bool repeat_t);
+static void PLATFORM_RENDERER_gles2_apply_scissor_rect(int x, int y, int w, int h);
+static bool PLATFORM_RENDERER_gles2_draw_wrapped_quad_geometry_gltex(
+		GLuint tex,
+		unsigned int logical_texture_handle,
+		const SDL_Vertex *vertices,
+		int vertex_count,
+		const int *indices,
+		int index_count,
+		int source_id);
+static bool PLATFORM_RENDERER_gles2_draw_textured_geometry(unsigned int texture_handle, const SDL_Vertex *vertices, int vertex_count, const int *indices, int index_count, int source_id);
+static bool PLATFORM_RENDERER_gles2_draw_textured_subrect_geometry(
+		platform_renderer_texture_entry *entry,
+		unsigned int logical_texture_handle,
+		const SDL_Rect *src_rect,
+		const SDL_Vertex *vertices,
+		int vertex_count,
+		const int *indices,
+		int index_count,
+		int source_id);
+static float PLATFORM_RENDERER_convert_v_to_sdl(float v);
+static bool PLATFORM_RENDERER_is_power_of_two_dimension(int value);
+static bool PLATFORM_RENDERER_gles2_source_supports_wrapped_quads(int source_id);
+static bool PLATFORM_RENDERER_gles2_indices_are_sequential_quads(const int *indices, int index_count);
+static void PLATFORM_RENDERER_gles2_interp_vertex(SDL_Vertex *out, const SDL_Vertex *a, const SDL_Vertex *b, float t);
+static void PLATFORM_RENDERER_gles2_normalize_quad_uv_band(SDL_Vertex quad[4]);
+static bool PLATFORM_RENDERER_gles2_split_quad_wrap_s(const SDL_Vertex in_quad[4], SDL_Vertex out_quads[2][4]);
+static bool PLATFORM_RENDERER_gles2_split_quad_wrap_t(const SDL_Vertex in_quad[4], SDL_Vertex out_quads[2][4]);
+static bool PLATFORM_RENDERER_gles2_draw_multitextured_geometry(
+		unsigned int texture0_handle,
+		unsigned int texture1_handle,
+		int combiner_mode,
+		const float *positions,
+		const float *uv0,
+		const float *uv1,
+		const unsigned char *colours,
+		int vertex_count,
+		const int *indices,
+		int index_count,
+		int source_id);
+static bool PLATFORM_RENDERER_gles2_draw_multitextured_perspective_quad(
+		float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3,
+		float u0_1, float v0_1, float u0_2, float v0_2,
+		float u1_1, float v1_1, float u1_2, float v1_2,
+		float q);
+static bool PLATFORM_RENDERER_gles2_draw_axis_wrapped_u_repeat_geometry(
+		unsigned int logical_texture_handle,
+		const float *screen_x,
+		const float *screen_y,
+		float u1, float v1, float u2, float v2,
+		Uint8 mod_r, Uint8 mod_g, Uint8 mod_b, Uint8 mod_a,
+		int source_id);
+static bool PLATFORM_RENDERER_gles2_draw_coloured_line_segment(
+		float x1, float y1, float x2, float y2,
+		Uint8 r, Uint8 g, Uint8 b, Uint8 a);
+#endif
 
 static platform_renderer_texture_entry *platform_renderer_texture_entries = NULL;
 static int platform_renderer_texture_count = 0;
@@ -34,6 +122,8 @@ static float platform_renderer_tx_d = 1.0f;
 static float platform_renderer_tx_x = 0.0f;
 static float platform_renderer_tx_y = 0.0f;
 static bool platform_renderer_blend_enabled = false;
+static bool platform_renderer_texture_filter_linear = false;
+static bool platform_renderer_texture_masked = false;
 enum
 {
 	PLATFORM_RENDERER_BLEND_MODE_ALPHA = 0,
@@ -43,11 +133,51 @@ enum
 };
 static int platform_renderer_blend_mode = PLATFORM_RENDERER_BLEND_MODE_ALPHA;
 static unsigned int platform_renderer_last_bound_texture_handle = 0;
+static unsigned int platform_renderer_last_bound_secondary_texture_handle = 0;
+enum
+{
+	PLATFORM_RENDERER_COMBINER_MODULATE_PRIMARY = 0,
+	PLATFORM_RENDERER_COMBINER_REPLACE_RGB_MODULATE_ALPHA_PREVIOUS = 1,
+	PLATFORM_RENDERER_COMBINER_REPLACE_RGB_MODULATE_ALPHA_PRIMARY = 2,
+	PLATFORM_RENDERER_COMBINER_MODULATE_RGB_REPLACE_ALPHA_PREVIOUS = 3
+};
+static int platform_renderer_combiner_mode = PLATFORM_RENDERER_COMBINER_MODULATE_PRIMARY;
 typedef void (*platform_active_texture_proc_t)(int texture_unit);
 static platform_active_texture_proc_t platform_renderer_active_texture_proc = NULL;
 typedef void (*platform_secondary_colour_proc_t)(float red, float green, float blue);
 static SDL_Window *platform_renderer_sdl_window = NULL;
 static SDL_Renderer *platform_renderer_sdl_renderer = NULL;
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+static SDL_GLContext platform_renderer_gles2_context = NULL;
+static GLuint platform_renderer_gles2_program = 0;
+static GLint platform_renderer_gles2_attr_pos = -1;
+static GLint platform_renderer_gles2_attr_uv = -1;
+static GLint platform_renderer_gles2_attr_color = -1;
+static GLint platform_renderer_gles2_uniform_screen = -1;
+static GLint platform_renderer_gles2_uniform_sampler = -1;
+static GLint platform_renderer_gles2_uniform_masked = -1;
+static GLuint platform_renderer_gles2_multitex_program = 0;
+static GLint platform_renderer_gles2_multitex_attr_pos = -1;
+static GLint platform_renderer_gles2_multitex_attr_uv0 = -1;
+static GLint platform_renderer_gles2_multitex_attr_uv1 = -1;
+static GLint platform_renderer_gles2_multitex_attr_color = -1;
+static GLint platform_renderer_gles2_multitex_uniform_screen = -1;
+static GLint platform_renderer_gles2_multitex_uniform_sampler0 = -1;
+static GLint platform_renderer_gles2_multitex_uniform_sampler1 = -1;
+static GLint platform_renderer_gles2_multitex_uniform_mode = -1;
+static GLint platform_renderer_gles2_multitex_uniform_masked = -1;
+static GLuint platform_renderer_gles2_white_texture = 0;
+static GLint platform_renderer_gles2_cached_viewport_w = -1;
+static GLint platform_renderer_gles2_cached_viewport_h = -1;
+static GLuint platform_renderer_gles2_cached_program = 0;
+static GLint platform_renderer_gles2_cached_active_texture_unit = -1;
+static GLuint platform_renderer_gles2_cached_texture_unit0 = 0;
+static GLuint platform_renderer_gles2_cached_texture_unit1 = 0;
+static int platform_renderer_gles2_cached_masked_simple = -1;
+static int platform_renderer_gles2_cached_masked_multitex = -1;
+static int platform_renderer_gles2_cached_blend_enabled = -1;
+static int platform_renderer_gles2_cached_blend_mode = -1;
+#endif
 static bool platform_renderer_sdl_stub_show_checked_env = false;
 static bool platform_renderer_sdl_stub_show_enabled = false;
 static bool platform_renderer_sdl_stub_accel_checked_env = false;
@@ -142,6 +272,49 @@ static int platform_renderer_geom_atlas_texture_count = 0;
 static bool platform_renderer_geom_atlas_dirty = true;
 static bool platform_renderer_geom_atlas_disabled = false;
 static SDL_Texture *platform_renderer_last_geom_texture = NULL; /* last texture argument to SDL_RenderGeometry */
+enum
+{
+	PLATFORM_RENDERER_CMD_NONE = 0,
+	PLATFORM_RENDERER_CMD_PERSPECTIVE = 1,
+	PLATFORM_RENDERER_CMD_COLOURED_PERSPECTIVE = 2
+};
+#define PLATFORM_RENDERER_CMDQ_MAX 512
+struct platform_renderer_command
+{
+	int type;
+	unsigned int texture_handle;
+	bool blend_enabled;
+	int blend_mode;
+	float colour_r;
+	float colour_g;
+	float colour_b;
+	float colour_a;
+	float tx_a;
+	float tx_b;
+	float tx_c;
+	float tx_d;
+	float tx_x;
+	float tx_y;
+	float x0;
+	float y0;
+	float x1;
+	float y1;
+	float x2;
+	float y2;
+	float x3;
+	float y3;
+	float u1;
+	float v1;
+	float u2;
+	float v2;
+	float q;
+	float vr[4];
+	float vg[4];
+	float vb[4];
+	float va[4];
+};
+static platform_renderer_command platform_renderer_command_queue[PLATFORM_RENDERER_CMDQ_MAX];
+static int platform_renderer_command_queue_count = 0;
 static SDL_Rect platform_renderer_sdl_clip_cache = {-1,-1,-1,-1};
 static bool platform_renderer_sdl_clip_cache_enabled = false;
 static int platform_renderer_sdl_output_width = 0;
@@ -177,11 +350,35 @@ static int platform_renderer_sdl_geometry_miss_sources[PLATFORM_RENDERER_GEOM_SR
 static int platform_renderer_sdl_geometry_degraded_sources[PLATFORM_RENDERER_GEOM_SRC_COUNT] = {0};
 static int platform_renderer_sdl_native_draw_sources[PLATFORM_RENDERER_GEOM_SRC_COUNT] = {0};
 static int platform_renderer_legacy_draw_sources[PLATFORM_RENDERER_GEOM_SRC_COUNT] = {0};
+static int platform_renderer_gles2_draw_sources[PLATFORM_RENDERER_GEOM_SRC_COUNT] = {0};
 static int platform_renderer_sdl_source_bounds_count[PLATFORM_RENDERER_GEOM_SRC_COUNT] = {0};
 static float platform_renderer_sdl_source_min_x[PLATFORM_RENDERER_GEOM_SRC_COUNT] = {0.0f};
 static float platform_renderer_sdl_source_min_y[PLATFORM_RENDERER_GEOM_SRC_COUNT] = {0.0f};
 static float platform_renderer_sdl_source_max_x[PLATFORM_RENDERER_GEOM_SRC_COUNT] = {0.0f};
 static float platform_renderer_sdl_source_max_y[PLATFORM_RENDERER_GEOM_SRC_COUNT] = {0.0f};
+static const char *PLATFORM_RENDERER_geom_source_name(int source_id)
+{
+	switch (source_id)
+	{
+	case PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD:
+		return "bound_quad";
+	case PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD_CUSTOM:
+		return "bound_quad_custom";
+	case PLATFORM_RENDERER_GEOM_SRC_MULTITEXTURE_ARRAY:
+		return "multitexture";
+	case PLATFORM_RENDERER_GEOM_SRC_COLOURED_ARRAY:
+		return "coloured_array";
+	case PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE:
+		return "perspective";
+	case PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE:
+		return "coloured_perspective";
+	case PLATFORM_RENDERER_GEOM_SRC_SDL_CUSTOM:
+		return "window_sprite";
+	default:
+		return "unknown";
+	}
+}
+
 static int platform_renderer_legacy_viewport_last[4] = {0, 0, 0, 0};
 static int platform_renderer_legacy_scissor_last[4] = {0, 0, 0, 0};
 static int platform_renderer_legacy_scissor_enabled_last = 0;
@@ -198,6 +395,13 @@ static int platform_renderer_present_width = 0;
 static int platform_renderer_present_height = 0;
 static bool platform_renderer_started_sdl_video = false;
 static char platform_renderer_sdl_status[256] = "SDL2 stub not checked.";
+static char platform_renderer_backend_name[32] =
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	"GLES2";
+#else
+	"SDL";
+#endif
+static bool platform_renderer_backend_checked_env = false;
 static unsigned int platform_renderer_sdl_sprite_trace_counter = 0;
 static bool platform_renderer_sdl_subtractive_texture_supported = true;
 static bool platform_renderer_sdl_subtractive_texture_support_checked = false;
@@ -340,8 +544,33 @@ static bool PLATFORM_RENDERER_using_multiply_blend_fallback(void)
 				 (!platform_renderer_sdl_multiply_texture_supported);
 }
 
+static void PLATFORM_RENDERER_refresh_backend_name(void)
+{
+	if (platform_renderer_backend_checked_env)
+	{
+		return;
+	}
+
+	platform_renderer_backend_checked_env = true;
+	{
+		const char *backend_env = getenv("WIZBALL_RENDERER_BACKEND");
+		if ((backend_env != NULL) && (backend_env[0] != '\0'))
+		{
+			if ((strcmp(backend_env, "gles2") == 0) || (strcmp(backend_env, "GLES2") == 0))
+			{
+				strcpy(platform_renderer_backend_name, "GLES2");
+			}
+			else if ((strcmp(backend_env, "sdl") == 0) || (strcmp(backend_env, "SDL") == 0))
+			{
+				strcpy(platform_renderer_backend_name, "SDL");
+			}
+		}
+	}
+}
+
 static void PLATFORM_RENDERER_refresh_sdl_stub_env_flags(void)
 {
+	PLATFORM_RENDERER_refresh_backend_name();
 	platform_renderer_sdl_diag_verbose_enabled = false;
 	{
 		const char *diag_env = getenv("WIZBALL_SDL2_DIAG");
@@ -387,6 +616,1029 @@ static bool PLATFORM_RENDERER_is_sdl_geometry_enabled(void)
 	PLATFORM_RENDERER_refresh_sdl_stub_env_flags();
 	return platform_renderer_sdl_geometry_enabled;
 }
+
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+static bool PLATFORM_RENDERER_gles2_is_ready(void)
+{
+	return
+		PLATFORM_RENDERER_backend_targets_gles2() &&
+		(platform_renderer_sdl_window != NULL) &&
+		(platform_renderer_gles2_context != NULL) &&
+		(platform_renderer_gles2_program != 0);
+}
+
+static void PLATFORM_RENDERER_gles2_apply_scissor_rect(int x, int y, int w, int h)
+{
+	int gl_y;
+
+	if (!PLATFORM_RENDERER_gles2_is_ready())
+	{
+		return;
+	}
+
+	if ((w <= 0) || (h <= 0) || (platform_renderer_present_height <= 0))
+	{
+		glDisable(GL_SCISSOR_TEST);
+		return;
+	}
+
+	gl_y = platform_renderer_present_height - (y + h);
+	if (gl_y < 0)
+	{
+		h += gl_y;
+		gl_y = 0;
+	}
+	if ((gl_y + h) > platform_renderer_present_height)
+	{
+		h = platform_renderer_present_height - gl_y;
+	}
+	if ((x < 0) || (y < 0) || ((x + w) > platform_renderer_present_width))
+	{
+		if (x < 0)
+		{
+			w += x;
+			x = 0;
+		}
+		if ((x + w) > platform_renderer_present_width)
+		{
+			w = platform_renderer_present_width - x;
+		}
+	}
+	if ((w <= 0) || (h <= 0))
+	{
+		glDisable(GL_SCISSOR_TEST);
+		return;
+	}
+
+	glEnable(GL_SCISSOR_TEST);
+	glScissor(x, gl_y, w, h);
+}
+
+static GLuint PLATFORM_RENDERER_gles2_compile_shader(GLenum type, const char *source)
+{
+	GLuint shader = glCreateShader(type);
+	if (shader == 0)
+	{
+		return 0;
+	}
+	glShaderSource(shader, 1, &source, NULL);
+	glCompileShader(shader);
+	{
+		GLint compiled = 0;
+		glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+		if (!compiled)
+		{
+			glDeleteShader(shader);
+			return 0;
+		}
+	}
+	return shader;
+}
+
+static bool PLATFORM_RENDERER_gles2_init_context(void)
+{
+	static const char *vertex_source =
+		"attribute vec2 a_pos;\n"
+		"attribute vec2 a_uv;\n"
+		"attribute vec4 a_color;\n"
+		"uniform vec2 u_screen;\n"
+		"varying vec2 v_uv;\n"
+		"varying vec4 v_color;\n"
+		"void main(void) {\n"
+		"  vec2 ndc = vec2((a_pos.x / u_screen.x) * 2.0 - 1.0, 1.0 - (a_pos.y / u_screen.y) * 2.0);\n"
+		"  gl_Position = vec4(ndc, 0.0, 1.0);\n"
+		"  v_uv = a_uv;\n"
+		"  v_color = a_color;\n"
+		"}\n";
+	static const char *fragment_source =
+		"precision mediump float;\n"
+		"uniform sampler2D u_tex;\n"
+		"uniform int u_masked;\n"
+		"varying vec2 v_uv;\n"
+		"varying vec4 v_color;\n"
+		"void main(void) {\n"
+		"  vec4 out_color = texture2D(u_tex, v_uv) * v_color;\n"
+		"  if ((u_masked != 0) && (out_color.a < 0.5)) discard;\n"
+		"  gl_FragColor = out_color;\n"
+		"}\n";
+	static const char *multitex_vertex_source =
+		"attribute vec2 a_pos;\n"
+		"attribute vec2 a_uv0;\n"
+		"attribute vec2 a_uv1;\n"
+		"attribute vec4 a_color;\n"
+		"uniform vec2 u_screen;\n"
+		"varying vec2 v_uv0;\n"
+		"varying vec2 v_uv1;\n"
+		"varying vec4 v_color;\n"
+		"void main(void) {\n"
+		"  vec2 ndc = vec2((a_pos.x / u_screen.x) * 2.0 - 1.0, 1.0 - (a_pos.y / u_screen.y) * 2.0);\n"
+		"  gl_Position = vec4(ndc, 0.0, 1.0);\n"
+		"  v_uv0 = a_uv0;\n"
+		"  v_uv1 = a_uv1;\n"
+		"  v_color = a_color;\n"
+		"}\n";
+	static const char *multitex_fragment_source =
+		"precision mediump float;\n"
+		"uniform sampler2D u_tex0;\n"
+		"uniform sampler2D u_tex1;\n"
+		"uniform int u_mode;\n"
+		"uniform int u_masked;\n"
+		"varying vec2 v_uv0;\n"
+		"varying vec2 v_uv1;\n"
+		"varying vec4 v_color;\n"
+		"void main(void) {\n"
+		"  vec4 primary = texture2D(u_tex0, v_uv0) * v_color;\n"
+		"  vec4 secondary = texture2D(u_tex1, v_uv1);\n"
+		"  vec4 out_color;\n"
+		"  if (u_mode == 3) {\n"
+		"    out_color = vec4(secondary.rgb * primary.rgb, primary.a);\n"
+		"  } else if (u_mode == 2) {\n"
+		"    out_color = vec4(secondary.rgb, secondary.a * v_color.a);\n"
+		"  } else {\n"
+		"    out_color = vec4(secondary.rgb, secondary.a * primary.a);\n"
+		"  }\n"
+		"  if ((u_masked != 0) && (out_color.a < 0.5)) discard;\n"
+		"  gl_FragColor = out_color;\n"
+		"}\n";
+	GLuint vs = 0;
+	GLuint fs = 0;
+	GLuint multitex_vs = 0;
+	GLuint multitex_fs = 0;
+
+	if (platform_renderer_gles2_context != NULL)
+	{
+		return true;
+	}
+
+	if (platform_renderer_sdl_window == NULL)
+	{
+		return false;
+	}
+
+	platform_renderer_gles2_context = SDL_GL_CreateContext(platform_renderer_sdl_window);
+	if (platform_renderer_gles2_context == NULL)
+	{
+		snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "SDL_GL_CreateContext failed: %s", SDL_GetError());
+		return false;
+	}
+	(void)SDL_GL_MakeCurrent(platform_renderer_sdl_window, platform_renderer_gles2_context);
+	(void)SDL_GL_SetSwapInterval(0);
+
+	vs = PLATFORM_RENDERER_gles2_compile_shader(GL_VERTEX_SHADER, vertex_source);
+	fs = PLATFORM_RENDERER_gles2_compile_shader(GL_FRAGMENT_SHADER, fragment_source);
+	multitex_vs = PLATFORM_RENDERER_gles2_compile_shader(GL_VERTEX_SHADER, multitex_vertex_source);
+	multitex_fs = PLATFORM_RENDERER_gles2_compile_shader(GL_FRAGMENT_SHADER, multitex_fragment_source);
+	if ((vs == 0) || (fs == 0) || (multitex_vs == 0) || (multitex_fs == 0))
+	{
+		if (vs != 0) glDeleteShader(vs);
+		if (fs != 0) glDeleteShader(fs);
+		if (multitex_vs != 0) glDeleteShader(multitex_vs);
+		if (multitex_fs != 0) glDeleteShader(multitex_fs);
+		snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "GLES2 shader compile failed.");
+		return false;
+	}
+
+	platform_renderer_gles2_program = glCreateProgram();
+	glAttachShader(platform_renderer_gles2_program, vs);
+	glAttachShader(platform_renderer_gles2_program, fs);
+	glBindAttribLocation(platform_renderer_gles2_program, 0, "a_pos");
+	glBindAttribLocation(platform_renderer_gles2_program, 1, "a_uv");
+	glBindAttribLocation(platform_renderer_gles2_program, 2, "a_color");
+	glLinkProgram(platform_renderer_gles2_program);
+	glDeleteShader(vs);
+	glDeleteShader(fs);
+	{
+		GLint linked = 0;
+		glGetProgramiv(platform_renderer_gles2_program, GL_LINK_STATUS, &linked);
+		if (!linked)
+		{
+			glDeleteProgram(platform_renderer_gles2_program);
+			platform_renderer_gles2_program = 0;
+			snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "GLES2 program link failed.");
+			return false;
+		}
+	}
+
+	platform_renderer_gles2_multitex_program = glCreateProgram();
+	glAttachShader(platform_renderer_gles2_multitex_program, multitex_vs);
+	glAttachShader(platform_renderer_gles2_multitex_program, multitex_fs);
+	glBindAttribLocation(platform_renderer_gles2_multitex_program, 0, "a_pos");
+	glBindAttribLocation(platform_renderer_gles2_multitex_program, 1, "a_uv0");
+	glBindAttribLocation(platform_renderer_gles2_multitex_program, 2, "a_uv1");
+	glBindAttribLocation(platform_renderer_gles2_multitex_program, 3, "a_color");
+	glLinkProgram(platform_renderer_gles2_multitex_program);
+	glDeleteShader(multitex_vs);
+	glDeleteShader(multitex_fs);
+	{
+		GLint linked = 0;
+		glGetProgramiv(platform_renderer_gles2_multitex_program, GL_LINK_STATUS, &linked);
+		if (!linked)
+		{
+			glDeleteProgram(platform_renderer_gles2_multitex_program);
+			platform_renderer_gles2_multitex_program = 0;
+			snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "GLES2 multitexture program link failed.");
+			return false;
+		}
+	}
+
+	platform_renderer_gles2_attr_pos = 0;
+	platform_renderer_gles2_attr_uv = 1;
+	platform_renderer_gles2_attr_color = 2;
+	platform_renderer_gles2_uniform_screen = glGetUniformLocation(platform_renderer_gles2_program, "u_screen");
+	platform_renderer_gles2_uniform_sampler = glGetUniformLocation(platform_renderer_gles2_program, "u_tex");
+	platform_renderer_gles2_uniform_masked = glGetUniformLocation(platform_renderer_gles2_program, "u_masked");
+	platform_renderer_gles2_multitex_attr_pos = 0;
+	platform_renderer_gles2_multitex_attr_uv0 = 1;
+	platform_renderer_gles2_multitex_attr_uv1 = 2;
+	platform_renderer_gles2_multitex_attr_color = 3;
+	platform_renderer_gles2_multitex_uniform_screen = glGetUniformLocation(platform_renderer_gles2_multitex_program, "u_screen");
+	platform_renderer_gles2_multitex_uniform_sampler0 = glGetUniformLocation(platform_renderer_gles2_multitex_program, "u_tex0");
+	platform_renderer_gles2_multitex_uniform_sampler1 = glGetUniformLocation(platform_renderer_gles2_multitex_program, "u_tex1");
+	platform_renderer_gles2_multitex_uniform_mode = glGetUniformLocation(platform_renderer_gles2_multitex_program, "u_mode");
+	platform_renderer_gles2_multitex_uniform_masked = glGetUniformLocation(platform_renderer_gles2_multitex_program, "u_masked");
+
+	glGenTextures(1, &platform_renderer_gles2_white_texture);
+	glBindTexture(GL_TEXTURE_2D, platform_renderer_gles2_white_texture);
+	{
+		const unsigned char pixel[4] = {255, 255, 255, 255};
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixel);
+	}
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	glUseProgram(platform_renderer_gles2_program);
+	glUniform1i(platform_renderer_gles2_uniform_sampler, 0);
+	glUniform1i(platform_renderer_gles2_uniform_masked, 0);
+	glUseProgram(platform_renderer_gles2_multitex_program);
+	glUniform1i(platform_renderer_gles2_multitex_uniform_sampler0, 0);
+	glUniform1i(platform_renderer_gles2_multitex_uniform_sampler1, 1);
+	glUniform1i(platform_renderer_gles2_multitex_uniform_masked, 0);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
+	PLATFORM_RENDERER_gles2_prewarm_registered_textures();
+	return true;
+}
+
+static void PLATFORM_RENDERER_gles2_shutdown(void)
+{
+	int i;
+	for (i = 0; i < platform_renderer_texture_count; i++)
+	{
+		if (platform_renderer_texture_entries[i].gles2_texture != 0)
+		{
+			glDeleteTextures(1, &platform_renderer_texture_entries[i].gles2_texture);
+			platform_renderer_texture_entries[i].gles2_texture = 0;
+		}
+	}
+	if (platform_renderer_gles2_white_texture != 0)
+	{
+		glDeleteTextures(1, &platform_renderer_gles2_white_texture);
+		platform_renderer_gles2_white_texture = 0;
+	}
+	if (platform_renderer_gles2_program != 0)
+	{
+		glDeleteProgram(platform_renderer_gles2_program);
+		platform_renderer_gles2_program = 0;
+	}
+	if (platform_renderer_gles2_multitex_program != 0)
+	{
+		glDeleteProgram(platform_renderer_gles2_multitex_program);
+		platform_renderer_gles2_multitex_program = 0;
+	}
+	if (platform_renderer_gles2_context != NULL)
+	{
+		SDL_GL_DeleteContext(platform_renderer_gles2_context);
+		platform_renderer_gles2_context = NULL;
+	}
+	platform_renderer_gles2_cached_viewport_w = -1;
+	platform_renderer_gles2_cached_viewport_h = -1;
+	platform_renderer_gles2_cached_program = 0;
+	platform_renderer_gles2_cached_active_texture_unit = -1;
+	platform_renderer_gles2_cached_texture_unit0 = 0;
+	platform_renderer_gles2_cached_texture_unit1 = 0;
+	platform_renderer_gles2_cached_masked_simple = -1;
+	platform_renderer_gles2_cached_masked_multitex = -1;
+	platform_renderer_gles2_cached_blend_enabled = -1;
+	platform_renderer_gles2_cached_blend_mode = -1;
+}
+
+static bool PLATFORM_RENDERER_build_gles2_texture_from_entry(platform_renderer_texture_entry *entry)
+{
+	if (!PLATFORM_RENDERER_gles2_is_ready() || (entry == NULL))
+	{
+		return false;
+	}
+	if (entry->gles2_texture != 0)
+	{
+		return true;
+	}
+	if ((entry->sdl_rgba_pixels == NULL) || (entry->width <= 0) || (entry->height <= 0))
+	{
+		return false;
+	}
+
+	glGenTextures(1, &entry->gles2_texture);
+	glBindTexture(GL_TEXTURE_2D, entry->gles2_texture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, entry->width, entry->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, entry->sdl_rgba_pixels);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	entry->gles2_filter_linear = false;
+	entry->gles2_wrap_s_repeat = false;
+	entry->gles2_wrap_t_repeat = false;
+	return entry->gles2_texture != 0;
+}
+
+static void PLATFORM_RENDERER_gles2_prewarm_registered_textures(void)
+{
+	int i;
+
+	if (!PLATFORM_RENDERER_gles2_is_ready() || (platform_renderer_texture_entries == NULL))
+	{
+		return;
+	}
+
+	for (i = 0; i < platform_renderer_texture_count; i++)
+	{
+		platform_renderer_texture_entry *entry = &platform_renderer_texture_entries[i];
+		if (entry->gles2_texture == 0)
+		{
+			(void)PLATFORM_RENDERER_build_gles2_texture_from_entry(entry);
+		}
+	}
+}
+
+static void PLATFORM_RENDERER_gles2_prepare_viewport(void)
+{
+	if ((platform_renderer_gles2_cached_viewport_w != platform_renderer_present_width) ||
+			(platform_renderer_gles2_cached_viewport_h != platform_renderer_present_height))
+	{
+		glViewport(0, 0, platform_renderer_present_width, platform_renderer_present_height);
+		platform_renderer_gles2_cached_viewport_w = platform_renderer_present_width;
+		platform_renderer_gles2_cached_viewport_h = platform_renderer_present_height;
+	}
+}
+
+static void PLATFORM_RENDERER_gles2_bind_program(GLuint program, GLint screen_uniform)
+{
+	if (platform_renderer_gles2_cached_program != program)
+	{
+		glUseProgram(program);
+		platform_renderer_gles2_cached_program = program;
+		if (screen_uniform >= 0)
+		{
+			glUniform2f(screen_uniform, (GLfloat)platform_renderer_present_width, (GLfloat)platform_renderer_present_height);
+		}
+	}
+}
+
+static void PLATFORM_RENDERER_gles2_set_masked_uniform(GLint uniform_location)
+{
+	int masked = platform_renderer_texture_masked ? 1 : 0;
+	int *cached = (uniform_location == platform_renderer_gles2_uniform_masked)
+		? &platform_renderer_gles2_cached_masked_simple
+		: &platform_renderer_gles2_cached_masked_multitex;
+
+	if ((*cached != masked) && (uniform_location >= 0))
+	{
+		glUniform1i(uniform_location, masked);
+		*cached = masked;
+	}
+}
+
+static void PLATFORM_RENDERER_gles2_bind_texture_unit(int texture_unit, GLuint tex)
+{
+	GLuint *cached_tex = (texture_unit == GL_TEXTURE1)
+		? &platform_renderer_gles2_cached_texture_unit1
+		: &platform_renderer_gles2_cached_texture_unit0;
+
+	if (platform_renderer_gles2_cached_active_texture_unit != texture_unit)
+	{
+		glActiveTexture(texture_unit);
+		platform_renderer_gles2_cached_active_texture_unit = texture_unit;
+	}
+	if (*cached_tex != tex)
+	{
+		glBindTexture(GL_TEXTURE_2D, tex);
+		*cached_tex = tex;
+	}
+}
+
+static void PLATFORM_RENDERER_gles2_apply_texture_params(platform_renderer_texture_entry *entry, bool filter_linear, bool repeat_s, bool repeat_t)
+{
+	if (entry == NULL)
+	{
+		return;
+	}
+	if (entry->gles2_filter_linear != filter_linear)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter_linear ? GL_LINEAR : GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter_linear ? GL_LINEAR : GL_NEAREST);
+		entry->gles2_filter_linear = filter_linear;
+	}
+	if (entry->gles2_wrap_s_repeat != repeat_s)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, repeat_s ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+		entry->gles2_wrap_s_repeat = repeat_s;
+	}
+	if (entry->gles2_wrap_t_repeat != repeat_t)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, repeat_t ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+		entry->gles2_wrap_t_repeat = repeat_t;
+	}
+}
+
+static void PLATFORM_RENDERER_gles2_apply_blend_state(void)
+{
+	glEnable(GL_BLEND);
+	if (!platform_renderer_blend_enabled)
+	{
+		/*
+		 * Match the SDL renderer path: textured draws still need ordinary alpha
+		 * compositing even when the higher-level blend flag is "off", otherwise
+		 * sprites with transparent/masked pixels turn into opaque black boxes or
+		 * inherit stale multiply/add/subtract state from previous entities.
+		 */
+		glBlendEquation(GL_FUNC_ADD);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		return;
+	}
+	switch (platform_renderer_blend_mode)
+	{
+	case PLATFORM_RENDERER_BLEND_MODE_ADD:
+		glBlendEquation(GL_FUNC_ADD);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+		break;
+	case PLATFORM_RENDERER_BLEND_MODE_MULTIPLY:
+		glBlendEquation(GL_FUNC_ADD);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		break;
+	case PLATFORM_RENDERER_BLEND_MODE_SUBTRACT:
+		glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+		break;
+	case PLATFORM_RENDERER_BLEND_MODE_ALPHA:
+	default:
+		glBlendEquation(GL_FUNC_ADD);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		break;
+	}
+}
+
+static bool PLATFORM_RENDERER_gles2_draw_textured_geometry_gltex(
+		GLuint tex,
+		unsigned int logical_texture_handle,
+		const SDL_Vertex *vertices,
+		int vertex_count,
+		const int *indices,
+		int index_count,
+		int source_id,
+		bool repeat_s,
+		bool repeat_t)
+{
+	GLushort stack_index_data[PLATFORM_RENDERER_MAX_GEOMETRY_INDICES];
+	GLushort *index_data = stack_index_data;
+	bool used_heap_indices = false;
+	int i;
+	if (!PLATFORM_RENDERER_gles2_is_ready() || (vertices == NULL) || (indices == NULL) || (vertex_count <= 0) || (index_count <= 0))
+	{
+		return false;
+	}
+	if (tex == 0)
+	{
+		return false;
+	}
+
+	if (index_count > PLATFORM_RENDERER_MAX_GEOMETRY_INDICES)
+	{
+		index_data = (GLushort *)malloc((size_t)index_count * sizeof(GLushort));
+		if (index_data == NULL)
+		{
+			return false;
+		}
+		used_heap_indices = true;
+	}
+	for (i = 0; i < index_count; i++)
+	{
+		index_data[i] = (GLushort)indices[i];
+	}
+
+	glViewport(0, 0, platform_renderer_present_width, platform_renderer_present_height);
+	PLATFORM_RENDERER_gles2_apply_blend_state();
+	glUseProgram(platform_renderer_gles2_program);
+	glUniform2f(platform_renderer_gles2_uniform_screen, (GLfloat)platform_renderer_present_width, (GLfloat)platform_renderer_present_height);
+	glUniform1i(platform_renderer_gles2_uniform_masked, platform_renderer_texture_masked ? 1 : 0);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, tex);
+	if (logical_texture_handle != 0)
+	{
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, platform_renderer_texture_filter_linear ? GL_LINEAR : GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, platform_renderer_texture_filter_linear ? GL_LINEAR : GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, repeat_s ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, repeat_t ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+	}
+	glEnableVertexAttribArray((GLuint)platform_renderer_gles2_attr_pos);
+	glEnableVertexAttribArray((GLuint)platform_renderer_gles2_attr_uv);
+	glEnableVertexAttribArray((GLuint)platform_renderer_gles2_attr_color);
+	glVertexAttribPointer((GLuint)platform_renderer_gles2_attr_pos, 2, GL_FLOAT, GL_FALSE, sizeof(SDL_Vertex), &vertices[0].position.x);
+	glVertexAttribPointer((GLuint)platform_renderer_gles2_attr_uv, 2, GL_FLOAT, GL_FALSE, sizeof(SDL_Vertex), &vertices[0].tex_coord.x);
+	glVertexAttribPointer((GLuint)platform_renderer_gles2_attr_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, sizeof(SDL_Vertex), &vertices[0].color.r);
+	glDrawElements(GL_TRIANGLES, index_count, GL_UNSIGNED_SHORT, index_data);
+	if (used_heap_indices)
+	{
+		free(index_data);
+	}
+	platform_renderer_sdl_native_draw_count++;
+	if (logical_texture_handle != 0)
+	{
+		platform_renderer_sdl_native_textured_draw_count++;
+	}
+	if ((source_id > 0) && (source_id < PLATFORM_RENDERER_GEOM_SRC_COUNT))
+	{
+		platform_renderer_gles2_draw_sources[source_id]++;
+	}
+	return true;
+}
+
+static bool PLATFORM_RENDERER_gles2_draw_textured_geometry(unsigned int texture_handle, const SDL_Vertex *vertices, int vertex_count, const int *indices, int index_count, int source_id)
+{
+	platform_renderer_texture_entry *entry;
+	GLuint tex;
+	SDL_Vertex local_vertices[PLATFORM_RENDERER_MAX_GEOMETRY_VERTICES];
+	SDL_Vertex *work_vertices = local_vertices;
+	bool repeat_s = false;
+	bool repeat_t = false;
+	int i;
+
+	if (texture_handle == 0)
+	{
+		tex = platform_renderer_gles2_white_texture;
+		return PLATFORM_RENDERER_gles2_draw_textured_geometry_gltex(tex, 0, vertices, vertex_count, indices, index_count, source_id, false, false);
+	}
+
+	entry = PLATFORM_RENDERER_get_texture_entry(texture_handle);
+	if ((entry == NULL) || !PLATFORM_RENDERER_build_gles2_texture_from_entry(entry))
+	{
+		return false;
+	}
+	tex = entry->gles2_texture;
+
+	if (vertex_count > PLATFORM_RENDERER_MAX_GEOMETRY_VERTICES)
+	{
+		work_vertices = (SDL_Vertex *)malloc((size_t)vertex_count * sizeof(SDL_Vertex));
+		if (work_vertices == NULL)
+		{
+			return false;
+		}
+	}
+
+	for (i = 0; i < vertex_count; i++)
+	{
+		work_vertices[i] = vertices[i];
+		work_vertices[i].tex_coord.y = PLATFORM_RENDERER_convert_v_to_sdl(vertices[i].tex_coord.y);
+		if ((work_vertices[i].tex_coord.x < 0.0f) || (work_vertices[i].tex_coord.x > 1.0f))
+		{
+			repeat_s = true;
+		}
+		if ((work_vertices[i].tex_coord.y < 0.0f) || (work_vertices[i].tex_coord.y > 1.0f))
+		{
+			repeat_t = true;
+		}
+	}
+
+	if ((repeat_s || repeat_t) &&
+			PLATFORM_RENDERER_gles2_source_supports_wrapped_quads(source_id) &&
+			PLATFORM_RENDERER_gles2_draw_wrapped_quad_geometry_gltex(
+				tex,
+				texture_handle,
+				vertices,
+				vertex_count,
+				indices,
+				index_count,
+				source_id))
+	{
+		if (work_vertices != local_vertices)
+		{
+			free(work_vertices);
+		}
+		return true;
+	}
+
+	{
+		const bool ok = PLATFORM_RENDERER_gles2_draw_textured_geometry_gltex(
+				tex, texture_handle, work_vertices, vertex_count, indices, index_count, source_id, repeat_s, repeat_t);
+		if (work_vertices != local_vertices)
+		{
+			free(work_vertices);
+		}
+		return ok;
+	}
+}
+
+static bool PLATFORM_RENDERER_gles2_draw_textured_subrect_geometry(
+		platform_renderer_texture_entry *entry,
+		unsigned int logical_texture_handle,
+		const SDL_Rect *src_rect,
+		const SDL_Vertex *vertices,
+		int vertex_count,
+		const int *indices,
+		int index_count,
+		int source_id)
+{
+	SDL_Vertex local_vertices[PLATFORM_RENDERER_MAX_GEOMETRY_VERTICES];
+	SDL_Vertex *work_vertices = local_vertices;
+	int i;
+	float src_u_min;
+	float src_u_max;
+	float src_v_min;
+	float src_v_max;
+
+	if (!PLATFORM_RENDERER_gles2_is_ready() ||
+			(entry == NULL) ||
+			(src_rect == NULL) ||
+			(vertices == NULL) ||
+			(indices == NULL) ||
+			(entry->sdl_rgba_pixels == NULL) ||
+			(vertex_count <= 0) ||
+			(index_count <= 0) ||
+			(src_rect->w <= 0) ||
+			(src_rect->h <= 0))
+	{
+		return false;
+	}
+
+	if (!PLATFORM_RENDERER_build_gles2_texture_from_entry(entry))
+	{
+		return false;
+	}
+
+	if (vertex_count > PLATFORM_RENDERER_MAX_GEOMETRY_VERTICES)
+	{
+		work_vertices = (SDL_Vertex *)malloc((size_t)vertex_count * sizeof(SDL_Vertex));
+		if (work_vertices == NULL)
+		{
+			return false;
+		}
+	}
+
+	src_u_min = (float)src_rect->x / (float)entry->width;
+	src_u_max = (float)(src_rect->x + src_rect->w) / (float)entry->width;
+	src_v_min = (float)src_rect->y / (float)entry->height;
+	src_v_max = (float)(src_rect->y + src_rect->h) / (float)entry->height;
+
+	for (i = 0; i < vertex_count; i++)
+	{
+		work_vertices[i] = vertices[i];
+		work_vertices[i].tex_coord.y = PLATFORM_RENDERER_convert_v_to_sdl(vertices[i].tex_coord.y);
+		if (work_vertices[i].tex_coord.x < src_u_min) work_vertices[i].tex_coord.x = src_u_min;
+		if (work_vertices[i].tex_coord.x > src_u_max) work_vertices[i].tex_coord.x = src_u_max;
+		if (work_vertices[i].tex_coord.y < src_v_min) work_vertices[i].tex_coord.y = src_v_min;
+		if (work_vertices[i].tex_coord.y > src_v_max) work_vertices[i].tex_coord.y = src_v_max;
+	}
+
+	{
+		const bool ok = PLATFORM_RENDERER_gles2_draw_textured_geometry_gltex(
+				entry->gles2_texture,
+				logical_texture_handle,
+				work_vertices,
+				vertex_count,
+				indices,
+				index_count,
+				source_id,
+				false,
+				false);
+		if (work_vertices != local_vertices)
+		{
+			free(work_vertices);
+		}
+		return ok;
+	}
+}
+
+
+static bool PLATFORM_RENDERER_gles2_draw_coloured_line_segment(
+		float x1, float y1, float x2, float y2,
+		Uint8 r, Uint8 g, Uint8 b, Uint8 a)
+{
+	SDL_Vertex vertices[4];
+	const int indices[6] = {0, 1, 2, 0, 2, 3};
+	float dx;
+	float dy;
+	float length;
+	float nx;
+	float ny;
+	const float half_width = 0.5f;
+	int i;
+
+	if (!PLATFORM_RENDERER_gles2_is_ready() || (platform_renderer_present_height <= 0))
+	{
+		return false;
+	}
+	if (a == 0)
+	{
+		return true;
+	}
+
+	dx = x2 - x1;
+	dy = y2 - y1;
+	length = sqrtf((dx * dx) + (dy * dy));
+	if (length < 0.0001f)
+	{
+		const float px = x1;
+		const float py = y1;
+		vertices[0].position.x = px - 0.5f; vertices[0].position.y = py - 0.5f;
+		vertices[1].position.x = px + 0.5f; vertices[1].position.y = py - 0.5f;
+		vertices[2].position.x = px + 0.5f; vertices[2].position.y = py + 0.5f;
+		vertices[3].position.x = px - 0.5f; vertices[3].position.y = py + 0.5f;
+	}
+	else
+	{
+		nx = -dy / length;
+		ny = dx / length;
+		vertices[0].position.x = x1 + (nx * half_width); vertices[0].position.y = y1 + (ny * half_width);
+		vertices[1].position.x = x1 - (nx * half_width); vertices[1].position.y = y1 - (ny * half_width);
+		vertices[2].position.x = x2 - (nx * half_width); vertices[2].position.y = y2 - (ny * half_width);
+		vertices[3].position.x = x2 + (nx * half_width); vertices[3].position.y = y2 + (ny * half_width);
+	}
+
+	for (i = 0; i < 4; i++)
+	{
+		vertices[i].tex_coord.x = 0.5f;
+		vertices[i].tex_coord.y = 0.5f;
+		vertices[i].color.r = r;
+		vertices[i].color.g = g;
+		vertices[i].color.b = b;
+		vertices[i].color.a = a;
+	}
+
+	return PLATFORM_RENDERER_gles2_draw_textured_geometry(0, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_NONE);
+}
+
+static bool PLATFORM_RENDERER_gles2_draw_multitextured_geometry(
+		unsigned int texture0_handle,
+		unsigned int texture1_handle,
+		int combiner_mode,
+		const float *positions,
+		const float *uv0,
+		const float *uv1,
+		const unsigned char *colours,
+		int vertex_count,
+		const int *indices,
+		int index_count,
+		int source_id)
+{
+	platform_renderer_texture_entry *entry0;
+	platform_renderer_texture_entry *entry1;
+	float uv0_stack[PLATFORM_RENDERER_MAX_GEOMETRY_VERTICES * 2];
+	float uv1_stack[PLATFORM_RENDERER_MAX_GEOMETRY_VERTICES * 2];
+	float *uv0_work = uv0_stack;
+	float *uv1_work = uv1_stack;
+	GLushort index_stack[PLATFORM_RENDERER_MAX_GEOMETRY_INDICES];
+	GLushort *index_data = index_stack;
+	bool used_heap_uv = false;
+	bool used_heap_indices = false;
+	bool repeat0_s = false;
+	bool repeat0_t = false;
+	bool repeat1_s = false;
+	bool repeat1_t = false;
+	int i;
+
+	if (!PLATFORM_RENDERER_gles2_is_ready() ||
+			(platform_renderer_gles2_multitex_program == 0) ||
+			(positions == NULL) ||
+			(uv0 == NULL) ||
+			(uv1 == NULL) ||
+			(colours == NULL) ||
+			(indices == NULL) ||
+			(vertex_count <= 0) ||
+			(index_count <= 0) ||
+			(texture0_handle == 0) ||
+			(texture1_handle == 0))
+	{
+		return false;
+	}
+
+	entry0 = PLATFORM_RENDERER_get_texture_entry(texture0_handle);
+	entry1 = PLATFORM_RENDERER_get_texture_entry(texture1_handle);
+	if ((entry0 == NULL) || (entry1 == NULL) ||
+			!PLATFORM_RENDERER_build_gles2_texture_from_entry(entry0) ||
+			!PLATFORM_RENDERER_build_gles2_texture_from_entry(entry1))
+	{
+		return false;
+	}
+	if (vertex_count > PLATFORM_RENDERER_MAX_GEOMETRY_VERTICES)
+	{
+		uv0_work = (float *)malloc((size_t)vertex_count * 2u * sizeof(float));
+		uv1_work = (float *)malloc((size_t)vertex_count * 2u * sizeof(float));
+		if ((uv0_work == NULL) || (uv1_work == NULL))
+		{
+			free(uv0_work);
+			free(uv1_work);
+			return false;
+		}
+		used_heap_uv = true;
+	}
+	for (i = 0; i < vertex_count; i++)
+	{
+		const float p_u = uv0[(i * 2) + 0];
+		const float p_v = PLATFORM_RENDERER_convert_v_to_sdl(uv0[(i * 2) + 1]);
+		const float s_u = uv1[(i * 2) + 0];
+		const float s_v = PLATFORM_RENDERER_convert_v_to_sdl(uv1[(i * 2) + 1]);
+		uv0_work[(i * 2) + 0] = p_u;
+		uv0_work[(i * 2) + 1] = p_v;
+		uv1_work[(i * 2) + 0] = s_u;
+		uv1_work[(i * 2) + 1] = s_v;
+		if ((p_u < 0.0f) || (p_u > 1.0f)) repeat0_s = true;
+		if ((p_v < 0.0f) || (p_v > 1.0f)) repeat0_t = true;
+		if ((s_u < 0.0f) || (s_u > 1.0f)) repeat1_s = true;
+		if ((s_v < 0.0f) || (s_v > 1.0f)) repeat1_t = true;
+	}
+
+	if (index_count > PLATFORM_RENDERER_MAX_GEOMETRY_INDICES)
+	{
+		index_data = (GLushort *)malloc((size_t)index_count * sizeof(GLushort));
+		if (index_data == NULL)
+		{
+			if (used_heap_uv)
+			{
+				free(uv0_work);
+				free(uv1_work);
+			}
+			return false;
+		}
+		used_heap_indices = true;
+	}
+	for (i = 0; i < index_count; i++)
+	{
+		index_data[i] = (GLushort)indices[i];
+	}
+
+	glViewport(0, 0, platform_renderer_present_width, platform_renderer_present_height);
+	PLATFORM_RENDERER_gles2_apply_blend_state();
+	glUseProgram(platform_renderer_gles2_multitex_program);
+	glUniform2f(platform_renderer_gles2_multitex_uniform_screen, (GLfloat)platform_renderer_present_width, (GLfloat)platform_renderer_present_height);
+	glUniform1i(platform_renderer_gles2_multitex_uniform_mode, combiner_mode);
+	glUniform1i(platform_renderer_gles2_multitex_uniform_masked, platform_renderer_texture_masked ? 1 : 0);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, entry0->gles2_texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, platform_renderer_texture_filter_linear ? GL_LINEAR : GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, platform_renderer_texture_filter_linear ? GL_LINEAR : GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, repeat0_s ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, repeat0_t ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, entry1->gles2_texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, platform_renderer_texture_filter_linear ? GL_LINEAR : GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, platform_renderer_texture_filter_linear ? GL_LINEAR : GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, repeat1_s ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, repeat1_t ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+	glEnableVertexAttribArray((GLuint)platform_renderer_gles2_multitex_attr_pos);
+	glEnableVertexAttribArray((GLuint)platform_renderer_gles2_multitex_attr_uv0);
+	glEnableVertexAttribArray((GLuint)platform_renderer_gles2_multitex_attr_uv1);
+	glEnableVertexAttribArray((GLuint)platform_renderer_gles2_multitex_attr_color);
+	glVertexAttribPointer((GLuint)platform_renderer_gles2_multitex_attr_pos, 2, GL_FLOAT, GL_FALSE, 0, positions);
+	glVertexAttribPointer((GLuint)platform_renderer_gles2_multitex_attr_uv0, 2, GL_FLOAT, GL_FALSE, 0, uv0_work);
+	glVertexAttribPointer((GLuint)platform_renderer_gles2_multitex_attr_uv1, 2, GL_FLOAT, GL_FALSE, 0, uv1_work);
+	glVertexAttribPointer((GLuint)platform_renderer_gles2_multitex_attr_color, 4, GL_UNSIGNED_BYTE, GL_TRUE, 0, colours);
+	glDrawElements(GL_TRIANGLES, index_count, GL_UNSIGNED_SHORT, index_data);
+	if (used_heap_uv)
+	{
+		free(uv0_work);
+		free(uv1_work);
+	}
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, entry0->gles2_texture);
+	if (used_heap_indices)
+	{
+		free(index_data);
+	}
+	platform_renderer_sdl_native_draw_count++;
+	platform_renderer_sdl_native_textured_draw_count++;
+	if ((source_id > 0) && (source_id < PLATFORM_RENDERER_GEOM_SRC_COUNT))
+	{
+		platform_renderer_gles2_draw_sources[source_id]++;
+	}
+	return true;
+}
+
+static bool PLATFORM_RENDERER_gles2_draw_multitextured_perspective_quad(
+		float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3,
+		float u0_1, float v0_1, float u0_2, float v0_2,
+		float u1_1, float v1_1, float u1_2, float v1_2,
+		float q)
+{
+	const float perspective_eps = 0.0005f;
+	const int strip_count = ((fabsf(q - 1.0f) > perspective_eps) && (q > perspective_eps)) ? 24 : 1;
+	float positions[24 * 4 * 2];
+	float primary_uv[24 * 4 * 2];
+	float secondary_uv[24 * 4 * 2];
+	unsigned char colours[24 * 4 * 4];
+	int indices[24 * 6];
+	int base_vertex = 0;
+	int base_index = 0;
+	int strip_index;
+	const unsigned char cr = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r);
+	const unsigned char cg = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g);
+	const unsigned char cb = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b);
+	const unsigned char ca = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a);
+
+	for (strip_index = 0; strip_index < strip_count; strip_index++)
+	{
+		const float t0 = (float)strip_index / (float)strip_count;
+		const float t1 = (float)(strip_index + 1) / (float)strip_count;
+		const float one_minus_t0 = 1.0f - t0;
+		const float one_minus_t1 = 1.0f - t1;
+		const float left_x0 = (x0 * one_minus_t0) + (x1 * t0);
+		const float left_y0 = (y0 * one_minus_t0) + (y1 * t0);
+		const float left_x1 = (x0 * one_minus_t1) + (x1 * t1);
+		const float left_y1 = (y0 * one_minus_t1) + (y1 * t1);
+		const float right_x0 = (x3 * one_minus_t0) + (x2 * t0);
+		const float right_y0 = (y3 * one_minus_t0) + (y2 * t0);
+		const float right_x1 = (x3 * one_minus_t1) + (x2 * t1);
+		const float right_y1 = (y3 * one_minus_t1) + (y2 * t1);
+		const float w0 = ((fabsf(q - 1.0f) > perspective_eps) && (q > perspective_eps)) ? ((q * one_minus_t0) + t0) : 1.0f;
+		const float w1 = ((fabsf(q - 1.0f) > perspective_eps) && (q > perspective_eps)) ? ((q * one_minus_t1) + t1) : 1.0f;
+		const float primary_v0 = ((fabsf(q - 1.0f) > perspective_eps) && (q > perspective_eps)) ? (((v0_1 * q * one_minus_t0) + (v0_2 * t0)) / w0) : v0_1;
+		const float primary_v1 = ((fabsf(q - 1.0f) > perspective_eps) && (q > perspective_eps)) ? (((v0_1 * q * one_minus_t1) + (v0_2 * t1)) / w1) : v0_2;
+		const float secondary_v0 = ((fabsf(q - 1.0f) > perspective_eps) && (q > perspective_eps)) ? (((v1_1 * q * one_minus_t0) + (v1_2 * t0)) / w0) : v1_1;
+		const float secondary_v1 = ((fabsf(q - 1.0f) > perspective_eps) && (q > perspective_eps)) ? (((v1_1 * q * one_minus_t1) + (v1_2 * t1)) / w1) : v1_2;
+		float tx;
+		float ty;
+		int i;
+
+		if ((fabsf(w0) <= perspective_eps) || (fabsf(w1) <= perspective_eps))
+		{
+			return false;
+		}
+
+		PLATFORM_RENDERER_transform_point(left_x0, left_y0, &tx, &ty);
+		positions[(base_vertex + 0) * 2 + 0] = tx;
+		positions[(base_vertex + 0) * 2 + 1] = (float)platform_renderer_present_height - ty;
+		primary_uv[(base_vertex + 0) * 2 + 0] = u0_1;
+		primary_uv[(base_vertex + 0) * 2 + 1] = 1.0f - primary_v0;
+		secondary_uv[(base_vertex + 0) * 2 + 0] = u1_1;
+		secondary_uv[(base_vertex + 0) * 2 + 1] = 1.0f - secondary_v0;
+
+		PLATFORM_RENDERER_transform_point(left_x1, left_y1, &tx, &ty);
+		positions[(base_vertex + 1) * 2 + 0] = tx;
+		positions[(base_vertex + 1) * 2 + 1] = (float)platform_renderer_present_height - ty;
+		primary_uv[(base_vertex + 1) * 2 + 0] = u0_1;
+		primary_uv[(base_vertex + 1) * 2 + 1] = 1.0f - primary_v1;
+		secondary_uv[(base_vertex + 1) * 2 + 0] = u1_1;
+		secondary_uv[(base_vertex + 1) * 2 + 1] = 1.0f - secondary_v1;
+
+		PLATFORM_RENDERER_transform_point(right_x1, right_y1, &tx, &ty);
+		positions[(base_vertex + 2) * 2 + 0] = tx;
+		positions[(base_vertex + 2) * 2 + 1] = (float)platform_renderer_present_height - ty;
+		primary_uv[(base_vertex + 2) * 2 + 0] = u0_2;
+		primary_uv[(base_vertex + 2) * 2 + 1] = 1.0f - primary_v1;
+		secondary_uv[(base_vertex + 2) * 2 + 0] = u1_2;
+		secondary_uv[(base_vertex + 2) * 2 + 1] = 1.0f - secondary_v1;
+
+		PLATFORM_RENDERER_transform_point(right_x0, right_y0, &tx, &ty);
+		positions[(base_vertex + 3) * 2 + 0] = tx;
+		positions[(base_vertex + 3) * 2 + 1] = (float)platform_renderer_present_height - ty;
+		primary_uv[(base_vertex + 3) * 2 + 0] = u0_2;
+		primary_uv[(base_vertex + 3) * 2 + 1] = 1.0f - primary_v0;
+		secondary_uv[(base_vertex + 3) * 2 + 0] = u1_2;
+		secondary_uv[(base_vertex + 3) * 2 + 1] = 1.0f - secondary_v0;
+
+		for (i = 0; i < 4; i++)
+		{
+			colours[((base_vertex + i) * 4) + 0] = cr;
+			colours[((base_vertex + i) * 4) + 1] = cg;
+			colours[((base_vertex + i) * 4) + 2] = cb;
+			colours[((base_vertex + i) * 4) + 3] = ca;
+		}
+
+		indices[base_index + 0] = base_vertex + 0;
+		indices[base_index + 1] = base_vertex + 1;
+		indices[base_index + 2] = base_vertex + 2;
+		indices[base_index + 3] = base_vertex + 0;
+		indices[base_index + 4] = base_vertex + 2;
+		indices[base_index + 5] = base_vertex + 3;
+
+		base_vertex += 4;
+		base_index += 6;
+	}
+
+	return PLATFORM_RENDERER_gles2_draw_multitextured_geometry(
+			platform_renderer_last_bound_texture_handle,
+			platform_renderer_last_bound_secondary_texture_handle,
+			platform_renderer_combiner_mode,
+			positions,
+			primary_uv,
+			secondary_uv,
+			colours,
+			base_vertex,
+			indices,
+			base_index,
+			PLATFORM_RENDERER_GEOM_SRC_MULTITEXTURE_ARRAY);
+}
+#endif
 
 static void PLATFORM_RENDERER_note_sdl_draw_source(int source_id)
 {
@@ -730,10 +1982,22 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(SDL_Texture *te
 
 static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, const SDL_Vertex *vertices, int vertex_count, const int *indices, int index_count, int source_id)
 {
-	SDL_Vertex converted_vertices[PLATFORM_RENDERER_MAX_GEOMETRY_VERTICES];
+	SDL_Vertex stack_vertices[PLATFORM_RENDERER_MAX_GEOMETRY_VERTICES];
+	SDL_Vertex *converted_vertices = stack_vertices;
 	const SDL_Vertex *work_vertices = vertices;
 	SDL_Texture *draw_texture = texture;
+	bool used_heap_vertices = false;
 	int v;
+
+#define PLATFORM_RENDERER_GEOM_RETURN(value) \
+	do \
+	{ \
+		if (used_heap_vertices) \
+		{ \
+			free(converted_vertices); \
+		} \
+		return (value); \
+	} while (0)
 
 	if ((texture != NULL) &&
 			PLATFORM_RENDERER_using_multiply_blend_fallback() &&
@@ -748,13 +2012,23 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 	}
 
 	if ((vertices == NULL) || (indices == NULL) ||
-			(vertex_count <= 0) || (vertex_count > PLATFORM_RENDERER_MAX_GEOMETRY_VERTICES) ||
-			(index_count <= 0) || (index_count > PLATFORM_RENDERER_MAX_GEOMETRY_INDICES))
+			(vertex_count <= 0) ||
+			(index_count <= 0))
 	{
 		return false;
 	}
 
-	if ((vertices != NULL) && (vertex_count > 0) && (vertex_count <= PLATFORM_RENDERER_MAX_GEOMETRY_VERTICES))
+	if (vertex_count > PLATFORM_RENDERER_MAX_GEOMETRY_VERTICES)
+	{
+		converted_vertices = (SDL_Vertex *)malloc((size_t)vertex_count * sizeof(SDL_Vertex));
+		if (converted_vertices == NULL)
+		{
+			return false;
+		}
+		used_heap_vertices = true;
+	}
+
+	if ((vertices != NULL) && (vertex_count > 0))
 	{
 		for (v = 0; v < vertex_count; v++)
 		{
@@ -786,6 +2060,10 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 
 	if (PLATFORM_RENDERER_should_defer_add_geometry(draw_texture, vertex_count, indices, index_count, source_id))
 	{
+		if ((vertex_count > 8) || (index_count > 18))
+		{
+			PLATFORM_RENDERER_GEOM_RETURN(false);
+		}
 		platform_renderer_addq_entry *e = &platform_renderer_addq[platform_renderer_addq_count++];
 		platform_renderer_sdl_add_draw_count++;
 		platform_renderer_sdl_spec_draw_count++;
@@ -796,7 +2074,7 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 		memcpy(e->verts, work_vertices, (size_t)vertex_count * sizeof(SDL_Vertex));
 		memcpy(e->indices, indices, (size_t)index_count * sizeof(int));
 		platform_renderer_sdl_defer_draw_count++;
-		return true;
+		PLATFORM_RENDERER_GEOM_RETURN(true);
 	}
 
 	if (!PLATFORM_RENDERER_is_sdl_geometry_enabled())
@@ -839,7 +2117,7 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 				platform_renderer_sdl_native_textured_draw_count++;
 				PLATFORM_RENDERER_note_sdl_draw_source(source_id);
 				PLATFORM_RENDERER_record_sdl_source_bounds_rect(source_id, &geom_bounds);
-				return true;
+				PLATFORM_RENDERER_GEOM_RETURN(true);
 			}
 		}
 
@@ -850,12 +2128,12 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 			if (SDL_RenderGeometry(platform_renderer_sdl_renderer, NULL, work_vertices, vertex_count, indices, index_count) == 0)
 			{
 				platform_renderer_sdl_native_draw_count++;
-				return true;
+				PLATFORM_RENDERER_GEOM_RETURN(true);
 			}
 		}
 		if (PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(texture, work_vertices, vertex_count, indices, index_count, source_id))
 		{
-			return true;
+			PLATFORM_RENDERER_GEOM_RETURN(true);
 		}
 		platform_renderer_sdl_geometry_fallback_miss_count++;
 		if ((source_id > 0) && (source_id < PLATFORM_RENDERER_GEOM_SRC_COUNT))
@@ -867,7 +2145,7 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 		{
 			platform_renderer_sdl_no_mirror_cooldown_frames = 180;
 		}
-		return false;
+		PLATFORM_RENDERER_GEOM_RETURN(false);
 	}
 
 	if (draw_texture != NULL)
@@ -909,7 +2187,7 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 		platform_renderer_sdl_native_textured_draw_count++;
 		PLATFORM_RENDERER_note_sdl_draw_source(source_id);
 		PLATFORM_RENDERER_record_sdl_source_bounds_rect(source_id, &geom_bounds);
-		return true;
+		PLATFORM_RENDERER_GEOM_RETURN(true);
 	}
 
 	{
@@ -923,7 +2201,7 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 	}
 	if (PLATFORM_RENDERER_try_sdl_geometry_textured_fallback(texture, work_vertices, vertex_count, indices, index_count, source_id))
 	{
-		return true;
+		PLATFORM_RENDERER_GEOM_RETURN(true);
 	}
 	platform_renderer_sdl_geometry_fallback_miss_count++;
 	if ((source_id > 0) && (source_id < PLATFORM_RENDERER_GEOM_SRC_COUNT))
@@ -934,6 +2212,11 @@ static bool PLATFORM_RENDERER_try_sdl_geometry_textured(SDL_Texture *texture, co
 	if (platform_renderer_sdl_no_mirror_cooldown_frames < 180)
 	{
 		platform_renderer_sdl_no_mirror_cooldown_frames = 180;
+	}
+#undef PLATFORM_RENDERER_GEOM_RETURN
+	if (used_heap_vertices)
+	{
+		free(converted_vertices);
 	}
 	return false;
 }
@@ -1232,6 +2515,101 @@ static bool PLATFORM_RENDERER_build_safe_sdl_src_rect(
 	return true;
 }
 
+
+static bool PLATFORM_RENDERER_uvs_are_texel_aligned(
+		const platform_renderer_texture_entry *entry,
+		float u1, float v1, float u2, float v2)
+{
+	const float eps = 0.01f;
+	float sdl_v1;
+	float sdl_v2;
+	float px[4];
+	int i;
+
+	if ((entry == NULL) || (entry->width <= 0) || (entry->height <= 0))
+	{
+		return false;
+	}
+
+	sdl_v1 = PLATFORM_RENDERER_convert_v_to_sdl(v1);
+	sdl_v2 = PLATFORM_RENDERER_convert_v_to_sdl(v2);
+	px[0] = u1 * (float)entry->width;
+	px[1] = u2 * (float)entry->width;
+	px[2] = sdl_v1 * (float)entry->height;
+	px[3] = sdl_v2 * (float)entry->height;
+
+	for (i = 0; i < 4; i++)
+	{
+		const float nearest = roundf(px[i]);
+		if (fabsf(px[i] - nearest) > eps)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool PLATFORM_RENDERER_uvs_require_wrap(float u1, float v1, float u2, float v2, bool *out_wrap_s, bool *out_wrap_t)
+{
+	const float sdl_v1 = PLATFORM_RENDERER_convert_v_to_sdl(v1);
+	const float sdl_v2 = PLATFORM_RENDERER_convert_v_to_sdl(v2);
+	const bool wrap_s = (u1 < 0.0f) || (u1 > 1.0f) || (u2 < 0.0f) || (u2 > 1.0f);
+	const bool wrap_t = (sdl_v1 < 0.0f) || (sdl_v1 > 1.0f) || (sdl_v2 < 0.0f) || (sdl_v2 > 1.0f);
+
+	if (out_wrap_s != NULL)
+	{
+		*out_wrap_s = wrap_s;
+	}
+	if (out_wrap_t != NULL)
+	{
+		*out_wrap_t = wrap_t;
+	}
+	return wrap_s || wrap_t;
+}
+
+static void PLATFORM_RENDERER_build_safe_gles2_uv_bounds(
+		const platform_renderer_texture_entry *entry,
+		float u1, float v1, float u2, float v2,
+		float *out_u_left,
+		float *out_v_top,
+		float *out_u_right,
+		float *out_v_bottom)
+{
+	const float half_texel_u = ((entry != NULL) && (entry->width > 0)) ? (0.5f / (float)entry->width) : 0.0f;
+	const float half_texel_v = ((entry != NULL) && (entry->height > 0)) ? (0.5f / (float)entry->height) : 0.0f;
+	float left = u1;
+	float right = u2;
+	float top = v1;
+	float bottom = v2;
+
+	if (u2 >= u1)
+	{
+		left = u1 + half_texel_u;
+		right = u2 - half_texel_u;
+	}
+	else
+	{
+		left = u1 - half_texel_u;
+		right = u2 + half_texel_u;
+	}
+
+	if (v2 <= v1)
+	{
+		top = v1 - half_texel_v;
+		bottom = v2 + half_texel_v;
+	}
+	else
+	{
+		top = v1 + half_texel_v;
+		bottom = v2 - half_texel_v;
+	}
+
+	if (out_u_left != NULL) *out_u_left = left;
+	if (out_v_top != NULL) *out_v_top = top;
+	if (out_u_right != NULL) *out_u_right = right;
+	if (out_v_bottom != NULL) *out_v_bottom = bottom;
+}
+
 static float PLATFORM_RENDERER_estimate_alpha_coverage(
 		const platform_renderer_texture_entry *entry,
 		const SDL_Rect *src_rect)
@@ -1349,6 +2727,412 @@ static float PLATFORM_RENDERER_wrap01(float value)
 		wrapped += 1.0f;
 	}
 	return wrapped;
+}
+
+static bool PLATFORM_RENDERER_is_power_of_two_dimension(int value)
+{
+	return (value > 0) && ((value & (value - 1)) == 0);
+}
+
+static bool PLATFORM_RENDERER_gles2_source_supports_wrapped_quads(int source_id)
+{
+	switch (source_id)
+	{
+	case PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD:
+	case PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD_CUSTOM:
+	case PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE:
+	case PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static bool PLATFORM_RENDERER_gles2_indices_are_sequential_quads(const int *indices, int index_count)
+{
+	int quad;
+
+	if ((indices == NULL) || (index_count <= 0) || ((index_count % 6) != 0))
+	{
+		return false;
+	}
+
+	for (quad = 0; quad < (index_count / 6); quad++)
+	{
+		const int base_vertex = quad * 4;
+		const int base_index = quad * 6;
+		if ((indices[base_index + 0] != (base_vertex + 0)) ||
+				(indices[base_index + 1] != (base_vertex + 1)) ||
+				(indices[base_index + 2] != (base_vertex + 2)) ||
+				(indices[base_index + 3] != (base_vertex + 0)) ||
+				(indices[base_index + 4] != (base_vertex + 2)) ||
+				(indices[base_index + 5] != (base_vertex + 3)))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static void PLATFORM_RENDERER_gles2_interp_vertex(
+		SDL_Vertex *out,
+		const SDL_Vertex *a,
+		const SDL_Vertex *b,
+		float t)
+{
+	if ((out == NULL) || (a == NULL) || (b == NULL))
+	{
+		return;
+	}
+
+	out->position.x = a->position.x + ((b->position.x - a->position.x) * t);
+	out->position.y = a->position.y + ((b->position.y - a->position.y) * t);
+	out->tex_coord.x = a->tex_coord.x + ((b->tex_coord.x - a->tex_coord.x) * t);
+	out->tex_coord.y = a->tex_coord.y + ((b->tex_coord.y - a->tex_coord.y) * t);
+	out->color.r = (Uint8)((float)a->color.r + (((float)b->color.r - (float)a->color.r) * t));
+	out->color.g = (Uint8)((float)a->color.g + (((float)b->color.g - (float)a->color.g) * t));
+	out->color.b = (Uint8)((float)a->color.b + (((float)b->color.b - (float)a->color.b) * t));
+	out->color.a = (Uint8)((float)a->color.a + (((float)b->color.a - (float)a->color.a) * t));
+}
+
+static void PLATFORM_RENDERER_gles2_normalize_quad_uv_band(SDL_Vertex quad[4])
+{
+	int i;
+	float min_u = quad[0].tex_coord.x;
+	float max_u = quad[0].tex_coord.x;
+	float min_v = quad[0].tex_coord.y;
+	float max_v = quad[0].tex_coord.y;
+
+	for (i = 1; i < 4; i++)
+	{
+		if (quad[i].tex_coord.x < min_u) min_u = quad[i].tex_coord.x;
+		if (quad[i].tex_coord.x > max_u) max_u = quad[i].tex_coord.x;
+		if (quad[i].tex_coord.y < min_v) min_v = quad[i].tex_coord.y;
+		if (quad[i].tex_coord.y > max_v) max_v = quad[i].tex_coord.y;
+	}
+
+	if ((floorf(min_u) == floorf(max_u)) && ((min_u < 0.0f) || (max_u > 1.0f)))
+	{
+		const float offset_u = floorf(min_u);
+		for (i = 0; i < 4; i++)
+		{
+			quad[i].tex_coord.x -= offset_u;
+		}
+	}
+
+	if ((floorf(min_v) == floorf(max_v)) && ((min_v < 0.0f) || (max_v > 1.0f)))
+	{
+		const float offset_v = floorf(min_v);
+		for (i = 0; i < 4; i++)
+		{
+			quad[i].tex_coord.y -= offset_v;
+		}
+	}
+}
+
+static bool PLATFORM_RENDERER_gles2_split_quad_wrap_s(
+		const SDL_Vertex in_quad[4],
+		SDL_Vertex out_quads[2][4])
+{
+	const float u_left = (in_quad[0].tex_coord.x + in_quad[1].tex_coord.x) * 0.5f;
+	const float u_right = (in_quad[2].tex_coord.x + in_quad[3].tex_coord.x) * 0.5f;
+	const float du = u_right - u_left;
+	const float abs_du = fabsf(du);
+	float boundary;
+	float t;
+	SDL_Vertex split_top;
+	SDL_Vertex split_bottom;
+
+	if ((abs_du < 0.00001f) || (floorf(u_left) == floorf(u_right)))
+	{
+		return false;
+	}
+
+	if (du > 0.0f)
+	{
+		boundary = floorf(u_left) + 1.0f;
+		t = (boundary - u_left) / du;
+	}
+	else
+	{
+		boundary = floorf(u_left);
+		t = (u_left - boundary) / abs_du;
+	}
+
+	if ((t <= 0.00001f) || (t >= 0.99999f))
+	{
+		return false;
+	}
+
+	PLATFORM_RENDERER_gles2_interp_vertex(&split_top, &in_quad[0], &in_quad[3], t);
+	PLATFORM_RENDERER_gles2_interp_vertex(&split_bottom, &in_quad[1], &in_quad[2], t);
+
+	out_quads[0][0] = in_quad[0];
+	out_quads[0][1] = in_quad[1];
+	out_quads[0][2] = split_bottom;
+	out_quads[0][3] = split_top;
+	out_quads[1][0] = split_top;
+	out_quads[1][1] = split_bottom;
+	out_quads[1][2] = in_quad[2];
+	out_quads[1][3] = in_quad[3];
+
+	if (du > 0.0f)
+	{
+		out_quads[0][0].tex_coord.x = PLATFORM_RENDERER_wrap01(u_left);
+		out_quads[0][1].tex_coord.x = PLATFORM_RENDERER_wrap01(u_left);
+		out_quads[0][2].tex_coord.x = 1.0f;
+		out_quads[0][3].tex_coord.x = 1.0f;
+		out_quads[1][0].tex_coord.x = 0.0f;
+		out_quads[1][1].tex_coord.x = 0.0f;
+		out_quads[1][2].tex_coord.x = PLATFORM_RENDERER_wrap01(u_right);
+		out_quads[1][3].tex_coord.x = PLATFORM_RENDERER_wrap01(u_right);
+	}
+	else
+	{
+		out_quads[0][0].tex_coord.x = PLATFORM_RENDERER_wrap01(u_left);
+		out_quads[0][1].tex_coord.x = PLATFORM_RENDERER_wrap01(u_left);
+		out_quads[0][2].tex_coord.x = 0.0f;
+		out_quads[0][3].tex_coord.x = 0.0f;
+		out_quads[1][0].tex_coord.x = 1.0f;
+		out_quads[1][1].tex_coord.x = 1.0f;
+		out_quads[1][2].tex_coord.x = PLATFORM_RENDERER_wrap01(u_right);
+		out_quads[1][3].tex_coord.x = PLATFORM_RENDERER_wrap01(u_right);
+	}
+
+	return true;
+}
+
+static bool PLATFORM_RENDERER_gles2_split_quad_wrap_t(
+		const SDL_Vertex in_quad[4],
+		SDL_Vertex out_quads[2][4])
+{
+	const float v_top = (in_quad[0].tex_coord.y + in_quad[3].tex_coord.y) * 0.5f;
+	const float v_bottom = (in_quad[1].tex_coord.y + in_quad[2].tex_coord.y) * 0.5f;
+	const float dv = v_bottom - v_top;
+	const float abs_dv = fabsf(dv);
+	float boundary;
+	float t;
+	SDL_Vertex split_left;
+	SDL_Vertex split_right;
+
+	if ((abs_dv < 0.00001f) || (floorf(v_top) == floorf(v_bottom)))
+	{
+		return false;
+	}
+
+	if (dv > 0.0f)
+	{
+		boundary = floorf(v_top) + 1.0f;
+		t = (boundary - v_top) / dv;
+	}
+	else
+	{
+		boundary = floorf(v_top);
+		t = (v_top - boundary) / abs_dv;
+	}
+
+	if ((t <= 0.00001f) || (t >= 0.99999f))
+	{
+		return false;
+	}
+
+	PLATFORM_RENDERER_gles2_interp_vertex(&split_left, &in_quad[0], &in_quad[1], t);
+	PLATFORM_RENDERER_gles2_interp_vertex(&split_right, &in_quad[3], &in_quad[2], t);
+
+	out_quads[0][0] = in_quad[0];
+	out_quads[0][1] = split_left;
+	out_quads[0][2] = split_right;
+	out_quads[0][3] = in_quad[3];
+	out_quads[1][0] = split_left;
+	out_quads[1][1] = in_quad[1];
+	out_quads[1][2] = in_quad[2];
+	out_quads[1][3] = split_right;
+
+	if (dv > 0.0f)
+	{
+		out_quads[0][0].tex_coord.y = PLATFORM_RENDERER_wrap01(v_top);
+		out_quads[0][3].tex_coord.y = PLATFORM_RENDERER_wrap01(v_top);
+		out_quads[0][1].tex_coord.y = 1.0f;
+		out_quads[0][2].tex_coord.y = 1.0f;
+		out_quads[1][0].tex_coord.y = 0.0f;
+		out_quads[1][3].tex_coord.y = 0.0f;
+		out_quads[1][1].tex_coord.y = PLATFORM_RENDERER_wrap01(v_bottom);
+		out_quads[1][2].tex_coord.y = PLATFORM_RENDERER_wrap01(v_bottom);
+	}
+	else
+	{
+		out_quads[0][0].tex_coord.y = PLATFORM_RENDERER_wrap01(v_top);
+		out_quads[0][3].tex_coord.y = PLATFORM_RENDERER_wrap01(v_top);
+		out_quads[0][1].tex_coord.y = 0.0f;
+		out_quads[0][2].tex_coord.y = 0.0f;
+		out_quads[1][0].tex_coord.y = 1.0f;
+		out_quads[1][3].tex_coord.y = 1.0f;
+		out_quads[1][1].tex_coord.y = PLATFORM_RENDERER_wrap01(v_bottom);
+		out_quads[1][2].tex_coord.y = PLATFORM_RENDERER_wrap01(v_bottom);
+	}
+
+	return true;
+}
+
+static bool PLATFORM_RENDERER_gles2_draw_wrapped_quad_geometry_gltex(
+		GLuint tex,
+		unsigned int logical_texture_handle,
+		const SDL_Vertex *vertices,
+		int vertex_count,
+		const int *indices,
+		int index_count,
+		int source_id)
+{
+	static const int quad_indices[6] = {0, 1, 2, 0, 2, 3};
+	platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(logical_texture_handle);
+	int quad_index;
+
+	if ((vertices == NULL) || (indices == NULL) ||
+			(vertex_count <= 0) || (index_count <= 0) ||
+			((vertex_count % 4) != 0) || ((index_count % 6) != 0) ||
+			!PLATFORM_RENDERER_gles2_indices_are_sequential_quads(indices, index_count))
+	{
+		return false;
+	}
+
+	for (quad_index = 0; quad_index < (vertex_count / 4); quad_index++)
+	{
+		SDL_Vertex quads[4][4];
+		int quad_count = 1;
+		int current = 0;
+
+		memcpy(quads[0], &vertices[quad_index * 4], sizeof(SDL_Vertex) * 4);
+		PLATFORM_RENDERER_gles2_normalize_quad_uv_band(quads[0]);
+
+		while (current < quad_count)
+		{
+			SDL_Vertex split_quads[2][4];
+			if (PLATFORM_RENDERER_gles2_split_quad_wrap_s(quads[current], split_quads))
+			{
+				memcpy(quads[current], split_quads[0], sizeof(split_quads[0]));
+				memcpy(quads[quad_count], split_quads[1], sizeof(split_quads[1]));
+				PLATFORM_RENDERER_gles2_normalize_quad_uv_band(quads[current]);
+				PLATFORM_RENDERER_gles2_normalize_quad_uv_band(quads[quad_count]);
+				quad_count++;
+				continue;
+			}
+			if (PLATFORM_RENDERER_gles2_split_quad_wrap_t(quads[current], split_quads))
+			{
+				memcpy(quads[current], split_quads[0], sizeof(split_quads[0]));
+				memcpy(quads[quad_count], split_quads[1], sizeof(split_quads[1]));
+				PLATFORM_RENDERER_gles2_normalize_quad_uv_band(quads[current]);
+				PLATFORM_RENDERER_gles2_normalize_quad_uv_band(quads[quad_count]);
+				quad_count++;
+				continue;
+			}
+			current++;
+		}
+
+		for (current = 0; current < quad_count; current++)
+		{
+			SDL_Rect src_rect;
+			float min_u = quads[current][0].tex_coord.x;
+			float min_v = quads[current][0].tex_coord.y;
+			float max_u = quads[current][0].tex_coord.x;
+			float max_v = quads[current][0].tex_coord.y;
+			int vi;
+
+			for (vi = 1; vi < 4; vi++)
+			{
+				if (quads[current][vi].tex_coord.x < min_u) min_u = quads[current][vi].tex_coord.x;
+				if (quads[current][vi].tex_coord.y < min_v) min_v = quads[current][vi].tex_coord.y;
+				if (quads[current][vi].tex_coord.x > max_u) max_u = quads[current][vi].tex_coord.x;
+				if (quads[current][vi].tex_coord.y > max_v) max_v = quads[current][vi].tex_coord.y;
+			}
+
+			if ((logical_texture_handle == 41u) &&
+					((source_id == PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE) ||
+					 (source_id == PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE)))
+			{
+				static unsigned int gles2_wrapped_perspective_final_logs = 0;
+				if (gles2_wrapped_perspective_final_logs < 120)
+				{
+					float min_x = quads[current][0].position.x;
+					float min_y = quads[current][0].position.y;
+					float max_x = quads[current][0].position.x;
+					float max_y = quads[current][0].position.y;
+					float min_u = quads[current][0].tex_coord.x;
+					float min_v = quads[current][0].tex_coord.y;
+					float max_u = quads[current][0].tex_coord.x;
+					float max_v = quads[current][0].tex_coord.y;
+					int vi;
+					for (vi = 1; vi < 4; vi++)
+					{
+						if (quads[current][vi].position.x < min_x) min_x = quads[current][vi].position.x;
+						if (quads[current][vi].position.y < min_y) min_y = quads[current][vi].position.y;
+						if (quads[current][vi].position.x > max_x) max_x = quads[current][vi].position.x;
+						if (quads[current][vi].position.y > max_y) max_y = quads[current][vi].position.y;
+						if (quads[current][vi].tex_coord.x < min_u) min_u = quads[current][vi].tex_coord.x;
+						if (quads[current][vi].tex_coord.y < min_v) min_v = quads[current][vi].tex_coord.y;
+						if (quads[current][vi].tex_coord.x > max_u) max_u = quads[current][vi].tex_coord.x;
+						if (quads[current][vi].tex_coord.y > max_v) max_v = quads[current][vi].tex_coord.y;
+					}
+					gles2_wrapped_perspective_final_logs++;
+					fprintf(
+						stderr,
+						"[GLES2-FINAL %u] tag=wrapped_perspective_quad tex=%u src=%d bounds=(%.1f,%.1f)-(%.1f,%.1f) uv=(%.4f,%.4f)-(%.4f,%.4f) scissor=%d(%d,%d,%d,%d)\n",
+						gles2_wrapped_perspective_final_logs,
+						logical_texture_handle,
+						source_id,
+						min_x, min_y, max_x, max_y,
+						min_u, min_v, max_u, max_v,
+						platform_renderer_legacy_scissor_enabled_last,
+						platform_renderer_legacy_scissor_last[0],
+						platform_renderer_legacy_scissor_last[1],
+						platform_renderer_legacy_scissor_last[2],
+						platform_renderer_legacy_scissor_last[3]);
+				}
+			}
+
+			if ((entry != NULL) &&
+					PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, min_u, min_v, max_u, max_v, &src_rect))
+			{
+				if (!PLATFORM_RENDERER_gles2_draw_textured_subrect_geometry(
+							entry,
+							logical_texture_handle,
+							&src_rect,
+							quads[current],
+							4,
+							quad_indices,
+							6,
+							source_id))
+				{
+					return false;
+				}
+				continue;
+			}
+
+			{
+				SDL_Vertex gltex_quad[4];
+				for (vi = 0; vi < 4; vi++)
+				{
+					gltex_quad[vi] = quads[current][vi];
+					gltex_quad[vi].tex_coord.y = PLATFORM_RENDERER_convert_v_to_sdl(gltex_quad[vi].tex_coord.y);
+				}
+				if (!PLATFORM_RENDERER_gles2_draw_textured_geometry_gltex(
+						tex,
+						logical_texture_handle,
+						gltex_quad,
+						4,
+						quad_indices,
+						6,
+						source_id,
+						false,
+						false))
+				{
+					return false;
+				}
+			}
+		}
+	}
+
+	return true;
 }
 
 static bool PLATFORM_RENDERER_draw_axis_wrapped_u_repeat(
@@ -1528,6 +3312,327 @@ static bool PLATFORM_RENDERER_draw_axis_wrapped_u_repeat(
 	return false;
 }
 
+static bool PLATFORM_RENDERER_gles2_draw_axis_wrapped_u_repeat(
+		unsigned int logical_texture_handle,
+		const SDL_Rect *dst_rect,
+		float u1, float v1, float u2, float v2,
+		Uint8 mod_r, Uint8 mod_g, Uint8 mod_b, Uint8 mod_a,
+		int source_id)
+{
+	float du;
+	float abs_du;
+	int split_x;
+	float t_split;
+	SDL_Rect dst_a;
+	SDL_Rect dst_b;
+	float a_u1;
+	float a_u2;
+	float b_u1;
+	float b_u2;
+	SDL_Vertex vertices[8];
+	const int indices[12] = {0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7};
+	const bool flip_y = PLATFORM_RENDERER_src_flip_y_for_sdl(v1, v2);
+	const float v_top = flip_y ? v2 : v1;
+	const float v_bottom = flip_y ? v1 : v2;
+
+	if (dst_rect == NULL)
+	{
+		return false;
+	}
+	if ((dst_rect->w <= 0) || (dst_rect->h <= 0))
+	{
+		return false;
+	}
+
+	du = u2 - u1;
+	abs_du = fabsf(du);
+	if (abs_du < 0.00001f)
+	{
+		return false;
+	}
+	if (abs_du > 1.001f)
+	{
+		return false;
+	}
+	if ((v1 < 0.0f) || (v1 > 1.0f) || (v2 < 0.0f) || (v2 > 1.0f))
+	{
+		return false;
+	}
+	if ((floorf(u1) == floorf(u2)) && (u1 >= 0.0f) && (u1 <= 1.0f) && (u2 >= 0.0f) && (u2 <= 1.0f))
+	{
+		return false;
+	}
+
+	if (du > 0.0f)
+	{
+		const float boundary = floorf(u1) + 1.0f;
+		t_split = (boundary - u1) / du;
+		if ((t_split <= 0.00001f) || (t_split >= 0.99999f))
+		{
+			return false;
+		}
+		a_u1 = PLATFORM_RENDERER_wrap01(u1);
+		a_u2 = 1.0f;
+		b_u1 = 0.0f;
+		b_u2 = PLATFORM_RENDERER_wrap01(u2);
+	}
+	else
+	{
+		const float boundary = floorf(u1);
+		t_split = (u1 - boundary) / abs_du;
+		if ((t_split <= 0.00001f) || (t_split >= 0.99999f))
+		{
+			return false;
+		}
+		a_u1 = PLATFORM_RENDERER_wrap01(u1);
+		a_u2 = 0.0f;
+		b_u1 = 1.0f;
+		b_u2 = PLATFORM_RENDERER_wrap01(u2);
+	}
+
+	split_x = dst_rect->x + (int)floorf(((float)dst_rect->w * t_split) + 0.5f);
+	if (split_x <= dst_rect->x)
+	{
+		split_x = dst_rect->x + 1;
+	}
+	if (split_x >= (dst_rect->x + dst_rect->w))
+	{
+		split_x = dst_rect->x + dst_rect->w - 1;
+	}
+
+	dst_a.x = dst_rect->x;
+	dst_a.y = dst_rect->y;
+	dst_a.w = split_x - dst_rect->x;
+	dst_a.h = dst_rect->h;
+	dst_b.x = split_x;
+	dst_b.y = dst_rect->y;
+	dst_b.w = (dst_rect->x + dst_rect->w) - split_x;
+	dst_b.h = dst_rect->h;
+
+	if ((dst_a.w <= 0) || (dst_b.w <= 0))
+	{
+		return false;
+	}
+
+	vertices[0].position.x = (float)dst_a.x;
+	vertices[0].position.y = (float)dst_a.y;
+	vertices[1].position.x = (float)dst_a.x;
+	vertices[1].position.y = (float)(dst_a.y + dst_a.h);
+	vertices[2].position.x = (float)(dst_a.x + dst_a.w);
+	vertices[2].position.y = (float)(dst_a.y + dst_a.h);
+	vertices[3].position.x = (float)(dst_a.x + dst_a.w);
+	vertices[3].position.y = (float)dst_a.y;
+	vertices[0].tex_coord.x = a_u1;
+	vertices[0].tex_coord.y = v_top;
+	vertices[1].tex_coord.x = a_u1;
+	vertices[1].tex_coord.y = v_bottom;
+	vertices[2].tex_coord.x = a_u2;
+	vertices[2].tex_coord.y = v_bottom;
+	vertices[3].tex_coord.x = a_u2;
+	vertices[3].tex_coord.y = v_top;
+
+	vertices[4].position.x = (float)dst_b.x;
+	vertices[4].position.y = (float)dst_b.y;
+	vertices[5].position.x = (float)dst_b.x;
+	vertices[5].position.y = (float)(dst_b.y + dst_b.h);
+	vertices[6].position.x = (float)(dst_b.x + dst_b.w);
+	vertices[6].position.y = (float)(dst_b.y + dst_b.h);
+	vertices[7].position.x = (float)(dst_b.x + dst_b.w);
+	vertices[7].position.y = (float)dst_b.y;
+	vertices[4].tex_coord.x = b_u1;
+	vertices[4].tex_coord.y = v_top;
+	vertices[5].tex_coord.x = b_u1;
+	vertices[5].tex_coord.y = v_bottom;
+	vertices[6].tex_coord.x = b_u2;
+	vertices[6].tex_coord.y = v_bottom;
+	vertices[7].tex_coord.x = b_u2;
+	vertices[7].tex_coord.y = v_top;
+
+	for (int i = 0; i < 8; i++)
+	{
+		vertices[i].color.r = mod_r;
+		vertices[i].color.g = mod_g;
+		vertices[i].color.b = mod_b;
+		vertices[i].color.a = mod_a;
+	}
+
+	return PLATFORM_RENDERER_gles2_draw_textured_geometry(logical_texture_handle, vertices, 8, indices, 12, source_id);
+}
+
+static bool PLATFORM_RENDERER_gles2_draw_axis_wrapped_u_repeat_geometry(
+		unsigned int logical_texture_handle,
+		const float *screen_x,
+		const float *screen_y,
+		float u1, float v1, float u2, float v2,
+		Uint8 mod_r, Uint8 mod_g, Uint8 mod_b, Uint8 mod_a,
+		int source_id)
+{
+	platform_renderer_texture_entry *entry;
+	GLuint tex;
+	float du;
+	float abs_du;
+	float t_split;
+	float a_u1;
+	float a_u2;
+	float b_u1;
+	float b_u2;
+	SDL_Vertex vertices[8];
+	const int indices[12] = {0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7};
+	const bool flip_y = PLATFORM_RENDERER_src_flip_y_for_sdl(v1, v2);
+	const float v_top = PLATFORM_RENDERER_convert_v_to_sdl(flip_y ? v2 : v1);
+	const float v_bottom = PLATFORM_RENDERER_convert_v_to_sdl(flip_y ? v1 : v2);
+	float split_top_x;
+	float split_top_y;
+	float split_bottom_x;
+	float split_bottom_y;
+
+	if ((screen_x == NULL) || (screen_y == NULL))
+	{
+		return false;
+	}
+	entry = PLATFORM_RENDERER_get_texture_entry(logical_texture_handle);
+	if ((entry == NULL) || !PLATFORM_RENDERER_build_gles2_texture_from_entry(entry))
+	{
+		return false;
+	}
+	tex = entry->gles2_texture;
+
+	du = u2 - u1;
+	abs_du = fabsf(du);
+	if (abs_du < 0.00001f)
+	{
+		return false;
+	}
+	if (abs_du > 1.001f)
+	{
+		return false;
+	}
+	if ((v1 < 0.0f) || (v1 > 1.0f) || (v2 < 0.0f) || (v2 > 1.0f))
+	{
+		return false;
+	}
+	if ((floorf(u1) == floorf(u2)) && (u1 >= 0.0f) && (u1 <= 1.0f) && (u2 >= 0.0f) && (u2 <= 1.0f))
+	{
+		return false;
+	}
+
+	if (du > 0.0f)
+	{
+		const float boundary = floorf(u1) + 1.0f;
+		t_split = (boundary - u1) / du;
+		if ((t_split <= 0.00001f) || (t_split >= 0.99999f))
+		{
+			return false;
+		}
+		a_u1 = PLATFORM_RENDERER_wrap01(u1);
+		a_u2 = 1.0f;
+		b_u1 = 0.0f;
+		b_u2 = PLATFORM_RENDERER_wrap01(u2);
+	}
+	else
+	{
+		const float boundary = floorf(u1);
+		t_split = (u1 - boundary) / abs_du;
+		if ((t_split <= 0.00001f) || (t_split >= 0.99999f))
+		{
+			return false;
+		}
+		a_u1 = PLATFORM_RENDERER_wrap01(u1);
+		a_u2 = 0.0f;
+		b_u1 = 1.0f;
+		b_u2 = PLATFORM_RENDERER_wrap01(u2);
+	}
+
+	split_top_x = screen_x[0] + ((screen_x[3] - screen_x[0]) * t_split);
+	split_top_y = screen_y[0] + ((screen_y[3] - screen_y[0]) * t_split);
+	split_bottom_x = screen_x[1] + ((screen_x[2] - screen_x[1]) * t_split);
+	split_bottom_y = screen_y[1] + ((screen_y[2] - screen_y[1]) * t_split);
+
+	vertices[0].position.x = screen_x[0];
+	vertices[0].position.y = screen_y[0];
+	vertices[1].position.x = screen_x[1];
+	vertices[1].position.y = screen_y[1];
+	vertices[2].position.x = split_bottom_x;
+	vertices[2].position.y = split_bottom_y;
+	vertices[3].position.x = split_top_x;
+	vertices[3].position.y = split_top_y;
+	vertices[4].position.x = split_top_x;
+	vertices[4].position.y = split_top_y;
+	vertices[5].position.x = split_bottom_x;
+	vertices[5].position.y = split_bottom_y;
+	vertices[6].position.x = screen_x[2];
+	vertices[6].position.y = screen_y[2];
+	vertices[7].position.x = screen_x[3];
+	vertices[7].position.y = screen_y[3];
+
+	vertices[0].tex_coord.x = a_u1;
+	vertices[0].tex_coord.y = v_top;
+	vertices[1].tex_coord.x = a_u1;
+	vertices[1].tex_coord.y = v_bottom;
+	vertices[2].tex_coord.x = a_u2;
+	vertices[2].tex_coord.y = v_bottom;
+	vertices[3].tex_coord.x = a_u2;
+	vertices[3].tex_coord.y = v_top;
+	vertices[4].tex_coord.x = b_u1;
+	vertices[4].tex_coord.y = v_top;
+	vertices[5].tex_coord.x = b_u1;
+	vertices[5].tex_coord.y = v_bottom;
+	vertices[6].tex_coord.x = b_u2;
+	vertices[6].tex_coord.y = v_bottom;
+	vertices[7].tex_coord.x = b_u2;
+	vertices[7].tex_coord.y = v_top;
+
+	for (int i = 0; i < 8; i++)
+	{
+		vertices[i].color.r = mod_r;
+		vertices[i].color.g = mod_g;
+		vertices[i].color.b = mod_b;
+		vertices[i].color.a = mod_a;
+	}
+
+	if (logical_texture_handle == 1u)
+	{
+		static unsigned int gles2_axis_wrap_final_logs = 0;
+		if (gles2_axis_wrap_final_logs < 40)
+		{
+			float min_x = vertices[0].position.x;
+			float min_y = vertices[0].position.y;
+			float max_x = vertices[0].position.x;
+			float max_y = vertices[0].position.y;
+			for (int i = 1; i < 8; i++)
+			{
+				if (vertices[i].position.x < min_x) min_x = vertices[i].position.x;
+				if (vertices[i].position.y < min_y) min_y = vertices[i].position.y;
+				if (vertices[i].position.x > max_x) max_x = vertices[i].position.x;
+				if (vertices[i].position.y > max_y) max_y = vertices[i].position.y;
+			}
+			gles2_axis_wrap_final_logs++;
+			fprintf(
+				stderr,
+				"[GLES2-FINAL %u] tag=bound_quad_axis_wrap_final tex=%u bounds=(%.1f,%.1f)-(%.1f,%.1f) scissor=%d(%d,%d,%d,%d)\n",
+				gles2_axis_wrap_final_logs,
+				logical_texture_handle,
+				min_x, min_y, max_x, max_y,
+				platform_renderer_legacy_scissor_enabled_last,
+				platform_renderer_legacy_scissor_last[0],
+				platform_renderer_legacy_scissor_last[1],
+				platform_renderer_legacy_scissor_last[2],
+				platform_renderer_legacy_scissor_last[3]);
+		}
+	}
+
+	return PLATFORM_RENDERER_gles2_draw_textured_geometry_gltex(
+			tex,
+			logical_texture_handle,
+			vertices,
+			8,
+			indices,
+			12,
+			source_id,
+			false,
+			false);
+}
+
 static void PLATFORM_RENDERER_transform_point(float in_x, float in_y, float *out_x, float *out_y)
 {
 	if (out_x != NULL)
@@ -1603,8 +3708,79 @@ static void PLATFORM_RENDERER_reset_transform_state(const char *reason)
 	}
 }
 
+static void PLATFORM_RENDERER_flush_command_queue(void)
+{
+	int i;
+
+	for (i = 0; i < platform_renderer_command_queue_count; i++)
+	{
+		const platform_renderer_command *cmd = &platform_renderer_command_queue[i];
+		const float saved_colour_r = platform_renderer_current_colour_r;
+		const float saved_colour_g = platform_renderer_current_colour_g;
+		const float saved_colour_b = platform_renderer_current_colour_b;
+		const float saved_colour_a = platform_renderer_current_colour_a;
+		const bool saved_blend_enabled = platform_renderer_blend_enabled;
+		const int saved_blend_mode = platform_renderer_blend_mode;
+		const unsigned int saved_texture_handle = platform_renderer_last_bound_texture_handle;
+		const float saved_tx_a = platform_renderer_tx_a;
+		const float saved_tx_b = platform_renderer_tx_b;
+		const float saved_tx_c = platform_renderer_tx_c;
+		const float saved_tx_d = platform_renderer_tx_d;
+		const float saved_tx_x = platform_renderer_tx_x;
+		const float saved_tx_y = platform_renderer_tx_y;
+
+		platform_renderer_current_colour_r = cmd->colour_r;
+		platform_renderer_current_colour_g = cmd->colour_g;
+		platform_renderer_current_colour_b = cmd->colour_b;
+		platform_renderer_current_colour_a = cmd->colour_a;
+		platform_renderer_blend_enabled = cmd->blend_enabled;
+		platform_renderer_blend_mode = cmd->blend_mode;
+		platform_renderer_last_bound_texture_handle = cmd->texture_handle;
+		platform_renderer_tx_a = cmd->tx_a;
+		platform_renderer_tx_b = cmd->tx_b;
+		platform_renderer_tx_c = cmd->tx_c;
+		platform_renderer_tx_d = cmd->tx_d;
+		platform_renderer_tx_x = cmd->tx_x;
+		platform_renderer_tx_y = cmd->tx_y;
+
+		if (cmd->type == PLATFORM_RENDERER_CMD_PERSPECTIVE)
+		{
+			PLATFORM_RENDERER_draw_bound_perspective_textured_quad_immediate(
+					cmd->x0, cmd->y0, cmd->x1, cmd->y1, cmd->x2, cmd->y2, cmd->x3, cmd->y3,
+					cmd->u1, cmd->v1, cmd->u2, cmd->v2, cmd->q);
+		}
+		else if (cmd->type == PLATFORM_RENDERER_CMD_COLOURED_PERSPECTIVE)
+		{
+			PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_immediate(
+					cmd->x0, cmd->y0, cmd->x1, cmd->y1, cmd->x2, cmd->y2, cmd->x3, cmd->y3,
+					cmd->u1, cmd->v1, cmd->u2, cmd->v2, cmd->q,
+					cmd->vr, cmd->vg, cmd->vb, cmd->va);
+		}
+
+		platform_renderer_current_colour_r = saved_colour_r;
+		platform_renderer_current_colour_g = saved_colour_g;
+		platform_renderer_current_colour_b = saved_colour_b;
+		platform_renderer_current_colour_a = saved_colour_a;
+		platform_renderer_blend_enabled = saved_blend_enabled;
+		platform_renderer_blend_mode = saved_blend_mode;
+		platform_renderer_last_bound_texture_handle = saved_texture_handle;
+		platform_renderer_tx_a = saved_tx_a;
+		platform_renderer_tx_b = saved_tx_b;
+		platform_renderer_tx_c = saved_tx_c;
+		platform_renderer_tx_d = saved_tx_d;
+		platform_renderer_tx_x = saved_tx_x;
+		platform_renderer_tx_y = saved_tx_y;
+	}
+
+	platform_renderer_command_queue_count = 0;
+}
+
 static void PLATFORM_RENDERER_apply_sdl_draw_blend_mode(void)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
 	if (platform_renderer_addq_count > 0)
 	{
 		PLATFORM_RENDERER_flush_addq();
@@ -2443,6 +4619,7 @@ static void PLATFORM_RENDERER_flush_addq(void)
 void PLATFORM_RENDERER_reset_texture_registry(void)
 {
 	int i;
+	platform_renderer_command_queue_count = 0;
 	for (i = 0; i < platform_renderer_texture_count; i++)
 	{
 		if (platform_renderer_texture_entries[i].sdl_texture != NULL)
@@ -2541,6 +4718,9 @@ static unsigned int PLATFORM_RENDERER_register_SDL_texture(unsigned int legacy_t
 	platform_renderer_texture_entries[platform_renderer_texture_count].sdl_atlas_w = 0;
 	platform_renderer_texture_entries[platform_renderer_texture_count].sdl_atlas_h = 0;
 	platform_renderer_texture_entries[platform_renderer_texture_count].sdl_atlas_mapped = false;
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	platform_renderer_texture_entries[platform_renderer_texture_count].gles2_texture = 0;
+#endif
 	platform_renderer_geom_atlas_dirty = true;
 
 	if ((image != NULL) && (image->w > 0) && (image->h > 0))
@@ -2676,6 +4856,12 @@ static unsigned int PLATFORM_RENDERER_register_SDL_texture(unsigned int legacy_t
 			platform_renderer_texture_entries[platform_renderer_texture_count].sdl_rgba_pixels = rgba_pixels;
 			platform_renderer_texture_entries[platform_renderer_texture_count].width = image_width;
 			platform_renderer_texture_entries[platform_renderer_texture_count].height = image_height;
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+			if (PLATFORM_RENDERER_gles2_is_ready())
+			{
+				(void)PLATFORM_RENDERER_build_gles2_texture_from_entry(&platform_renderer_texture_entries[platform_renderer_texture_count]);
+			}
+#endif
 		}
 		else
 		{
@@ -2796,6 +4982,10 @@ static unsigned int PLATFORM_RENDERER_normalize_texture_handle(unsigned int text
 
 void PLATFORM_RENDERER_clear_backbuffer(void)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
 	platform_renderer_clear_backbuffer_calls_since_present++;
 	/* Detect resets after draw activity, which can hide earlier GL output. */
 	if ((platform_renderer_legacy_draw_count > 0) || (platform_renderer_sdl_native_draw_count > 0))
@@ -2849,6 +5039,17 @@ void PLATFORM_RENDERER_clear_backbuffer(void)
 	platform_renderer_legacy_diag_first_error_code = 0;
 	platform_renderer_legacy_diag_error_count_frame = 0;
 	snprintf(platform_renderer_legacy_diag_first_error_stage, sizeof(platform_renderer_legacy_diag_first_error_stage), "-");
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		glViewport(0, 0, platform_renderer_present_width > 0 ? platform_renderer_present_width : 640, platform_renderer_present_height > 0 ? platform_renderer_present_height : 480);
+		glDisable(GL_SCISSOR_TEST);
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
+		s_frame_clear_ticks = SDL_GetTicks();
+		return;
+	}
+#endif
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
 		(void)SDL_SetRenderDrawColor(platform_renderer_sdl_renderer, 0, 0, 0, 255);
@@ -2860,6 +5061,10 @@ void PLATFORM_RENDERER_clear_backbuffer(void)
 
 void PLATFORM_RENDERER_draw_outline_rect(int x1, int y1, int x2, int y2, int r, int g, int b, int virtual_screen_height)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
 		int left = (x1 < x2) ? x1 : x2;
@@ -2901,6 +5106,30 @@ void PLATFORM_RENDERER_draw_outline_rect(int x1, int y1, int x2, int y2, int r, 
 
 void PLATFORM_RENDERER_draw_filled_rect(int x1, int y1, int x2, int y2, int r, int g, int b, int virtual_screen_height)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		const float left = (float)((x1 < x2) ? x1 : x2);
+		const float right = (float)((x1 > x2) ? x1 : x2);
+		const float top = (float)(virtual_screen_height - ((y1 < y2) ? y1 : y2));
+		const float bottom = (float)(virtual_screen_height - ((y1 > y2) ? y1 : y2));
+		const float old_r = platform_renderer_current_colour_r;
+		const float old_g = platform_renderer_current_colour_g;
+		const float old_b = platform_renderer_current_colour_b;
+		const float old_a = platform_renderer_current_colour_a;
+		PLATFORM_RENDERER_set_colour4f((float)r / 255.0f, (float)g / 255.0f, (float)b / 255.0f, old_a);
+		PLATFORM_RENDERER_draw_bound_solid_quad(left, right, top, bottom);
+		platform_renderer_current_colour_r = old_r;
+		platform_renderer_current_colour_g = old_g;
+		platform_renderer_current_colour_b = old_b;
+		platform_renderer_current_colour_a = old_a;
+		return;
+	}
+#endif
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
 		int left = (x1 < x2) ? x1 : x2;
@@ -2976,6 +5205,22 @@ void PLATFORM_RENDERER_draw_filled_rect(int x1, int y1, int x2, int y2, int r, i
 
 void PLATFORM_RENDERER_draw_line(int x1, int y1, int x2, int y2, int r, int g, int b)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		(void)PLATFORM_RENDERER_gles2_draw_coloured_line_segment(
+				(float)x1, (float)y1, (float)x2, (float)y2,
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(r),
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(g),
+				PLATFORM_RENDERER_clamp_sdl_colour_mod(b),
+				255);
+		return;
+	}
+#endif
 	if (PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
 		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
@@ -2994,6 +5239,31 @@ void PLATFORM_RENDERER_draw_line(int x1, int y1, int x2, int y2, int r, int g, i
 
 void PLATFORM_RENDERER_draw_coloured_line(float x1, float y1, float x2, float y2, float r, float g, float b)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready() && (platform_renderer_present_height > 0))
+	{
+		float tx1;
+		float ty1;
+		float tx2;
+		float ty2;
+		PLATFORM_RENDERER_transform_point(x1, y1, &tx1, &ty1);
+		PLATFORM_RENDERER_transform_point(x2, y2, &tx2, &ty2);
+		(void)PLATFORM_RENDERER_gles2_draw_coloured_line_segment(
+				tx1,
+				(float)platform_renderer_present_height - ty1,
+				tx2,
+				(float)platform_renderer_present_height - ty2,
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(r),
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(g),
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(b),
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a));
+		return;
+	}
+#endif
 	if (PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 		float tx1;
@@ -3013,6 +5283,31 @@ void PLATFORM_RENDERER_draw_coloured_line(float x1, float y1, float x2, float y2
 
 void PLATFORM_RENDERER_draw_line(float x1, float y1, float x2, float y2)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready() && (platform_renderer_present_height > 0))
+	{
+		float tx1;
+		float ty1;
+		float tx2;
+		float ty2;
+		PLATFORM_RENDERER_transform_point(x1, y1, &tx1, &ty1);
+		PLATFORM_RENDERER_transform_point(x2, y2, &tx2, &ty2);
+		(void)PLATFORM_RENDERER_gles2_draw_coloured_line_segment(
+				tx1,
+				(float)platform_renderer_present_height - ty1,
+				tx2,
+				(float)platform_renderer_present_height - ty2,
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b),
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a));
+		return;
+	}
+#endif
 	if (PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 		float tx1;
@@ -3036,12 +5331,27 @@ void PLATFORM_RENDERER_draw_line(float x1, float y1, float x2, float y2)
 
 void PLATFORM_RENDERER_draw_line_loop_array(const float *x, const float *y, int count)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
 	int i;
 
 	if ((x == NULL) || (y == NULL) || (count < 2))
 	{
 		return;
 	}
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready() && (platform_renderer_present_height > 0))
+	{
+		for (i = 0; i < count; i++)
+		{
+			int j = (i + 1) % count;
+			PLATFORM_RENDERER_draw_line(x[i], y[i], x[j], y[j]);
+		}
+		return;
+	}
+#endif
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 		PLATFORM_RENDERER_apply_sdl_draw_blend_mode();
@@ -3069,6 +5379,10 @@ void PLATFORM_RENDERER_draw_line_loop_array(const float *x, const float *y, int 
 
 void PLATFORM_RENDERER_draw_circle(int x, int y, int radius, int r, int g, int b, int virtual_screen_height, int resolution)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
 	float angle;
 	float step;
 
@@ -3108,6 +5422,39 @@ void PLATFORM_RENDERER_draw_circle(int x, int y, int radius, int r, int g, int b
 
 void PLATFORM_RENDERER_draw_bound_solid_quad(float left, float right, float up, float down)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready() && (platform_renderer_present_height > 0))
+	{
+		SDL_Vertex verts[4];
+		const int idx[6] = {0, 1, 2, 0, 2, 3};
+		const float px[4] = {left, left, right, right};
+		const float py[4] = {up, down, down, up};
+		const Uint8 cr = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r);
+		const Uint8 cg = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g);
+		const Uint8 cb = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b);
+		const Uint8 ca = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a);
+		for (int vi = 0; vi < 4; vi++)
+		{
+			float tx;
+			float ty;
+			PLATFORM_RENDERER_transform_point(px[vi], py[vi], &tx, &ty);
+			verts[vi].position.x = tx;
+			verts[vi].position.y = (float)platform_renderer_present_height - ty;
+			verts[vi].tex_coord.x = (vi == 0 || vi == 1) ? 0.0f : 1.0f;
+			verts[vi].tex_coord.y = (vi == 0 || vi == 3) ? 0.0f : 1.0f;
+			verts[vi].color.r = cr;
+			verts[vi].color.g = cg;
+			verts[vi].color.b = cb;
+			verts[vi].color.a = ca;
+		}
+		(void)PLATFORM_RENDERER_gles2_draw_textured_geometry(0, verts, 4, idx, 6, PLATFORM_RENDERER_GEOM_SRC_NONE);
+		return;
+	}
+#endif
 	if (platform_renderer_sdl_core_quads_enabled && true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 		float tx0;
@@ -3259,6 +5606,92 @@ static void PLATFORM_RENDERER_draw_bound_quad_legacy_fallback(
 
 void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float up, float down, float u1, float v1, float u2, float v2)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(platform_renderer_last_bound_texture_handle);
+		SDL_Vertex vertices[4];
+		const int indices[6] = {0, 1, 2, 0, 2, 3};
+		SDL_Rect src_rect;
+		bool wrap_s = false;
+		bool wrap_t = false;
+		float txs[4];
+		float tys[4];
+		const bool src_flip_x = (u2 < u1);
+		const bool src_flip_y = PLATFORM_RENDERER_src_flip_y_for_sdl(v1, v2);
+		const float quad_x[4] = {left, left, right, right};
+		const float quad_y[4] = {up, down, down, up};
+		int i;
+
+		if ((entry == NULL) || !PLATFORM_RENDERER_build_gles2_texture_from_entry(entry))
+		{
+			return;
+		}
+
+		for (i = 0; i < 4; i++)
+		{
+			float tx;
+			float ty;
+			PLATFORM_RENDERER_transform_point(quad_x[i], quad_y[i], &tx, &ty);
+			txs[i] = tx;
+			tys[i] = ty;
+		}
+
+		(void)PLATFORM_RENDERER_uvs_require_wrap(u1, v1, u2, v2, &wrap_s, &wrap_t);
+		for (i = 0; i < 4; i++)
+		{
+			int cr;
+			int cg;
+			int cb;
+			int ca;
+
+			vertices[i].position.x = txs[i];
+			vertices[i].position.y = (float)platform_renderer_present_height - tys[i];
+			vertices[i].tex_coord.x = (i < 2) ? (src_flip_x ? u2 : u1) : (src_flip_x ? u1 : u2);
+			vertices[i].tex_coord.y = ((i == 0) || (i == 3)) ? (src_flip_y ? v2 : v1) : (src_flip_y ? v1 : v2);
+			cr = (int)(platform_renderer_current_colour_r * 255.0f);
+			cg = (int)(platform_renderer_current_colour_g * 255.0f);
+			cb = (int)(platform_renderer_current_colour_b * 255.0f);
+			ca = (int)(platform_renderer_current_colour_a * 255.0f);
+			if (cr < 0) cr = 0; if (cr > 255) cr = 255;
+			if (cg < 0) cg = 0; if (cg > 255) cg = 255;
+			if (cb < 0) cb = 0; if (cb > 255) cb = 255;
+			if (ca < 0) ca = 0; if (ca > 255) ca = 255;
+			vertices[i].color.r = (Uint8)cr;
+			vertices[i].color.g = (Uint8)cg;
+			vertices[i].color.b = (Uint8)cb;
+			vertices[i].color.a = (Uint8)ca;
+		}
+
+		if (!wrap_s && !wrap_t && PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, v1, u2, v2, &src_rect))
+		{
+			(void)PLATFORM_RENDERER_gles2_draw_textured_subrect_geometry(
+					entry,
+					platform_renderer_last_bound_texture_handle,
+					&src_rect,
+					vertices,
+					4,
+					indices,
+					6,
+					PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD);
+			return;
+		}
+
+		(void)PLATFORM_RENDERER_gles2_draw_textured_geometry(
+				platform_renderer_last_bound_texture_handle,
+				vertices,
+				4,
+				indices,
+				6,
+				PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD);
+		return;
+	}
+#endif
+
 	/* Skip fully transparent draws early: SDL API calls have non-trivial CPU cost per-call.
 	 * When alpha is zero the draw contributes nothing visible. */
 	if (platform_renderer_current_colour_a < (1.0f / 256.0f))
@@ -3589,6 +6022,123 @@ void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float u
 
 void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2)
 {
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready() && (platform_renderer_present_height > 0))
+	{
+		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(platform_renderer_last_bound_texture_handle);
+		SDL_Vertex vertices[4];
+		const int indices[6] = {0, 1, 2, 0, 2, 3};
+		SDL_Rect src_rect;
+		bool wrap_s = false;
+		bool wrap_t = false;
+		const float quad_x[4] = {x0, x1, x2, x3};
+		const float quad_y[4] = {y0, y1, y2, y3};
+		float quad_u[4];
+		float quad_v[4];
+		const bool src_flip_x = (u2 < u1);
+		const bool src_flip_y = PLATFORM_RENDERER_src_flip_y_for_sdl(v1, v2);
+
+		if ((entry == NULL) || !PLATFORM_RENDERER_build_gles2_texture_from_entry(entry))
+		{
+			return;
+		}
+		(void)PLATFORM_RENDERER_uvs_require_wrap(u1, v1, u2, v2, &wrap_s, &wrap_t);
+		if (wrap_s || wrap_t || !PLATFORM_RENDERER_uvs_are_texel_aligned(entry, u1, v1, u2, v2))
+		{
+			float u_left;
+			float u_right;
+			float v_top;
+			float v_bottom;
+
+			if (wrap_s || wrap_t)
+			{
+				quad_u[0] = (src_flip_x ? u2 : u1);
+				quad_u[1] = (src_flip_x ? u2 : u1);
+				quad_u[2] = (src_flip_x ? u1 : u2);
+				quad_u[3] = (src_flip_x ? u1 : u2);
+				quad_v[0] = (src_flip_y ? v2 : v1);
+				quad_v[1] = (src_flip_y ? v1 : v2);
+				quad_v[2] = (src_flip_y ? v1 : v2);
+				quad_v[3] = (src_flip_y ? v2 : v1);
+			}
+			else
+			{
+				PLATFORM_RENDERER_build_safe_gles2_uv_bounds(entry, u1, v1, u2, v2, &u_left, &v_top, &u_right, &v_bottom);
+				quad_u[0] = u_left;
+				quad_u[1] = u_left;
+				quad_u[2] = u_right;
+				quad_u[3] = u_right;
+				quad_v[0] = v_top;
+				quad_v[1] = v_bottom;
+				quad_v[2] = v_bottom;
+				quad_v[3] = v_top;
+			}
+
+			for (int i = 0; i < 4; i++)
+			{
+				float tx;
+				float ty;
+				int cr;
+				int cg;
+				int cb;
+				int ca;
+
+				PLATFORM_RENDERER_transform_point(quad_x[i], quad_y[i], &tx, &ty);
+				vertices[i].position.x = tx;
+				vertices[i].position.y = (float)platform_renderer_present_height - ty;
+				vertices[i].tex_coord.x = quad_u[i];
+				vertices[i].tex_coord.y = quad_v[i];
+				cr = (int)(platform_renderer_current_colour_r * 255.0f);
+				cg = (int)(platform_renderer_current_colour_g * 255.0f);
+				cb = (int)(platform_renderer_current_colour_b * 255.0f);
+				ca = (int)(platform_renderer_current_colour_a * 255.0f);
+				if (cr < 0) cr = 0; if (cr > 255) cr = 255;
+				if (cg < 0) cg = 0; if (cg > 255) cg = 255;
+				if (cb < 0) cb = 0; if (cb > 255) cb = 255;
+				if (ca < 0) ca = 0; if (ca > 255) ca = 255;
+				vertices[i].color.r = (Uint8)cr;
+				vertices[i].color.g = (Uint8)cg;
+				vertices[i].color.b = (Uint8)cb;
+				vertices[i].color.a = (Uint8)ca;
+			}
+			(void)PLATFORM_RENDERER_gles2_draw_textured_geometry(platform_renderer_last_bound_texture_handle, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD_CUSTOM);
+			return;
+		}
+
+		if (!PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, v1, u2, v2, &src_rect))
+		{
+			return;
+		}
+		for (int i = 0; i < 4; i++)
+		{
+			float tx;
+			float ty;
+			int cr;
+			int cg;
+			int cb;
+			int ca;
+			PLATFORM_RENDERER_transform_point(quad_x[i], quad_y[i], &tx, &ty);
+			vertices[i].position.x = tx;
+			vertices[i].position.y = (float)platform_renderer_present_height - ty;
+			vertices[i].tex_coord.x = (i == 0 || i == 1) ? (src_flip_x ? u2 : u1) : (src_flip_x ? u1 : u2);
+			vertices[i].tex_coord.y = (i == 0 || i == 3) ? (src_flip_y ? v2 : v1) : (src_flip_y ? v1 : v2);
+			cr = (int)(platform_renderer_current_colour_r * 255.0f);
+			cg = (int)(platform_renderer_current_colour_g * 255.0f);
+			cb = (int)(platform_renderer_current_colour_b * 255.0f);
+			ca = (int)(platform_renderer_current_colour_a * 255.0f);
+			if (cr < 0) cr = 0; if (cr > 255) cr = 255;
+			if (cg < 0) cg = 0; if (cg > 255) cg = 255;
+			if (cb < 0) cb = 0; if (cb > 255) cb = 255;
+			if (ca < 0) ca = 0; if (ca > 255) ca = 255;
+			vertices[i].color.r = (Uint8)cr;
+			vertices[i].color.g = (Uint8)cg;
+			vertices[i].color.b = (Uint8)cb;
+			vertices[i].color.a = (Uint8)ca;
+		}
+		(void)PLATFORM_RENDERER_gles2_draw_textured_subrect_geometry(entry, platform_renderer_last_bound_texture_handle, &src_rect, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_BOUND_QUAD_CUSTOM);
+		return;
+	}
+#endif
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 #if SDL_VERSION_ATLEAST(2, 0, 18)
@@ -3852,6 +6402,24 @@ void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float
 
 void PLATFORM_RENDERER_draw_point(float x, float y)
 {
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready() && (platform_renderer_present_height > 0))
+	{
+		float tx;
+		float ty;
+		PLATFORM_RENDERER_transform_point(x, y, &tx, &ty);
+		(void)PLATFORM_RENDERER_gles2_draw_coloured_line_segment(
+				tx,
+				(float)platform_renderer_present_height - ty,
+				tx,
+				(float)platform_renderer_present_height - ty,
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r),
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g),
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b),
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a));
+		return;
+	}
+#endif
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 		float tx;
@@ -3920,6 +6488,24 @@ void PLATFORM_RENDERER_draw_point(float x, float y)
 
 void PLATFORM_RENDERER_draw_coloured_point(float x, float y, float r, float g, float b)
 {
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready() && (platform_renderer_present_height > 0))
+	{
+		float tx;
+		float ty;
+		PLATFORM_RENDERER_transform_point(x, y, &tx, &ty);
+		(void)PLATFORM_RENDERER_gles2_draw_coloured_line_segment(
+				tx,
+				(float)platform_renderer_present_height - ty,
+				tx,
+				(float)platform_renderer_present_height - ty,
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(r),
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(g),
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(b),
+				PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a));
+		return;
+	}
+#endif
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 		float tx;
@@ -4028,6 +6614,14 @@ void PLATFORM_RENDERER_bind_texture(unsigned int texture_handle)
 	platform_renderer_last_bound_texture_handle = normalized_texture_handle;
 }
 
+void PLATFORM_RENDERER_bind_secondary_texture(unsigned int texture_handle)
+{
+	unsigned int resolved_texture_id = PLATFORM_RENDERER_resolve_legacy_texture(texture_handle);
+	unsigned int normalized_texture_handle = PLATFORM_RENDERER_normalize_texture_handle(texture_handle);
+	(void)resolved_texture_id;
+	platform_renderer_last_bound_secondary_texture_handle = normalized_texture_handle;
+}
+
 void PLATFORM_RENDERER_set_active_texture_proc(void *proc)
 {
 	platform_renderer_active_texture_proc = (platform_active_texture_proc_t)proc;
@@ -4036,6 +6630,26 @@ void PLATFORM_RENDERER_set_active_texture_proc(void *proc)
 bool PLATFORM_RENDERER_is_active_texture_available(void)
 {
 	return platform_renderer_active_texture_proc != NULL;
+}
+
+void PLATFORM_RENDERER_set_combiner_modulate_primary(void)
+{
+	platform_renderer_combiner_mode = PLATFORM_RENDERER_COMBINER_MODULATE_PRIMARY;
+}
+
+void PLATFORM_RENDERER_set_combiner_replace_rgb_modulate_alpha_previous(void)
+{
+	platform_renderer_combiner_mode = PLATFORM_RENDERER_COMBINER_REPLACE_RGB_MODULATE_ALPHA_PREVIOUS;
+}
+
+void PLATFORM_RENDERER_set_combiner_replace_rgb_modulate_alpha_primary(void)
+{
+	platform_renderer_combiner_mode = PLATFORM_RENDERER_COMBINER_REPLACE_RGB_MODULATE_ALPHA_PRIMARY;
+}
+
+void PLATFORM_RENDERER_set_combiner_modulate_rgb_replace_alpha_previous(void)
+{
+	platform_renderer_combiner_mode = PLATFORM_RENDERER_COMBINER_MODULATE_RGB_REPLACE_ALPHA_PREVIOUS;
 }
 
 void PLATFORM_RENDERER_set_blend_enabled(bool enabled)
@@ -4063,8 +6677,120 @@ void PLATFORM_RENDERER_set_blend_mode_subtractive(void)
 	platform_renderer_blend_mode = PLATFORM_RENDERER_BLEND_MODE_SUBTRACT;
 }
 
+void PLATFORM_RENDERER_set_texture_filter(bool filtered)
+{
+	platform_renderer_texture_filter_linear = filtered;
+}
+
+void PLATFORM_RENDERER_set_texture_masked(bool masked)
+{
+	platform_renderer_texture_masked = masked;
+}
+
+void PLATFORM_RENDERER_capture_state_snapshot(platform_renderer_state_snapshot *snapshot)
+{
+	if (snapshot == NULL)
+	{
+		return;
+	}
+
+	snapshot->texture_handle = platform_renderer_last_bound_texture_handle;
+	snapshot->blend_enabled = platform_renderer_blend_enabled;
+	snapshot->blend_mode = platform_renderer_blend_mode;
+	snapshot->filtered = platform_renderer_texture_filter_linear;
+	snapshot->masked = platform_renderer_texture_masked;
+	snapshot->scissor_enabled = (platform_renderer_legacy_scissor_enabled_last != 0);
+	snapshot->scissor_x = platform_renderer_legacy_scissor_last[0];
+	snapshot->scissor_y = platform_renderer_legacy_scissor_last[1];
+	snapshot->scissor_w = platform_renderer_legacy_scissor_last[2];
+	snapshot->scissor_h = platform_renderer_legacy_scissor_last[3];
+	snapshot->colour_r = platform_renderer_current_colour_r;
+	snapshot->colour_g = platform_renderer_current_colour_g;
+	snapshot->colour_b = platform_renderer_current_colour_b;
+	snapshot->colour_a = platform_renderer_current_colour_a;
+	snapshot->tx_a = platform_renderer_tx_a;
+	snapshot->tx_b = platform_renderer_tx_b;
+	snapshot->tx_c = platform_renderer_tx_c;
+	snapshot->tx_d = platform_renderer_tx_d;
+	snapshot->tx_x = platform_renderer_tx_x;
+	snapshot->tx_y = platform_renderer_tx_y;
+}
+
+void PLATFORM_RENDERER_apply_state_snapshot(const platform_renderer_state_snapshot *snapshot)
+{
+	if (snapshot == NULL)
+	{
+		return;
+	}
+
+	PLATFORM_RENDERER_flush_command_queue();
+	PLATFORM_RENDERER_flush_addq();
+	platform_renderer_last_bound_texture_handle = snapshot->texture_handle;
+	platform_renderer_blend_enabled = snapshot->blend_enabled;
+	platform_renderer_blend_mode = snapshot->blend_mode;
+	platform_renderer_texture_filter_linear = snapshot->filtered;
+	platform_renderer_texture_masked = snapshot->masked;
+	platform_renderer_legacy_scissor_enabled_last = snapshot->scissor_enabled ? 1 : 0;
+	platform_renderer_legacy_scissor_last[0] = snapshot->scissor_x;
+	platform_renderer_legacy_scissor_last[1] = snapshot->scissor_y;
+	platform_renderer_legacy_scissor_last[2] = snapshot->scissor_w;
+	platform_renderer_legacy_scissor_last[3] = snapshot->scissor_h;
+	platform_renderer_current_colour_r = snapshot->colour_r;
+	platform_renderer_current_colour_g = snapshot->colour_g;
+	platform_renderer_current_colour_b = snapshot->colour_b;
+	platform_renderer_current_colour_a = snapshot->colour_a;
+	platform_renderer_tx_a = snapshot->tx_a;
+	platform_renderer_tx_b = snapshot->tx_b;
+	platform_renderer_tx_c = snapshot->tx_c;
+	platform_renderer_tx_d = snapshot->tx_d;
+	platform_renderer_tx_x = snapshot->tx_x;
+	platform_renderer_tx_y = snapshot->tx_y;
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		if (snapshot->scissor_enabled && (snapshot->scissor_w > 0) && (snapshot->scissor_h > 0))
+		{
+			PLATFORM_RENDERER_gles2_apply_scissor_rect(
+				snapshot->scissor_x,
+				snapshot->scissor_y,
+				snapshot->scissor_w,
+				snapshot->scissor_h);
+		}
+		else
+		{
+			glDisable(GL_SCISSOR_TEST);
+		}
+	}
+	else
+#endif
+	if (platform_renderer_sdl_renderer != NULL)
+	{
+		if (snapshot->scissor_enabled && (snapshot->scissor_w > 0) && (snapshot->scissor_h > 0))
+		{
+			SDL_Rect clip;
+			clip.x = snapshot->scissor_x;
+			clip.y = snapshot->scissor_y;
+			clip.w = snapshot->scissor_w;
+			clip.h = snapshot->scissor_h;
+			(void)SDL_RenderSetClipRect(platform_renderer_sdl_renderer, &clip);
+			platform_renderer_sdl_clip_cache_enabled = true;
+			platform_renderer_sdl_clip_cache = clip;
+		}
+		else
+		{
+			(void)SDL_RenderSetClipRect(platform_renderer_sdl_renderer, NULL);
+			platform_renderer_sdl_clip_cache_enabled = false;
+		}
+	}
+}
+
 void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float bottom_window_transform_y, float scaled_width, float scaled_height, float display_scale_x, float display_scale_y, float window_scale_multiplier)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+
 	float x = left_window_transform_x;
 	float y = bottom_window_transform_y;
 	float width = scaled_width * display_scale_x;
@@ -4081,6 +6807,45 @@ void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float b
 		y += scaled_height;
 		height = -height;
 	}
+
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready() && (platform_renderer_present_height > 0))
+	{
+		const float effective_multiplier = (window_scale_multiplier > 0.0f) ? window_scale_multiplier : 1.0f;
+		int clip_x = (int)(x * effective_multiplier);
+		int clip_w = (int)(width * effective_multiplier);
+		int clip_h = (int)(height * effective_multiplier);
+		int clip_y = platform_renderer_present_height - (((int)(y * effective_multiplier)) + clip_h);
+		const bool effectively_fullscreen =
+			(clip_x <= 1) &&
+			(clip_y <= 1) &&
+			((clip_x + clip_w) >= (platform_renderer_present_width - 1)) &&
+			((clip_y + clip_h) >= (platform_renderer_present_height - 1));
+		platform_renderer_legacy_scissor_last[0] = clip_x;
+		platform_renderer_legacy_scissor_last[1] = clip_y;
+		platform_renderer_legacy_scissor_last[2] = clip_w;
+		platform_renderer_legacy_scissor_last[3] = clip_h;
+		if ((clip_w > 0) && (clip_h > 0))
+		{
+			if (effectively_fullscreen)
+			{
+				platform_renderer_legacy_scissor_enabled_last = 0;
+				glDisable(GL_SCISSOR_TEST);
+			}
+			else
+			{
+				platform_renderer_legacy_scissor_enabled_last = 1;
+				PLATFORM_RENDERER_gles2_apply_scissor_rect(clip_x, clip_y, clip_w, clip_h);
+			}
+		}
+		else
+		{
+			platform_renderer_legacy_scissor_enabled_last = 0;
+			glDisable(GL_SCISSOR_TEST);
+		}
+		return;
+	}
+#endif
 
 	if ((platform_renderer_sdl_renderer != NULL) && (platform_renderer_present_height > 0))
 	{
@@ -4136,6 +6901,8 @@ void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float b
 
 			if ((clip_w <= 0) || (clip_h <= 0))
 			{
+				platform_renderer_legacy_scissor_enabled_last = 0;
+				memset(platform_renderer_legacy_scissor_last, 0, sizeof(platform_renderer_legacy_scissor_last));
 				/* Prefer no clipping over blank frame when window clip is invalid. */
 				if (platform_renderer_sdl_clip_cache_enabled)
 				{
@@ -4161,6 +6928,8 @@ void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float b
 				if ((clip.x == vp_x) && (clip.y == vp_y) &&
 						(clip.w == vp_w) && (clip.h == vp_h))
 				{
+					platform_renderer_legacy_scissor_enabled_last = 0;
+					memset(platform_renderer_legacy_scissor_last, 0, sizeof(platform_renderer_legacy_scissor_last));
 					if (platform_renderer_sdl_clip_cache_enabled)
 					{
 						PLATFORM_RENDERER_flush_addq();
@@ -4170,6 +6939,11 @@ void PLATFORM_RENDERER_set_window_scissor(float left_window_transform_x, float b
 					}
 					return;
 				}
+				platform_renderer_legacy_scissor_enabled_last = 1;
+				platform_renderer_legacy_scissor_last[0] = clip.x;
+				platform_renderer_legacy_scissor_last[1] = clip.y;
+				platform_renderer_legacy_scissor_last[2] = clip.w;
+				platform_renderer_legacy_scissor_last[3] = clip.h;
 				if (!platform_renderer_sdl_clip_cache_enabled ||
 						platform_renderer_sdl_clip_cache.x != clip.x ||
 						platform_renderer_sdl_clip_cache.y != clip.y ||
@@ -4249,6 +7023,11 @@ void PLATFORM_RENDERER_rotatef(float angle_degrees, float x, float y, float z)
 
 void PLATFORM_RENDERER_finish_textured_window_draw(bool texture_combiner_available, bool had_secondary_texture, bool secondary_colour_available, bool secondary_window_colour, int game_screen_width, int game_screen_height)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+
 	if (platform_renderer_sdl_renderer != NULL)
 	{
 		if (platform_renderer_sdl_clip_cache_enabled)
@@ -4262,16 +7041,78 @@ void PLATFORM_RENDERER_finish_textured_window_draw(bool texture_combiner_availab
 	}
 	PLATFORM_RENDERER_set_blend_enabled(false);
 	PLATFORM_RENDERER_set_colour4f(1.0f, 1.0f, 1.0f, 1.0f);
+	platform_renderer_last_bound_secondary_texture_handle = 0;
+	platform_renderer_combiner_mode = PLATFORM_RENDERER_COMBINER_MODULATE_PRIMARY;
 }
 
 void PLATFORM_RENDERER_draw_bound_multitextured_quad_array(const float *x, const float *y, const float *u0, const float *v0, const float *u1, const float *v1)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+
 	int i;
 
 	if ((x == NULL) || (y == NULL) || (u0 == NULL) || (v0 == NULL) || (u1 == NULL) || (v1 == NULL))
 	{
 		return;
 	}
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready() && (platform_renderer_present_height > 0))
+	{
+		float positions[8];
+		float primary_uv[8];
+		float secondary_uv[8];
+		unsigned char colours[16];
+		const int indices[6] = {0, 1, 2, 0, 2, 3};
+		for (i = 0; i < 4; i++)
+		{
+			float tx;
+			float ty;
+			int cr;
+			int cg;
+			int cb;
+			int ca;
+
+			PLATFORM_RENDERER_transform_point(x[i], y[i], &tx, &ty);
+			positions[(i * 2) + 0] = tx;
+			positions[(i * 2) + 1] = (float)platform_renderer_present_height - ty;
+			primary_uv[(i * 2) + 0] = u0[i];
+			primary_uv[(i * 2) + 1] = v0[i];
+			secondary_uv[(i * 2) + 0] = u1[i];
+			secondary_uv[(i * 2) + 1] = v1[i];
+
+			cr = (int)(platform_renderer_current_colour_r * 255.0f);
+			cg = (int)(platform_renderer_current_colour_g * 255.0f);
+			cb = (int)(platform_renderer_current_colour_b * 255.0f);
+			ca = (int)(platform_renderer_current_colour_a * 255.0f);
+			if (cr < 0) cr = 0; else if (cr > 255) cr = 255;
+			if (cg < 0) cg = 0; else if (cg > 255) cg = 255;
+			if (cb < 0) cb = 0; else if (cb > 255) cb = 255;
+			if (ca < 0) ca = 0; else if (ca > 255) ca = 255;
+
+			colours[(i * 4) + 0] = (unsigned char)cr;
+			colours[(i * 4) + 1] = (unsigned char)cg;
+			colours[(i * 4) + 2] = (unsigned char)cb;
+			colours[(i * 4) + 3] = (unsigned char)ca;
+		}
+
+		(void)PLATFORM_RENDERER_gles2_draw_multitextured_geometry(
+				platform_renderer_last_bound_texture_handle,
+				platform_renderer_last_bound_secondary_texture_handle,
+				platform_renderer_combiner_mode,
+				positions,
+				primary_uv,
+				secondary_uv,
+				colours,
+				4,
+				indices,
+				6,
+				PLATFORM_RENDERER_GEOM_SRC_MULTITEXTURE_ARRAY);
+		return;
+	}
+#endif
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 #if SDL_VERSION_ATLEAST(2, 0, 18)
@@ -4415,12 +7256,112 @@ void PLATFORM_RENDERER_draw_bound_multitextured_quad_array(const float *x, const
 
 void PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(const float *x, const float *y, const float *u, const float *v, const float *r, const float *g, const float *b, const float *a)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+
 	int i;
 
 	if ((x == NULL) || (y == NULL) || (u == NULL) || (v == NULL) || (r == NULL) || (g == NULL) || (b == NULL) || (a == NULL))
 	{
 		return;
 	}
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready() && (platform_renderer_present_height > 0))
+	{
+		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(platform_renderer_last_bound_texture_handle);
+		SDL_Vertex vertices[4];
+		const int indices[6] = {0, 1, 2, 0, 2, 3};
+		SDL_Rect src_rect;
+		bool wrap_s = false;
+		bool wrap_t = false;
+		bool uniform_colour = true;
+		for (i = 0; i < 4; i++)
+		{
+			float tx;
+			float ty;
+			PLATFORM_RENDERER_transform_point(x[i], y[i], &tx, &ty);
+			vertices[i].position.x = tx;
+			vertices[i].position.y = (float)platform_renderer_present_height - ty;
+			vertices[i].tex_coord.x = u[i];
+			vertices[i].tex_coord.y = v[i];
+			vertices[i].color.r = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(r[i]);
+			vertices[i].color.g = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(g[i]);
+			vertices[i].color.b = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(b[i]);
+			vertices[i].color.a = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(a[i]);
+		}
+		for (i = 1; i < 4; i++)
+		{
+			if ((fabsf(r[i] - r[0]) > 0.01f) ||
+					(fabsf(g[i] - g[0]) > 0.01f) ||
+					(fabsf(b[i] - b[0]) > 0.01f) ||
+					(fabsf(a[i] - a[0]) > 0.01f))
+			{
+				uniform_colour = false;
+				break;
+			}
+		}
+
+		if (uniform_colour)
+		{
+			const float old_r = platform_renderer_current_colour_r;
+			const float old_g = platform_renderer_current_colour_g;
+			const float old_b = platform_renderer_current_colour_b;
+			const float old_a = platform_renderer_current_colour_a;
+			const bool axis_aligned_rect =
+				(fabsf(x[0] - x[1]) < 0.01f) &&
+				(fabsf(x[2] - x[3]) < 0.01f) &&
+				(fabsf(y[0] - y[3]) < 0.01f) &&
+				(fabsf(y[1] - y[2]) < 0.01f);
+			platform_renderer_current_colour_r = r[0];
+			platform_renderer_current_colour_g = g[0];
+			platform_renderer_current_colour_b = b[0];
+			platform_renderer_current_colour_a = a[0];
+			if (axis_aligned_rect)
+			{
+				PLATFORM_RENDERER_draw_bound_textured_quad(
+						x[0],
+						x[2],
+						y[0],
+						y[1],
+						u[0],
+						v[0],
+						u[2],
+						v[2]);
+			}
+			else
+			{
+				PLATFORM_RENDERER_draw_bound_textured_quad_custom(
+						x[0], y[0],
+						x[1], y[1],
+						x[2], y[2],
+						x[3], y[3],
+						u[0], v[0], u[2], v[2]);
+			}
+			platform_renderer_current_colour_r = old_r;
+			platform_renderer_current_colour_g = old_g;
+			platform_renderer_current_colour_b = old_b;
+			platform_renderer_current_colour_a = old_a;
+			return;
+		}
+
+		(void)PLATFORM_RENDERER_uvs_require_wrap(u[0], v[0], u[2], v[2], &wrap_s, &wrap_t);
+		if ((entry != NULL) &&
+				!wrap_s &&
+				!wrap_t &&
+				PLATFORM_RENDERER_uvs_are_texel_aligned(entry, u[0], v[0], u[2], v[2]) &&
+				PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u[0], v[0], u[2], v[2], &src_rect))
+		{
+			(void)PLATFORM_RENDERER_gles2_draw_textured_subrect_geometry(entry, platform_renderer_last_bound_texture_handle, &src_rect, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_COLOURED_ARRAY);
+		}
+		else
+		{
+			(void)PLATFORM_RENDERER_gles2_draw_textured_geometry(platform_renderer_last_bound_texture_handle, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_COLOURED_ARRAY);
+		}
+		return;
+	}
+#endif
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 #if SDL_VERSION_ATLEAST(2, 0, 18)
@@ -4574,6 +7515,113 @@ void PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(const float *x, c
 
 void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2, float q)
 {
+	platform_renderer_command *cmd;
+
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		PLATFORM_RENDERER_draw_bound_perspective_textured_quad_immediate(
+				x0, y0, x1, y1, x2, y2, x3, y3, u1, v1, u2, v2, q);
+		return;
+	}
+#endif
+
+	if (platform_renderer_command_queue_count >= PLATFORM_RENDERER_CMDQ_MAX)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+
+	cmd = &platform_renderer_command_queue[platform_renderer_command_queue_count++];
+	memset(cmd, 0, sizeof(*cmd));
+	cmd->type = PLATFORM_RENDERER_CMD_PERSPECTIVE;
+	cmd->texture_handle = platform_renderer_last_bound_texture_handle;
+	cmd->blend_enabled = platform_renderer_blend_enabled;
+	cmd->blend_mode = platform_renderer_blend_mode;
+	cmd->colour_r = platform_renderer_current_colour_r;
+	cmd->colour_g = platform_renderer_current_colour_g;
+	cmd->colour_b = platform_renderer_current_colour_b;
+	cmd->colour_a = platform_renderer_current_colour_a;
+	cmd->tx_a = platform_renderer_tx_a;
+	cmd->tx_b = platform_renderer_tx_b;
+	cmd->tx_c = platform_renderer_tx_c;
+	cmd->tx_d = platform_renderer_tx_d;
+	cmd->tx_x = platform_renderer_tx_x;
+	cmd->tx_y = platform_renderer_tx_y;
+	cmd->x0 = x0;
+	cmd->y0 = y0;
+	cmd->x1 = x1;
+	cmd->y1 = y1;
+	cmd->x2 = x2;
+	cmd->y2 = y2;
+	cmd->x3 = x3;
+	cmd->y3 = y3;
+	cmd->u1 = u1;
+	cmd->v1 = v1;
+	cmd->u2 = u2;
+	cmd->v2 = v2;
+	cmd->q = q;
+}
+
+void PLATFORM_RENDERER_draw_bound_perspective_textured_quad_batch(const platform_renderer_perspective_quad *quads, int quad_count)
+{
+	if ((quads == NULL) || (quad_count <= 0))
+	{
+		return;
+	}
+
+	if (!PLATFORM_RENDERER_draw_bound_perspective_textured_quad_batch_immediate(quads, quad_count))
+	{
+		int i;
+		for (i = 0; i < quad_count; i++)
+		{
+			const platform_renderer_perspective_quad *quad = &quads[i];
+			PLATFORM_RENDERER_draw_bound_perspective_textured_quad_immediate(
+				quad->x0, quad->y0, quad->x1, quad->y1, quad->x2, quad->y2, quad->x3, quad->y3,
+				quad->u1, quad->v1, quad->u2, quad->v2, quad->q);
+		}
+	}
+}
+
+void PLATFORM_RENDERER_draw_bound_multitextured_perspective_quad(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u0_1, float v0_1, float u0_2, float v0_2, float u1_1, float v1_1, float u1_2, float v1_2, float q)
+{
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready() && (platform_renderer_present_height > 0))
+	{
+		(void)PLATFORM_RENDERER_gles2_draw_multitextured_perspective_quad(
+				x0, y0, x1, y1, x2, y2, x3, y3,
+				u0_1, v0_1, u0_2, v0_2,
+				u1_1, v1_1, u1_2, v1_2,
+				q);
+	}
+#else
+	(void)x0; (void)y0; (void)x1; (void)y1; (void)x2; (void)y2; (void)x3; (void)y3;
+	(void)u0_1; (void)v0_1; (void)u0_2; (void)v0_2;
+	(void)u1_1; (void)v1_1; (void)u1_2; (void)v1_2; (void)q;
+#endif
+}
+
+static void PLATFORM_RENDERER_draw_bound_perspective_textured_quad_immediate(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2, float q)
+{
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		platform_renderer_perspective_quad quad;
+		quad.x0 = x0; quad.y0 = y0;
+		quad.x1 = x1; quad.y1 = y1;
+		quad.x2 = x2; quad.y2 = y2;
+		quad.x3 = x3; quad.y3 = y3;
+		quad.u1 = u1; quad.v1 = v1;
+		quad.u2 = u2; quad.v2 = v2;
+		quad.q = q;
+		(void)PLATFORM_RENDERER_draw_bound_perspective_textured_quad_batch_immediate(&quad, 1);
+		return;
+	}
+#endif
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 #if SDL_VERSION_ATLEAST(2, 0, 18)
@@ -4882,10 +7930,103 @@ void PLATFORM_RENDERER_draw_bound_perspective_textured_quad(float x0, float y0, 
 
 void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2, float q, const float *r, const float *g, const float *b, const float *a)
 {
+	platform_renderer_command *cmd;
+
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_immediate(
+				x0, y0, x1, y1, x2, y2, x3, y3, u1, v1, u2, v2, q, r, g, b, a);
+		return;
+	}
+#endif
+
+	if (platform_renderer_command_queue_count >= PLATFORM_RENDERER_CMDQ_MAX)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+
+	cmd = &platform_renderer_command_queue[platform_renderer_command_queue_count++];
+	memset(cmd, 0, sizeof(*cmd));
+	cmd->type = PLATFORM_RENDERER_CMD_COLOURED_PERSPECTIVE;
+	cmd->texture_handle = platform_renderer_last_bound_texture_handle;
+	cmd->blend_enabled = platform_renderer_blend_enabled;
+	cmd->blend_mode = platform_renderer_blend_mode;
+	cmd->colour_r = platform_renderer_current_colour_r;
+	cmd->colour_g = platform_renderer_current_colour_g;
+	cmd->colour_b = platform_renderer_current_colour_b;
+	cmd->colour_a = platform_renderer_current_colour_a;
+	cmd->tx_a = platform_renderer_tx_a;
+	cmd->tx_b = platform_renderer_tx_b;
+	cmd->tx_c = platform_renderer_tx_c;
+	cmd->tx_d = platform_renderer_tx_d;
+	cmd->tx_x = platform_renderer_tx_x;
+	cmd->tx_y = platform_renderer_tx_y;
+	cmd->x0 = x0;
+	cmd->y0 = y0;
+	cmd->x1 = x1;
+	cmd->y1 = y1;
+	cmd->x2 = x2;
+	cmd->y2 = y2;
+	cmd->x3 = x3;
+	cmd->y3 = y3;
+	cmd->u1 = u1;
+	cmd->v1 = v1;
+	cmd->u2 = u2;
+	cmd->v2 = v2;
+	cmd->q = q;
+	memcpy(cmd->vr, r, sizeof(cmd->vr));
+	memcpy(cmd->vg, g, sizeof(cmd->vg));
+	memcpy(cmd->vb, b, sizeof(cmd->vb));
+	memcpy(cmd->va, a, sizeof(cmd->va));
+}
+
+void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batch(const platform_renderer_coloured_perspective_quad *quads, int quad_count)
+{
+	if ((quads == NULL) || (quad_count <= 0))
+	{
+		return;
+	}
+
+	if (!PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batch_immediate(quads, quad_count))
+	{
+		int i;
+		for (i = 0; i < quad_count; i++)
+		{
+			const platform_renderer_coloured_perspective_quad *quad = &quads[i];
+			PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_immediate(
+				quad->quad.x0, quad->quad.y0, quad->quad.x1, quad->quad.y1, quad->quad.x2, quad->quad.y2,
+				quad->quad.x3, quad->quad.y3, quad->quad.u1, quad->quad.v1, quad->quad.u2, quad->quad.v2, quad->quad.q,
+				quad->r, quad->g, quad->b, quad->a);
+		}
+	}
+}
+
+static void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_immediate(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2, float q, const float *r, const float *g, const float *b, const float *a)
+{
 	if ((r == NULL) || (g == NULL) || (b == NULL) || (a == NULL))
 	{
 		return;
 	}
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		platform_renderer_coloured_perspective_quad quad;
+		quad.quad.x0 = x0; quad.quad.y0 = y0;
+		quad.quad.x1 = x1; quad.quad.y1 = y1;
+		quad.quad.x2 = x2; quad.quad.y2 = y2;
+		quad.quad.x3 = x3; quad.quad.y3 = y3;
+		quad.quad.u1 = u1; quad.quad.v1 = v1;
+		quad.quad.u2 = u2; quad.quad.v2 = v2;
+		quad.quad.q = q;
+		memcpy(quad.r, r, sizeof(quad.r));
+		memcpy(quad.g, g, sizeof(quad.g));
+		memcpy(quad.b, b, sizeof(quad.b));
+		memcpy(quad.a, a, sizeof(quad.a));
+		(void)PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batch_immediate(&quad, 1);
+		return;
+	}
+#endif
 	if (true && PLATFORM_RENDERER_is_sdl2_stub_ready() && (platform_renderer_present_height > 0))
 	{
 #if SDL_VERSION_ATLEAST(2, 0, 18)
@@ -5309,9 +8450,517 @@ void PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad(float x0, f
 	(void)q;
 }
 
+static bool PLATFORM_RENDERER_draw_bound_perspective_textured_quad_batch_immediate(const platform_renderer_perspective_quad *quads, int quad_count)
+{
+	platform_renderer_texture_entry *entry;
+	SDL_Vertex *vertices;
+	int *indices;
+	int total_vertices = 0;
+	int total_indices = 0;
+	int base_vertex = 0;
+	int base_index = 0;
+	int quad_index;
+	const float perspective_eps = 0.0005f;
+	const Uint8 cr = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_r);
+	const Uint8 cg = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_g);
+	const Uint8 cb = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_b);
+	const Uint8 ca = PLATFORM_RENDERER_clamp_sdl_unit_to_byte(platform_renderer_current_colour_a);
+	const bool gles_ready = PLATFORM_RENDERER_gles2_is_ready();
+
+	if ((platform_renderer_present_height <= 0) || (quads == NULL) || (quad_count <= 0))
+	{
+		return false;
+	}
+	if (!gles_ready && !PLATFORM_RENDERER_is_sdl2_stub_ready())
+	{
+		return false;
+	}
+
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (gles_ready && (quad_count > 1))
+	{
+		int i;
+		bool any_ok = false;
+		for (i = 0; i < quad_count; i++)
+		{
+			if (PLATFORM_RENDERER_draw_bound_perspective_textured_quad_batch_immediate(&quads[i], 1))
+			{
+				any_ok = true;
+			}
+		}
+		return any_ok;
+	}
+#endif
+
+	entry = PLATFORM_RENDERER_get_texture_entry(platform_renderer_last_bound_texture_handle);
+	if (entry == NULL)
+	{
+		return false;
+	}
+	if (gles_ready)
+	{
+		if (!PLATFORM_RENDERER_build_gles2_texture_from_entry(entry))
+		{
+			return false;
+		}
+	}
+	else if (!PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
+	{
+		return false;
+	}
+
+	for (quad_index = 0; quad_index < quad_count; quad_index++)
+	{
+		const int strip_count = ((fabsf(quads[quad_index].q - 1.0f) > perspective_eps) && (quads[quad_index].q > perspective_eps)) ? 24 : 1;
+		total_vertices += strip_count * 4;
+		total_indices += strip_count * 6;
+	}
+
+	vertices = (SDL_Vertex *)malloc((size_t)total_vertices * sizeof(SDL_Vertex));
+	indices = (int *)malloc((size_t)total_indices * sizeof(int));
+	if ((vertices == NULL) || (indices == NULL))
+	{
+		free(vertices);
+		free(indices);
+		return false;
+	}
+
+		for (quad_index = 0; quad_index < quad_count; quad_index++)
+	{
+		const platform_renderer_perspective_quad *quad = &quads[quad_index];
+		const bool is_perspective = (fabsf(quad->q - 1.0f) > perspective_eps) && (quad->q > perspective_eps);
+		const int strip_count = is_perspective ? 24 : 1;
+		int strip_index;
+
+		for (strip_index = 0; strip_index < strip_count; strip_index++)
+		{
+			const float t0 = is_perspective ? ((float)strip_index / (float)strip_count) : 0.0f;
+			const float t1 = is_perspective ? ((float)(strip_index + 1) / (float)strip_count) : 1.0f;
+			const float one_minus_t0 = 1.0f - t0;
+			const float one_minus_t1 = 1.0f - t1;
+			const float left_x0 = (quad->x0 * one_minus_t0) + (quad->x1 * t0);
+			const float left_y0 = (quad->y0 * one_minus_t0) + (quad->y1 * t0);
+			const float left_x1 = (quad->x0 * one_minus_t1) + (quad->x1 * t1);
+			const float left_y1 = (quad->y0 * one_minus_t1) + (quad->y1 * t1);
+			const float right_x0 = (quad->x3 * one_minus_t0) + (quad->x2 * t0);
+			const float right_y0 = (quad->y3 * one_minus_t0) + (quad->y2 * t0);
+			const float right_x1 = (quad->x3 * one_minus_t1) + (quad->x2 * t1);
+			const float right_y1 = (quad->y3 * one_minus_t1) + (quad->y2 * t1);
+			const float w0 = is_perspective ? ((quad->q * one_minus_t0) + t0) : 1.0f;
+			const float w1 = is_perspective ? ((quad->q * one_minus_t1) + t1) : 1.0f;
+			const float strip_v0 = is_perspective ? (((quad->v1 * quad->q * one_minus_t0) + (quad->v2 * t0)) / w0) : quad->v1;
+			const float strip_v1 = is_perspective ? (((quad->v1 * quad->q * one_minus_t1) + (quad->v2 * t1)) / w1) : quad->v2;
+			float tx;
+			float ty;
+
+			if ((fabsf(w0) <= perspective_eps) || (fabsf(w1) <= perspective_eps))
+			{
+				free(vertices);
+				free(indices);
+				return false;
+			}
+
+			PLATFORM_RENDERER_transform_point(left_x0, left_y0, &tx, &ty);
+			vertices[base_vertex + 0].position.x = tx;
+			vertices[base_vertex + 0].position.y = (float)platform_renderer_present_height - ty;
+			vertices[base_vertex + 0].tex_coord.x = quad->u1;
+			vertices[base_vertex + 0].tex_coord.y = gles_ready ? strip_v0 : (1.0f - strip_v0);
+			vertices[base_vertex + 0].color.r = cr;
+			vertices[base_vertex + 0].color.g = cg;
+			vertices[base_vertex + 0].color.b = cb;
+			vertices[base_vertex + 0].color.a = ca;
+
+			PLATFORM_RENDERER_transform_point(left_x1, left_y1, &tx, &ty);
+			vertices[base_vertex + 1].position.x = tx;
+			vertices[base_vertex + 1].position.y = (float)platform_renderer_present_height - ty;
+			vertices[base_vertex + 1].tex_coord.x = quad->u1;
+			vertices[base_vertex + 1].tex_coord.y = gles_ready ? strip_v1 : (1.0f - strip_v1);
+			vertices[base_vertex + 1].color.r = cr;
+			vertices[base_vertex + 1].color.g = cg;
+			vertices[base_vertex + 1].color.b = cb;
+			vertices[base_vertex + 1].color.a = ca;
+
+			PLATFORM_RENDERER_transform_point(right_x1, right_y1, &tx, &ty);
+			vertices[base_vertex + 2].position.x = tx;
+			vertices[base_vertex + 2].position.y = (float)platform_renderer_present_height - ty;
+			vertices[base_vertex + 2].tex_coord.x = quad->u2;
+			vertices[base_vertex + 2].tex_coord.y = gles_ready ? strip_v1 : (1.0f - strip_v1);
+			vertices[base_vertex + 2].color.r = cr;
+			vertices[base_vertex + 2].color.g = cg;
+			vertices[base_vertex + 2].color.b = cb;
+			vertices[base_vertex + 2].color.a = ca;
+
+			PLATFORM_RENDERER_transform_point(right_x0, right_y0, &tx, &ty);
+			vertices[base_vertex + 3].position.x = tx;
+			vertices[base_vertex + 3].position.y = (float)platform_renderer_present_height - ty;
+			vertices[base_vertex + 3].tex_coord.x = quad->u2;
+			vertices[base_vertex + 3].tex_coord.y = gles_ready ? strip_v0 : (1.0f - strip_v0);
+			vertices[base_vertex + 3].color.r = cr;
+			vertices[base_vertex + 3].color.g = cg;
+			vertices[base_vertex + 3].color.b = cb;
+			vertices[base_vertex + 3].color.a = ca;
+
+			indices[base_index + 0] = base_vertex + 0;
+			indices[base_index + 1] = base_vertex + 1;
+			indices[base_index + 2] = base_vertex + 2;
+			indices[base_index + 3] = base_vertex + 0;
+			indices[base_index + 4] = base_vertex + 2;
+			indices[base_index + 5] = base_vertex + 3;
+
+			base_vertex += 4;
+			base_index += 6;
+		}
+	}
+
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		quad_index = PLATFORM_RENDERER_gles2_draw_textured_geometry(
+			platform_renderer_last_bound_texture_handle, vertices, total_vertices, indices, total_indices, PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE) ? 1 : 0;
+	}
+	else
+	{
+		quad_index = PLATFORM_RENDERER_try_sdl_geometry_textured(
+			entry->sdl_texture, vertices, total_vertices, indices, total_indices, PLATFORM_RENDERER_GEOM_SRC_PERSPECTIVE) ? 1 : 0;
+	}
+	free(vertices);
+	free(indices);
+	return quad_index != 0;
+}
+
+static bool PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batch_immediate(const platform_renderer_coloured_perspective_quad *quads, int quad_count)
+{
+	platform_renderer_texture_entry *entry;
+	SDL_Vertex *vertices;
+	int *indices;
+	int total_vertices = 0;
+	int total_indices = 0;
+	int base_vertex = 0;
+	int base_index = 0;
+	int quad_index;
+	const float perspective_eps = 0.0005f;
+	const bool gles_ready = PLATFORM_RENDERER_gles2_is_ready();
+
+	if ((platform_renderer_present_height <= 0) || (quads == NULL) || (quad_count <= 0))
+	{
+		return false;
+	}
+	if (!gles_ready && !PLATFORM_RENDERER_is_sdl2_stub_ready())
+	{
+		return false;
+	}
+
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (gles_ready && (quad_count > 1))
+	{
+		int i;
+		bool any_ok = false;
+		for (i = 0; i < quad_count; i++)
+		{
+			if (PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batch_immediate(&quads[i], 1))
+			{
+				any_ok = true;
+			}
+		}
+		return any_ok;
+	}
+#endif
+
+	entry = PLATFORM_RENDERER_get_texture_entry(platform_renderer_last_bound_texture_handle);
+	if (entry == NULL)
+	{
+		return false;
+	}
+	if (gles_ready)
+	{
+		if (!PLATFORM_RENDERER_build_gles2_texture_from_entry(entry))
+		{
+			return false;
+		}
+	}
+	else if (!PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
+	{
+		return false;
+	}
+
+	for (quad_index = 0; quad_index < quad_count; quad_index++)
+	{
+		const int strip_count = ((fabsf(quads[quad_index].quad.q - 1.0f) > perspective_eps) && (quads[quad_index].quad.q > perspective_eps)) ? 24 : 1;
+		total_vertices += strip_count * 4;
+		total_indices += strip_count * 6;
+	}
+
+	vertices = (SDL_Vertex *)malloc((size_t)total_vertices * sizeof(SDL_Vertex));
+	indices = (int *)malloc((size_t)total_indices * sizeof(int));
+	if ((vertices == NULL) || (indices == NULL))
+	{
+		free(vertices);
+		free(indices);
+		return false;
+	}
+
+	for (quad_index = 0; quad_index < quad_count; quad_index++)
+	{
+		const platform_renderer_coloured_perspective_quad *quad = &quads[quad_index];
+		const bool is_perspective = (fabsf(quad->quad.q - 1.0f) > perspective_eps) && (quad->quad.q > perspective_eps);
+		const int strip_count = is_perspective ? 24 : 1;
+		int strip_index;
+
+		for (strip_index = 0; strip_index < strip_count; strip_index++)
+		{
+			const float t0 = is_perspective ? ((float)strip_index / (float)strip_count) : 0.0f;
+			const float t1 = is_perspective ? ((float)(strip_index + 1) / (float)strip_count) : 1.0f;
+			const float one_minus_t0 = 1.0f - t0;
+			const float one_minus_t1 = 1.0f - t1;
+			const float left_x0 = (quad->quad.x0 * one_minus_t0) + (quad->quad.x1 * t0);
+			const float left_y0 = (quad->quad.y0 * one_minus_t0) + (quad->quad.y1 * t0);
+			const float left_x1 = (quad->quad.x0 * one_minus_t1) + (quad->quad.x1 * t1);
+			const float left_y1 = (quad->quad.y0 * one_minus_t1) + (quad->quad.y1 * t1);
+			const float right_x0 = (quad->quad.x3 * one_minus_t0) + (quad->quad.x2 * t0);
+			const float right_y0 = (quad->quad.y3 * one_minus_t0) + (quad->quad.y2 * t0);
+			const float right_x1 = (quad->quad.x3 * one_minus_t1) + (quad->quad.x2 * t1);
+			const float right_y1 = (quad->quad.y3 * one_minus_t1) + (quad->quad.y2 * t1);
+			const float w0 = is_perspective ? ((quad->quad.q * one_minus_t0) + t0) : 1.0f;
+			const float w1 = is_perspective ? ((quad->quad.q * one_minus_t1) + t1) : 1.0f;
+			const float strip_v0 = is_perspective ? (((quad->quad.v1 * quad->quad.q * one_minus_t0) + (quad->quad.v2 * t0)) / w0) : quad->quad.v1;
+			const float strip_v1 = is_perspective ? (((quad->quad.v1 * quad->quad.q * one_minus_t1) + (quad->quad.v2 * t1)) / w1) : quad->quad.v2;
+			float tx;
+			float ty;
+			int cr;
+			int cg;
+			int cb;
+			int ca;
+
+			if ((fabsf(w0) <= perspective_eps) || (fabsf(w1) <= perspective_eps))
+			{
+				free(vertices);
+				free(indices);
+				return false;
+			}
+
+			PLATFORM_RENDERER_transform_point(left_x0, left_y0, &tx, &ty);
+			vertices[base_vertex + 0].position.x = tx;
+			vertices[base_vertex + 0].position.y = (float)platform_renderer_present_height - ty;
+			vertices[base_vertex + 0].tex_coord.x = quad->quad.u1;
+			vertices[base_vertex + 0].tex_coord.y = gles_ready ? strip_v0 : (1.0f - strip_v0);
+			cr = (int)(((quad->r[0] * one_minus_t0) + (quad->r[1] * t0)) * 255.0f);
+			cg = (int)(((quad->g[0] * one_minus_t0) + (quad->g[1] * t0)) * 255.0f);
+			cb = (int)(((quad->b[0] * one_minus_t0) + (quad->b[1] * t0)) * 255.0f);
+			ca = (int)(((quad->a[0] * one_minus_t0) + (quad->a[1] * t0)) * 255.0f);
+			if (cr < 0) cr = 0; else if (cr > 255) cr = 255;
+			if (cg < 0) cg = 0; else if (cg > 255) cg = 255;
+			if (cb < 0) cb = 0; else if (cb > 255) cb = 255;
+			if (ca < 0) ca = 0; else if (ca > 255) ca = 255;
+			vertices[base_vertex + 0].color.r = (Uint8)cr;
+			vertices[base_vertex + 0].color.g = (Uint8)cg;
+			vertices[base_vertex + 0].color.b = (Uint8)cb;
+			vertices[base_vertex + 0].color.a = (Uint8)ca;
+
+			PLATFORM_RENDERER_transform_point(left_x1, left_y1, &tx, &ty);
+			vertices[base_vertex + 1].position.x = tx;
+			vertices[base_vertex + 1].position.y = (float)platform_renderer_present_height - ty;
+			vertices[base_vertex + 1].tex_coord.x = quad->quad.u1;
+			vertices[base_vertex + 1].tex_coord.y = gles_ready ? strip_v1 : (1.0f - strip_v1);
+			cr = (int)(((quad->r[0] * one_minus_t1) + (quad->r[1] * t1)) * 255.0f);
+			cg = (int)(((quad->g[0] * one_minus_t1) + (quad->g[1] * t1)) * 255.0f);
+			cb = (int)(((quad->b[0] * one_minus_t1) + (quad->b[1] * t1)) * 255.0f);
+			ca = (int)(((quad->a[0] * one_minus_t1) + (quad->a[1] * t1)) * 255.0f);
+			if (cr < 0) cr = 0; else if (cr > 255) cr = 255;
+			if (cg < 0) cg = 0; else if (cg > 255) cg = 255;
+			if (cb < 0) cb = 0; else if (cb > 255) cb = 255;
+			if (ca < 0) ca = 0; else if (ca > 255) ca = 255;
+			vertices[base_vertex + 1].color.r = (Uint8)cr;
+			vertices[base_vertex + 1].color.g = (Uint8)cg;
+			vertices[base_vertex + 1].color.b = (Uint8)cb;
+			vertices[base_vertex + 1].color.a = (Uint8)ca;
+
+			PLATFORM_RENDERER_transform_point(right_x1, right_y1, &tx, &ty);
+			vertices[base_vertex + 2].position.x = tx;
+			vertices[base_vertex + 2].position.y = (float)platform_renderer_present_height - ty;
+			vertices[base_vertex + 2].tex_coord.x = quad->quad.u2;
+			vertices[base_vertex + 2].tex_coord.y = gles_ready ? strip_v1 : (1.0f - strip_v1);
+			cr = (int)(((quad->r[3] * one_minus_t1) + (quad->r[2] * t1)) * 255.0f);
+			cg = (int)(((quad->g[3] * one_minus_t1) + (quad->g[2] * t1)) * 255.0f);
+			cb = (int)(((quad->b[3] * one_minus_t1) + (quad->b[2] * t1)) * 255.0f);
+			ca = (int)(((quad->a[3] * one_minus_t1) + (quad->a[2] * t1)) * 255.0f);
+			if (cr < 0) cr = 0; else if (cr > 255) cr = 255;
+			if (cg < 0) cg = 0; else if (cg > 255) cg = 255;
+			if (cb < 0) cb = 0; else if (cb > 255) cb = 255;
+			if (ca < 0) ca = 0; else if (ca > 255) ca = 255;
+			vertices[base_vertex + 2].color.r = (Uint8)cr;
+			vertices[base_vertex + 2].color.g = (Uint8)cg;
+			vertices[base_vertex + 2].color.b = (Uint8)cb;
+			vertices[base_vertex + 2].color.a = (Uint8)ca;
+
+			PLATFORM_RENDERER_transform_point(right_x0, right_y0, &tx, &ty);
+			vertices[base_vertex + 3].position.x = tx;
+			vertices[base_vertex + 3].position.y = (float)platform_renderer_present_height - ty;
+			vertices[base_vertex + 3].tex_coord.x = quad->quad.u2;
+			vertices[base_vertex + 3].tex_coord.y = gles_ready ? strip_v0 : (1.0f - strip_v0);
+			cr = (int)(((quad->r[3] * one_minus_t0) + (quad->r[2] * t0)) * 255.0f);
+			cg = (int)(((quad->g[3] * one_minus_t0) + (quad->g[2] * t0)) * 255.0f);
+			cb = (int)(((quad->b[3] * one_minus_t0) + (quad->b[2] * t0)) * 255.0f);
+			ca = (int)(((quad->a[3] * one_minus_t0) + (quad->a[2] * t0)) * 255.0f);
+			if (cr < 0) cr = 0; else if (cr > 255) cr = 255;
+			if (cg < 0) cg = 0; else if (cg > 255) cg = 255;
+			if (cb < 0) cb = 0; else if (cb > 255) cb = 255;
+			if (ca < 0) ca = 0; else if (ca > 255) ca = 255;
+			vertices[base_vertex + 3].color.r = (Uint8)cr;
+			vertices[base_vertex + 3].color.g = (Uint8)cg;
+			vertices[base_vertex + 3].color.b = (Uint8)cb;
+			vertices[base_vertex + 3].color.a = (Uint8)ca;
+
+			indices[base_index + 0] = base_vertex + 0;
+			indices[base_index + 1] = base_vertex + 1;
+			indices[base_index + 2] = base_vertex + 2;
+			indices[base_index + 3] = base_vertex + 0;
+			indices[base_index + 4] = base_vertex + 2;
+			indices[base_index + 5] = base_vertex + 3;
+
+			base_vertex += 4;
+			base_index += 6;
+		}
+	}
+
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		if ((quad_count > 0) && (platform_renderer_last_bound_texture_handle == 41u))
+		{
+			static unsigned int gles2_coloured_perspective_final_logs = 0;
+			if (gles2_coloured_perspective_final_logs < 120)
+			{
+				float min_x = vertices[0].position.x;
+				float min_y = vertices[0].position.y;
+				float max_x = vertices[0].position.x;
+				float max_y = vertices[0].position.y;
+				unsigned int min_r = vertices[0].color.r;
+				unsigned int min_g = vertices[0].color.g;
+				unsigned int min_b = vertices[0].color.b;
+				unsigned int min_a = vertices[0].color.a;
+				unsigned int max_r = vertices[0].color.r;
+				unsigned int max_g = vertices[0].color.g;
+				unsigned int max_b = vertices[0].color.b;
+				unsigned int max_a = vertices[0].color.a;
+				int vi;
+				for (vi = 1; vi < total_vertices; vi++)
+				{
+					if (vertices[vi].position.x < min_x) min_x = vertices[vi].position.x;
+					if (vertices[vi].position.y < min_y) min_y = vertices[vi].position.y;
+					if (vertices[vi].position.x > max_x) max_x = vertices[vi].position.x;
+					if (vertices[vi].position.y > max_y) max_y = vertices[vi].position.y;
+					if (vertices[vi].color.r < min_r) min_r = vertices[vi].color.r;
+					if (vertices[vi].color.g < min_g) min_g = vertices[vi].color.g;
+					if (vertices[vi].color.b < min_b) min_b = vertices[vi].color.b;
+					if (vertices[vi].color.a < min_a) min_a = vertices[vi].color.a;
+					if (vertices[vi].color.r > max_r) max_r = vertices[vi].color.r;
+					if (vertices[vi].color.g > max_g) max_g = vertices[vi].color.g;
+					if (vertices[vi].color.b > max_b) max_b = vertices[vi].color.b;
+					if (vertices[vi].color.a > max_a) max_a = vertices[vi].color.a;
+				}
+				gles2_coloured_perspective_final_logs++;
+				fprintf(
+					stderr,
+					"[GLES2-FINAL %u] tag=coloured_perspective_batch_final tex=%u verts=%d bounds=(%.1f,%.1f)-(%.1f,%.1f) color=(%u,%u,%u,%u)-(%u,%u,%u,%u) blend=%d/%d scissor=%d(%d,%d,%d,%d)\n",
+					gles2_coloured_perspective_final_logs,
+					platform_renderer_last_bound_texture_handle,
+					total_vertices,
+					min_x, min_y, max_x, max_y,
+					min_r, min_g, min_b, min_a,
+					max_r, max_g, max_b, max_a,
+					platform_renderer_blend_enabled ? 1 : 0,
+					(int)platform_renderer_blend_mode,
+					platform_renderer_legacy_scissor_enabled_last,
+					platform_renderer_legacy_scissor_last[0],
+					platform_renderer_legacy_scissor_last[1],
+					platform_renderer_legacy_scissor_last[2],
+					platform_renderer_legacy_scissor_last[3]);
+			}
+		}
+		quad_index = PLATFORM_RENDERER_gles2_draw_textured_geometry(
+			platform_renderer_last_bound_texture_handle, vertices, total_vertices, indices, total_indices, PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE) ? 1 : 0;
+	}
+	else
+	{
+		quad_index = PLATFORM_RENDERER_try_sdl_geometry_textured(
+			entry->sdl_texture, vertices, total_vertices, indices, total_indices, PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE) ? 1 : 0;
+	}
+	free(vertices);
+	free(indices);
+	return quad_index != 0;
+}
+
 void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, int g, int b, float screen_x, float screen_y, int virtual_screen_height, float left, float right, float up, float down, float u1, float v1, float u2, float v2, bool alpha_test)
 {
 	static unsigned int sdl_quad_colour_diag_counter = 0;
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(texture_handle);
+		SDL_Vertex vertices[4];
+		const int indices[6] = {0, 1, 2, 0, 2, 3};
+		SDL_Rect src_rect;
+		const bool saved_masked = platform_renderer_texture_masked;
+		const float x0 = screen_x + left;
+		const float x1 = screen_x + right;
+		const float y0 = screen_y + up;
+		const float y1 = screen_y + down;
+		const float top = (float)virtual_screen_height - y0;
+		const float bottom = (float)virtual_screen_height - y1;
+		const Uint8 cr = PLATFORM_RENDERER_clamp_sdl_colour_mod(r);
+		const Uint8 cg = PLATFORM_RENDERER_clamp_sdl_colour_mod(g);
+		const Uint8 cb = PLATFORM_RENDERER_clamp_sdl_colour_mod(b);
+		const float tex_w = (entry != NULL) ? (float)entry->width : 0.0f;
+		const float tex_h = (entry != NULL) ? (float)entry->height : 0.0f;
+		float src_u_left;
+		float src_u_right;
+		float src_v_top;
+		float src_v_bottom;
+
+		if ((entry == NULL) || !PLATFORM_RENDERER_build_gles2_texture_from_entry(entry))
+		{
+			return;
+		}
+		if (!PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, v1, u2, v2, &src_rect))
+		{
+			return;
+		}
+
+		src_u_left = ((float)src_rect.x + 0.5f) / tex_w;
+		src_u_right = ((float)(src_rect.x + src_rect.w) - 0.5f) / tex_w;
+		src_v_top = 1.0f - (((float)src_rect.y + 0.5f) / tex_h);
+		src_v_bottom = 1.0f - (((float)(src_rect.y + src_rect.h) - 0.5f) / tex_h);
+
+		vertices[0].position.x = x0;
+		vertices[0].position.y = top;
+		vertices[1].position.x = x0;
+		vertices[1].position.y = bottom;
+		vertices[2].position.x = x1;
+		vertices[2].position.y = bottom;
+		vertices[3].position.x = x1;
+		vertices[3].position.y = top;
+
+		vertices[0].tex_coord.x = src_u_left;
+		vertices[0].tex_coord.y = src_v_top;
+		vertices[1].tex_coord.x = src_u_left;
+		vertices[1].tex_coord.y = src_v_bottom;
+		vertices[2].tex_coord.x = src_u_right;
+		vertices[2].tex_coord.y = src_v_bottom;
+		vertices[3].tex_coord.x = src_u_right;
+		vertices[3].tex_coord.y = src_v_top;
+
+		for (int i = 0; i < 4; i++)
+		{
+			vertices[i].color.r = cr;
+			vertices[i].color.g = cg;
+			vertices[i].color.b = cb;
+			vertices[i].color.a = 255;
+		}
+
+		platform_renderer_texture_masked = alpha_test;
+		(void)PLATFORM_RENDERER_gles2_draw_textured_subrect_geometry(entry, texture_handle, &src_rect, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_SDL_CUSTOM);
+		platform_renderer_texture_masked = saved_masked;
+		return;
+	}
+#endif
 	if (PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
 		platform_renderer_texture_entry *entry = PLATFORM_RENDERER_get_texture_entry(texture_handle);
@@ -5435,6 +9084,11 @@ void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, in
 
 void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r, int g, int b, int a, float entity_x, float entity_y, float left, float right, float up, float down, float u1, float v1, float u2, float v2, float left_window_transform_x, float top_window_transform_y, float total_scale_x, float total_scale_y, float sprite_scale_x, float sprite_scale_y, float sprite_rotation_degrees, bool sprite_flip_x, bool sprite_flip_y)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+
 	if (!(PLATFORM_RENDERER_is_sdl2_stub_ready()))
 	{
 		return;
@@ -5445,6 +9099,127 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 	{
 		return;
 	}
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		SDL_Vertex vertices[4];
+		const int indices[6] = {0, 1, 2, 0, 2, 3};
+		SDL_Rect src_rect;
+		const float transformed_left = left * sprite_scale_x;
+		const float transformed_right = right * sprite_scale_x;
+		const float transformed_up = up * sprite_scale_y;
+		const float transformed_down = down * sprite_scale_y;
+		const float origin_x = left_window_transform_x + (entity_x * total_scale_x);
+		const float origin_y = top_window_transform_y + ((-entity_y) * total_scale_y);
+		const bool src_flip_x = (u2 < u1);
+		const bool src_flip_y = PLATFORM_RENDERER_src_flip_y_for_sdl(v1, v2);
+		const bool effective_flip_x = src_flip_x ^ sprite_flip_x;
+		const bool effective_flip_y = src_flip_y ^ sprite_flip_y;
+		const float rel_left = transformed_left * total_scale_x;
+		const float rel_right = transformed_right * total_scale_x;
+		const float rel_up = transformed_up * total_scale_y;
+		const float rel_down = transformed_down * total_scale_y;
+		const float radians = sprite_rotation_degrees * (3.14159265358979323846f / 180.0f);
+		const float c = cosf(radians);
+		const float s = sinf(radians);
+		const float local_x[4] = {rel_left, rel_left, rel_right, rel_right};
+		const float local_y[4] = {rel_up, rel_down, rel_down, rel_up};
+		const Uint8 cr = PLATFORM_RENDERER_clamp_sdl_colour_mod(r);
+		const Uint8 cg = PLATFORM_RENDERER_clamp_sdl_colour_mod(g);
+		const Uint8 cb = PLATFORM_RENDERER_clamp_sdl_colour_mod(b);
+		const Uint8 ca = PLATFORM_RENDERER_clamp_sdl_colour_mod(a);
+		const float tex_w = (float)entry->width;
+		const float tex_h = (float)entry->height;
+		float base_u_left;
+		float base_u_right;
+		float base_v_top;
+		float base_v_bottom;
+		float u_left;
+		float u_right;
+		float v_top;
+		float v_bottom;
+		float uv_x[4];
+		float uv_y[4];
+		float avg_r = -1.0f;
+		float avg_g = -1.0f;
+		float avg_b = -1.0f;
+		float avg_a = -1.0f;
+		float alpha_coverage = -1.0f;
+		int i;
+
+		if (!PLATFORM_RENDERER_build_gles2_texture_from_entry(entry))
+		{
+			return;
+		}
+		if (platform_renderer_present_height <= 0)
+		{
+			return;
+		}
+		if (!PLATFORM_RENDERER_build_safe_sdl_src_rect(entry, u1, v1, u2, v2, &src_rect))
+		{
+			return;
+		}
+		PLATFORM_RENDERER_estimate_rect_colour_stats(entry, &src_rect, &avg_r, &avg_g, &avg_b, &avg_a);
+		alpha_coverage = PLATFORM_RENDERER_estimate_alpha_coverage(entry, &src_rect);
+
+		/*
+		 * Match SDL's source-rect semantics exactly on the direct GLES2 path:
+		 * derive UVs from the normalized/clamped source rectangle rather than
+		 * trusting raw UVs that may straddle atlas padding or differ by a
+		 * half-texel from SDL_RenderCopyEx sampling.
+		 */
+		base_u_left = ((float)src_rect.x + 0.5f) / tex_w;
+		base_u_right = ((float)(src_rect.x + src_rect.w) - 0.5f) / tex_w;
+		base_v_top = 1.0f - (((float)src_rect.y + 0.5f) / tex_h);
+		base_v_bottom = 1.0f - (((float)(src_rect.y + src_rect.h) - 0.5f) / tex_h);
+
+		u_left = effective_flip_x ? base_u_right : base_u_left;
+		u_right = effective_flip_x ? base_u_left : base_u_right;
+		v_top = effective_flip_y ? base_v_bottom : base_v_top;
+		v_bottom = effective_flip_y ? base_v_top : base_v_bottom;
+		uv_x[0] = u_left;
+		uv_x[1] = u_left;
+		uv_x[2] = u_right;
+		uv_x[3] = u_right;
+		uv_y[0] = v_top;
+		uv_y[1] = v_bottom;
+		uv_y[2] = v_bottom;
+		uv_y[3] = v_top;
+
+		for (i = 0; i < 4; i++)
+		{
+			const float x = local_x[i];
+			const float y = local_y[i];
+			const float rx = (x * c) - (y * s);
+			const float ry = (x * s) + (y * c);
+			vertices[i].position.x = origin_x + rx;
+			vertices[i].position.y = (float)platform_renderer_present_height - (origin_y + ry);
+			vertices[i].tex_coord.x = uv_x[i];
+			vertices[i].tex_coord.y = uv_y[i];
+			vertices[i].color.r = cr;
+			vertices[i].color.g = cg;
+			vertices[i].color.b = cb;
+			vertices[i].color.a = ca;
+		}
+		{
+			static int ws_src_log = 0;
+			if (ws_src_log < 40)
+			{
+				ws_src_log++;
+				fprintf(stderr,
+					"[GLES2-WS-SRC %d] tex=%u src=(%d,%d %dx%d) avg=(%.1f,%.1f,%.1f,%.1f) cov=%.3f\n",
+					ws_src_log,
+					texture_handle,
+					src_rect.x, src_rect.y, src_rect.w, src_rect.h,
+					avg_r, avg_g, avg_b, avg_a,
+					alpha_coverage);
+			}
+		}
+
+		(void)PLATFORM_RENDERER_gles2_draw_textured_subrect_geometry(entry, texture_handle, &src_rect, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_SDL_CUSTOM);
+		return;
+	}
+#endif
 	if (!PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
 	{
 		return;
@@ -5648,6 +9423,11 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 
 void PLATFORM_RENDERER_draw_sdl_window_solid_rect(int r, int g, int b, float entity_x, float entity_y, float left, float right, float up, float down, float left_window_transform_x, float top_window_transform_y, float total_scale_x, float total_scale_y, float rect_scale_x, float rect_scale_y)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+
 	if (!(true && PLATFORM_RENDERER_is_sdl2_stub_ready()))
 	{
 		return;
@@ -5704,6 +9484,11 @@ void PLATFORM_RENDERER_draw_sdl_window_solid_rect(int r, int g, int b, float ent
 
 void PLATFORM_RENDERER_draw_sdl_bound_textured_quad_custom(unsigned int texture_handle, float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2)
 {
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+
 	if (!(true && PLATFORM_RENDERER_is_sdl2_stub_ready()))
 	{
 		return;
@@ -5795,6 +9580,36 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 	const int native_primary_required_streak_frames = platform_renderer_sdl_no_mirror_required_streak;
 	platform_renderer_present_width = width;
 	platform_renderer_present_height = height;
+	if (platform_renderer_command_queue_count > 0)
+	{
+		PLATFORM_RENDERER_flush_command_queue();
+	}
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		static unsigned int gles2_present_debug_counter = 0;
+		Uint32 frame_start_ticks = SDL_GetTicks();
+		Uint32 render_ms = (s_frame_clear_ticks > 0 && frame_start_ticks >= s_frame_clear_ticks)
+			? (frame_start_ticks - s_frame_clear_ticks) : 0;
+		SDL_GL_SwapWindow(platform_renderer_sdl_window);
+		gles2_present_debug_counter++;
+		if ((gles2_present_debug_counter <= 300u) || ((gles2_present_debug_counter % 300u) == 0u))
+		{
+			fprintf(stderr,
+				"[FRAME %u][GLES2] draws=%d textured=%d nontex=%d tx_sw=%d blend_sw=%d render_ms=%u\n",
+				gles2_present_debug_counter,
+				platform_renderer_sdl_native_draw_count,
+				platform_renderer_sdl_native_textured_draw_count,
+				platform_renderer_sdl_native_draw_count - platform_renderer_sdl_native_textured_draw_count,
+				platform_renderer_sdl_tx_switch_count,
+				platform_renderer_sdl_blend_switch_count,
+				(unsigned int)render_ms);
+		}
+		platform_renderer_clear_backbuffer_calls_since_present = 0;
+		platform_renderer_midframe_reset_events = 0;
+		return;
+	}
+#endif
 	if (PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
 		(void)PLATFORM_RENDERER_sync_sdl_render_target_size(width, height);
@@ -6065,7 +9880,12 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 		height = 480;
 	}
 
-	if (platform_renderer_sdl_window != NULL && platform_renderer_sdl_renderer != NULL)
+	if (platform_renderer_sdl_window != NULL &&
+			(platform_renderer_sdl_renderer != NULL
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+			|| platform_renderer_gles2_context != NULL
+#endif
+			))
 	{
 		strcpy(platform_renderer_sdl_status, "SDL2 stub already initialized.");
 		return true;
@@ -6084,6 +9904,15 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 	/* Use nearest-neighbour filtering for textures (pixel-art game). */
 	(void)SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 
+	if (PLATFORM_RENDERER_backend_targets_gles2())
+	{
+		/*
+		 * Phase 0 GLES2 migration: prefer SDL's GLES2 renderer backend today,
+		 * while the direct GLES2 draw path is migrated behind the same selector.
+		 */
+		(void)SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengles2");
+	}
+
 	Uint32 needed_flags = SDL_INIT_VIDEO | SDL_INIT_EVENTS;
 	Uint32 already_flags = SDL_WasInit(needed_flags);
 
@@ -6098,6 +9927,16 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 	}
 
 	Uint32 window_flags = platform_renderer_sdl_stub_show_enabled ? SDL_WINDOW_SHOWN : SDL_WINDOW_HIDDEN;
+	if (PLATFORM_RENDERER_backend_targets_gles2())
+	{
+		window_flags |= SDL_WINDOW_OPENGL;
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+#endif
+	}
 	if (windowed)
 	{
 		window_flags |= SDL_WINDOW_RESIZABLE;
@@ -6133,6 +9972,25 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 	 * new windows, causing SDL_GetKeyboardState to return all-zeros. */
 	SDL_RaiseWindow(platform_renderer_sdl_window);
 	SDL_SetWindowInputFocus(platform_renderer_sdl_window);
+
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_backend_targets_gles2())
+	{
+		if (!PLATFORM_RENDERER_gles2_init_context())
+		{
+			SDL_DestroyWindow(platform_renderer_sdl_window);
+			platform_renderer_sdl_window = NULL;
+			if (platform_renderer_started_sdl_video)
+			{
+				SDL_QuitSubSystem(needed_flags & ~already_flags);
+				platform_renderer_started_sdl_video = false;
+			}
+			return false;
+		}
+		snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "GLES2 target initialized (direct SDL GL context).");
+		return true;
+	}
+#endif
 
 	if (platform_renderer_sdl_stub_accel_enabled)
 	{
@@ -6232,9 +10090,10 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 						(linked_ver.major == 2 && linked_ver.minor > 0) ||
 						(linked_ver.major == 2 && linked_ver.minor == 0 && linked_ver.patch >= 18);
 					fprintf(stderr,
-						"[SDL-INIT] compiled=%d.%d.%d linked=%d.%d.%d "
+						"[SDL-INIT] backend_target=%s compiled=%d.%d.%d linked=%d.%d.%d "
 						"renderer='%s' flags=0x%x accel=%d software=%d "
 						"has_RenderGeometry=%s\n",
+						PLATFORM_RENDERER_get_backend_name(),
 						compiled_ver.major, compiled_ver.minor, compiled_ver.patch,
 						linked_ver.major, linked_ver.minor, linked_ver.patch,
 						renderer_info.name ? renderer_info.name : "(null)",
@@ -6252,30 +10111,30 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 	{
 		if (platform_renderer_sdl_stub_accel_enabled && !platform_renderer_sdl_renderer_software_forced)
 		{
-			strcpy(platform_renderer_sdl_status, "SDL2 stub initialized (visible window + accelerated renderer).");
+			snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "%s target initialized (visible window + accelerated SDL renderer).", PLATFORM_RENDERER_get_backend_name());
 		}
 		else if (platform_renderer_sdl_renderer_software_forced)
 		{
-			strcpy(platform_renderer_sdl_status, "SDL2 stub initialized (visible window + software renderer forced for native-test stability).");
+			snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "%s target initialized (visible window + software renderer forced for native-test stability).", PLATFORM_RENDERER_get_backend_name());
 		}
 		else
 		{
-			strcpy(platform_renderer_sdl_status, "SDL2 stub initialized (visible window + software renderer).");
+			snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "%s target initialized (visible window + software SDL renderer).", PLATFORM_RENDERER_get_backend_name());
 		}
 	}
 	else
 	{
 		if (platform_renderer_sdl_stub_accel_enabled && !platform_renderer_sdl_renderer_software_forced)
 		{
-			strcpy(platform_renderer_sdl_status, "SDL2 stub initialized (hidden window + accelerated renderer).");
+			snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "%s target initialized (hidden window + accelerated SDL renderer).", PLATFORM_RENDERER_get_backend_name());
 		}
 		else if (platform_renderer_sdl_renderer_software_forced)
 		{
-			strcpy(platform_renderer_sdl_status, "SDL2 stub initialized (hidden window + software renderer forced for native-test stability).");
+			snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "%s target initialized (hidden window + software renderer forced for native-test stability).", PLATFORM_RENDERER_get_backend_name());
 		}
 		else
 		{
-			strcpy(platform_renderer_sdl_status, "SDL2 stub initialized (hidden window + software renderer).");
+			snprintf(platform_renderer_sdl_status, sizeof(platform_renderer_sdl_status), "%s target initialized (hidden window + software SDL renderer).", PLATFORM_RENDERER_get_backend_name());
 		}
 	}
 	/* Create a 1x1 white RGBA texture used to route SDL_RenderFillRect / SDL_RenderDrawPoint
@@ -6317,7 +10176,14 @@ SDL_Renderer *PLATFORM_RENDERER_SDL_Renderer()
 
 bool PLATFORM_RENDERER_is_sdl2_stub_ready(void)
 {
-	return (platform_renderer_sdl_window != NULL && platform_renderer_sdl_renderer != NULL);
+	return
+		(platform_renderer_sdl_window != NULL) &&
+		(
+			(platform_renderer_sdl_renderer != NULL)
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+			|| (platform_renderer_gles2_context != NULL)
+#endif
+		);
 }
 
 bool PLATFORM_RENDERER_is_sdl2_stub_enabled(void)
@@ -6328,6 +10194,13 @@ bool PLATFORM_RENDERER_is_sdl2_stub_enabled(void)
 
 bool PLATFORM_RENDERER_run_sdl2_stub_self_test(void)
 {
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	if (PLATFORM_RENDERER_gles2_is_ready())
+	{
+		strcpy(platform_renderer_sdl_status, "GLES2 self-test passed (context/swap ready).");
+		return true;
+	}
+#endif
 	if ((platform_renderer_sdl_window == NULL) || (platform_renderer_sdl_renderer == NULL))
 	{
 		strcpy(platform_renderer_sdl_status, "SDL2 stub self-test skipped: renderer not initialized.");
@@ -6356,11 +10229,26 @@ const char *PLATFORM_RENDERER_get_sdl2_stub_status(void)
 	return platform_renderer_sdl_status;
 }
 
+const char *PLATFORM_RENDERER_get_backend_name(void)
+{
+	PLATFORM_RENDERER_refresh_backend_name();
+	return platform_renderer_backend_name;
+}
+
+bool PLATFORM_RENDERER_backend_targets_gles2(void)
+{
+	PLATFORM_RENDERER_refresh_backend_name();
+	return strcmp(platform_renderer_backend_name, "GLES2") == 0;
+}
+
 void PLATFORM_RENDERER_shutdown(void)
 {
 	PLATFORM_RENDERER_reset_texture_registry();
 	platform_renderer_sdl_stub_self_test_done = false;
 
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
+	PLATFORM_RENDERER_gles2_shutdown();
+#endif
 	if (platform_renderer_sdl_renderer != NULL)
 	{
 		SDL_DestroyRenderer(platform_renderer_sdl_renderer);
