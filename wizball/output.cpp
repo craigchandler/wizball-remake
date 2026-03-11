@@ -128,6 +128,12 @@ static sprite *GET_sprite(int bitmap_index, int sprite_index)
 	return &ACTIVE_BMPS[bitmap_index].sprite_list[sprite_index];
 }
 
+static bool OUTPUT_is_valid_bitmap_index(int bitmap_number);
+static bool OUTPUT_is_valid_sprite_frame(int bitmap_number, int frame_number);
+static bool OUTPUT_window_queue_step(int window_number, int y_list, int *current_entity, int *step_counter);
+static void OUTPUT_apply_texture_parameters_from_flags(int opengl_booleans, int old_opengl_booleans, bool force_filter_apply);
+static bool OUTPUT_is_secondary_multitexture_active(bool texture_combiner_available, int opengl_booleans, int secondary_bitmap_number);
+
 static void OUTPUT_prepare_sdl_stub_bootstrap(bool windowed)
 {
 	if (!PLATFORM_RENDERER_is_sdl2_stub_enabled())
@@ -145,6 +151,17 @@ static unsigned int output_sdl_script_trace_counter = 0;
 static int output_cached_main_menu_logo_section_script = UNSET;
 static int output_cached_main_menu_tunnel_light_script = UNSET;
 static int output_cached_menu_tunnel_starfield_script = UNSET;
+static int output_cached_menu_credit_text_script = UNSET;
+static int output_cached_menu_scrolly_text_script = UNSET;
+static int output_cached_menu_hiscore_text_script = UNSET;
+static int output_cached_menu_hiscore_instruction_text_script = UNSET;
+static int output_cached_overlay_fading_text_script = UNSET;
+static int output_cached_bonus_level_summary_text_script = UNSET;
+static int output_cached_menu_option_text_script = UNSET;
+static int output_cached_menu_tune_text_script = UNSET;
+static int output_frame_profile_text_entity_count = 0;
+static int output_frame_profile_distorted_text_entity_count = 0;
+static int output_frame_profile_hot_tunnel_entity_count = 0;
 
 #define OUTPUT_TUNNEL_QUEUE_MAX 256
 typedef struct
@@ -214,6 +231,86 @@ static bool OUTPUT_is_hot_tunnel_script(int script_number)
 	return
 		(script_number == output_cached_main_menu_tunnel_light_script) ||
 		(script_number == output_cached_menu_tunnel_starfield_script);
+}
+
+static bool OUTPUT_is_profiled_text_script(int script_number)
+{
+	if (output_cached_menu_credit_text_script == UNSET)
+	{
+		output_cached_menu_credit_text_script = GPL_find_word_value("SCRIPTS", "MENU_CREDIT_TEXT");
+	}
+	if (output_cached_menu_scrolly_text_script == UNSET)
+	{
+		output_cached_menu_scrolly_text_script = GPL_find_word_value("SCRIPTS", "MENU_SCROLLY_TEXT");
+	}
+	if (output_cached_menu_hiscore_text_script == UNSET)
+	{
+		output_cached_menu_hiscore_text_script = GPL_find_word_value("SCRIPTS", "MENU_HISCORE_TEXT");
+	}
+	if (output_cached_menu_hiscore_instruction_text_script == UNSET)
+	{
+		output_cached_menu_hiscore_instruction_text_script = GPL_find_word_value("SCRIPTS", "MENU_HISCORE_INSTRUCTION_TEXT");
+	}
+	if (output_cached_overlay_fading_text_script == UNSET)
+	{
+		output_cached_overlay_fading_text_script = GPL_find_word_value("SCRIPTS", "OVERLAY_FADING_TEXT");
+	}
+	if (output_cached_bonus_level_summary_text_script == UNSET)
+	{
+		output_cached_bonus_level_summary_text_script = GPL_find_word_value("SCRIPTS", "BONUS_LEVEL_SUMMARY_TEXT");
+	}
+
+	return
+		(script_number == output_cached_menu_credit_text_script) ||
+		(script_number == output_cached_menu_scrolly_text_script) ||
+		(script_number == output_cached_menu_hiscore_text_script) ||
+		(script_number == output_cached_menu_hiscore_instruction_text_script) ||
+		(script_number == output_cached_overlay_fading_text_script) ||
+		(script_number == output_cached_bonus_level_summary_text_script);
+}
+
+static bool OUTPUT_is_profiled_distorted_text_script(int script_number)
+{
+	if (output_cached_menu_option_text_script == UNSET)
+	{
+		output_cached_menu_option_text_script = GPL_find_word_value("SCRIPTS", "MENU_OPTION_TEXT");
+	}
+	if (output_cached_menu_tune_text_script == UNSET)
+	{
+		output_cached_menu_tune_text_script = GPL_find_word_value("SCRIPTS", "MENU_TUNE_TEXT");
+	}
+
+	return
+		(script_number == output_cached_menu_option_text_script) ||
+		(script_number == output_cached_menu_tune_text_script);
+}
+
+static bool OUTPUT_is_simple_translated_sprite(
+		int draw_type,
+		int opengl_booleans,
+		bool texture_combiner_available,
+		int secondary_bitmap_number)
+{
+	if (draw_type != DRAW_MODE_SPRITE)
+	{
+		return false;
+	}
+	if (OUTPUT_is_secondary_multitexture_active(texture_combiner_available, opengl_booleans, secondary_bitmap_number))
+	{
+		return false;
+	}
+	if (opengl_booleans & (OPENGL_BOOLEAN_SCALE |
+			OPENGL_BOOLEAN_ROTATE |
+			OPENGL_BOOLEAN_SECONDARY_SCALE |
+			OPENGL_BOOLEAN_SECONDARY_ROTATE |
+			OPENGL_BOOLEAN_ROTATE_CLOCKWISE |
+			OPENGL_BOOLEAN_ARBITRARY_QUAD |
+			OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD |
+			OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA))
+	{
+		return false;
+	}
+	return true;
 }
 
 static bool OUTPUT_renderer_state_snapshots_match(const platform_renderer_state_snapshot *a, const platform_renderer_state_snapshot *b)
@@ -431,6 +528,7 @@ static void OUTPUT_queue_hot_tunnel_coloured_perspective_quad(
 	memcpy(cmd->a, a, sizeof(cmd->a));
 }
 
+
 static void OUTPUT_sanitize_window_transform_values(
 		int window_number,
 		const char *context,
@@ -545,8 +643,12 @@ void OUTPUT_text(int x, int y, char *text, int r, int g, int b, int scale)
 {
 	int c;
 	int length = strlen(text);
+	int drawable_glyphs = 0;
 	float scale_multiplier = float(scale) / 10000.0f;
 	float pen_x = 0.0f;
+	SDL_Vertex stack_vertices[64 * 4];
+	SDL_Vertex *vertices = stack_vertices;
+	int vertex_count = 0;
 
 	// Just get the basic sizes for the first letter as it'll be the same for the rest.
 
@@ -573,6 +675,28 @@ void OUTPUT_text(int x, int y, char *text, int r, int g, int b, int scale)
 
 	for (c = 0; c < length; c++)
 	{
+		if (text[c] != ' ')
+		{
+			drawable_glyphs++;
+		}
+	}
+
+	if (drawable_glyphs <= 0)
+	{
+		return;
+	}
+
+	if (drawable_glyphs * 4 > (int)(sizeof(stack_vertices) / sizeof(stack_vertices[0])))
+	{
+		vertices = (SDL_Vertex *)malloc((size_t)drawable_glyphs * 4 * sizeof(SDL_Vertex));
+		if (vertices == NULL)
+		{
+			return;
+		}
+	}
+
+	for (c = 0; c < length; c++)
+	{
 		sprite *sp = GET_sprite(small_font_gfx, text[c] - 32);
 
 		u1 = sp->u1;
@@ -580,15 +704,54 @@ void OUTPUT_text(int x, int y, char *text, int r, int g, int b, int scale)
 		v1 = sp->v1;
 		v2 = sp->v2;
 
-		PLATFORM_RENDERER_draw_textured_quad(
-				ACTIVE_BMPS[small_font_gfx].texture_handle,
-				legacy_text_r, legacy_text_g, legacy_text_b,
-				base_x + (pen_x * scale_multiplier), base_y, virtual_screen_height,
-				scaled_left, scaled_right, scaled_up, scaled_down,
-				u1, v1, u2, v2,
-				true);
+		if (text[c] != ' ')
+		{
+			const float glyph_x0 = base_x + (pen_x * scale_multiplier) + scaled_left;
+			const float glyph_x1 = base_x + (pen_x * scale_multiplier) + scaled_right;
+			const float glyph_y0 = base_y + scaled_up;
+			const float glyph_y1 = base_y + scaled_down;
+
+			vertices[vertex_count + 0].position.x = glyph_x0;
+			vertices[vertex_count + 0].position.y = (float)virtual_screen_height - glyph_y0;
+			vertices[vertex_count + 1].position.x = glyph_x0;
+			vertices[vertex_count + 1].position.y = (float)virtual_screen_height - glyph_y1;
+			vertices[vertex_count + 2].position.x = glyph_x1;
+			vertices[vertex_count + 2].position.y = (float)virtual_screen_height - glyph_y1;
+			vertices[vertex_count + 3].position.x = glyph_x1;
+			vertices[vertex_count + 3].position.y = (float)virtual_screen_height - glyph_y0;
+
+			vertices[vertex_count + 0].tex_coord.x = u1;
+			vertices[vertex_count + 0].tex_coord.y = v1;
+			vertices[vertex_count + 1].tex_coord.x = u1;
+			vertices[vertex_count + 1].tex_coord.y = v2;
+			vertices[vertex_count + 2].tex_coord.x = u2;
+			vertices[vertex_count + 2].tex_coord.y = v2;
+			vertices[vertex_count + 3].tex_coord.x = u2;
+			vertices[vertex_count + 3].tex_coord.y = v1;
+
+			vertices[vertex_count + 0].color.r = (Uint8)legacy_text_r;
+			vertices[vertex_count + 0].color.g = (Uint8)legacy_text_g;
+			vertices[vertex_count + 0].color.b = (Uint8)legacy_text_b;
+			vertices[vertex_count + 0].color.a = 255;
+			vertices[vertex_count + 1].color = vertices[vertex_count + 0].color;
+			vertices[vertex_count + 2].color = vertices[vertex_count + 0].color;
+			vertices[vertex_count + 3].color = vertices[vertex_count + 0].color;
+
+			vertex_count += 4;
+		}
 
 		pen_x += right;
+	}
+
+	PLATFORM_RENDERER_draw_textured_quad_batch(
+			ACTIVE_BMPS[small_font_gfx].texture_handle,
+			vertices,
+			vertex_count / 4,
+			true);
+
+	if (vertices != stack_vertices)
+	{
+		free(vertices);
 	}
 }
 
@@ -608,6 +771,7 @@ void OUTPUT_centred_text(int x, int y, char *text, int r, int g, int b)
 
 	OUTPUT_text(x - offet_x, y, text, r, g, b);
 }
+
 
 void OUTPUT_boxed_centred_text(int x, int y, char *text, int r, int g, int b)
 {
@@ -681,6 +845,9 @@ void OUTPUT_centred_square(int x, int y, int widthandheight, int r, int g, int b
 void OUTPUT_clear_screen(void)
 {
 	PLATFORM_RENDERER_clear_backbuffer();
+	output_frame_profile_text_entity_count = 0;
+	output_frame_profile_distorted_text_entity_count = 0;
+	output_frame_profile_hot_tunnel_entity_count = 0;
 }
 
 #define TRIPLEBUFFER (0)
@@ -697,6 +864,12 @@ void OUTPUT_updatescreen(void)
 		present_width = game_screen_width;
 		present_height = game_screen_height;
 	}
+	fprintf(
+		stderr,
+		"[TEXT-FRAME] text_entities=%d distorted_text_entities=%d hot_tunnel_entities=%d\n",
+		output_frame_profile_text_entity_count,
+		output_frame_profile_distorted_text_entity_count,
+		output_frame_profile_hot_tunnel_entity_count);
 	PLATFORM_RENDERER_present_frame(present_width, present_height);
 }
 
@@ -2312,6 +2485,18 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 					(opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD) &&
 					!OUTPUT_is_secondary_multitexture_active(texture_combiner_available, opengl_booleans, current_secondary_bitmap_number) &&
 					OUTPUT_is_hot_tunnel_script(script_number);
+				if (is_hot_tunnel_candidate)
+				{
+					output_frame_profile_hot_tunnel_entity_count++;
+				}
+				if ((draw_type == DRAW_MODE_SPRITE) && OUTPUT_is_profiled_text_script(script_number))
+				{
+					output_frame_profile_text_entity_count++;
+				}
+				if ((draw_type == DRAW_MODE_SPRITE) && OUTPUT_is_profiled_distorted_text_script(script_number))
+				{
+					output_frame_profile_distorted_text_entity_count++;
+				}
 				if (!is_hot_tunnel_candidate)
 				{
 					OUTPUT_flush_hot_tunnel_queue();
@@ -2595,9 +2780,9 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 						}
 					}
 
-					if ((opengl_booleans & OPENGL_BOOLEAN_VERTEX_SECONDARY_COLOUR) && !(old_opengl_booleans & OPENGL_BOOLEAN_VERTEX_SECONDARY_COLOUR))
-					{
-						// Turn on secondary colouring
+				if ((opengl_booleans & OPENGL_BOOLEAN_VERTEX_SECONDARY_COLOUR) && !(old_opengl_booleans & OPENGL_BOOLEAN_VERTEX_SECONDARY_COLOUR))
+				{
+					// Turn on secondary colouring
 
 #ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 						MAIN_debug_last_thing("Turn on secondary colour.");
@@ -2813,6 +2998,26 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 					 * standard sprites. It does not depend on bound-texture state and
 					 * has been more robust for transformed/animated entities.
 					 */
+
+					if (OUTPUT_is_simple_translated_sprite(
+								draw_type,
+								opengl_booleans,
+								texture_combiner_available,
+								secondary_bitmap_number))
+					{
+						PLATFORM_RENDERER_draw_bound_textured_quad_translated(
+								x,
+								-y,
+								left,
+								right,
+								up,
+								down,
+								u1,
+								v1,
+								u2,
+								v2);
+						break;
+					}
 
 					PLATFORM_RENDERER_translatef(x, -y, 0.0);
 
