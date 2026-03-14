@@ -163,7 +163,14 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/wizball/wizball/"
   PATTERN "*.c"   EXCLUDE
   PATTERN "*.h"   EXCLUDE
   PATTERN "*.hpp" EXCLUDE
-  PATTERN "*.dat" EXCLUDE
+  PATTERN "gfx.dat"      EXCLUDE
+  PATTERN "stream.dat"   EXCLUDE
+  PATTERN "sfx.dat"      EXCLUDE
+  PATTERN "tilesets.dat" EXCLUDE
+  PATTERN "tilemaps.dat" EXCLUDE
+  PATTERN "paths.dat"    EXCLUDE
+  PATTERN "prefabs.dat"  EXCLUDE
+  PATTERN "data.dat"     EXCLUDE
   PATTERN "WizBall.sh" EXCLUDE
   PATTERN "port.json"  EXCLUDE
 )
