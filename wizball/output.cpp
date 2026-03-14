@@ -1552,12 +1552,12 @@ void INPUT_create_arbitrary_sized_sprite_series(int parent_bitmap, char *name_ba
 	// }
 	// else
 	{
-		std::string full_filename = "wizball/sprites/" + std::string(descriptor_file);
-		const char *prepended_filename = full_filename.c_str();
+		std::string filename = "sprites/" + std::string(descriptor_file);
+		const char *prepended_filename = filename.c_str();
 
-		fprintf(stderr, "[SPRITE-DESCRIPTOR] Attempting to load sprite descriptor '%s' from disk.\n", prepended_filename);
+		char *full_filename = MAIN_get_project_filename((char *)prepended_filename, false);
 
-		FILE *file_pointer = FILE_open_read_case_fallback(prepended_filename);
+		FILE *file_pointer = FILE_open_read_case_fallback(full_filename);
 		if (file_pointer == NULL)
 		{
 			file_pointer = FILE_open_project_read_case_fallback((char *)normalised_descriptor_file);
@@ -1666,7 +1666,6 @@ int INPUT_load_bitmap_SDL(const char *filename, SDL_Renderer *renderer)
 
 	lowercase_last_path_components(prepended_filename, lower_filename, sizeof(lower_filename), 1);
 
-	fprintf(stderr, "[SDL-LOAD-BITMAP] Attempting to load bitmap '%s'.\n", lower_filename);
 	// Load the bitmap
 	SDL_Surface *surface = IMG_Load(lower_filename); // Use SDL_image for broader format support
 	if (surface == NULL)
@@ -1679,8 +1678,6 @@ int INPUT_load_bitmap_SDL(const char *filename, SDL_Renderer *renderer)
 	sdl_bmps[total_sdl_bitmaps_loaded].surface = surface;
 	sdl_bmps[total_sdl_bitmaps_loaded].width = surface->w;
 	sdl_bmps[total_sdl_bitmaps_loaded].height = surface->h;
-
-	fprintf(stderr, "[SDL-LOAD-BITMAP] Loaded bitmap '%s' with size %dx%d. index %d\n", lower_filename, surface->w, surface->h, total_sdl_bitmaps_loaded);
 
 	// Optional: Convert surface to a texture (if needed)
 	/* NOTE: sdl_bmps[i].texture (from SDL_CreateTextureFromSurface) was never used for rendering —
@@ -1968,24 +1965,6 @@ void OUTPUT_draw_starfield_lines(int starfield_id)
 	{
 		output_cached_get_ready_starfield_id =
 			GPL_find_word_value("CONSTANT", "GET_READY_STARFIELD_ID");
-	}
-	if (starfield_id == output_cached_get_ready_starfield_id)
-	{
-		get_ready_starfield_trace_counter++;
-		if ((get_ready_starfield_trace_counter <= 200) || ((get_ready_starfield_trace_counter % 1000) == 0))
-		{
-			fprintf(stderr,
-					"[GETREADY-SFLINES %u] id=%d idx=%d in_use=%d stars=%d first=(%.1f,%.1f)->(%.1f,%.1f)\n",
-					get_ready_starfield_trace_counter,
-					starfield_id,
-					starfield_number,
-					scp->in_use ? 1 : 0,
-					star_count,
-					(star_count > 0) ? sfp->x : 0.0f,
-					(star_count > 0) ? -sfp->y : 0.0f,
-					(star_count > 0) ? sfp->ox : 0.0f,
-					(star_count > 0) ? -sfp->oy : 0.0f);
-		}
 	}
 
 	int counter;
@@ -2846,32 +2825,6 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 						(bitmap_name != NULL) &&
 						(strcmp(bitmap_name, "wiz_and_nifta[arb]") == 0);
 				}
-				if ((strcmp(script_name, "LAB_SHADOW") == 0) ||
-						(strcmp(script_name, "LAB_CAULDRON_GLOW") == 0) ||
-						(strcmp(script_name, "LAB_NIFTA_BOWL") == 0))
-				{
-					static int lab_focus_log_count = 0;
-					if (lab_focus_log_count < 400)
-					{
-						fprintf(stderr,
-								"[LAB-FOCUS-DRAW %d] frame=%d ent=%d script=%d(%s) draw=%d window=%d bitmap=%d bitmap_name=%s tex_handle=%u frame_no=%d flags=0x%x world=(%d,%d)\n",
-								lab_focus_log_count,
-								frames_so_far,
-								current_entity,
-								script_number,
-								script_name,
-								draw_type,
-								window_number,
-								bitmap_number,
-								(bitmap_name != NULL) ? bitmap_name : "UNSET",
-								OUTPUT_is_valid_bitmap_index(bitmap_number) ? ACTIVE_BMPS[bitmap_number].texture_handle : 0u,
-								entity_pointer[ENT_CURRENT_FRAME],
-								opengl_booleans,
-								entity_pointer[ENT_WORLD_X],
-								entity_pointer[ENT_WORLD_Y]);
-						lab_focus_log_count++;
-					}
-				}
 				const bool is_lab_focus_script =
 					(strcmp(script_name, "LAB_SHADOW") == 0) ||
 					(strcmp(script_name, "LAB_CAULDRON_GLOW") == 0) ||
@@ -2883,30 +2836,6 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 						window_number,
 						script_name,
 						bitmap_name);
-				if (is_laboratory_script)
-				{
-					static int lab_scene_draw_log_count = 0;
-					if (lab_scene_draw_log_count < 1000)
-					{
-						fprintf(stderr,
-								"[LAB-SCENE-DRAW %d] frame=%d ent=%d script=%d(%s) draw=%d window=%d type=0x%x uid=%d sprite=%d bitmap=%s flags=0x%x world=(%d,%d)\n",
-								lab_scene_draw_log_count,
-								frames_so_far,
-								current_entity,
-								script_number,
-								script_name,
-								draw_type,
-								window_number,
-								entity_pointer[ENT_ENTITY_TYPE],
-								entity_pointer[ENT_UNIQUE_ID],
-								bitmap_number,
-								(bitmap_name != NULL) ? bitmap_name : "UNSET",
-								opengl_booleans,
-								entity_pointer[ENT_WORLD_X],
-								entity_pointer[ENT_WORLD_Y]);
-						lab_scene_draw_log_count++;
-					}
-				}
 
 				if (bitmap_changed || (opengl_booleans != old_opengl_booleans))
 				{
@@ -3273,45 +3202,6 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 
 					if (is_simple_translated_sprite)
 					{
-						if (is_laboratory_script)
-						{
-							static int lab_scene_branch_log_count = 0;
-							if (lab_scene_branch_log_count < 1000)
-							{
-								fprintf(stderr,
-										"[LAB-SCENE-BRANCH %d] frame=%d ent=%d script=%s branch=simple_translated bitmap=%s uv=(%.4f,%.4f)-(%.4f,%.4f)\n",
-										lab_scene_branch_log_count,
-										frames_so_far,
-										current_entity,
-										script_name,
-										(bitmap_name != NULL) ? bitmap_name : "UNSET",
-										u1,
-										v1,
-										u2,
-										v2);
-								lab_scene_branch_log_count++;
-							}
-						}
-						if (is_wiz_and_nifta_bitmap)
-						{
-							static int wiz_bitmap_branch_log_count = 0;
-							if (wiz_bitmap_branch_log_count < 200)
-							{
-								fprintf(stderr,
-										"[WIZ-ATLAS-BRANCH %d] frame=%d ent=%d script=%s branch=simple_translated window=%d bitmap=%s uv=(%.4f,%.4f)-(%.4f,%.4f)\n",
-										wiz_bitmap_branch_log_count,
-										frames_so_far,
-										current_entity,
-										script_name,
-										window_number,
-										bitmap_name,
-										u1,
-										v1,
-										u2,
-										v2);
-								wiz_bitmap_branch_log_count++;
-							}
-						}
 						PLATFORM_RENDERER_draw_bound_textured_quad_translated(
 								x,
 								-y,
@@ -3373,23 +3263,6 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 							!(opengl_booleans & (OPENGL_BOOLEAN_SECONDARY_SCALE | OPENGL_BOOLEAN_SECONDARY_ROTATE | OPENGL_BOOLEAN_ROTATE_CLOCKWISE)) &&
 							((opengl_booleans & (OPENGL_BOOLEAN_ARBITRARY_QUAD | OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD)) == 0))
 					{
-						if (is_lab_focus_script)
-						{
-							static int lab_focus_branch_log_count = 0;
-							if (lab_focus_branch_log_count < 400)
-							{
-								fprintf(stderr,
-										"[LAB-FOCUS-BRANCH %d] frame=%d ent=%d script=%s branch=sdl_window_sprite flags=0x%x secondary_bitmap=%d texture_combiner=%d\n",
-										lab_focus_branch_log_count,
-										frames_so_far,
-										current_entity,
-										script_name,
-										opengl_booleans,
-										secondary_bitmap_number,
-										texture_combiner_available ? 1 : 0);
-								lab_focus_branch_log_count++;
-							}
-						}
 						int sprite_mod_r = 255;
 						int sprite_mod_g = 255;
 						int sprite_mod_b = 255;
@@ -3456,30 +3329,6 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 								wiz_bitmap_branch_log_count++;
 							}
 						}
-						if (is_laboratory_script)
-						{
-							static int lab_scene_branch_log_count = 0;
-							if (lab_scene_branch_log_count < 1000)
-							{
-								fprintf(stderr,
-										"[LAB-SCENE-BRANCH %d] frame=%d ent=%d script=%s branch=sdl_window_sprite bitmap=%s pos=(%d,%d) scale=(%.4f,%.4f) rot=%.2f uv=(%.4f,%.4f)-(%.4f,%.4f)\n",
-										lab_scene_branch_log_count,
-										frames_so_far,
-										current_entity,
-										script_name,
-										(bitmap_name != NULL) ? bitmap_name : "UNSET",
-										x,
-										y,
-										sprite_scale_x,
-										sprite_scale_y,
-										sprite_rotation_degrees,
-										u1,
-										v1,
-										u2,
-										v2);
-								lab_scene_branch_log_count++;
-							}
-						}
 						PLATFORM_RENDERER_draw_sdl_window_sprite(
 								ACTIVE_BMPS[bitmap_number].texture_handle,
 								sprite_mod_r,
@@ -3506,27 +3355,6 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 								false,
 								false);
 						break;
-					}
-					else if (is_lab_focus_script)
-					{
-						static int lab_focus_skip_log_count = 0;
-						if (lab_focus_skip_log_count < 400)
-						{
-							fprintf(stderr,
-									"[LAB-FOCUS-SKIP %d] frame=%d ent=%d script=%s flags=0x%x multi=%d indiv=%d xform_extras=%d arbitrary=%d secondary_bitmap=%d texture_combiner=%d\n",
-									lab_focus_skip_log_count,
-									frames_so_far,
-									current_entity,
-									script_name,
-									opengl_booleans,
-									OUTPUT_is_secondary_multitexture_active(texture_combiner_available, opengl_booleans, secondary_bitmap_number) ? 1 : 0,
-									(opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA) ? 1 : 0,
-									(opengl_booleans & (OPENGL_BOOLEAN_SECONDARY_SCALE | OPENGL_BOOLEAN_SECONDARY_ROTATE | OPENGL_BOOLEAN_ROTATE_CLOCKWISE)) ? 1 : 0,
-									((opengl_booleans & (OPENGL_BOOLEAN_ARBITRARY_QUAD | OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD)) != 0) ? 1 : 0,
-									secondary_bitmap_number,
-									texture_combiner_available ? 1 : 0);
-							lab_focus_skip_log_count++;
-						}
 					}
 
 					if (OUTPUT_is_secondary_multitexture_active(texture_combiner_available, opengl_booleans, secondary_bitmap_number))
@@ -3774,45 +3602,6 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 							{
 							if (opengl_booleans & OPENGL_BOOLEAN_ROTATE_CLOCKWISE)
 							{
-								if (is_laboratory_script)
-								{
-									static int lab_scene_branch_log_count = 0;
-									if (lab_scene_branch_log_count < 1000)
-									{
-										fprintf(stderr,
-												"[LAB-SCENE-BRANCH %d] frame=%d ent=%d script=%s branch=bound_quad_custom_cw bitmap=%s uv=(%.4f,%.4f)-(%.4f,%.4f)\n",
-												lab_scene_branch_log_count,
-												frames_so_far,
-												current_entity,
-												script_name,
-												(bitmap_name != NULL) ? bitmap_name : "UNSET",
-												u1,
-												v1,
-												u2,
-												v2);
-										lab_scene_branch_log_count++;
-									}
-								}
-								if (is_wiz_and_nifta_bitmap)
-								{
-									static int wiz_bitmap_branch_log_count = 0;
-									if (wiz_bitmap_branch_log_count < 200)
-									{
-										fprintf(stderr,
-												"[WIZ-ATLAS-BRANCH %d] frame=%d ent=%d script=%s branch=bound_quad_custom_cw window=%d bitmap=%s uv=(%.4f,%.4f)-(%.4f,%.4f)\n",
-												wiz_bitmap_branch_log_count,
-												frames_so_far,
-												current_entity,
-												script_name,
-												window_number,
-												bitmap_name,
-												u1,
-												v1,
-												u2,
-												v2);
-										wiz_bitmap_branch_log_count++;
-									}
-								}
 									PLATFORM_RENDERER_draw_bound_textured_quad_custom(
 										right, up,
 										left, up,
@@ -3822,93 +3611,7 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 								}
 								else
 								{
-								if (is_laboratory_script)
-								{
-									static int lab_scene_branch_log_count = 0;
-										if (lab_scene_branch_log_count < 1000)
-										{
-											fprintf(stderr,
-													"[LAB-SCENE-BRANCH %d] frame=%d ent=%d script=%s branch=bound_quad bitmap=%s uv=(%.4f,%.4f)-(%.4f,%.4f)\n",
-													lab_scene_branch_log_count,
-													frames_so_far,
-													current_entity,
-													script_name,
-													(bitmap_name != NULL) ? bitmap_name : "UNSET",
-													u1,
-													v1,
-													u2,
-													v2);
-											lab_scene_branch_log_count++;
-										}
-									}
-								if (is_wiz_and_nifta_bitmap)
-								{
-									static int wiz_bitmap_branch_log_count = 0;
-										if (wiz_bitmap_branch_log_count < 200)
-										{
-											fprintf(stderr,
-													"[WIZ-ATLAS-BRANCH %d] frame=%d ent=%d script=%s branch=bound_quad window=%d bitmap=%s uv=(%.4f,%.4f)-(%.4f,%.4f)\n",
-													wiz_bitmap_branch_log_count,
-													frames_so_far,
-													current_entity,
-													script_name,
-													window_number,
-													bitmap_name,
-													u1,
-													v1,
-													u2,
-													v2);
-											wiz_bitmap_branch_log_count++;
-										}
-									}
-									if (is_wiz_and_nifta_bitmap)
-									{
-										static int wiz_atlas_bound_quad_call_log_count = 0;
-										if (wiz_atlas_bound_quad_call_log_count < 300)
-										{
-											fprintf(stderr,
-													"[WIZ-CALLER-BQ %d] frame=%d ent=%d script=%s draw=%d window=%d quad=(%.1f,%.1f,%.1f,%.1f) uv=(%.4f,%.4f)-(%.4f,%.4f)\n",
-													wiz_atlas_bound_quad_call_log_count,
-													frames_so_far,
-													current_entity,
-													script_name,
-													draw_type,
-													window_number,
-													left,
-													right,
-													up,
-													down,
-													u1,
-													v1,
-													u2,
-													v2);
-											wiz_atlas_bound_quad_call_log_count++;
-										}
-									}
 									PLATFORM_RENDERER_draw_bound_textured_quad(left, right, up, down, u1, v1, u2, v2);
-									if (is_lab_focus_script)
-									{
-										static int lab_focus_bound_quad_log_count = 0;
-										if (lab_focus_bound_quad_log_count < 400)
-										{
-											fprintf(stderr,
-													"[LAB-FOCUS-BRANCH %d] frame=%d ent=%d script=%s branch=bound_quad flags=0x%x quad=(%.1f,%.1f,%.1f,%.1f) uv=(%.4f,%.4f)-(%.4f,%.4f)\n",
-													lab_focus_bound_quad_log_count,
-													frames_so_far,
-													current_entity,
-													script_name,
-													opengl_booleans,
-													left,
-													right,
-													up,
-													down,
-													u1,
-													v1,
-													u2,
-													v2);
-											lab_focus_bound_quad_log_count++;
-										}
-									}
 								}
 							}
 							else if (opengl_booleans & OPENGL_BOOLEAN_ARBITRARY_QUAD)
@@ -4379,48 +4082,6 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 #ifdef RETRENGINE_DEBUG_VERSION_THE_LAST_THING_I_DID
 					MAIN_debug_last_thing("DRAW_MODE_STARFIELD_LINES...");
 #endif
-					if (is_laboratory_script)
-					{
-						static unsigned int lab_scene_branch_log_count = 0;
-						if (lab_scene_branch_log_count < 1000)
-						{
-							fprintf(
-									stderr,
-									"[LAB-SCENE-BRANCH %u] frame=%d ent=%d script=%s branch=starfield_lines uid=%d window=%d override=%d pos=(%d,%d)\n",
-									lab_scene_branch_log_count,
-									frames_so_far,
-									current_entity,
-									script_name,
-									entity_pointer[ENT_UNIQUE_ID],
-									window_number,
-									entity_pointer[ENT_DRAW_OVERRIDE],
-									entity_pointer[ENT_WORLD_X],
-									entity_pointer[ENT_WORLD_Y]);
-							lab_scene_branch_log_count++;
-						}
-					}
-					if (OUTPUT_is_get_ready_starfield_script(entity_pointer[ENT_SCRIPT_NUMBER]))
-					{
-						static unsigned int get_ready_starfield_case_counter = 0;
-						get_ready_starfield_case_counter++;
-						if ((get_ready_starfield_case_counter <= 400) || ((get_ready_starfield_case_counter % 1000) == 0))
-						{
-							fprintf(
-									stderr,
-									"[GETREADY-SFCASE %u] frame=%d entity=%d script=%d uid=%d window=%d override=%d pos=(%d,%d) active=%d\n",
-									get_ready_starfield_case_counter,
-									frames_so_far,
-									current_entity,
-									entity_pointer[ENT_SCRIPT_NUMBER],
-									entity_pointer[ENT_UNIQUE_ID],
-									window_number,
-									entity_pointer[ENT_DRAW_OVERRIDE],
-									entity_pointer[ENT_WORLD_X],
-									entity_pointer[ENT_WORLD_Y],
-									(window_number >= 0 && window_number < number_of_windows) ? (window_details[window_number].active ? 1 : 0) : -1);
-						}
-					}
-
 					PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 
 					if (entity_pointer[ENT_DRAW_OVERRIDE] == DRAW_OVERRIDE_NONE)

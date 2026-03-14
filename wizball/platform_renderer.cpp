@@ -58,7 +58,6 @@ static bool PLATFORM_RENDERER_build_gles2_texture_from_entry(platform_renderer_t
 static void PLATFORM_RENDERER_gles2_prewarm_registered_textures(void);
 static bool PLATFORM_RENDERER_gles2_build_atlas(void);
 static void PLATFORM_RENDERER_gles2_atlas_remap_verts(SDL_Vertex *vertices, int vertex_count, const platform_renderer_texture_entry *entry);
-static bool PLATFORM_RENDERER_is_laboratory_debug_texture(const platform_renderer_texture_entry *entry);
 static void PLATFORM_RENDERER_gles2_apply_blend_state(void);
 static bool PLATFORM_RENDERER_gles2_draw_textured_geometry_gltex(
 		GLuint tex,
@@ -676,17 +675,6 @@ static bool PLATFORM_RENDERER_env_enabled(const char *name)
 	}
 
 	return false;
-}
-
-static bool PLATFORM_RENDERER_is_laboratory_debug_texture(const platform_renderer_texture_entry *entry)
-{
-	if ((entry == NULL) || (entry->debug_name[0] == '\0'))
-	{
-		return false;
-	}
-
-	return
-		(strstr(entry->debug_name, "wiz_and_nifta") != NULL);
 }
 
 static bool PLATFORM_RENDERER_using_subtractive_mod_fallback(void)
@@ -1920,66 +1908,6 @@ static bool PLATFORM_RENDERER_gles2_submit_textured_geometry_gltex(
 			}
 		}
 	}
-	if ((entry != NULL) && PLATFORM_RENDERER_is_laboratory_debug_texture(entry))
-	{
-		static unsigned int wiz_submit_log_count = 0;
-		if (wiz_submit_log_count < 600)
-		{
-			int vi;
-			float dst_min_x = vertices[0].position.x;
-			float dst_max_x = vertices[0].position.x;
-			float dst_min_y = vertices[0].position.y;
-			float dst_max_y = vertices[0].position.y;
-			float uv_min_x = vertices[0].tex_coord.x;
-			float uv_max_x = vertices[0].tex_coord.x;
-			float uv_min_y = vertices[0].tex_coord.y;
-			float uv_max_y = vertices[0].tex_coord.y;
-			for (vi = 1; vi < vertex_count; vi++)
-			{
-				if (vertices[vi].position.x < dst_min_x) dst_min_x = vertices[vi].position.x;
-				if (vertices[vi].position.x > dst_max_x) dst_max_x = vertices[vi].position.x;
-				if (vertices[vi].position.y < dst_min_y) dst_min_y = vertices[vi].position.y;
-				if (vertices[vi].position.y > dst_max_y) dst_max_y = vertices[vi].position.y;
-				if (vertices[vi].tex_coord.x < uv_min_x) uv_min_x = vertices[vi].tex_coord.x;
-				if (vertices[vi].tex_coord.x > uv_max_x) uv_max_x = vertices[vi].tex_coord.x;
-				if (vertices[vi].tex_coord.y < uv_min_y) uv_min_y = vertices[vi].tex_coord.y;
-				if (vertices[vi].tex_coord.y > uv_max_y) uv_max_y = vertices[vi].tex_coord.y;
-			}
-			fprintf(stderr,
-					"[GLES2-WIZ-SUBMIT %u] tex=%u name=%s src=%d(%s) verts=%d idx=%d dst=(%.1f,%.1f)-(%.1f,%.1f) uv=(%.4f,%.4f)-(%.4f,%.4f) repeat=(%d,%d) affine=%d row0=(%.3f,%.3f,%.3f) row1=(%.3f,%.3f,%.3f) ctx_ent=%d ctx_script=%d(%s) ctx_draw=%d ctx_window=%d ctx_bitmap=%s\n",
-					wiz_submit_log_count,
-					logical_texture_handle,
-					entry->debug_name,
-					source_id,
-					PLATFORM_RENDERER_geom_source_name(source_id),
-					vertex_count,
-					index_count,
-					dst_min_x,
-					dst_min_y,
-					dst_max_x,
-					dst_max_y,
-					uv_min_x,
-					uv_min_y,
-					uv_max_x,
-					uv_max_y,
-					repeat_s ? 1 : 0,
-					repeat_t ? 1 : 0,
-					platform_renderer_gles2_affine_override_active ? 1 : 0,
-					platform_renderer_gles2_affine_row0[0],
-					platform_renderer_gles2_affine_row0[1],
-					platform_renderer_gles2_affine_row0[2],
-					platform_renderer_gles2_affine_row1[0],
-					platform_renderer_gles2_affine_row1[1],
-					platform_renderer_gles2_affine_row1[2],
-					platform_renderer_debug_entity_index,
-					platform_renderer_debug_script_number,
-					(platform_renderer_debug_script_name[0] != '\0') ? platform_renderer_debug_script_name : "-",
-					platform_renderer_debug_draw_mode,
-					platform_renderer_debug_window_number,
-					(platform_renderer_debug_bitmap_name[0] != '\0') ? platform_renderer_debug_bitmap_name : "-");
-			wiz_submit_log_count++;
-		}
-	}
 	if ((platform_renderer_gles2_stream_vbo != 0) && (platform_renderer_gles2_stream_ibo != 0))
 	{
 		/* Orphan the previous allocation so the driver can retire it while the GPU
@@ -2448,29 +2376,6 @@ static bool PLATFORM_RENDERER_gles2_draw_textured_geometry(unsigned int texture_
 	{
 		return false;
 	}
-	if (PLATFORM_RENDERER_is_laboratory_debug_texture(entry))
-	{
-		static unsigned int lab_geom_log_count = 0;
-		if (lab_geom_log_count < 1500)
-		{
-			fprintf(
-					stderr,
-					"[GLES2-LAB-GEOM %u] tex=%u name=%s src=%d verts=%d idx=%d uv0=(%.4f,%.4f) uv1=(%.4f,%.4f) pos0=(%.1f,%.1f)\n",
-					lab_geom_log_count,
-					texture_handle,
-					entry->debug_name,
-					source_id,
-					vertex_count,
-					index_count,
-					(vertex_count > 0) ? vertices[0].tex_coord.x : 0.0f,
-					(vertex_count > 0) ? vertices[0].tex_coord.y : 0.0f,
-					(vertex_count > 1) ? vertices[1].tex_coord.x : 0.0f,
-					(vertex_count > 1) ? vertices[1].tex_coord.y : 0.0f,
-					(vertex_count > 0) ? vertices[0].position.x : 0.0f,
-					(vertex_count > 0) ? vertices[0].position.y : 0.0f);
-			lab_geom_log_count++;
-		}
-	}
 	tex = entry->gles2_texture;
 
 	/* Fast-path for perspective sources: tex_coord.y is already pre-flipped
@@ -2655,41 +2560,6 @@ static bool PLATFORM_RENDERER_gles2_draw_textured_subrect_geometry_gltex(
 		if (vertices[i].position.x > dst_max_x) dst_max_x = vertices[i].position.x;
 		if (vertices[i].position.y < dst_min_y) dst_min_y = vertices[i].position.y;
 		if (vertices[i].position.y > dst_max_y) dst_max_y = vertices[i].position.y;
-	}
-	if (PLATFORM_RENDERER_is_laboratory_debug_texture(entry))
-	{
-		static unsigned int lab_subrect_log_count = 0;
-		if (lab_subrect_log_count < 1500)
-		{
-			fprintf(
-					stderr,
-					"[GLES2-LAB-SUBRECT %u] tex=%u name=%s src=%d rect=(%d,%d,%d,%d) verts=%d dst=(%.1f,%.1f)-(%.1f,%.1f) uv0=(%.4f,%.4f) uv1=(%.4f,%.4f) affine=%d row0=(%.3f,%.3f,%.3f) row1=(%.3f,%.3f,%.3f)\n",
-					lab_subrect_log_count,
-					logical_texture_handle,
-					entry->debug_name,
-					source_id,
-					src_rect->x,
-					src_rect->y,
-					src_rect->w,
-					src_rect->h,
-					vertex_count,
-					dst_min_x,
-					dst_min_y,
-					dst_max_x,
-					dst_max_y,
-					(vertex_count > 0) ? vertices[0].tex_coord.x : 0.0f,
-					(vertex_count > 0) ? vertices[0].tex_coord.y : 0.0f,
-					(vertex_count > 1) ? vertices[1].tex_coord.x : 0.0f,
-					(vertex_count > 1) ? vertices[1].tex_coord.y : 0.0f,
-					platform_renderer_gles2_affine_override_active ? 1 : 0,
-					platform_renderer_gles2_affine_row0[0],
-					platform_renderer_gles2_affine_row0[1],
-					platform_renderer_gles2_affine_row0[2],
-					platform_renderer_gles2_affine_row1[0],
-					platform_renderer_gles2_affine_row1[1],
-					platform_renderer_gles2_affine_row1[2]);
-			lab_subrect_log_count++;
-		}
 	}
 
 	for (i = 0; i < vertex_count; i++)
@@ -11022,29 +10892,6 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 		{
 			return;
 		}
-		if ((entry->width == 256) && (entry->height == 256))
-		{
-			static int wiz_gles_window_sprite_log_count = 0;
-			const float dst_w = fabsf(rel_right - rel_left);
-			const float dst_h = fabsf(rel_up - rel_down);
-			if ((wiz_gles_window_sprite_log_count < 200) &&
-					((src_rect.w >= 200) || (src_rect.h >= 200) || (dst_w >= 200.0f) || (dst_h >= 200.0f)))
-			{
-				fprintf(stderr,
-						"[WIZ-RENDER %d] path=sdl_window_sprite src=(%d,%d,%d,%d) entity=(%.1f,%.1f) rel=(%.1f,%.1f,%.1f,%.1f) scale=(%.4f,%.4f) total=(%.4f,%.4f) rot=%.2f flip=(%d,%d) uv=(%.4f,%.4f)-(%.4f,%.4f)\n",
-						wiz_gles_window_sprite_log_count,
-						src_rect.x, src_rect.y, src_rect.w, src_rect.h,
-						entity_x, entity_y,
-						rel_left, rel_right, rel_up, rel_down,
-						sprite_scale_x, sprite_scale_y,
-						total_scale_x, total_scale_y,
-						sprite_rotation_degrees,
-						sprite_flip_x ? 1 : 0,
-						sprite_flip_y ? 1 : 0,
-						u1, v1, u2, v2);
-				wiz_gles_window_sprite_log_count++;
-			}
-		}
 		/*
 		 * Match SDL's source-rect semantics exactly on the direct GLES2 path:
 		 * derive UVs from the normalized/clamped source rectangle rather than
@@ -11466,7 +11313,6 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 {
 	bool can_submit_legacy = false;
 	bool should_flip_legacy_output = can_submit_legacy;
-	static unsigned int sdl_present_debug_counter = 0;
 	PLATFORM_RENDERER_refresh_sdl_stub_env_flags();
 	const int native_primary_min_draws_for_no_mirror = platform_renderer_sdl_no_mirror_min_draws;
 	const int native_primary_min_textured_draws_for_no_mirror = platform_renderer_sdl_no_mirror_min_textured;
@@ -11484,32 +11330,10 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 	PLATFORM_RENDERER_gles2_flush_textured_batch();  /* sprites on top */
 	if (PLATFORM_RENDERER_gles2_is_ready())
 	{
-		static unsigned int gles2_present_debug_counter = 0;
 		Uint32 frame_start_ticks = SDL_GetTicks();
 		Uint32 render_ms = (s_frame_clear_ticks > 0 && frame_start_ticks >= s_frame_clear_ticks)
 			? (frame_start_ticks - s_frame_clear_ticks) : 0;
 		SDL_GL_SwapWindow(platform_renderer_sdl_window);
-		gles2_present_debug_counter++;
-		if ((gles2_present_debug_counter <= 300u) || ((gles2_present_debug_counter % 300u) == 0u))
-		{
-			fprintf(stderr,
-				"[FRAME %u][GLES2] draws=%d textured=%d nontex=%d tx_sw=%d blend_sw=%d render_ms=%u\n",
-				gles2_present_debug_counter,
-				platform_renderer_sdl_native_draw_count,
-				platform_renderer_sdl_native_textured_draw_count,
-				platform_renderer_sdl_native_draw_count - platform_renderer_sdl_native_textured_draw_count,
-				platform_renderer_sdl_tx_switch_count,
-				platform_renderer_sdl_blend_switch_count,
-				(unsigned int)render_ms);
-			fprintf(stderr,
-				"[GLES2-FLUSH] key=%d full=%d state=%d finish=%d clear=%d present=%d\n",
-				platform_renderer_gles2_flush_key_mismatch_count,
-				platform_renderer_gles2_flush_batch_full_count,
-				platform_renderer_gles2_flush_state_change_count,
-				platform_renderer_gles2_flush_window_finish_count,
-				platform_renderer_gles2_flush_clear_count,
-				platform_renderer_gles2_flush_present_count);
-		}
 		platform_renderer_clear_backbuffer_calls_since_present = 0;
 		platform_renderer_midframe_reset_events = 0;
 		platform_renderer_gles2_flush_key_mismatch_count = 0;
@@ -11719,32 +11543,6 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 			}
 			Uint32 present_ms = SDL_GetTicks() - present_t0;
 			s_last_frame_end_ticks = SDL_GetTicks();
-			sdl_present_debug_counter++;
-			if ((sdl_present_debug_counter <= 300u) || ((sdl_present_debug_counter % 300u) == 0u))
-			{
-				fprintf(stderr,
-					"[FRAME %u] draws=%d textured=%d nontex=%d winspr=%d geom_miss=%d degraded=%d "
-					"tx_sw=%d clip_sw=%d blend_sw=%d colmod_sw=%d skip=%d add_d=%d spec_d=%d defer_d=%d present_h=%d frame_ms=%u render_ms=%u present_ms=%u\n",
-					sdl_present_debug_counter,
-					platform_renderer_sdl_native_draw_count,
-					platform_renderer_sdl_native_textured_draw_count,
-					platform_renderer_sdl_native_draw_count - platform_renderer_sdl_native_textured_draw_count,
-					platform_renderer_sdl_window_sprite_draw_count,
-					platform_renderer_sdl_geometry_fallback_miss_count,
-					platform_renderer_sdl_geometry_degraded_count,
-					platform_renderer_sdl_tx_switch_count,
-					platform_renderer_sdl_clip_switch_count,
-					platform_renderer_sdl_blend_switch_count,
-					platform_renderer_sdl_colmod_switch_count,
-					platform_renderer_sdl_alpha_skip_count,
-					platform_renderer_sdl_add_draw_count,
-					platform_renderer_sdl_spec_draw_count,
-					platform_renderer_sdl_defer_draw_count,
-					platform_renderer_present_height,
-					(unsigned int)frame_ms,
-					(unsigned int)render_ms,
-					(unsigned int)present_ms);
-			}
 		}
 	}
 	if (native_primary)
