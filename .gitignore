@@ -43,13 +43,11 @@ a.out
 # Project-generated pack/build scripts and logs
 wizball/data_compile*
 wizball/logfile.txt
-wizball/crash.log
 wizball/the_last_thing_i_did.txt
 wizball/OpenGL_Extension.txt
-wizball/fortify.log
 the_last_thing_i_did.txt
 logfile.txt
-crash.log
+*.log
 
 # Runtime-generated game state and diagnostics
 wizball/wizball/config.txt

@@ -5,6 +5,8 @@
   "chat.tools.terminal.autoApprove": {
     "cmake": true,
     "tee": true,
-    "true": true
+    "true": true,
+    "make": true,
+    "touch": true
   }
 }

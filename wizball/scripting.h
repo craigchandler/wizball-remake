@@ -368,12 +368,12 @@ extern int global_next_entity;
 extern int entity [MAX_ENTITIES][MAX_ENTITY_VARIABLES];
 extern arbitrary_quads_struct arbitrary_quads[MAX_ENTITIES];
 extern arbitrary_vertex_colour_struct arbitrary_vertex_colours[MAX_ENTITIES];
+extern int *flag_array;
 extern window_struct *window_details;
 
 #define FIX_ME_NOW 99
 
 #endif
-
 
 
 

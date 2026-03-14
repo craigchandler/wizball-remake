@@ -10,6 +10,7 @@
 typedef struct
 {
     unsigned int legacy_texture_id;
+    char debug_name[128];
     SDL_Texture *sdl_texture;
     SDL_Texture *sdl_texture_premultiplied;
     SDL_Texture *sdl_texture_inverted;

@@ -61,7 +61,9 @@ void PLATFORM_RENDERER_draw_circle(int x, int y, int radius, int r, int g, int b
 void PLATFORM_RENDERER_draw_bound_solid_quad(float left, float right, float up, float down);
 void PLATFORM_RENDERER_draw_bound_textured_quad(float left, float right, float up, float down, float u1, float v1, float u2, float v2);
 void PLATFORM_RENDERER_draw_bound_textured_quad_translated(float offset_x, float offset_y, float left, float right, float up, float down, float u1, float v1, float u2, float v2);
+void PLATFORM_RENDERER_flush_simple_quad_queue(void);
 void PLATFORM_RENDERER_draw_bound_textured_quad_custom(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2);
+void PLATFORM_RENDERER_draw_screen_textured_quad_custom(float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2);
 void PLATFORM_RENDERER_draw_point(float x, float y);
 void PLATFORM_RENDERER_draw_coloured_point(float x, float y, float r, float g, float b);
 void PLATFORM_RENDERER_draw_line(float x1, float y1, float x2, float y2);
@@ -104,7 +106,9 @@ void PLATFORM_RENDERER_draw_textured_quad(unsigned int texture_handle, int r, in
 void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r, int g, int b, int a, float entity_x, float entity_y, float left, float right, float up, float down, float u1, float v1, float u2, float v2, float left_window_transform_x, float top_window_transform_y, float total_scale_x, float total_scale_y, float sprite_scale_x, float sprite_scale_y, float sprite_rotation_degrees, bool sprite_flip_x, bool sprite_flip_y);
 void PLATFORM_RENDERER_draw_sdl_window_solid_rect(int r, int g, int b, float entity_x, float entity_y, float left, float right, float up, float down, float left_window_transform_x, float top_window_transform_y, float total_scale_x, float total_scale_y, float rect_scale_x, float rect_scale_y);
 void PLATFORM_RENDERER_draw_sdl_bound_textured_quad_custom(unsigned int texture_handle, float x0, float y0, float x1, float y1, float x2, float y2, float x3, float y3, float u1, float v1, float u2, float v2);
+void PLATFORM_RENDERER_set_debug_draw_context(int entity_index, int script_number, int draw_mode, int window_number, const char *script_name, const char *bitmap_name);
 unsigned int PLATFORM_RENDERER_create_masked_texture(SDL_Surface *image);
+void PLATFORM_RENDERER_set_texture_debug_name(unsigned int texture_handle, const char *name);
 SDL_Renderer *PLATFORM_RENDERER_SDL_Renderer();
 bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed);
 bool PLATFORM_RENDERER_is_sdl2_stub_ready(void);

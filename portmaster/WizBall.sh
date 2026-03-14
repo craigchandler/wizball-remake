@@ -97,7 +97,7 @@ else
 fi
 
 echo "Launching $BIN"
-"$BIN" -dat -debug
+"$BIN" -dat
 echo "Binary exited with code $?"
 
 pm_finish
