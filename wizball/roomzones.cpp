@@ -1316,7 +1316,17 @@ localised_zone_list * ROOMZONES_get_localised_list_size_and_pointer (int tilemap
 	x /= localised_zone_divider;
 	y /= localised_zone_divider;
 
-	int offset = (cm[tilemap_number].map_width_in_lzones * y) + x;
+	int width = cm[tilemap_number].map_width_in_lzones;
+	int list_size = cm[tilemap_number].localised_zone_list_size;
+
+	if (x < 0) x = 0;
+	if (y < 0) y = 0;
+
+	if (list_size <= 0 || cm[tilemap_number].localised_zone_list_pointer == NULL)
+		return NULL;
+
+	int offset = (width * y) + x;
+	if (offset >= list_size) offset = list_size - 1;
 
 	return &cm[tilemap_number].localised_zone_list_pointer[offset];
 }

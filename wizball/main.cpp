@@ -1217,6 +1217,10 @@ int main(int argc, char *argv[])
 	char *dat_directory_override = NULL;
 	bool rebuild_scripts_only = false;
 	char *rebuild_project_name = NULL;
+	bool rebuild_tilesets_only = false;
+	char *rebuild_tilesets_project_name = NULL;
+	bool rebuild_tilemaps_only = false;
+	char *rebuild_tilemaps_project_name = NULL;
 
 	for (t = 1; t < argc; t++)
 	{
@@ -1274,6 +1278,34 @@ int main(int argc, char *argv[])
 			else
 			{
 				OUTPUT_message("Missing argument after -rebuildscripts");
+				return 1;
+			}
+		}
+		else if (strcmp("-rebuildtilesets", argv[t]) == 0)
+		{
+			if ((t + 1) < argc)
+			{
+				rebuild_tilesets_only = true;
+				rebuild_tilesets_project_name = argv[t + 1];
+				t++;
+			}
+			else
+			{
+				OUTPUT_message("Missing argument after -rebuildtilesets");
+				return 1;
+			}
+		}
+		else if (strcmp("-rebuildtilemaps", argv[t]) == 0)
+		{
+			if ((t + 1) < argc)
+			{
+				rebuild_tilemaps_only = true;
+				rebuild_tilemaps_project_name = argv[t + 1];
+				t++;
+			}
+			else
+			{
+				OUTPUT_message("Missing argument after -rebuildtilemaps");
 				return 1;
 			}
 		}
@@ -1345,6 +1377,66 @@ int main(int argc, char *argv[])
 		load_from_dat_file = false;
 		output_debug_information = debug_requested ? true : false;
 	}
+	else if (rebuild_tilesets_only == true)
+	{
+		int project_index = UNSET;
+		for (t = 0; t < project_counter; t++)
+		{
+			if (MAIN_strings_equal_ignore_case(project_list[t].name, rebuild_tilesets_project_name))
+			{
+				project_index = t;
+				break;
+			}
+		}
+
+		if (project_index == UNSET)
+		{
+			OUTPUT_message("Unknown project for -rebuildtilesets.");
+			return 1;
+		}
+
+		if (strlen(rebuild_tilesets_project_name) >= MAX_NAME_SIZE)
+		{
+			OUTPUT_message("Project name is too long for -rebuildtilesets.");
+			return 1;
+		}
+
+		strcpy(project, rebuild_tilesets_project_name);
+		parse_all_data = true;
+		create_dat_file = false;
+		load_from_dat_file = false;
+		output_debug_information = debug_requested ? true : false;
+	}
+	else if (rebuild_tilemaps_only == true)
+	{
+		int project_index = UNSET;
+		for (t = 0; t < project_counter; t++)
+		{
+			if (MAIN_strings_equal_ignore_case(project_list[t].name, rebuild_tilemaps_project_name))
+			{
+				project_index = t;
+				break;
+			}
+		}
+
+		if (project_index == UNSET)
+		{
+			OUTPUT_message("Unknown project for -rebuildtilemaps.");
+			return 1;
+		}
+
+		if (strlen(rebuild_tilemaps_project_name) >= MAX_NAME_SIZE)
+		{
+			OUTPUT_message("Project name is too long for -rebuildtilemaps.");
+			return 1;
+		}
+
+		strcpy(project, rebuild_tilemaps_project_name);
+		parse_all_data = true;
+		create_dat_file = false;
+		load_from_dat_file = false;
+		output_debug_information = debug_requested ? true : false;
+	}
 	else if (release_mode == true || force_dat_mode == true)
 	{
 		parse_all_data = false;
@@ -1397,6 +1489,34 @@ int main(int argc, char *argv[])
 	// This loads a list of names and files and all the resources the game needs so that the various
 	// other file loading bits know what to load and in what order.
 	MAIN_add_to_log("\tOK!");
+
+	if (rebuild_tilesets_only == true)
+	{
+		// Prevent MAIN_draw_loading_picture from trying to render sprites that haven't been loaded.
+		loading_screen_image_name[0] = '\0';
+		MAIN_add_to_log("Rebuild-tilesets mode: loading tileset text files...");
+		TILESETS_load_all();
+		MAIN_add_to_log("\tOK!");
+		MAIN_add_to_log("Rebuild-tilesets mode: saving tilesets.dat...");
+		TILESETS_save_all();
+		MAIN_add_to_log("\tOK!");
+		MAIN_add_to_log("Rebuild-tilesets mode complete. Exiting.");
+		return 0;
+	}
+
+	if (rebuild_tilemaps_only == true)
+	{
+		// Prevent MAIN_draw_loading_picture from trying to render sprites that haven't been loaded.
+		loading_screen_image_name[0] = '\0';
+		MAIN_add_to_log("Rebuild-tilemaps mode: loading tilemap text files...");
+		TILEMAPS_load_all();
+		MAIN_add_to_log("\tOK!");
+		MAIN_add_to_log("Rebuild-tilemaps mode: saving tilemaps.dat...");
+		TILEMAPS_save_all();
+		MAIN_add_to_log("\tOK!");
+		MAIN_add_to_log("Rebuild-tilemaps mode complete. Exiting.");
+		return 0;
+	}
 
 #ifdef RETRENGINE_DEBUG_VERSION_WATCH_LIST
 	SCRIPTING_setup_watch_list();

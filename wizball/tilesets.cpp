@@ -344,6 +344,8 @@ void TILESETS_reset_tile (int tileset_number , int tile_number)
 {
 	int t;
 
+	memset (&ts[tileset_number].tileset_pointer[tile_number], 0, sizeof (tile));
+
 	ts[tileset_number].tileset_pointer[tile_number].shape = 0;
 	ts[tileset_number].tileset_pointer[tile_number].solid_sides = 0;
 	ts[tileset_number].tileset_pointer[tile_number].default_energy = 1;
@@ -423,6 +425,8 @@ int TILESETS_create (bool new_tileset)
 	{
 		ts = (tileset *) realloc ( ts, (number_of_tilesets_loaded + 1) * sizeof (tileset) );
 	}
+
+	memset (&ts[number_of_tilesets_loaded], 0, sizeof (tileset));
 
 	ts[number_of_tilesets_loaded].deleted = false;
 	ts[number_of_tilesets_loaded].tile_count = 0;
@@ -504,6 +508,12 @@ void TILESETS_load (char *filename, int tileset_number)
 			if (pointer != NULL)
 			{
 				strcpy (ts[tileset_number].tileset_sprite_name,pointer);
+			}
+
+			pointer = STRING_end_of_string(line,"#TILESIZE = ");
+			if (pointer != NULL)
+			{
+				ts[tileset_number].tilesize = atoi(pointer);
 			}
 
 			pointer = STRING_end_of_string(line,"#TILE DATA = ");
@@ -710,7 +720,19 @@ void TILESETS_load (char *filename, int tileset_number)
 		}
 
 		fclose(file_pointer);
-		
+
+		// If tilesize wasn't saved in the file, derive it from the sprite name.
+		// Sprite names use the format NAME[SET][width][height][...]
+		if (ts[tileset_number].tilesize == UNSET)
+		{
+			int derived_tilesize = 0;
+			char *size_ptr = strstr(ts[tileset_number].tileset_sprite_name, "[SET][");
+			if (size_ptr != NULL && sscanf(size_ptr, "[SET][%d]", &derived_tilesize) == 1 && derived_tilesize > 0)
+			{
+				ts[tileset_number].tilesize = derived_tilesize;
+			}
+		}
+
 		// Oh, and bung the capitalised name in. Haha.
 		STRING_uppercase(filename);
 		strtok(filename,"."); // Get rid of .txt extension...
@@ -776,6 +798,10 @@ void TILESETS_save (int tileset_number)
 		// Tileset Image
 		snprintf(temp_char, sizeof(temp_char), "#TILESET IMAGE = %s\n\n",ts[tileset_number].tileset_sprite_name);
 		fputs(temp_char,file_pointer);
+
+		// Tilesize
+		snprintf(temp_char, sizeof(temp_char), "#TILESIZE = %d\n\n", ts[tileset_number].tilesize);
+		fputs(temp_char, file_pointer);
 
 		// Tile data header
 		snprintf(temp_char, sizeof(temp_char), "#TILE DATA = %d\n\n",ts[tileset_number].tile_count);

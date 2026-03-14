@@ -442,8 +442,16 @@ void EDIT_setup (void)
 			MAIN_add_to_log ("\tOK!");
 
 			MAIN_add_to_log ("Loading tilemaps from data files...");
-			TILEMAPS_load_game_data ();
-			MAIN_add_to_log ("\tOK!");
+			if (TILEMAPS_load_game_data ())
+			{
+				MAIN_add_to_log ("\tOK!");
+			}
+			else
+			{
+				MAIN_add_to_log ("\tFAILED! Falling back to verbose tilemap data.");
+				TILEMAPS_load_all ();
+				MAIN_add_to_log ("\tOK!");
+			}
 		}
 		else
 		{

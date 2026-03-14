@@ -7,6 +7,8 @@
     "tee": true,
     "true": true,
     "make": true,
-    "touch": true
+    "touch": true,
+    "nproc": true,
+    "awk": true
   }
 }

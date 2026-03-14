@@ -2130,7 +2130,7 @@ void TILEMAPS_blank_verbose_data (int tilemap_number)
 
 
 
-void TILEMAPS_load_game_data (void)
+bool TILEMAPS_load_game_data (void)
 {
 	// This loads the data in it's more compressed format, malloc'ing happily as it goes...
 
@@ -2151,7 +2151,21 @@ void TILEMAPS_load_game_data (void)
 	data[0] = EndianS32_LtoN(data[0]);
 #endif
 		number_of_tilemaps_loaded = data[0];
+		if (number_of_tilemaps_loaded <= 0 || number_of_tilemaps_loaded > 2000)
+		{
+			MAIN_add_to_log("tilemaps.dat: invalid tilemap count -- file is stale or corrupt");
+			fclose(file_pointer);
+			number_of_tilemaps_loaded = 0;
+			return false;
+		}
 		cm = (tilemap *) malloc (sizeof (tilemap) * number_of_tilemaps_loaded);
+		if (cm == NULL)
+		{
+			MAIN_add_to_log("tilemaps.dat: malloc failed for cm array");
+			fclose(file_pointer);
+			number_of_tilemaps_loaded = 0;
+			return false;
+		}
 
 		for (tilemap_number = 0; tilemap_number<number_of_tilemaps_loaded; tilemap_number++)
 		{
@@ -2159,6 +2173,66 @@ void TILEMAPS_load_game_data (void)
 #ifdef ALLEGRO_MACOSX
 			endian(cm[tilemap_number]);
 #endif
+			// Null out all pointer fields read from disk before validating and re-allocating
+			cm[tilemap_number].map_pointer = NULL;
+			cm[tilemap_number].backup_map_pointer = NULL;
+			cm[tilemap_number].map_offset_pointer = NULL;
+			cm[tilemap_number].group_pointer = NULL;
+			cm[tilemap_number].helper_tag_pointer = NULL;
+			cm[tilemap_number].helper_x_offset_pointer = NULL;
+			cm[tilemap_number].helper_y_offset_pointer = NULL;
+			cm[tilemap_number].layer_vertex_colours_pointer = NULL;
+			cm[tilemap_number].vertex_colours_pointer = NULL;
+			cm[tilemap_number].detailed_vertex_colours_pointer = NULL;
+			cm[tilemap_number].waypoint_list_pointer = NULL;
+			cm[tilemap_number].spawn_point_list_pointer = NULL;
+			cm[tilemap_number].zone_list_pointer = NULL;
+			cm[tilemap_number].ai_zone_list_pointer = NULL;
+			cm[tilemap_number].gate_list_pointer = NULL;
+			cm[tilemap_number].connection_list_pointer = NULL;
+			cm[tilemap_number].collision_data_pointer = NULL;
+			cm[tilemap_number].exposure_data_pointer = NULL;
+			cm[tilemap_number].collision_bitmask_data_pointer = NULL;
+			cm[tilemap_number].localised_zone_list_pointer = NULL;
+			cm[tilemap_number].ai_node_lookup_table_list_pointer = NULL;
+			cm[tilemap_number].optimisation_data = NULL;
+			cm[tilemap_number].backup_in_use = false;
+			cm[tilemap_number].optimisation_data_flag = false;
+
+			// Validate dimensions before malloc
+			if (cm[tilemap_number].map_layers <= 0 || cm[tilemap_number].map_layers > 64 ||
+			    cm[tilemap_number].map_width  <= 0 || cm[tilemap_number].map_width  > 8192 ||
+			    cm[tilemap_number].map_height <= 0 || cm[tilemap_number].map_height > 8192)
+			{
+				char validate_msg[256];
+				snprintf(validate_msg, sizeof(validate_msg),
+				    "tilemaps.dat: map %d has invalid dimensions (layers=%d w=%d h=%d) -- file is stale or corrupt",
+				    tilemap_number, cm[tilemap_number].map_layers, cm[tilemap_number].map_width, cm[tilemap_number].map_height);
+				MAIN_add_to_log(validate_msg);
+				fclose(file_pointer);
+				// Free inner allocs from any already-loaded tilemaps
+				for (int k = 0; k < tilemap_number; k++)
+				{
+					free(cm[k].map_pointer);
+					free(cm[k].group_pointer);
+					free(cm[k].helper_tag_pointer);
+					free(cm[k].helper_x_offset_pointer);
+					free(cm[k].helper_y_offset_pointer);
+					free(cm[k].layer_vertex_colours_pointer);
+					free(cm[k].vertex_colours_pointer);
+					free(cm[k].detailed_vertex_colours_pointer);
+					free(cm[k].zone_list_pointer);
+					free(cm[k].gate_list_pointer);
+					free(cm[k].connection_list_pointer);
+					free(cm[k].waypoint_list_pointer);
+					free(cm[k].spawn_point_list_pointer);
+				}
+				free(cm);
+				cm = NULL;
+				number_of_tilemaps_loaded = 0;
+				return false;
+			}
+
 			cm[tilemap_number].map_pointer = (short *) malloc ( cm[tilemap_number].map_layers * cm[tilemap_number].map_width * cm[tilemap_number].map_height * sizeof(short) );
 			cm[tilemap_number].group_pointer = (char *) malloc ( cm[tilemap_number].map_layers * cm[tilemap_number].map_width * cm[tilemap_number].map_height * sizeof(char) );
 			cm[tilemap_number].helper_tag_pointer = (char *) malloc ( cm[tilemap_number].map_layers * cm[tilemap_number].map_width * cm[tilemap_number].map_height * sizeof(char) );
@@ -2350,11 +2424,13 @@ void TILEMAPS_load_game_data (void)
 		}
 
 		fclose (file_pointer);
+		return true;
 	}
 	else
 	{
 		OUTPUT_message("Could not open tilemaps.dat!");
 		assert(0); // couldn't create file!
+		return false;
 	}
 
 }

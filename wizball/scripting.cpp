@@ -2917,7 +2917,12 @@ int SCRIPTING_get_zone_number_of_type_at_point (int tilemap_number, int x, int y
 	int zone_number;
 	zone *zp;
 
+	if (tilemap_number < 0 || tilemap_number >= number_of_tilemaps_loaded)
+		return UNSET;
+
 	zone_list_pointer = ROOMZONES_get_localised_list_size_and_pointer (tilemap_number, x, y);
+	if (zone_list_pointer == NULL)
+		return UNSET;
 	list_size = zone_list_pointer->list_size;
 
 	for (zone_index_number=0; zone_index_number<list_size; zone_index_number++)

@@ -200,3 +200,17 @@ add_custom_target(rebuild_wizball_scripts
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wizball
   USES_TERMINAL
 )
+
+add_custom_target(rebuild_wizball_tilesets
+  COMMAND $<TARGET_FILE:wizball> -rebuildtilesets wizball
+  DEPENDS wizball
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wizball
+  USES_TERMINAL
+)
+
+add_custom_target(rebuild_wizball_tilemaps
+  COMMAND $<TARGET_FILE:wizball> -rebuildtilemaps wizball
+  DEPENDS wizball
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wizball
+  USES_TERMINAL
+)

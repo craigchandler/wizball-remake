@@ -309,7 +309,7 @@ void TILEMAPS_restore_tilemap (int map_number);
 
 void TILEMAPS_draw_guides (int tilemap_number, int sx, int sy, int tilesize, float zoom_level, int new_guide_box_width = UNSET, int new_guide_box_height = UNSET);
 
-void TILEMAPS_load_game_data (void);
+bool TILEMAPS_load_game_data (void);
 void TILEMAPS_load_editor_settings (void);
 void TILEMAPS_save_editor_settings (void);
 int TILEMAPS_get_map_from_uid (int map_uid);
