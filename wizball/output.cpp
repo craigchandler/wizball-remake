@@ -3260,7 +3260,7 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 
 					if (!OUTPUT_is_secondary_multitexture_active(texture_combiner_available, opengl_booleans, secondary_bitmap_number) &&
 							!(opengl_booleans & OPENGL_BOOLEAN_INDIVIDUAL_VERTEX_COLOUR_ALPHA) &&
-							!(opengl_booleans & (OPENGL_BOOLEAN_SECONDARY_SCALE | OPENGL_BOOLEAN_SECONDARY_ROTATE | OPENGL_BOOLEAN_ROTATE_CLOCKWISE)) &&
+							!(opengl_booleans & (OPENGL_BOOLEAN_SECONDARY_SCALE | OPENGL_BOOLEAN_ROTATE_CLOCKWISE)) &&
 							((opengl_booleans & (OPENGL_BOOLEAN_ARBITRARY_QUAD | OPENGL_BOOLEAN_ARBITRARY_PERSPECTIVE_QUAD)) == 0))
 					{
 						int sprite_mod_r = 255;
@@ -3303,6 +3303,10 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 						if (opengl_booleans & OPENGL_BOOLEAN_ROTATE)
 						{
 							sprite_rotation_degrees = -float(entity_pointer[ENT_OPENGL_ANGLE]) / 100.0f;
+						}
+						if (opengl_booleans & OPENGL_BOOLEAN_SECONDARY_ROTATE)
+						{
+							sprite_rotation_degrees -= float(entity_pointer[ENT_OPENGL_SECONDARY_ANGLE]) / 100.0f;
 						}
 						if (is_wiz_and_nifta_bitmap)
 						{

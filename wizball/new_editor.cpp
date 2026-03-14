@@ -425,17 +425,6 @@ void EDIT_setup (void)
 	}
 	else
 	{
-#ifdef ALLEGRO_LINUX32567
-		MAIN_add_to_log ("Linux compatibility mode: loading verbose map data...");
-
-		MAIN_add_to_log ("Loading tilesets from verbose files...");
-		TILESETS_load_all ();
-		MAIN_add_to_log ("\tOK!");
-
-		MAIN_add_to_log ("Loading tilemaps from verbose files...");
-		TILEMAPS_load_all ();
-		MAIN_add_to_log ("\tOK!");
-#else
 		MAIN_add_to_log ("Loading tilesets from data files...");
 		if (TILESETS_load_game_data())
 		{
@@ -465,7 +454,6 @@ void EDIT_setup (void)
 			TILEMAPS_load_all ();
 			MAIN_add_to_log ("\tOK!");
 		}
-#endif
 	}
 
 	if (!EDIT_tilemaps_have_valid_dimensions())

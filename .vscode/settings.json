@@ -9,6 +9,7 @@
     "make": true,
     "touch": true,
     "nproc": true,
-    "awk": true
+    "awk": true,
+    "ldd": true
   }
 }
