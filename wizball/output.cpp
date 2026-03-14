@@ -3308,56 +3308,96 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 						{
 							sprite_rotation_degrees -= float(entity_pointer[ENT_OPENGL_SECONDARY_ANGLE]) / 100.0f;
 						}
-						if (is_wiz_and_nifta_bitmap)
+						if (u2 > 1.0f)
 						{
-							static int wiz_bitmap_branch_log_count = 0;
-							if (wiz_bitmap_branch_log_count < 200)
-							{
-								fprintf(stderr,
-										"[WIZ-ATLAS-BRANCH %d] frame=%d ent=%d script=%s branch=sdl_window_sprite window=%d bitmap=%s pos=(%d,%d) scale=(%.4f,%.4f) rot=%.2f uv=(%.4f,%.4f)-(%.4f,%.4f)\n",
-										wiz_bitmap_branch_log_count,
-										frames_so_far,
-										current_entity,
-										script_name,
-										window_number,
-										bitmap_name,
-										x,
-										y,
-										sprite_scale_x,
-										sprite_scale_y,
-										sprite_rotation_degrees,
-										u1,
-										v1,
-										u2,
-										v2);
-								wiz_bitmap_branch_log_count++;
-							}
+							/* UV range extends past the texture boundary (u2 > 1.0).
+							 * The INTERPOLATED path uses GL_REPEAT-style wrapping where the
+							 * second frame is placed at u=[1..2].  SDL has no such wrapping,
+							 * so split into two quads: the right source portion fills the
+							 * left destination, and the wrapped left source fills the right. */
+							const float u_span = u2 - u1;
+							const float sprite_width = right - left;
+							const float split_frac = (1.0f - u1) / u_span;
+							const float split_x = left + split_frac * sprite_width;
+							PLATFORM_RENDERER_draw_sdl_window_sprite(
+									ACTIVE_BMPS[bitmap_number].texture_handle,
+									sprite_mod_r,
+									sprite_mod_g,
+									sprite_mod_b,
+									sprite_mod_a,
+									x,
+									y,
+									left,
+									split_x,
+									up,
+									down,
+									u1,
+									v1,
+									1.0f,
+									v2,
+									left_window_transform_x,
+									top_window_transform_y,
+									total_scale_x,
+									total_scale_y,
+									sprite_scale_x,
+									sprite_scale_y,
+									sprite_rotation_degrees,
+									false,
+									false);
+							PLATFORM_RENDERER_draw_sdl_window_sprite(
+									ACTIVE_BMPS[bitmap_number].texture_handle,
+									sprite_mod_r,
+									sprite_mod_g,
+									sprite_mod_b,
+									sprite_mod_a,
+									x,
+									y,
+									split_x,
+									right,
+									up,
+									down,
+									0.0f,
+									v1,
+									u2 - 1.0f,
+									v2,
+									left_window_transform_x,
+									top_window_transform_y,
+									total_scale_x,
+									total_scale_y,
+									sprite_scale_x,
+									sprite_scale_y,
+									sprite_rotation_degrees,
+									false,
+									false);
 						}
-						PLATFORM_RENDERER_draw_sdl_window_sprite(
-								ACTIVE_BMPS[bitmap_number].texture_handle,
-								sprite_mod_r,
-								sprite_mod_g,
-								sprite_mod_b,
-								sprite_mod_a,
-								x,
-								y,
-								left,
-								right,
-								up,
-								down,
-								u1,
-								v1,
-								u2,
-								v2,
-								left_window_transform_x,
-								top_window_transform_y,
-								total_scale_x,
-								total_scale_y,
-								sprite_scale_x,
-								sprite_scale_y,
-								sprite_rotation_degrees,
-								false,
-								false);
+						else
+						{
+							PLATFORM_RENDERER_draw_sdl_window_sprite(
+									ACTIVE_BMPS[bitmap_number].texture_handle,
+									sprite_mod_r,
+									sprite_mod_g,
+									sprite_mod_b,
+									sprite_mod_a,
+									x,
+									y,
+									left,
+									right,
+									up,
+									down,
+									u1,
+									v1,
+									u2,
+									v2,
+									left_window_transform_x,
+									top_window_transform_y,
+									total_scale_x,
+									total_scale_y,
+									sprite_scale_x,
+									sprite_scale_y,
+									sprite_rotation_degrees,
+									false,
+									false);
+						}
 						/* draw_sdl_window_sprite bakes position/scale/rotation into the SDL
 						 * draw call, but translatef(x,-y) was called unconditionally above.
 						 * Reset the transform absolutely so subsequent entities are not displaced. */
