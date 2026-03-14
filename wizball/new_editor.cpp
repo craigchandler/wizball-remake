@@ -31,8 +31,6 @@
 #include "world_collision.h"
 #include "platform_renderer.h"
 
-#include "platform_dialogs.h"
-
 #include "fortify.h"
 
 // Need support for offset tilemap collision really if the user wants it as it's JOLLY fast.
