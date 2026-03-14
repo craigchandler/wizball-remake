@@ -31,6 +31,8 @@
 #include "world_collision.h"
 #include "platform_renderer.h"
 
+#include "platform_dialogs.h"
+
 #include "fortify.h"
 
 // Need support for offset tilemap collision really if the user wants it as it's JOLLY fast.
@@ -425,7 +427,7 @@ void EDIT_setup (void)
 	}
 	else
 	{
-#ifdef ALLEGRO_LINUX
+#ifdef ALLEGRO_LINUX32567
 		MAIN_add_to_log ("Linux compatibility mode: loading verbose map data...");
 
 		MAIN_add_to_log ("Loading tilesets from verbose files...");
