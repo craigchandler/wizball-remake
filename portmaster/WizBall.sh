@@ -91,7 +91,7 @@ pm_platform_helper "$BIN"
 # Start keymapper for this binary (kill-mode hotkey support)
 if [ -f "$controlfolder/gptokeyb2" ]; then
   export LD_LIBRARY_PATH="$controlfolder:$LD_LIBRARY_PATH"
-  "$controlfolder/gptokeyb2" "$BIN" -c "$GAMEDIR/wizball.gptk" -X &
+  "$controlfolder/gptokeyb2" "$BIN" -c "$GAMEDIR/wizball.gptk" -X > /dev/null 2>&1 &
 else
   echo "WARNING: gptokeyb2 not found, skipping keymapper"
 fi

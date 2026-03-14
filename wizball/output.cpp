@@ -3358,6 +3358,10 @@ int OUTPUT_draw_window_contents(int window_number, bool texture_combiner_availab
 								sprite_rotation_degrees,
 								false,
 								false);
+						/* draw_sdl_window_sprite bakes position/scale/rotation into the SDL
+						 * draw call, but translatef(x,-y) was called unconditionally above.
+						 * Reset the transform absolutely so subsequent entities are not displaced. */
+						PLATFORM_RENDERER_set_window_transform(left_window_transform_x, top_window_transform_y, total_scale_x, total_scale_y);
 						break;
 					}
 
