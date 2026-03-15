@@ -1209,18 +1209,6 @@ int OUTPUT_get_sprite_pivot_y(int bitmap_number, int sprite_number)
 	return sp->pivot_y;
 }
 
-int OUTPUT_sprite_width(int bitmap_number, int sprite_number)
-{
-	sprite *sp = GET_sprite(bitmap_number, sprite_number);
-	return sp->width;
-}
-
-int OUTPUT_sprite_height(int bitmap_number, int sprite_number)
-{
-	sprite *sp = GET_sprite(bitmap_number, sprite_number);
-	return sp->height;
-}
-
 int OUTPUT_bitmap_width(int bitmap_number)
 {
 	return (ACTIVE_BMPS[bitmap_number].width);

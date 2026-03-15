@@ -3896,7 +3896,7 @@ bool TILESETS_edit (bool initialise , int starting_tileset_number)
 					GPL_list_extents ("SPRITES", &start, NULL);
 					strcpy (ts[tileset_number].tileset_sprite_name , GPL_what_is_word_name (start+selected_sprite) );
 					ts[tileset_number].tileset_image_index = GPL_find_word_value ("SPRITES" , ts[tileset_number].tileset_sprite_name);
-					ts[tileset_number].tilesize = OUTPUT_sprite_width(ts[tileset_number].tileset_image_index,0);
+					ts[tileset_number].tilesize = OUTPUT_get_sprite_width(ts[tileset_number].tileset_image_index,0);
 					TILESETS_allocate_tile_space (tileset_number , OUTPUT_bitmap_frames (ts[tileset_number].tileset_image_index) );
 				}
 			}
@@ -4339,7 +4339,7 @@ bool TILESETS_confirm_tileset_links (int tileset_number , bool report)
 		}
 		else
 		{
-			ts[tileset_number].tilesize = OUTPUT_sprite_width (ts[tileset_number].tileset_image_index , 0);
+			ts[tileset_number].tilesize = OUTPUT_get_sprite_width (ts[tileset_number].tileset_image_index , 0);
 		}
 
 		// Now have a lovely plough through all the tiles in this set and check them for broken script links.

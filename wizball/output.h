@@ -80,9 +80,6 @@ void INPUT_create_sprite (int parent_bitmap, int sprite_number, char *name, int 
 void INPUT_create_equal_sized_sprite_series (int parent_bitmap, char *name_base, int sprite_width, int sprite_height, int pivot_x, int pivot_y);
 void INPUT_create_arbitrary_sized_sprite_series (int parent_bitmap, char *name_base, char *descriptor_file);
 
-int OUTPUT_sprite_width (int bitmap_number , int sprite_number);
-int OUTPUT_sprite_height (int bitmap_number , int sprite_number);
-
 void OUTPUT_destroy_bitmap_and_sprite_containers (void);
 
 int OUTPUT_get_sprite_pivot_x (int bitmap_number , int sprite_number);

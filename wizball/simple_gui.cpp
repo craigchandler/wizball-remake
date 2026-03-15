@@ -193,8 +193,8 @@ void SIMPGUI_create_toggle_button (int group_id, int button_id, int *integer_val
 		bs[b].overlay_number = sprite_number;
 		bs[b].x = x;
 		bs[b].y = y;
-		bs[b].width = OUTPUT_sprite_width (bitmap_number,sprite_number);
-		bs[b].height = OUTPUT_sprite_height (bitmap_number,sprite_number);
+		bs[b].width = OUTPUT_get_sprite_width (bitmap_number,sprite_number);
+		bs[b].height = OUTPUT_get_sprite_height (bitmap_number,sprite_number);
 		bs[b].mouse_button = mouse_button;
 		bs[b].h_flip_overlay = true;
 	}
@@ -227,8 +227,8 @@ void SIMPGUI_create_radio_set_button (int group_id, int button_id, int *integer_
 		bs[b].overlay_number = sprite_number;
 		bs[b].x = x;
 		bs[b].y = y;
-		bs[b].width = OUTPUT_sprite_width (bitmap_number,sprite_number);
-		bs[b].height = OUTPUT_sprite_height (bitmap_number,sprite_number);
+		bs[b].width = OUTPUT_get_sprite_width (bitmap_number,sprite_number);
+		bs[b].height = OUTPUT_get_sprite_height (bitmap_number,sprite_number);
 		bs[b].mouse_button = mouse_button;
 		bs[b].h_flip_overlay = true;
 	}
@@ -261,8 +261,8 @@ void SIMPGUI_create_set_button (int group_id, int button_id, int *integer_value,
 		bs[b].overlay_number = sprite_number;
 		bs[b].x = x;
 		bs[b].y = y;
-		bs[b].width = OUTPUT_sprite_width (bitmap_number,sprite_number);
-		bs[b].height = OUTPUT_sprite_height (bitmap_number,sprite_number);
+		bs[b].width = OUTPUT_get_sprite_width (bitmap_number,sprite_number);
+		bs[b].height = OUTPUT_get_sprite_height (bitmap_number,sprite_number);
 		bs[b].mouse_button = mouse_button;
 		bs[b].h_flip_overlay = true;
 	}
@@ -375,8 +375,8 @@ void SIMPGUI_create_nudge_button (int group_id, int button_id, int *integer_valu
 		bs[b].overlay_number = sprite_number;
 		bs[b].x = x;
 		bs[b].y = y;
-		bs[b].width = OUTPUT_sprite_width (bitmap_number,sprite_number);
-		bs[b].height = OUTPUT_sprite_height (bitmap_number,sprite_number);
+		bs[b].width = OUTPUT_get_sprite_width (bitmap_number,sprite_number);
+		bs[b].height = OUTPUT_get_sprite_height (bitmap_number,sprite_number);
 		bs[b].mouse_button = mouse_button;
 	}
 	else
@@ -478,8 +478,8 @@ void SIMPGUI_create_binary_toggle_button (int group_id, int button_id, int *inte
 		bs[b].overlay_number = sprite_number;
 		bs[b].x = x;
 		bs[b].y = y;
-		bs[b].width = OUTPUT_sprite_width (bitmap_number,sprite_number);
-		bs[b].height = OUTPUT_sprite_height (bitmap_number,sprite_number);
+		bs[b].width = OUTPUT_get_sprite_width (bitmap_number,sprite_number);
+		bs[b].height = OUTPUT_get_sprite_height (bitmap_number,sprite_number);
 		bs[b].mouse_button = mouse_button;
 		bs[b].h_flip_overlay = true;
 	}
