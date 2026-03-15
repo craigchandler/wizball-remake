@@ -8940,29 +8940,6 @@ void PLATFORM_RENDERER_draw_bound_coloured_textured_quad_array(const float *x, c
 					(fabsf(x[2] - x[3]) < 0.01f) &&
 					(fabsf(y[0] - y[3]) < 0.01f) &&
 					(fabsf(y[1] - y[2]) < 0.01f);
-			if ((entry != NULL) &&
-					(entry->debug_name[0] != '\0') &&
-					(strcmp(entry->debug_name, "wizball/sprites/wiz_and_nifta[arb].bmp") == 0))
-			{
-				static int wiz_uniform_array_log_count = 0;
-				if (wiz_uniform_array_log_count < 300)
-				{
-					fprintf(stderr,
-									"[WIZ-UNIFORM-ARRAY %d] axis=%d quad=((%.1f,%.1f),(%.1f,%.1f),(%.1f,%.1f),(%.1f,%.1f)) uv=((%.4f,%.4f),(%.4f,%.4f),(%.4f,%.4f),(%.4f,%.4f)) colour=(%.3f,%.3f,%.3f,%.3f)\n",
-									wiz_uniform_array_log_count,
-									axis_aligned_rect ? 1 : 0,
-									x[0], y[0],
-									x[1], y[1],
-									x[2], y[2],
-									x[3], y[3],
-									u[0], v[0],
-									u[1], v[1],
-									u[2], v[2],
-									u[3], v[3],
-									r[0], g[0], b[0], a[0]);
-					wiz_uniform_array_log_count++;
-				}
-			}
 			platform_renderer_current_colour_r = r[0];
 			platform_renderer_current_colour_g = g[0];
 			platform_renderer_current_colour_b = b[0];

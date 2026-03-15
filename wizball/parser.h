@@ -191,6 +191,7 @@ typedef struct
 
 
 extern tracer_script_line_struct *tracer_script;
+extern int tracer_script_length;
 
 
 

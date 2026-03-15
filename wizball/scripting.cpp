@@ -1313,6 +1313,16 @@ void SCRIPTING_calc_arb_line_lengths (int entity_id)
 void SCRIPTING_set_tracer_script_before_values (int entity_id, int line_number)
 {
 	int argument_number;
+
+	if (tracer_script == NULL)
+	{
+		return;
+	}
+
+	if ((line_number < 0) || (line_number >= tracer_script_length))
+	{
+		return;
+	}
 	int line_length = tracer_script[line_number].line_length;
 
 	for (argument_number=0; argument_number<line_length; argument_number++)
@@ -1352,11 +1362,22 @@ int SCRIPTING_calculate_pan_from_position (int entity_id)
 void SCRIPTING_set_tracer_script_after_values (int entity_id, int line_number)
 {
 	int argument_number;
+
+	if (tracer_script == NULL)
+	{
+		return;
+	}
+
+	if ((line_number < 0) || (line_number >= tracer_script_length))
+	{
+		return;
+	}
+
 	int line_length = tracer_script[line_number].line_length;
 
 	for (argument_number=0; argument_number<line_length; argument_number++)
 	{
-		if (tracer_script[line_number].argument_list[argument_number].argument_type_bitflag & (TRACER_ARGUMENT_TYPE_VARIABLE) )
+		if (tracer_script[line_number].argument_list[argument_number].argument_type_bitflag & (TRACER_ARGUMENT_TYPE_VARIABLE|TRACER_ARGUMENT_TYPE_PARAMETER|TRACER_ARGUMENT_TYPE_FIXED_VALUE|TRACER_ARGUMENT_TYPE_OPERAND) )
 		{
 			tracer_after_values[argument_number] = SCRIPTING_get_int_value(entity_id,line_number,argument_number);
 		}
@@ -1370,6 +1391,16 @@ void SCRIPTING_output_tracer_script_line (int line_number, int new_line_number, 
 	// This uses the pre-supplied values to fill out a text line explaining what's going on.
 
 	int argument_number;
+	if (tracer_script == NULL)
+	{
+		return;
+	}
+
+	if ((line_number < 0) || (line_number >= tracer_script_length))
+	{
+		return;
+	}
+
 	int line_length = tracer_script[line_number].line_length;
 
 	char line[TEXTFILE_SUPER_SIZE];
@@ -1945,68 +1976,54 @@ int SCRIPTING_alter_entities_by_criteria (int criteria,int value,int calling_ent
 void SCRIPTING_process_limbo_list (void)
 {
 	int entity_id = first_limbo_entity_in_list;
-	int life;
 
-	if (entity_id != UNSET)
+	while (entity_id != UNSET)
 	{
-		do
+		int next_entity_id = entity[entity_id][ENT_NEXT_PROCESS_ENT];
+		int previous_entity_id = entity[entity_id][ENT_PREV_PROCESS_ENT];
+
+		int life = entity[entity_id][ENT_ALIVE];
+
+		if (life < 0)
 		{
-			life = ++entity[entity_id][ENT_ALIVE];
-	
-			int next_entity_id = entity [entity_id][ENT_NEXT_PROCESS_ENT];
-			int previous_entity_id = entity [entity_id][ENT_PREV_PROCESS_ENT];
+			entity[entity_id][ENT_ALIVE] = life + 1; // advance towards 0
+			life = entity[entity_id][ENT_ALIVE];
+		}
 
-			if (life == 0)
+		if (life == 0)
+		{
+			// unlink from limbo list
+			if (previous_entity_id == UNSET)
 			{
-				// Entity has spent long enough in Limbo and is now dead. Boo-hoo-hoo.
-				// First of all cross-link the neighbours...
-				if (previous_entity_id == UNSET)
+				if (next_entity_id == UNSET)
 				{
-					// We are at the beginning of the list...
-
-					if (next_entity_id == UNSET)
-					{
-						// And also at the end. Just tell the list it's empty.
-						first_limbo_entity_in_list = UNSET;
-						last_limbo_entity_in_list = UNSET;
-					}
-					else
-					{
-						// So we just need to tell the next entity that it's previous one is UNSET
-						entity[next_entity_id][ENT_PREV_PROCESS_ENT] = UNSET;
-						// And set the first limbo entity to it.
-						first_limbo_entity_in_list = next_entity_id;
-					}
+					first_limbo_entity_in_list = UNSET;
+					last_limbo_entity_in_list = UNSET;
 				}
 				else
 				{
-					// We're not at the beginning of the list...
-
-					if (next_entity_id == UNSET)
-					{
-						// But we are are the end... So tell the previous entity it's at the end instead now.
-						entity[previous_entity_id][ENT_NEXT_PROCESS_ENT] = UNSET;
-						// And alter the last one to the previous one.
-						last_limbo_entity_in_list = entity[entity_id][ENT_PREV_PROCESS_ENT];
-						// And stop us traipsing through the list...
-						next_entity_id = UNSET;
-					}
-					else
-					{
-						// It's in the thick of it, man! So we cross link the buggers.
-						entity[next_entity_id][ENT_PREV_PROCESS_ENT] = previous_entity_id;
-						entity[previous_entity_id][ENT_NEXT_PROCESS_ENT] = next_entity_id;
-					}
-
+					entity[next_entity_id][ENT_PREV_PROCESS_ENT] = UNSET;
+					first_limbo_entity_in_list = next_entity_id;
 				}
-
-				// Then add the entity to the dead list...
-				SCRIPTING_add_to_dead_list (entity_id);
+			}
+			else
+			{
+				if (next_entity_id == UNSET)
+				{
+					entity[previous_entity_id][ENT_NEXT_PROCESS_ENT] = UNSET;
+					last_limbo_entity_in_list = previous_entity_id;
+				}
+				else
+				{
+					entity[next_entity_id][ENT_PREV_PROCESS_ENT] = previous_entity_id;
+					entity[previous_entity_id][ENT_NEXT_PROCESS_ENT] = next_entity_id;
+				}
 			}
 
-			entity_id = next_entity_id;
+			SCRIPTING_add_to_dead_list(entity_id);
 		}
-		while (entity_id != UNSET);
+
+		entity_id = next_entity_id;
 	}
 }
 
@@ -4110,6 +4127,31 @@ int SCRIPTING_get_int_value ( int entity_id , int line_number , int argument )
 	int data_value;
 	int data_bitmask;
 	int value;
+
+	// Validate script line and argument to avoid dereferencing invalid pointers
+	if ((line_number < 0) || (line_number >= script_line_count))
+	{
+		char msg[256];
+		snprintf(msg, sizeof(msg), "SCRIPTING_get_int_value: invalid line_number %d (entity %d). Returning 0.", line_number, entity_id);
+		MAIN_add_to_log(msg);
+		return 0;
+	}
+
+	if (scr[line_number].script_line_pointer == NULL)
+	{
+		char msg[256];
+		snprintf(msg, sizeof(msg), "SCRIPTING_get_int_value: NULL script_line_pointer for line %d (entity %d). Returning 0.", line_number, entity_id);
+		MAIN_add_to_log(msg);
+		return 0;
+	}
+
+	if ((argument < 0) || (argument >= scr[line_number].script_line_size))
+	{
+		char msg[256];
+		snprintf(msg, sizeof(msg), "SCRIPTING_get_int_value: invalid argument %d for line %d (entity %d). Returning 0.", argument, line_number, entity_id);
+		MAIN_add_to_log(msg);
+		return 0;
+	}
 
 	data_type = scr[line_number].script_line_pointer[argument].data_type;
 	data_value = scr[line_number].script_line_pointer[argument].data_value;

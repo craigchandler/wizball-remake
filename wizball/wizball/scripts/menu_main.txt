@@ -59,6 +59,8 @@
 
 	let option_y_co_ord = MAIN_MENU_OPTION_TOP_Y_CO_ORD
 
+	let selector_id = CONST_UNSET
+
 	spawn_entity main_menu_selector,0,0,process_next
 	let selector_id = last_child
 	let selector_id.BASE_Y = option_y_co_ord
@@ -122,34 +124,36 @@ start
 		END_IF
 	END_IF
 
-	IF (selector_id.option_has_been_selected = TRUE) then
-		switch selector_id.OPTION_NUMBER_HIGHLIGHTED
-			case 0
-				set_global_flag (game_mode_single_player,TRUE)
-				goto start_game
-			break
+	IF (selector_id != CONST_UNSET) then
+		IF (selector_id.option_has_been_selected = TRUE) then
+			switch selector_id.OPTION_NUMBER_HIGHLIGHTED
+				case 0
+					set_global_flag (game_mode_single_player,TRUE)
+					goto start_game
+				break
 
-			case 1
-				set_global_flag (game_mode_single_player,FALSE)
-				goto start_game
-			break
+				case 1
+					set_global_flag (game_mode_single_player,FALSE)
+					goto start_game
+				break
 
-			case 2
-				goto select_options
-			break
+				case 2
+					goto select_options
+				break
 
-			case 3
-				goto show_hiscores
-			break
+				case 3
+					goto show_hiscores
+				break
 
-			case 4
-				goto show_wiztips
-			break
+				case 4
+					goto show_wiztips
+				break
 
-			case 5
-				goto quit_game
-			break
-		end_switch
+				case 5
+					goto quit_game
+				break
+			end_switch
+		END_IF
 	END_IF
 
 end

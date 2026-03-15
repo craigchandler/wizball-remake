@@ -1543,7 +1543,7 @@ void INPUT_create_arbitrary_sized_sprite_series(int parent_bitmap, char *name_ba
 		std::string filename = "sprites/" + std::string(descriptor_file);
 		const char *prepended_filename = filename.c_str();
 
-		char *full_filename = MAIN_get_project_filename((char *)prepended_filename, false);
+		char *full_filename = MAIN_get_pack_filename((char *)prepended_filename);
 
 		FILE *file_pointer = FILE_open_read_case_fallback(full_filename);
 		if (file_pointer == NULL)
@@ -1647,12 +1647,14 @@ int INPUT_load_bitmap_SDL(const char *filename, SDL_Renderer *renderer)
 		}
 	}
 
-	std::string full_filename = "wizball/sprites/" + std::string(filename);
+	std::string full_filename = "sprites/" + std::string(filename);
 	const char *prepended_filename = full_filename.c_str();
+
+	char *project_filename = MAIN_get_pack_filename((char *)prepended_filename);
 
 	char lower_filename[TEXT_LINE_SIZE];
 
-	lowercase_last_path_components(prepended_filename, lower_filename, sizeof(lower_filename), 1);
+	lowercase_last_path_components(project_filename, lower_filename, sizeof(lower_filename), 1);
 
 	// Load the bitmap
 	SDL_Surface *surface = IMG_Load(lower_filename); // Use SDL_image for broader format support
