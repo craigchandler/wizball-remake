@@ -2,7 +2,12 @@
 set -euo pipefail
 
 WORKDIR="$(pwd)"
-RENDER_BACKEND="${WIZBALL_RENDER_BACKEND:-GLES2}"
+# For packaging we require the GLES2 renderer; force it here so
+# cross-builds always produce the GLES2-targeted binary.
+RENDER_BACKEND="GLES2"
+if [ "${WIZBALL_RENDER_BACKEND:-}" != "" ] && [ "${WIZBALL_RENDER_BACKEND}" != "GLES2" ]; then
+  echo "Warning: ignoring WIZBALL_RENDER_BACKEND='${WIZBALL_RENDER_BACKEND}', forcing GLES2 for packaging."
+fi
 
 echo "Pulling builder image..."
 docker compose pull builder
