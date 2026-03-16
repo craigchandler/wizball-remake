@@ -39,7 +39,7 @@
 
 #ifdef ALLEGRO_WINDOWS
 #include <io.h>
-#include <sys\stat.h>
+#include <sys/stat.h>
 #endif
 
 #include <ctype.h>

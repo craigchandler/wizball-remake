@@ -383,11 +383,11 @@ char *FILE_open_dir(char *dirname, char *extension, bool capitalise)
 {
 	if (strcmp(dirname, "") != 0)
 	{
-		snprintf(, sizeof(), "%s\\*%s", dirname, extension);
+		snprintf(caCurrentDir, sizeof(caCurrentDir), "%s\\*%s", dirname, extension);
 	}
 	else
 	{
-		snprintf(, sizeof(), "*%s", extension);
+		snprintf(caCurrentDir, sizeof(caCurrentDir), "*%s", extension);
 	}
 
 	hFiles = _findfirst(caCurrentDir, &finder);

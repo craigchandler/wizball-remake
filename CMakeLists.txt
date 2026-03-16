@@ -77,11 +77,16 @@ if(WIN32)
   find_path(SDL2_INCLUDE_DIR  NAMES SDL.h PATH_SUFFIXES SDL2 REQUIRED)
   target_include_directories(wizball PRIVATE ${SDL2_INCLUDE_DIR})
   target_link_libraries(wizball PRIVATE
-    ${SDL2_LIB}
+    mingw32
     $<$<BOOL:${SDL2_MAIN_LIB}>:${SDL2_MAIN_LIB}>
+    ${SDL2_LIB}
     ${SDL2_MIXER_LIB}
     ${SDL2_IMAGE_LIB}
   )
+  if(MINGW)
+    # Statically link libgcc and libstdc++ to avoid distributing their DLLs
+    target_link_options(wizball PRIVATE "-static-libgcc" "-static-libstdc++")
+  endif()
 else()
   find_package(PkgConfig REQUIRED)
   pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
