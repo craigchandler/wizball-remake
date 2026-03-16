@@ -1759,10 +1759,6 @@ static bool PLATFORM_RENDERER_gles2_build_atlas(void)
 	platform_renderer_gles2_gl_last_tex = 0;
 
 	free(atlas_pixels);
-	fprintf(stderr, "[GLES2-ATLAS] Built: %d textures packed into %dx%d GL tex %u\n",
-					packed_count,
-					PLATFORM_RENDERER_GEOM_ATLAS_WIDTH, PLATFORM_RENDERER_GEOM_ATLAS_HEIGHT,
-					platform_renderer_gles2_atlas_texture);
 	return true;
 }
 

@@ -82,9 +82,21 @@ target_link_libraries(wizball PRIVATE
 )
 
 if(WIZBALL_RENDER_BACKEND STREQUAL "GLES2")
-  find_library(WIZBALL_GLES2_LIB NAMES GLESv2 OpenGLESv2 REQUIRED)
+  # Prefer pkg-config (respects cross-compilation sysroot via PKG_CONFIG_EXECUTABLE).
+  # Fall back to find_library for environments that lack a .pc file (e.g. PortMaster sysroot).
+  pkg_check_modules(GLES2 glesv2)
+  if(GLES2_FOUND)
+    target_link_libraries(wizball PRIVATE ${GLES2_LIBRARIES})
+    target_include_directories(wizball PRIVATE ${GLES2_INCLUDE_DIRS})
+  else()
+    find_library(WIZBALL_GLES2_LIB
+      NAMES GLESv2 OpenGLESv2
+      HINTS "${CMAKE_SYSROOT}/usr/lib"
+            "${CMAKE_FIND_ROOT_PATH}/usr/lib"
+      REQUIRED)
+    target_link_libraries(wizball PRIVATE ${WIZBALL_GLES2_LIB})
+  endif()
   target_compile_definitions(wizball PRIVATE WIZBALL_RENDER_BACKEND_GLES2=1)
-  target_link_libraries(wizball PRIVATE ${WIZBALL_GLES2_LIB})
 elseif(NOT WIZBALL_RENDER_BACKEND STREQUAL "SDL")
   message(FATAL_ERROR "Unsupported WIZBALL_RENDER_BACKEND='${WIZBALL_RENDER_BACKEND}'. Expected SDL or GLES2.")
 endif()
@@ -150,16 +162,17 @@ install(TARGETS wizball
 )
 
 # Launch script -> staging/  (ports root level)
-install(FILES "${CMAKE_SOURCE_DIR}/wizball/WizBall.sh"
+install(FILES "${CMAKE_SOURCE_DIR}/portmaster/WizBall.sh"
   DESTINATION "."
   PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE
               GROUP_READ GROUP_EXECUTE
               WORLD_READ WORLD_EXECUTE
 )
 
-# port.json -> staging/wizball/
-install(FILES "${CMAKE_SOURCE_DIR}/wizball/port.json"
+# portmaster -> staging/wizball/
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/portmaster/"
   DESTINATION "${WIZBALL_PORTNAME}"
+  PATTERN "WizBall.sh"   EXCLUDE
 )
 
 # Game data -> staging/wizball/wizball/
@@ -171,6 +184,11 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/wizball/wizball/"
   PATTERN "*.c"   EXCLUDE
   PATTERN "*.h"   EXCLUDE
   PATTERN "*.hpp" EXCLUDE
+  PATTERN "datatables/*" EXCLUDE
+  PATTERN "scripts/*"    EXCLUDE
+  PATTERN "tilemaps/*"   EXCLUDE
+  PATTERN "textfiles/*"  EXCLUDE
+  PATTERN "tilesets/*"   EXCLUDE
   PATTERN "gfx.dat"      EXCLUDE
   PATTERN "stream.dat"   EXCLUDE
   PATTERN "sfx.dat"      EXCLUDE

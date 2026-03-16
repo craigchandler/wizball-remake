@@ -345,7 +345,9 @@ void SOUND_setup(void)
 		sdl_audio_initialized_here = true;
 	}
 
-	if (Mix_OpenAudio(44100, AUDIO_S16SYS, 2, 1024) != 0)
+	// 4096-sample buffer (~93ms @ 44100 Hz) prevents ALSA underruns on low-power
+	// ARM devices (Anbernic etc.) while remaining imperceptible as audio latency.
+	if (Mix_OpenAudio(44100, AUDIO_S16SYS, 2, 4096) != 0)
 	{
 		snprintf(line, sizeof(line), "SDL_mixer open failed: %s", Mix_GetError());
 		SOUND_log(line);

@@ -20,3 +20,15 @@ services:
     depends_on:
       - qemu
     restart: "no"
+
+  builder-armhf:
+    build:
+      context: .
+      dockerfile: Dockerfile.armhf
+    volumes:
+      - ./:/workspace
+    working_dir: /workspace
+    network_mode: "host"
+    stdin_open: true
+    tty: true
+    restart: "no"

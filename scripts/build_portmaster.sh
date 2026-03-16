@@ -9,38 +9,55 @@ if [ "${WIZBALL_RENDER_BACKEND:-}" != "" ] && [ "${WIZBALL_RENDER_BACKEND}" != "
   echo "Warning: ignoring WIZBALL_RENDER_BACKEND='${WIZBALL_RENDER_BACKEND}', forcing GLES2 for packaging."
 fi
 
+ARCH="aarch64"
+BUILD_DIR="build-aarch64"
+COMPOSE_SERVICE="builder"
+
+for arg in "$@"; do
+  case "$arg" in
+    --armhf)
+      ARCH="armhf"
+      BUILD_DIR="build-armhf"
+      COMPOSE_SERVICE="builder-armhf"
+      ;;
+    --aarch64) ;; # default, no-op
+    *) echo "Unknown argument: $arg"; exit 1 ;;
+  esac
+done
+
+echo "Building for arch: $ARCH (build dir: $BUILD_DIR, service: $COMPOSE_SERVICE)"
+
 echo "Pulling builder image..."
-docker compose pull builder
+if [ "$COMPOSE_SERVICE" = "builder-armhf" ]; then
+  docker compose build "$COMPOSE_SERVICE"
+else
+  docker compose pull "$COMPOSE_SERVICE"
+fi
 
 echo "Starting qemu service..."
 docker compose up -d qemu
 
-echo "Running builder container to build aarch64..."
-docker compose run --rm builder bash -lc '
+echo "Running builder container to build ${ARCH}..."
+docker compose run --rm "$COMPOSE_SERVICE" bash -lc '
   set -euo pipefail
   RENDER_BACKEND='"$RENDER_BACKEND"'
-  if command -v apt >/dev/null 2>&1; then
+  BUILD_DIR='"$BUILD_DIR"'
+  ARCH='"$ARCH"'
+  if command -v apt >/dev/null 2>&1 && [ "$ARCH" = "aarch64" ]; then
     apt update
     apt install -y ninja-build || true
   fi
   cd /workspace
-  cmake -S . -B build-aarch64 -G Ninja -DCMAKE_BUILD_TYPE=Release -DWIZBALL_RENDER_BACKEND=${RENDER_BACKEND}
-  cmake --build build-aarch64 -j1
-  cmake --install build-aarch64 --prefix /workspace/staging
+  TOOLCHAIN_ARG=""
+  if [ "$ARCH" = "armhf" ]; then
+    TOOLCHAIN_ARG="-DCMAKE_TOOLCHAIN_FILE=/toolchain-armhf.cmake"
+  fi
+  cmake -S . -B "${BUILD_DIR}" -G Ninja -DCMAKE_BUILD_TYPE=Release -DWIZBALL_RENDER_BACKEND=${RENDER_BACKEND} ${TOOLCHAIN_ARG}
+  cmake --build "${BUILD_DIR}" -j$(nproc)
+  cmake --install "${BUILD_DIR}" --prefix /workspace/staging
 '
 
 echo "Packaging staging into wizball/WizBall.zip..."
-rm -rf "$WORKDIR/wizball"
-mkdir -p "$WORKDIR/wizball/wizball"
-
-# Copy launcher and port metadata
-cp -v portmaster/WizBall.sh "$WORKDIR/wizball/WizBall.sh" || true
-cp -v portmaster/port.json "$WORKDIR/wizball/wizball.port.json" || true
-
-# Copy built files from staging (if present)
-if [ -d "$WORKDIR/staging/wizball" ]; then
-  cp -rv "$WORKDIR/staging/wizball/"* "$WORKDIR/wizball/wizball/" || true
-fi
 
 zip -r "$WORKDIR/WizBall.zip" "$WORKDIR/wizball"
 
