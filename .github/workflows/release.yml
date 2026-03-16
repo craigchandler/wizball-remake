@@ -117,7 +117,7 @@ jobs:
       - name: Package
         run: |
           mkdir -p dist/wizball-linux-x86_64/wizball
-          cp build-linux/wizball dist/wizball-linux-x86_64/
+          cp build-linux/wizball dist/wizball-linux-x86_64/wizball.x86_64
           cp -r generated-data/. dist/wizball-linux-x86_64/wizball/
           tar -czf wizball-linux-x86_64-${{ github.ref_name }}.tar.gz -C dist wizball-linux-x86_64
 
