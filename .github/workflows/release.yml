@@ -361,6 +361,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
+          pattern: '{wizball-linux-x86_64,wizball-windows-x86_64,WizBall-portmaster}'
           merge-multiple: true
           path: artifacts
 
