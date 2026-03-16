@@ -157,6 +157,8 @@ install(FILES "${CMAKE_SOURCE_DIR}/wizball/port.json"
 )
 
 # Game data -> staging/wizball/wizball/
+# Generated .dat artifacts are rebuilt explicitly via the wizball binary's
+# command-line options and are not staged by default.
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/wizball/wizball/"
   DESTINATION "${WIZBALL_PORTNAME}/wizball"
   PATTERN "*.cpp" EXCLUDE
@@ -178,8 +180,11 @@ else()
   set_target_properties(wizball PROPERTIES OUTPUT_NAME "wizball")
 endif()
 # ---------------------------
-# Existing custom targets (optional)
+# Optional binary-driven helpers
 # ---------------------------
+# These wrap the wizball executable's command-line options for running the game
+# and rebuilding generated script/tile data. They are not a separate packfile
+# build workflow.
 add_custom_target(run_wizball
   COMMAND $<TARGET_FILE:wizball>
   DEPENDS wizball

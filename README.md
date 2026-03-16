@@ -1,6 +1,6 @@
 # WizBall (Retrospec remake source archive)
 
-A preserved source release of the 2007 *Wizball* PC/Mac remake by Graham Goring and collaborators, now updated to run through an **SDL2-based runtime** for modern Linux and eventually PortMaster handhelds.
+A preserved source release of the 2007 *Wizball* PC/Mac remake by Graham Goring and collaborators, now updated to build and run on modern Linux and to package cleanly for PortMaster handhelds.
 
 ## Why this repository exists
 
@@ -15,7 +15,12 @@ This repository is that recovered codebase.
 
 ## Current runtime status
 
-The active branch now uses **SDL2** for the modern Linux/PortMaster build path. It no longer uses the old **Allegro + AllegroGL + desktop OpenGL** runtime as the main supported build.
+The active branch uses SDL2 for platform, input, audio, and image loading, and supports two renderer targets:
+
+- `SDL` for the standard desktop build
+- `GLES2` for the current PortMaster packaging path and local handheld-style testing
+
+The old Allegro + AllegroGL + desktop OpenGL runtime is no longer the supported path on this branch.
 
 If you want the earlier Linux restoration branch that still used the old Allegro/OpenGL path, use:
 
@@ -97,11 +102,11 @@ The recovered codebase was not originally in a state that built and ran cleanly 
 - Safety hardening: added guard rails around collision/map/tile-set handling to avoid crashes from malformed or missing data during bring-up.
 - Packaging workflow: moved the active Linux/PortMaster path to direct on-disk assets and stopped tracking generated runtime artifacts in git.
 
-## Build (Linux)
+## Build
 
 ### Dependencies
 
-The current build is SDL2-based and uses `pkg-config` for dependency discovery.
+The project uses `pkg-config` for dependency discovery.
 
 - C++ compiler with C++11 support
 - CMake 3.16+
@@ -109,21 +114,38 @@ The current build is SDL2-based and uses `pkg-config` for dependency discovery.
 - SDL2
 - SDL2_mixer
 - SDL2_image
+- OpenGLESv2 or GLESv2 development library if you want a `GLES2` build
 
-### Build
+### Linux desktop build
 
-Default desktop build:
+Recommended development build:
 
 ```bash
-cmake -S . -B build -DWIZBALL_PORTMASTER=OFF
+cmake -S . -B build -DWIZBALL_PORTMASTER=OFF -DWIZBALL_RENDER_BACKEND=SDL
 cmake --build build -j
 ```
 
 Release build (recommended for playtesting):
 
 ```bash
-cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release -DWIZBALL_PORTMASTER=OFF
+cmake -S . -B build_release -DCMAKE_BUILD_TYPE=Release -DWIZBALL_PORTMASTER=OFF -DWIZBALL_RENDER_BACKEND=SDL
 cmake --build build_release -j
+```
+
+AddressSanitizer build:
+
+```bash
+cmake -S . -B build_asan -DWIZBALL_PORTMASTER=OFF -DWIZBALL_ENABLE_ASAN=ON -DWIZBALL_RENDER_BACKEND=SDL
+cmake --build build_asan -j
+```
+
+### Local GLES2 build
+
+If you want to test the GLES2 renderer locally on Linux:
+
+```bash
+cmake -S . -B build-gles2-local -DCMAKE_BUILD_TYPE=Release -DWIZBALL_PORTMASTER=OFF -DWIZBALL_RENDER_BACKEND=GLES2
+cmake --build build-gles2-local -j
 ```
 
 ### Run
@@ -135,15 +157,94 @@ cd wizball
 ../build/wizball
 ```
 
+Release build:
+
+```bash
+cd wizball
+../build_release/wizball
+```
+
+Local GLES2 build:
+
+```bash
+cd wizball
+../build-gles2-local/wizball
+```
+
 Useful flags:
 
 - `-debug` enables extra logging.
+- `-dat` enables the compiled data mode used by the PortMaster launcher.
+- `-rebuildscripts wizball` rebuilds the compiled script output.
+- `-rebuildtilesets wizball` rebuilds `tilesets.dat` from the source tileset files.
+- `-rebuildtilemaps wizball` rebuilds `tilemaps.dat` from the source tilemap files.
 
-If you changed script/global-parameter content and need to regenerate the compiled script output:
+### Rebuild generated data
+
+Generated `.dat` artifacts are rebuilt by running the `wizball` binary with its rebuild command-line options. They are no longer produced through a separate Allegro packfile workflow.
+
+Direct commands from the `wizball/` data directory:
+
+```bash
+cd wizball
+../build/wizball -rebuildscripts wizball
+../build/wizball -rebuildtilesets wizball
+../build/wizball -rebuildtilemaps wizball
+```
+
+If you prefer, CMake exposes thin wrapper targets for the same binary commands.
+
+If you changed scripts or text/global parameter content:
 
 ```bash
 cmake --build build --target rebuild_wizball_scripts
 ```
+
+If you changed tileset source files:
+
+```bash
+cmake --build build --target rebuild_wizball_tilesets
+```
+
+If you changed tilemap source files:
+
+```bash
+cmake --build build --target rebuild_wizball_tilemaps
+```
+
+### PortMaster package build
+
+The PortMaster packaging path currently builds a GLES2-targeted binary inside the builder container and packages the output into a distributable zip.
+
+Prerequisites:
+
+- Docker
+- Docker Compose
+
+Build the package from the repository root:
+
+```bash
+./scripts/build_portmaster.sh
+```
+
+That script will:
+
+- pull the `ghcr.io/monkeyx-net/portmaster-build-templates/portmaster-builder:aarch64-latest` image through `docker compose`
+- start the `qemu-user-static` helper
+- configure and build `build-aarch64` with `-DWIZBALL_RENDER_BACKEND=GLES2`
+- install into `staging/`
+- assemble the final PortMaster directory in `wizball/`
+- write the distributable archive to `WizBall.zip`
+
+If you just want an interactive builder shell instead of a full package build:
+
+```bash
+./setup_docker.sh
+```
+
+The PortMaster launcher and package metadata live in `portmaster/`, while the CMake install step stages the game data and binary into the layout expected by the packaging script.
+
+The staging install excludes generated `.dat` files, so if you need fresh compiled data you should rebuild it explicitly with the binary commands above before packaging or local `-dat` testing.
 
 ## Legal and licensing notes
 
