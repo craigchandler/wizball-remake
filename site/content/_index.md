@@ -13,6 +13,7 @@ This site covers the game itself, its remake history, and the later source recov
 - [Build from source]({{< relref "/build" >}})
 - [About the project]({{< relref "/about" >}})
 - [GitHub](https://github.com/craigchandler/wizball-remake)
+- [Wizball](https://en.wikipedia.org/wiki/Wizball)
 - [Original Retrospec page](https://retrospec.sgn.net/info.htm?id=wizball&t=g)
 - [Wayback archive](https://web.archive.org/web/*/https://retrospec.sgn.net/info.htm?id=wizball&t=g)
 - [Devlog]({{< relref "/posts" >}})

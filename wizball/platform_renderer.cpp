@@ -26,6 +26,10 @@
  * Supports up to 85 full-strip quads (85 * 24 strips * 4 verts = 8160 < 8192). */
 #define PLATFORM_RENDERER_MULTITEX_BATCH_MAX_VERTS 8192
 #define PLATFORM_RENDERER_MULTITEX_BATCH_MAX_INDICES 12288
+#else /* !WIZBALL_RENDER_BACKEND_GLES2 */
+/* SDL path: strip_count is always 1, so max is quad_count * verts/indices per quad. */
+#define PLATFORM_RENDERER_PERSP_SCRATCH_MAX_VERTS 1024
+#define PLATFORM_RENDERER_PERSP_SCRATCH_MAX_INDICES 1536
 #endif
 
 static void PLATFORM_RENDERER_apply_sdl_texture_blend_mode(SDL_Texture *texture);
@@ -334,6 +338,16 @@ static GLfloat platform_renderer_gles2_multitex_last_affine_r0[3] = {1e30f, 1e30
 static GLfloat platform_renderer_gles2_multitex_last_affine_r1[3] = {1e30f, 1e30f, 1e30f};
 static GLuint platform_renderer_gles2_multitex_last_tex0 = 0;
 static GLuint platform_renderer_gles2_multitex_last_tex1 = 0;
+#endif
+#if !defined(WIZBALL_RENDER_BACKEND_GLES2)
+static SDL_Vertex s_persp_scratch_verts[PLATFORM_RENDERER_PERSP_SCRATCH_MAX_VERTS];
+static int s_persp_scratch_indices[PLATFORM_RENDERER_PERSP_SCRATCH_MAX_INDICES];
+static int PLATFORM_RENDERER_get_perspective_strip_count(float q, bool gles_optimized)
+{
+	(void)q;
+	(void)gles_optimized;
+	return 1;
+}
 #endif
 static bool platform_renderer_sdl_stub_show_checked_env = false;
 static bool platform_renderer_sdl_stub_show_enabled = false;
@@ -10132,6 +10146,8 @@ static bool PLATFORM_RENDERER_draw_bound_perspective_textured_quad_batch_immedia
 	{
 		return false;
 	}
+#else
+	const bool gles_ready = false;
 #endif
 	if (!PLATFORM_RENDERER_is_sdl2_stub_ready())
 	{
@@ -10337,7 +10353,11 @@ static bool PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batc
 	int base_index = 0;
 	int quad_index;
 	const float perspective_eps = 0.0005f;
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
 	const bool gles_ready = PLATFORM_RENDERER_gles2_is_ready();
+#else
+	const bool gles_ready = false;
+#endif
 
 	if ((platform_renderer_present_height <= 0) || (quads == NULL) || (quad_count <= 0))
 	{
@@ -10353,6 +10373,7 @@ static bool PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batc
 	{
 		return false;
 	}
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
 	if (gles_ready)
 	{
 		if (!PLATFORM_RENDERER_build_gles2_texture_from_entry(entry))
@@ -10360,7 +10381,9 @@ static bool PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batc
 			return false;
 		}
 	}
-	else if (!PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
+	else
+#endif
+	if (!PLATFORM_RENDERER_build_sdl_texture_from_entry(entry))
 	{
 		return false;
 	}
@@ -10544,6 +10567,7 @@ static bool PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batc
 		}
 	}
 
+#if defined(WIZBALL_RENDER_BACKEND_GLES2)
 	if (PLATFORM_RENDERER_gles2_is_ready())
 	{
 		PLATFORM_RENDERER_gles2_flush_textured_batch();
@@ -10561,6 +10585,12 @@ static bool PLATFORM_RENDERER_draw_bound_coloured_perspective_textured_quad_batc
 										 ? 1
 										 : 0;
 	}
+#else
+	quad_index = PLATFORM_RENDERER_try_sdl_geometry_textured(
+									 entry->sdl_texture, vertices, total_vertices, indices, total_indices, PLATFORM_RENDERER_GEOM_SRC_COLOURED_PERSPECTIVE)
+									 ? 1
+									 : 0;
+#endif
 	return quad_index != 0;
 }
 
