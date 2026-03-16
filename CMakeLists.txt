@@ -101,6 +101,12 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   # This matches the ALLEGRO_LINUX path in new_editor.cpp which skips tilesets.dat.
   target_compile_definitions(wizball PRIVATE ALLEGRO_LINUX)
 
+  # Define RELEASE_MODE for Release builds: enables dat-file loading by default
+  # and disables debug scripting paths / in-game debug keys.
+  if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    target_compile_definitions(wizball PRIVATE RELEASE_MODE)
+  endif()
+
   if(WIZBALL_ENABLE_ASAN)
     target_compile_options(wizball PRIVATE -fsanitize=address -fno-omit-frame-pointer -g)
     target_link_options(wizball PRIVATE -fsanitize=address)

@@ -1371,7 +1371,7 @@ void INPUT_create_sprite_space(int parent_bitmap, int total_sprites)
 
 	if (!OUTPUT_is_valid_bitmap_index(parent_bitmap))
 	{
-			snprintf(error, sizeof(error), "Invalid parent bitmap index %i while creating sprite space.", parent_bitmap);
+		snprintf(error, sizeof(error), "Invalid parent bitmap index %i while creating sprite space.", parent_bitmap);
 		OUTPUT_fatal_exit(error);
 	}
 
@@ -1386,7 +1386,7 @@ void INPUT_create_sprite_space(int parent_bitmap, int total_sprites)
 
 	if (ACTIVE_BMPS[parent_bitmap].sprite_list == NULL)
 	{
-			snprintf(error, sizeof(error), "Out of memory while allocating %i sprites for bitmap %i.", total_sprites, parent_bitmap);
+		snprintf(error, sizeof(error), "Out of memory while allocating %i sprites for bitmap %i.", total_sprites, parent_bitmap);
 		OUTPUT_fatal_exit(error);
 	}
 }
@@ -1402,7 +1402,6 @@ void INPUT_create_equal_sized_sprite_series(int parent_bitmap, char *name_base, 
 	int total_sprites;
 
 	total_sprites = (ACTIVE_BMPS[parent_bitmap].height / sprite_height) * (ACTIVE_BMPS[parent_bitmap].width / sprite_width);
-	fprintf(stderr, "Creating %i sprites for bitmap %i.\n", total_sprites, parent_bitmap);
 	INPUT_create_sprite_space(parent_bitmap, total_sprites);
 
 	counter = 0;
@@ -1411,7 +1410,6 @@ void INPUT_create_equal_sized_sprite_series(int parent_bitmap, char *name_base, 
 	{
 		for (x = 0; x < (ACTIVE_BMPS[parent_bitmap].width - (sprite_width - 1)); x += sprite_width)
 		{
-			snprintf(full_name, sizeof(full_name), "%s%i", name_base, counter);
 			INPUT_create_sprite(parent_bitmap, counter, full_name, x, y, sprite_width, sprite_height, pivot_x, pivot_y);
 			counter++;
 		}
@@ -1677,18 +1675,6 @@ int INPUT_load_bitmap_SDL(const char *filename, SDL_Renderer *renderer)
 
 	sdl_bmps[total_sdl_bitmaps_loaded].texture_handle = PLATFORM_RENDERER_create_masked_texture(surface);
 	PLATFORM_RENDERER_set_texture_debug_name(sdl_bmps[total_sdl_bitmaps_loaded].texture_handle, lower_filename);
-	if ((sdl_bmps[total_sdl_bitmaps_loaded].texture_handle == 0) || (total_sdl_bitmaps_loaded < 10))
-	{
-		fprintf(
-				stderr,
-				"[SDL2-TEX-LOAD] bmp=%d handle=%u size=%dx%d software=%d dat=%d\n",
-				total_sdl_bitmaps_loaded,
-				sdl_bmps[total_sdl_bitmaps_loaded].texture_handle,
-				sdl_bmps[total_sdl_bitmaps_loaded].width,
-				sdl_bmps[total_sdl_bitmaps_loaded].height,
-				software_mode_active ? 1 : 0,
-				load_from_dat_file ? 1 : 0);
-	}
 
 	/* Surface pixel data has been copied into sdl_rgba_pixels by create_masked_texture; free it now. */
 	SDL_FreeSurface(surface);

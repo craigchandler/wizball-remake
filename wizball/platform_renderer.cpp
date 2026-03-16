@@ -3972,8 +3972,6 @@ static bool PLATFORM_RENDERER_build_sdl_texture_from_entry(platform_renderer_tex
 		return entry->sdl_texture != NULL;
 	}
 
-	fprintf(stderr, "Building SDL texture for legacy ID %u (size %dx%d, Gotpixels: %d)\n", entry->legacy_texture_id, entry->width, entry->height, (entry->sdl_rgba_pixels == NULL));
-
 	entry->sdl_texture = SDL_CreateTexture(
 			platform_renderer_sdl_renderer,
 			SDL_PIXELFORMAT_RGBA32,
@@ -11111,21 +11109,6 @@ void PLATFORM_RENDERER_draw_sdl_window_sprite(unsigned int texture_handle, int r
 																											 PLATFORM_RENDERER_get_sdl_texture_alpha_mod(PLATFORM_RENDERER_clamp_sdl_colour_mod(a)));
 			copied = PLATFORM_RENDERER_try_sdl_geometry_textured(
 					draw_texture, vertices, 4, indices, 6, PLATFORM_RENDERER_GEOM_SRC_SDL_CUSTOM);
-			{
-				static int ws_geom_log = 0;
-				if (copied && (ws_geom_log < 30))
-				{
-					ws_geom_log++;
-					fprintf(stderr,
-									"[WIN-SPRITE-GEOM %d] handle=%u entity=(%.0f,%.0f) "
-									"dst=(%d,%d %dx%d) src=(%d,%d %dx%d) rot=%.1f\n",
-									ws_geom_log, texture_handle,
-									entity_x, entity_y,
-									dst_rect.x, dst_rect.y, dst_rect.w, dst_rect.h,
-									src_rect.x, src_rect.y, src_rect.w, src_rect.h,
-									sprite_rotation_degrees);
-				}
-			}
 		}
 
 		if (!copied)
