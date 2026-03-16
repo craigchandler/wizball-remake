@@ -1,0 +1,53 @@
+FROM ubuntu:22.04
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    gcc-mingw-w64-x86-64 \
+    g++-mingw-w64-x86-64 \
+    cmake \
+    ninja-build \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# SDL2 Windows (MinGW) dev library versions to bundle
+ARG SDL2_VER=2.28.5
+ARG SDL2_MIXER_VER=2.6.3
+ARG SDL2_IMAGE_VER=2.6.3
+
+# Download and extract the official SDL2 MinGW dev archives into the cross-compile sysroot.
+# The archives ship include/, lib/, and bin/ under x86_64-w64-mingw32/.
+RUN set -e \
+ && cd /tmp \
+ && curl -fL "https://github.com/libsdl-org/SDL/releases/download/release-${SDL2_VER}/SDL2-devel-${SDL2_VER}-mingw.tar.gz" \
+      -o sdl2.tar.gz \
+ && tar -xf sdl2.tar.gz \
+ && cp -r SDL2-${SDL2_VER}/x86_64-w64-mingw32/. /usr/x86_64-w64-mingw32/ \
+ && rm -rf sdl2.tar.gz SDL2-${SDL2_VER} \
+ \
+ && curl -fL "https://github.com/libsdl-org/SDL_mixer/releases/download/release-${SDL2_MIXER_VER}/SDL2_mixer-devel-${SDL2_MIXER_VER}-mingw.tar.gz" \
+      -o sdl2_mixer.tar.gz \
+ && tar -xf sdl2_mixer.tar.gz \
+ && cp -r SDL2_mixer-${SDL2_MIXER_VER}/x86_64-w64-mingw32/. /usr/x86_64-w64-mingw32/ \
+ && rm -rf sdl2_mixer.tar.gz SDL2_mixer-${SDL2_MIXER_VER} \
+ \
+ && curl -fL "https://github.com/libsdl-org/SDL_image/releases/download/release-${SDL2_IMAGE_VER}/SDL2_image-devel-${SDL2_IMAGE_VER}-mingw.tar.gz" \
+      -o sdl2_image.tar.gz \
+ && tar -xf sdl2_image.tar.gz \
+ && cp -r SDL2_image-${SDL2_IMAGE_VER}/x86_64-w64-mingw32/. /usr/x86_64-w64-mingw32/ \
+ && rm -rf sdl2_image.tar.gz SDL2_image-${SDL2_IMAGE_VER}
+
+# CMake toolchain for x86_64 MinGW cross-compile
+RUN printf '%s\n' \
+  'set(CMAKE_SYSTEM_NAME Windows)' \
+  'set(CMAKE_SYSTEM_PROCESSOR x86_64)' \
+  '' \
+  'set(CMAKE_C_COMPILER   x86_64-w64-mingw32-gcc)' \
+  'set(CMAKE_CXX_COMPILER x86_64-w64-mingw32-g++)' \
+  'set(CMAKE_RC_COMPILER  x86_64-w64-mingw32-windres)' \
+  '' \
+  'set(CMAKE_FIND_ROOT_PATH /usr/x86_64-w64-mingw32)' \
+  'set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)' \
+  'set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)' \
+  'set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)' \
+  'set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)' \
+  > /toolchain-windows.cmake

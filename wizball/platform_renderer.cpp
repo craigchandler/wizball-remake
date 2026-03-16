@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <SDL.h>
+#include <SDL_image.h>
 #if defined(WIZBALL_RENDER_BACKEND_GLES2)
 #include <SDL_opengles2.h>
 #endif
@@ -11677,6 +11678,15 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 			platform_renderer_started_sdl_video = false;
 		}
 		return false;
+	}
+
+	{
+		SDL_Surface *icon = IMG_Load("wizball/icon.png");
+		if (icon != NULL)
+		{
+			SDL_SetWindowIcon(platform_renderer_sdl_window, icon);
+			SDL_FreeSurface(icon);
+		}
 	}
 
 	/* Grab keyboard/input focus immediately — required on embedded devices

@@ -11,8 +11,7 @@
 #include "fortify.h"
 
 #ifdef ALLEGRO_WINDOWS
-#include <winalleg.h>
-#include "windows.h"
+#include <windows.h>
 #else
 #include <stdlib.h>
 #include <sys/types.h>

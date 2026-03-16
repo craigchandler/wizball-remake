@@ -32,3 +32,12 @@ services:
     stdin_open: true
     tty: true
     restart: "no"
+
+  builder-windows:
+    build:
+      context: .
+      dockerfile: Dockerfile.windows
+    volumes:
+      - ./:/workspace
+    working_dir: /workspace
+    restart: "no"

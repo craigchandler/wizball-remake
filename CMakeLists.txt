@@ -66,20 +66,34 @@ target_include_directories(wizball PRIVATE
 )
 
 # ---------------------------
-# SDL2 deps (PortMaster-friendly via pkg-config)
+# SDL2 deps
 # ---------------------------
-find_package(PkgConfig REQUIRED)
-
-pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
-pkg_check_modules(SDL2_MIXER REQUIRED IMPORTED_TARGET SDL2_mixer)
-pkg_check_modules(SDL2_IMAGE REQUIRED IMPORTED_TARGET SDL2_image)
-
-target_link_libraries(wizball PRIVATE
-  PkgConfig::SDL2
-  PkgConfig::SDL2_MIXER
-  PkgConfig::SDL2_IMAGE
-  m
-)
+if(WIN32)
+  # MinGW or MSVC: use CMake find commands (CMAKE_FIND_ROOT_PATH set by toolchain).
+  find_library(SDL2_LIB       NAMES SDL2       REQUIRED)
+  find_library(SDL2_MAIN_LIB  NAMES SDL2main)
+  find_library(SDL2_MIXER_LIB NAMES SDL2_mixer REQUIRED)
+  find_library(SDL2_IMAGE_LIB NAMES SDL2_image REQUIRED)
+  find_path(SDL2_INCLUDE_DIR  NAMES SDL.h PATH_SUFFIXES SDL2 REQUIRED)
+  target_include_directories(wizball PRIVATE ${SDL2_INCLUDE_DIR})
+  target_link_libraries(wizball PRIVATE
+    ${SDL2_LIB}
+    $<$<BOOL:${SDL2_MAIN_LIB}>:${SDL2_MAIN_LIB}>
+    ${SDL2_MIXER_LIB}
+    ${SDL2_IMAGE_LIB}
+  )
+else()
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(SDL2 REQUIRED IMPORTED_TARGET sdl2)
+  pkg_check_modules(SDL2_MIXER REQUIRED IMPORTED_TARGET SDL2_mixer)
+  pkg_check_modules(SDL2_IMAGE REQUIRED IMPORTED_TARGET SDL2_image)
+  target_link_libraries(wizball PRIVATE
+    PkgConfig::SDL2
+    PkgConfig::SDL2_MIXER
+    PkgConfig::SDL2_IMAGE
+    m
+  )
+endif()
 
 if(WIZBALL_RENDER_BACKEND STREQUAL "GLES2")
   # Prefer pkg-config (respects cross-compilation sysroot via PKG_CONFIG_EXECUTABLE).
@@ -109,10 +123,6 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     -Wno-write-strings
     -Wno-noexcept-type
   )
-  # Use verbose (non-binary) tileset/tilemap loading on all SDL/Linux builds.
-  # This matches the ALLEGRO_LINUX path in new_editor.cpp which skips tilesets.dat.
-  target_compile_definitions(wizball PRIVATE ALLEGRO_LINUX)
-
   # Define RELEASE_MODE for Release builds: enables dat-file loading by default
   # and disables debug scripting paths / in-game debug keys.
   if(CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -123,6 +133,15 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(wizball PRIVATE -fsanitize=address -fno-omit-frame-pointer -g)
     target_link_options(wizball PRIVATE -fsanitize=address)
   endif()
+endif()
+
+# Platform defines: ALLEGRO_WINDOWS on Win32, ALLEGRO_LINUX everywhere else.
+if(WIN32)
+  target_compile_definitions(wizball PRIVATE ALLEGRO_WINDOWS)
+else()
+  # Use verbose (non-binary) tileset/tilemap loading; matches the ALLEGRO_LINUX path
+  # in new_editor.cpp which skips tilesets.dat.
+  target_compile_definitions(wizball PRIVATE ALLEGRO_LINUX)
 endif()
 
 # ---------------------------

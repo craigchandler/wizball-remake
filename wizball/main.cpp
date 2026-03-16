@@ -10,6 +10,9 @@
 #ifdef ALLEGRO_LINUX
 #include <execinfo.h>
 #endif
+#ifdef ALLEGRO_WINDOWS
+#include <windows.h>
+#endif
 
 #include "string_size_constants.h"
 #include "parser.h"
