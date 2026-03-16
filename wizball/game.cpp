@@ -59,6 +59,27 @@ void GAME_load_and_set_up_everything(void)
 	MAIN_add_to_log("\tOK!");
 	GAME_log_stage_time("SCRIPTING_load_script", stage_start_ms);
 
+	// Start audio setup and background stream decoding as early as possible so
+	// MP3 decode overlaps with graphics loading (the dominant remaining cost).
+	MAIN_add_to_log("Setting up sound...");
+	stage_start_ms = PLATFORM_get_wall_time_ms();
+	SOUND_setup();
+	MAIN_add_to_log("\tOK!");
+	GAME_log_stage_time("SOUND_setup", stage_start_ms);
+
+	MAIN_add_to_log("Loading sound effects...");
+	stage_start_ms = PLATFORM_get_wall_time_ms();
+	SOUND_load_sound_effects();
+	MAIN_add_to_log("\tOK!");
+	GAME_log_stage_time("SOUND_load_sound_effects", stage_start_ms);
+
+	MAIN_add_to_log("Opening sound streams...");
+	stage_start_ms = PLATFORM_get_wall_time_ms();
+	SOUND_open_sound_streams();
+	// Launches background MP3 decode thread; now runs in parallel with graphics load.
+	MAIN_add_to_log("\tOK!");
+	GAME_log_stage_time("SOUND_open_sound_streams", stage_start_ms);
+
 	if (parse_all_data)
 	{
 		MAIN_add_to_log("Loading text files...");
@@ -89,27 +110,7 @@ void GAME_load_and_set_up_everything(void)
 	stage_start_ms = PLATFORM_get_wall_time_ms();
 	MAIN_draw_loading_picture("", 0);
 	GAME_log_stage_time("MAIN_draw_loading_picture", stage_start_ms);
-
-	MAIN_add_to_log("Setting up sound...");
-	stage_start_ms = PLATFORM_get_wall_time_ms();
-	SOUND_setup();
-	// Sets up the sound stuff...
-	MAIN_add_to_log("\tOK!");
-	GAME_log_stage_time("SOUND_setup", stage_start_ms);
-
-	MAIN_add_to_log("Loading sound effects...");
-	stage_start_ms = PLATFORM_get_wall_time_ms();
-	SOUND_load_sound_effects();
-	// Uses the above-loaded list to load all the sound effects.
-	MAIN_add_to_log("\tOK!");
-	GAME_log_stage_time("SOUND_load_sound_effects", stage_start_ms);
-
-	MAIN_add_to_log("Opening sound streams...");
-	stage_start_ms = PLATFORM_get_wall_time_ms();
-	SOUND_open_sound_streams();
-	// Uses the above-loaded list to load all the sound effects.
-	MAIN_add_to_log("\tOK!");
-	GAME_log_stage_time("SOUND_open_sound_streams", stage_start_ms);
+	MAIN_draw_loading_picture("", 30);
 
 	if (parse_all_data)
 	{
@@ -131,6 +132,7 @@ void GAME_load_and_set_up_everything(void)
 	MATH_setup_trig_tables(10000, 36000);
 	MAIN_add_to_log("\tOK!\n");
 	GAME_log_stage_time("MATH_setup_trig_tables", stage_start_ms);
+	MAIN_draw_loading_picture("", 50);
 
 	if (parse_all_data)
 	{
@@ -156,16 +158,19 @@ void GAME_load_and_set_up_everything(void)
 		GAME_log_stage_time("SCRIPTING_load_compiled_prefabs", stage_start_ms);
 #endif
 	}
+	MAIN_draw_loading_picture("", 65);
 
 	MAIN_add_to_log("Loading datatables...");
 	stage_start_ms = PLATFORM_get_wall_time_ms();
 	ARRAY_load_datatables();
 	MAIN_add_to_log("\tOK!\n");
 	GAME_log_stage_time("ARRAY_load_datatables", stage_start_ms);
+	MAIN_draw_loading_picture("", 80);
 
 	stage_start_ms = PLATFORM_get_wall_time_ms();
 	EDIT_setup(); // This does a LOAD of stuff, take a look inside, baby!
 	GAME_log_stage_time("EDIT_setup", stage_start_ms);
+	MAIN_draw_loading_picture("", 98);
 }
 
 void GAME_game(void)

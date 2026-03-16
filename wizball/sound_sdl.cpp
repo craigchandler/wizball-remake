@@ -17,6 +17,14 @@ static Mix_Chunk *sound_effects[MAX_SAMPLES];
 static Mix_Chunk *sound_streams[MAX_STREAMS];
 static int stream_channel_map[MAX_STREAMS];
 
+static SDL_Thread *s_stream_load_thread = NULL;
+static void SOUND_wait_for_streams_ready(void);
+
+typedef struct {
+	int count;
+	char *filenames; /* count * FULL_PROJECT_NAME_LENGTH bytes */
+} StreamLoadArgs;
+
 int persistant_channel_array[MAX_CHANNELS_WANTED];
 bool persistant_channel_array_active[MAX_CHANNELS_WANTED];
 int current_persistant_channels = 0;
@@ -382,6 +390,8 @@ void SOUND_shutdown(void)
 		return;
 	}
 
+	SOUND_wait_for_streams_ready();
+
 	GPL_list_extents("SOUND_FX", &list_start, &list_end);
 	counter = 0;
 	for (list_pointer = list_start; list_pointer < list_end; list_pointer++)
@@ -554,6 +564,8 @@ int SOUND_play_stream(int stream_number, int volume, int frequency, int pan, int
 		return UNSET;
 	}
 
+	SOUND_wait_for_streams_ready();
+
 	stream_sample = sound_streams[stream_number];
 	if (stream_sample == NULL)
 	{
@@ -600,20 +612,57 @@ void SOUND_stop_stream(int stream_number)
 	}
 }
 
+static int SOUND_stream_loader_thread(void *data)
+{
+	StreamLoadArgs *args = (StreamLoadArgs *)data;
+	int counter;
+	char line[MAX_LINE_SIZE];
+	int loaded = 0;
+	int failed = 0;
+
+	for (counter = 0; counter < args->count; counter++)
+	{
+		const char *path = args->filenames + counter * FULL_PROJECT_NAME_LENGTH;
+		sound_streams[counter] = SOUND_load_chunk_from_file(path);
+		if (sound_streams[counter] == NULL)
+		{
+			snprintf(line, sizeof(line), "SDL stream load failed: %.200s (err=%s)", path, Mix_GetError());
+			SOUND_log(line);
+			failed++;
+		}
+		else
+		{
+			loaded++;
+		}
+	}
+
+	snprintf(line, sizeof(line), "SDL audio stream load: loaded=%d failed=%d", loaded, failed);
+	SOUND_log(line);
+
+	free(args->filenames);
+	free(args);
+	return 0;
+}
+
+static void SOUND_wait_for_streams_ready(void)
+{
+	if (s_stream_load_thread != NULL)
+	{
+		SDL_WaitThread(s_stream_load_thread, NULL);
+		s_stream_load_thread = NULL;
+	}
+}
+
 void SOUND_open_sound_streams(void)
 {
-	int counter = 0;
-	int loaded_count = 0;
-	int failed_count = 0;
 	int list_start;
 	int list_end;
 	int list_pointer;
-	int data_length;
+	int counter;
 	char filename[MAX_LINE_SIZE];
 	char full_filename[MAX_LINE_SIZE];
-	char line[MAX_LINE_SIZE];
 	char *extension_pointer;
-	char *data_pointer;
+	StreamLoadArgs *args;
 
 	if (sound_backend_ready == false)
 	{
@@ -623,32 +672,45 @@ void SOUND_open_sound_streams(void)
 	GPL_list_extents("STREAMS", &list_start, &list_end);
 	extension_pointer = GPL_what_is_list_extension("STREAMS");
 
+	int count = list_end - list_start;
+	if (count <= 0)
+	{
+		return;
+	}
+
+	/* Pre-build all filenames on the main thread (MAIN_get_project_filename uses
+	 * a shared global buffer, so it must not be called from a worker thread). */
+	args = (StreamLoadArgs *)malloc(sizeof(StreamLoadArgs));
+	if (args == NULL)
+	{
+		return;
+	}
+	args->count = count;
+	args->filenames = (char *)malloc((size_t)count * FULL_PROJECT_NAME_LENGTH);
+	if (args->filenames == NULL)
+	{
+		free(args);
+		return;
+	}
+
+	counter = 0;
 	for (list_pointer = list_start; list_pointer < list_end; list_pointer++)
 	{
+		char *dest = args->filenames + counter * FULL_PROJECT_NAME_LENGTH;
 		snprintf(filename, sizeof(filename), "%s%s", GPL_what_is_word_name(list_pointer), extension_pointer);
-
 		PATH_UTIL_build_relative_path(full_filename, sizeof(full_filename), "streams", filename);
-		sound_streams[counter] = SOUND_load_chunk_from_file(MAIN_get_project_filename(full_filename));
-		if (sound_streams[counter] == NULL)
-		{
-			snprintf(line, sizeof(line), "SDL stream load failed: %.400s (err=%s)", filename, Mix_GetError());
-			SOUND_log(line);
-		}
-
-		if (sound_streams[counter] != NULL)
-		{
-			loaded_count++;
-		}
-		else
-		{
-			failed_count++;
-		}
-
+		strncpy(dest, MAIN_get_project_filename(full_filename), FULL_PROJECT_NAME_LENGTH - 1);
+		dest[FULL_PROJECT_NAME_LENGTH - 1] = '\0';
 		counter++;
 	}
 
-	snprintf(line, sizeof(line), "SDL audio stream load: loaded=%d failed=%d", loaded_count, failed_count);
-	SOUND_log(line);
+	/* Decode MP3s on a background thread so startup is not blocked. */
+	s_stream_load_thread = SDL_CreateThread(SOUND_stream_loader_thread, "WizStreamLoad", args);
+	if (s_stream_load_thread == NULL)
+	{
+		/* Thread creation failed; fall back to synchronous loading. */
+		SOUND_stream_loader_thread(args); /* frees args */
+	}
 }
 
 void SOUND_set_global_sound_volume(int percentage)
