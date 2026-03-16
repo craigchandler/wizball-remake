@@ -116,9 +116,9 @@ jobs:
 
       - name: Package
         run: |
-          mkdir -p dist/wizball-linux-x86_64
+          mkdir -p dist/wizball-linux-x86_64/wizball
           cp build-linux/wizball dist/wizball-linux-x86_64/
-          cp -r generated-data dist/wizball-linux-x86_64/wizball
+          cp -r generated-data/. dist/wizball-linux-x86_64/wizball/
           tar -czf wizball-linux-x86_64-${{ github.ref_name }}.tar.gz -C dist wizball-linux-x86_64
 
       - uses: actions/upload-artifact@v4
@@ -182,10 +182,10 @@ jobs:
 
       - name: Package
         run: |
-          mkdir -p dist/wizball-windows-x86_64
+          mkdir -p dist/wizball-windows-x86_64/wizball
           cp build-windows/wizball.exe dist/wizball-windows-x86_64/
           cp build-windows/*.dll       dist/wizball-windows-x86_64/
-          cp -r generated-data dist/wizball-windows-x86_64/wizball
+          cp -r generated-data/. dist/wizball-windows-x86_64/wizball/
           cd dist && zip -r ../wizball-windows-x86_64-${{ github.ref_name }}.zip wizball-windows-x86_64
 
       - uses: actions/upload-artifact@v4
@@ -210,7 +210,7 @@ jobs:
 
       - name: Pull aarch64 builder image
         run: |
-          docker pull \
+          docker pull --platform linux/arm64 \
             ghcr.io/monkeyx-net/portmaster-build-templates/portmaster-builder:aarch64-latest
 
       - name: Build aarch64
