@@ -565,6 +565,8 @@ static int platform_renderer_sdl_no_mirror_cooldown_frames = 0;
 static bool platform_renderer_sdl_no_mirror_blocked_for_session = false;
 static int platform_renderer_present_width = 0;
 static int platform_renderer_present_height = 0;
+static int platform_renderer_gles2_drawable_width = 0;
+static int platform_renderer_gles2_drawable_height = 0;
 static bool platform_renderer_started_sdl_video = false;
 static char platform_renderer_sdl_status[256] = "SDL2 stub not checked.";
 static char platform_renderer_backend_name[32] =
@@ -845,41 +847,141 @@ static bool PLATFORM_RENDERER_gles2_is_ready(void)
 				 (platform_renderer_gles2_program != 0);
 }
 
+static void PLATFORM_RENDERER_gles2_refresh_drawable_size(void)
+{
+	int drawable_w = 0;
+	int drawable_h = 0;
+
+	if ((platform_renderer_sdl_window == NULL) || !PLATFORM_RENDERER_backend_targets_gles2())
+	{
+		return;
+	}
+
+	SDL_GL_GetDrawableSize(platform_renderer_sdl_window, &drawable_w, &drawable_h);
+	if ((drawable_w > 0) && (drawable_h > 0))
+	{
+		platform_renderer_gles2_drawable_width = drawable_w;
+		platform_renderer_gles2_drawable_height = drawable_h;
+		return;
+	}
+
+	if ((platform_renderer_present_width > 0) && (platform_renderer_present_height > 0))
+	{
+		platform_renderer_gles2_drawable_width = platform_renderer_present_width;
+		platform_renderer_gles2_drawable_height = platform_renderer_present_height;
+	}
+}
+
+static void PLATFORM_RENDERER_gles2_get_viewport_rect(int *out_x, int *out_y, int *out_w, int *out_h)
+{
+	int logical_w;
+	int logical_h;
+	int drawable_w;
+	int drawable_h;
+	int viewport_x = 0;
+	int viewport_y = 0;
+	int viewport_w = 0;
+	int viewport_h = 0;
+
+	PLATFORM_RENDERER_gles2_refresh_drawable_size();
+
+	logical_w = platform_renderer_present_width;
+	logical_h = platform_renderer_present_height;
+	drawable_w = platform_renderer_gles2_drawable_width;
+	drawable_h = platform_renderer_gles2_drawable_height;
+
+	if ((drawable_w <= 0) || (drawable_h <= 0))
+	{
+		drawable_w = (logical_w > 0) ? logical_w : 640;
+		drawable_h = (logical_h > 0) ? logical_h : 480;
+	}
+
+	viewport_w = drawable_w;
+	viewport_h = drawable_h;
+
+	if ((logical_w > 0) && (logical_h > 0))
+	{
+		const long long width_limited_h = ((long long)drawable_w * (long long)logical_h) / (long long)logical_w;
+		if (width_limited_h <= (long long)drawable_h)
+		{
+			viewport_h = (int)width_limited_h;
+			if (viewport_h <= 0)
+			{
+				viewport_h = 1;
+			}
+			viewport_y = (drawable_h - viewport_h) / 2;
+		}
+		else
+		{
+			viewport_w = (int)(((long long)drawable_h * (long long)logical_w) / (long long)logical_h);
+			if (viewport_w <= 0)
+			{
+				viewport_w = 1;
+			}
+			viewport_x = (drawable_w - viewport_w) / 2;
+		}
+	}
+
+	if (out_x != NULL)
+		*out_x = viewport_x;
+	if (out_y != NULL)
+		*out_y = viewport_y;
+	if (out_w != NULL)
+		*out_w = viewport_w;
+	if (out_h != NULL)
+		*out_h = viewport_h;
+}
+
 static void PLATFORM_RENDERER_gles2_apply_scissor_rect(int x, int y, int w, int h)
 {
+	int gl_x;
 	int gl_y;
+	int gl_w;
+	int gl_h;
+	int logical_w;
+	int logical_h;
+	int viewport_x;
+	int viewport_y;
+	int viewport_w;
+	int viewport_h;
 
 	if (!PLATFORM_RENDERER_gles2_is_ready())
 	{
 		return;
 	}
 
-	if ((w <= 0) || (h <= 0) || (platform_renderer_present_height <= 0))
+	logical_w = platform_renderer_present_width;
+	logical_h = platform_renderer_present_height;
+	PLATFORM_RENDERER_gles2_get_viewport_rect(&viewport_x, &viewport_y, &viewport_w, &viewport_h);
+
+	if ((w <= 0) || (h <= 0) || (logical_w <= 0) || (logical_h <= 0) ||
+			(viewport_w <= 0) || (viewport_h <= 0))
 	{
 		glDisable(GL_SCISSOR_TEST);
 		return;
 	}
 
-	gl_y = platform_renderer_present_height - (y + h);
+	gl_x = x;
+	gl_y = logical_h - (y + h);
 	if (gl_y < 0)
 	{
 		h += gl_y;
 		gl_y = 0;
 	}
-	if ((gl_y + h) > platform_renderer_present_height)
+	if ((gl_y + h) > logical_h)
 	{
-		h = platform_renderer_present_height - gl_y;
+		h = logical_h - gl_y;
 	}
-	if ((x < 0) || (y < 0) || ((x + w) > platform_renderer_present_width))
+	if ((gl_x < 0) || (y < 0) || ((gl_x + w) > logical_w))
 	{
-		if (x < 0)
+		if (gl_x < 0)
 		{
-			w += x;
-			x = 0;
+			w += gl_x;
+			gl_x = 0;
 		}
-		if ((x + w) > platform_renderer_present_width)
+		if ((gl_x + w) > logical_w)
 		{
-			w = platform_renderer_present_width - x;
+			w = logical_w - gl_x;
 		}
 	}
 	if ((w <= 0) || (h <= 0))
@@ -888,8 +990,33 @@ static void PLATFORM_RENDERER_gles2_apply_scissor_rect(int x, int y, int w, int 
 		return;
 	}
 
+	gl_w = (int)((((long long)w * (long long)viewport_w) + (logical_w / 2)) / logical_w);
+	gl_h = (int)((((long long)h * (long long)viewport_h) + (logical_h / 2)) / logical_h);
+	gl_x = viewport_x + (int)((((long long)gl_x * (long long)viewport_w) + (logical_w / 2)) / logical_w);
+	gl_y = viewport_y + (int)((((long long)gl_y * (long long)viewport_h) + (logical_h / 2)) / logical_h);
+
+	if ((gl_w <= 0) || (gl_h <= 0))
+	{
+		glDisable(GL_SCISSOR_TEST);
+		return;
+	}
+
+	if ((gl_x + gl_w) > (viewport_x + viewport_w))
+	{
+		gl_w = (viewport_x + viewport_w) - gl_x;
+	}
+	if ((gl_y + gl_h) > (viewport_y + viewport_h))
+	{
+		gl_h = (viewport_y + viewport_h) - gl_y;
+	}
+	if ((gl_w <= 0) || (gl_h <= 0))
+	{
+		glDisable(GL_SCISSOR_TEST);
+		return;
+	}
+
 	glEnable(GL_SCISSOR_TEST);
-	glScissor(x, gl_y, w, h);
+	glScissor(gl_x, gl_y, gl_w, gl_h);
 }
 
 static GLuint PLATFORM_RENDERER_gles2_compile_shader(GLenum type, const char *source)
@@ -1197,6 +1324,7 @@ static bool PLATFORM_RENDERER_gles2_init_context(void)
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_CULL_FACE);
 	glEnable(GL_BLEND);
+	PLATFORM_RENDERER_gles2_refresh_drawable_size();
 	PLATFORM_RENDERER_gles2_prewarm_registered_textures();
 	PLATFORM_RENDERER_gles2_build_atlas();
 	return true;
@@ -6516,7 +6644,20 @@ void PLATFORM_RENDERER_clear_backbuffer(void)
 #if defined(WIZBALL_RENDER_BACKEND_GLES2)
 	if (PLATFORM_RENDERER_gles2_is_ready())
 	{
-		glViewport(0, 0, platform_renderer_present_width > 0 ? platform_renderer_present_width : 640, platform_renderer_present_height > 0 ? platform_renderer_present_height : 480);
+		int viewport_x = 0;
+		int viewport_y = 0;
+		int viewport_w = 0;
+		int viewport_h = 0;
+		PLATFORM_RENDERER_gles2_get_viewport_rect(&viewport_x, &viewport_y, &viewport_w, &viewport_h);
+		glViewport(
+				viewport_x,
+				viewport_y,
+				viewport_w,
+				viewport_h);
+		platform_renderer_legacy_viewport_last[0] = viewport_x;
+		platform_renderer_legacy_viewport_last[1] = viewport_y;
+		platform_renderer_legacy_viewport_last[2] = viewport_w;
+		platform_renderer_legacy_viewport_last[3] = viewport_h;
 		glDisable(GL_SCISSOR_TEST);
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
@@ -11332,6 +11473,7 @@ void PLATFORM_RENDERER_present_frame(int width, int height)
 	PLATFORM_RENDERER_gles2_flush_textured_batch(); /* sprites on top */
 	if (PLATFORM_RENDERER_gles2_is_ready())
 	{
+		PLATFORM_RENDERER_gles2_refresh_drawable_size();
 		Uint32 frame_start_ticks = SDL_GetTicks();
 		Uint32 render_ms = (s_frame_clear_ticks > 0 && frame_start_ticks >= s_frame_clear_ticks)
 													 ? (frame_start_ticks - s_frame_clear_ticks)
