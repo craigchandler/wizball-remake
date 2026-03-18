@@ -102,6 +102,22 @@ When the current level count hits zero, the controller spawns a new wave generat
 
 That is good for continue support, because it means we can restore logical level state rather than individual enemy positions.
 
+### Important Correction
+
+That statement is only partially true for exact bonus-return-equivalent behavior.
+
+While the controller owns enemy counts and wave-generation triggers, normal level enemies and molecules are also kept alive across level transitions by using:
+
+- `ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION`
+
+In other words, when the player leaves for bonus/lab flow, the game does **not** just remember counts and respawn a fresh equivalent level. It preserves the current level's persistent entities and wakes them again later.
+
+So if the goal is:
+
+- "whatever happens when you go off to the bonus level should be used as the model"
+
+then exact continue behavior must preserve the same set of transition-slept level entities, not just controller arrays and flags.
+
 ## 3. Level Progression Lives In Controller Arrays
 
 These arrays look authoritative for world progression:
@@ -237,6 +253,52 @@ Proposed behavior:
 
 This would be broadly useful beyond Wizball for any script-driven game with long-lived state-owner entities.
 
+## A2. Add Generic Save/Restore Support For Persistent Level Entities
+
+To match the bonus-return model, the engine likely needs two additional generic script commands:
+
+- one to save matching live entities into the save blob
+- one to instantiate saved entities from the loaded save blob before they execute
+
+The relevant target set for Wizball is:
+
+- current-level entities with `ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION`
+
+Why this is needed:
+
+- those entities survive bonus transitions
+- they carry the exact current level state
+- counts and flags alone are not enough for exact equivalence
+
+The low-level restore path should avoid re-running ordinary spawn-time script initialization when recreating these entities, or at least restore them before their first real logic tick.
+
+### Implemented Engine Surface So Far
+
+Implemented:
+
+- `OVER_WRITE_ENTITY_FROM_SAVE_FILE(entity_id, tag)`
+  - restores loaded save data onto a live entity by tag
+- `WRITE_MATCHING_ENTITIES_TO_SAVE_FILE variable op value tag_offset`
+  - saves all matching live entities using `tag_offset + entity_id`
+- `SPAWN_MATCHING_ENTITIES_FROM_SAVE_FILE variable op value`
+  - instantiates loaded saved entities whose saved variable matches the comparison
+
+These are generic engine-level commands and are not Wizball-specific.
+
+### Important Remaining Gap
+
+The main controller still has initialization responsibilities that are not captured by save data alone, especially:
+
+- creating its event queue
+- rebuilding current-level display/window handlers
+- re-entering gameplay through a stable resume path
+
+So the next step is not more low-level serialization. It is a controlled script-side resume boot path, likely with:
+
+- a resume mode flag
+- a controller branch that performs only the bootstrap pieces that are still needed
+- modular save/continue scripts that use the new engine commands
+
 ## B. Add Save File Probe Support
 
 Recommended small generic feature:
@@ -346,4 +408,3 @@ The next implementation pass should start with two checks:
 2. Implement the engine-side restore hook for loaded entity data
 
 If that works, the rest of the continue system becomes much simpler and more generic.
-

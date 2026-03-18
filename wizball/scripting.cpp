@@ -2518,6 +2518,39 @@ bool SCRIPTING_find_next_entity (void)
 
 
 
+int SCRIPTING_spawn_restored_entity_last (void)
+{
+	int *just_created_entity_pointer;
+
+	if (SCRIPTING_find_next_entity() == false)
+	{
+		return UNSET;
+	}
+
+	just_created_entity_pointer = &entity[just_created_entity][0];
+
+	if (first_processed_entity_in_list == UNSET)
+	{
+		just_created_entity_pointer[ENT_PREV_PROCESS_ENT] = UNSET;
+		just_created_entity_pointer[ENT_NEXT_PROCESS_ENT] = UNSET;
+		first_processed_entity_in_list = just_created_entity;
+		last_processed_entity_in_list = just_created_entity;
+	}
+	else
+	{
+		just_created_entity_pointer[ENT_PREV_PROCESS_ENT] = last_processed_entity_in_list;
+		just_created_entity_pointer[ENT_NEXT_PROCESS_ENT] = UNSET;
+		entity[last_processed_entity_in_list][ENT_NEXT_PROCESS_ENT] = just_created_entity;
+		last_processed_entity_in_list = just_created_entity;
+	}
+
+	just_created_entity_pointer[ENT_ALIVE] = ALIVE;
+
+	return just_created_entity;
+}
+
+
+
 void SCRIPTING_set_window_scale (int window_number, int opengl_scale_x, int opengl_scale_y, int pos_x, int pos_y)
 {
 	if (!SCRIPTING_is_valid_window_index(window_number))
@@ -9375,6 +9408,21 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 				first_value = SCRIPTING_get_int_value(entity_id,line_number,1);
 				second_value = SCRIPTING_get_int_value(entity_id,line_number,2);
 				SAVEGAME_restore_entity_from_loaded_tag(first_value, second_value);
+			break;
+
+			case COM_WRITE_MATCHING_ENTITIES_TO_SAVE_FILE:
+				first_value = scr[line_number].script_line_pointer[1].data_value;
+				operation = SCRIPTING_get_int_value(entity_id, line_number, 2);
+				second_value = SCRIPTING_get_int_value(entity_id, line_number, 3);
+				third_value = SCRIPTING_get_int_value(entity_id, line_number, 4);
+				SAVEGAME_save_matching_live_entities(first_value, operation, second_value, third_value);
+			break;
+
+			case COM_SPAWN_MATCHING_ENTITIES_FROM_SAVE_FILE:
+				first_value = scr[line_number].script_line_pointer[1].data_value;
+				operation = SCRIPTING_get_int_value(entity_id, line_number, 2);
+				second_value = SCRIPTING_get_int_value(entity_id, line_number, 3);
+				SAVEGAME_spawn_matching_loaded_entities(first_value, operation, second_value);
 			break;
 
 // ---------------- PLAYER CONTROL FEEDBACK ----------------

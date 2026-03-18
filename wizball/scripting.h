@@ -135,6 +135,9 @@ bool SCRIPTING_check_for_visual_params (int tilemap_number, int spawn_point_numb
 
 int SCRIPTING_interpret_script (int entity_id , int over_ride_line);
 void SCRIPTING_remove_from_collision_bucket (int entity_id);
+bool SCRIPTING_find_next_entity (void);
+void SCRIPTING_setup_entity(int entity_id);
+int SCRIPTING_spawn_restored_entity_last (void);
 
 void SCRIPTING_spawn_shutdown_entity (void);
 void SCRIPTING_spawn_entity_by_name (char *script_name , int x , int y , int v0 , int v1 , int v2 );
@@ -365,6 +368,8 @@ extern int free_entities;
 extern int lost_entities;
 
 extern int global_next_entity;
+extern int just_created_entity;
+extern int first_processed_entity_in_list;
 
 extern int entity [MAX_ENTITIES][MAX_ENTITY_VARIABLES];
 extern arbitrary_quads_struct arbitrary_quads[MAX_ENTITIES];
@@ -376,8 +381,6 @@ extern save_data_struct save_data;
 #define FIX_ME_NOW 99
 
 #endif
-
-
 
 
 
