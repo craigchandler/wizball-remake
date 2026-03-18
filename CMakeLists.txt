@@ -44,6 +44,7 @@ set(WIZBALL_SOURCES
   wizball/paths.cpp
   wizball/report.cpp
   wizball/roomzones.cpp
+  wizball/savegame.cpp
   wizball/scripting.cpp
   wizball/simple_gui.cpp
   wizball/sound_sdl.cpp

@@ -176,6 +176,7 @@ void SCRIPTING_output_entity_to_file (int ent_index, int ent_tag, FILE *file_poi
 void SCRIPTING_output_entities_to_file (char *filename);
 void SCRIPTING_output_save_data_to_file (int filename_text_tag);
 void SCRIPTING_load_save_file (int filename_text_tag);
+void SCRIPTING_free_loaded_save_data (void);
 
 void SCRIPTING_append_checksum_to_save_file (char *filename);
 
@@ -370,11 +371,11 @@ extern arbitrary_quads_struct arbitrary_quads[MAX_ENTITIES];
 extern arbitrary_vertex_colour_struct arbitrary_vertex_colours[MAX_ENTITIES];
 extern int *flag_array;
 extern window_struct *window_details;
+extern save_data_struct save_data;
 
 #define FIX_ME_NOW 99
 
 #endif
-
 
 
 

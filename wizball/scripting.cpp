@@ -36,6 +36,7 @@
 #include "font_routines.h"
 #include "events.h"
 #include "paths.h"
+#include "savegame.h"
 
 #include "fortify.h"
 
@@ -9371,6 +9372,9 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 			break;
 
 			case COM_OVER_WRITE_ENTITY_FROM_SAVE_FILE:
+				first_value = SCRIPTING_get_int_value(entity_id,line_number,1);
+				second_value = SCRIPTING_get_int_value(entity_id,line_number,2);
+				SAVEGAME_restore_entity_from_loaded_tag(first_value, second_value);
 			break;
 
 // ---------------- PLAYER CONTROL FEEDBACK ----------------
@@ -11239,6 +11243,53 @@ void SCRIPTING_set_up_save_data (void)
 
 	save_data.saved_flag_count = 0;
 	save_data.saved_flag_list = NULL;
+
+	save_data.loaded_entity_count = 0;
+	save_data.loaded_entity_data = NULL;
+}
+
+
+
+void SCRIPTING_free_loaded_save_data (void)
+{
+	int entity_number;
+	int array_number;
+
+	if (save_data.loaded_entity_data != NULL)
+	{
+		for (entity_number = 0; entity_number < save_data.loaded_entity_count; entity_number++)
+		{
+			loaded_entity_struct *loaded_entity = &save_data.loaded_entity_data[entity_number];
+
+			if (loaded_entity->loaded_entity_variable_list != NULL)
+			{
+				free(loaded_entity->loaded_entity_variable_list);
+			}
+
+			if (loaded_entity->loaded_entity_value_list != NULL)
+			{
+				free(loaded_entity->loaded_entity_value_list);
+			}
+
+			if (loaded_entity->array_data != NULL)
+			{
+				for (array_number = 0; array_number < loaded_entity->loaded_entity_array_count; array_number++)
+				{
+					if (loaded_entity->array_data[array_number].data != NULL)
+					{
+						free(loaded_entity->array_data[array_number].data);
+					}
+				}
+
+				free(loaded_entity->array_data);
+			}
+		}
+
+		free(save_data.loaded_entity_data);
+	}
+
+	save_data.loaded_entity_count = 0;
+	save_data.loaded_entity_data = NULL;
 }
 
 
@@ -11262,6 +11313,8 @@ void SCRIPTING_reset_save_data (void)
 	{
 		free (save_data.saved_flag_list);
 	}
+
+	SCRIPTING_free_loaded_save_data ();
 
 	SCRIPTING_set_up_save_data ();	
 }
