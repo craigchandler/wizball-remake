@@ -696,6 +696,24 @@ int SPECPATH_get_path_stage (int datatable_index, int path_stage, int path_perce
 
 	int excess_alarm = 0;
 
+	if ((datatable_index < 0) || (datatable_index >= number_of_datatables))
+	{
+		OUTPUT_message("SPECPATH_get_path_stage received invalid datatable index.");
+		return UNSET;
+	}
+
+	if (datatable_data[datatable_index].lines <= 0)
+	{
+		OUTPUT_message("SPECPATH_get_path_stage found datatable with no lines.");
+		return UNSET;
+	}
+
+	if (datatable_data[datatable_index].special_path_stage_pointer == NULL)
+	{
+		OUTPUT_message("SPECPATH_get_path_stage used before datatable was converted to a special path.");
+		return UNSET;
+	}
+
 	if (path_percentage >= total_special_path_percent_size)
 	{
 		path_percentage %= total_special_path_percent_size;
@@ -705,9 +723,16 @@ int SPECPATH_get_path_stage (int datatable_index, int path_stage, int path_perce
 	{
 		path_stage = 0;
 		
-		while (datatable_data[datatable_index].special_path_stage_pointer[path_stage].percentage_progress_to_start_of_stage + datatable_data[datatable_index].special_path_stage_pointer[path_stage].percentage_length_of_stage < path_percentage)
+		while ((path_stage < datatable_data[datatable_index].lines) &&
+			(datatable_data[datatable_index].special_path_stage_pointer[path_stage].percentage_progress_to_start_of_stage +
+			 datatable_data[datatable_index].special_path_stage_pointer[path_stage].percentage_length_of_stage < path_percentage))
 		{
 			path_stage++;
+		}
+
+		if (path_stage >= datatable_data[datatable_index].lines)
+		{
+			path_stage = datatable_data[datatable_index].lines - 1;
 		}
 	}
 	else
@@ -772,6 +797,13 @@ int SPECPATH_get_path_position_offset_from_percentage (int datatable_index, int 
 
 	path_stage = SPECPATH_get_path_stage (datatable_index, path_stage, path_percentage);
 
+	if (path_stage == UNSET)
+	{
+		*x_offset = 0;
+		*y_offset = 0;
+		return UNSET;
+	}
+
 	special_path_stage_struct *spsp = &datatable_data[datatable_index].special_path_stage_pointer[path_stage];
 
 	int this_angle;
@@ -816,6 +848,11 @@ int SPECPATH_hit_flag (int datatable_index, int old_percentage, int new_percenta
 	int old_path_stage = SPECPATH_get_path_stage (datatable_index, path_stage, old_percentage);
 	int new_path_stage = SPECPATH_get_path_stage (datatable_index, path_stage, new_percentage);
 
+	if ((old_path_stage == UNSET) || (new_path_stage == UNSET))
+	{
+		return UNSET;
+	}
+
 	if (old_path_stage != new_path_stage)
 	{
 		if (new_percentage > old_percentage)
@@ -836,6 +873,12 @@ int SPECPATH_hit_flag (int datatable_index, int old_percentage, int new_percenta
 int SPECPATH_section_start_percentage (int datatable_index, int percentage, int path_stage)
 {
 	path_stage = SPECPATH_get_path_stage (datatable_index, path_stage, percentage);
+
+	if (path_stage == UNSET)
+	{
+		return 0;
+	}
+
 	return (datatable_data[datatable_index].special_path_stage_pointer[path_stage].percentage_progress_to_start_of_stage);
 }
 

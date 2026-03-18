@@ -1,0 +1,41 @@
+// Save the current gameplay run in a way that can be rebuilt through the normal
+// same-level transition path.
+
+// Stable save tags for long-lived entities.
+// 9000 is the main game controller, and 100000+entity_id is used for saved live entities.
+
+	RESET_SAVE_FILE
+
+	WRITE_SPAWN_POINT_FLAGS_TO_SAVE_FILE
+	WRITE_ZONE_FLAGS_TO_SAVE_FILE
+
+	WRITE_FLAG_TO_SAVE_FILE player_on_level_number
+	WRITE_FLAG_TO_SAVE_FILE player_lives
+	WRITE_FLAG_TO_SAVE_FILE catellite_two_player_control_counter
+	WRITE_FLAG_TO_SAVE_FILE player_score
+	WRITE_FLAG_TO_SAVE_FILE player_display_score
+	WRITE_FLAG_TO_SAVE_FILE first_life_flag
+	WRITE_FLAG_TO_SAVE_FILE wizball_starting_loadout
+	WRITE_FLAG_TO_SAVE_FILE wizball_current_loadout
+	WRITE_FLAG_TO_SAVE_FILE wizball_shield_stored_health
+	WRITE_FLAG_TO_SAVE_FILE catellite_stored_health
+	WRITE_FLAG_TO_SAVE_FILE cat_shield_stored_health
+	WRITE_FLAG_TO_SAVE_FILE player_bonus_pearl_count
+	WRITE_FLAG_TO_SAVE_FILE current_level_pearl_count
+	WRITE_FLAG_TO_SAVE_FILE fuzz_counter
+	WRITE_FLAG_TO_SAVE_FILE game_mode_single_player
+
+	let temp_1 = GET_GLOBAL_FLAG (main_game_controller_entity_id)
+	WRITE_ENTITY_TO_SAVE_FILE (temp_1, 9000)
+	WRITE_MATCHING_ENTITIES_TO_SAVE_FILE (ENTITY_TYPE & ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION) 100000
+
+	OUTPUT_SAVE_FILE continue_game_save_tag
+	RESET_SAVE_FILE
+
+	set_global_flag (continue_game_available, true)
+
+	WRITE_FLAG_TO_SAVE_FILE continue_game_available
+	OUTPUT_SAVE_FILE continue_metadata_save_tag
+	RESET_SAVE_FILE
+
+	kill_entity own_id

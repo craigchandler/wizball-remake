@@ -24,8 +24,9 @@
 #define x_scale_counter			v7
 #define y_scale_counter			v8
 #define window_brightness		v9
-
-
+#define continue_available		v10
+#define menu_option_gap			v11
+#define option_count			v12
 
 	let signal = signal OR WAKE_CREDITS
 	let signal = signal OR WAKE_LOGO
@@ -57,55 +58,116 @@
 	// This variable isn't used to kill this thing, though. Just as a reminder, really.
 	let ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
 
-	let option_y_co_ord = MAIN_MENU_OPTION_TOP_Y_CO_ORD
+	let continue_available = GET_GLOBAL_FLAG (continue_game_available)
+	let option_y_co_ord = 204
+	let menu_option_gap = 20
 
 	let selector_id = CONST_UNSET
 
 	spawn_entity main_menu_selector,0,0,process_next
 	let selector_id = last_child
 	let selector_id.BASE_Y = option_y_co_ord
-	let selector_id.OPTION_HEIGHT = MENU_OPTION_HEIGHT
-	let selector_id.MAXIMUM_OPTIONS = 6
+	let selector_id.OPTION_HEIGHT = menu_option_gap
+	if continue_available = true then
+		let option_count = 7
+	else
+		let option_count = 6
+	end_if
+	let selector_id.MAXIMUM_OPTIONS = option_count
 	let selector_id.OPTION_WIDTH = 384
 
-	let option_text = OPTION_1
-
-	for counter = 0 to 6
-		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, option_text, process_next, NO_CENTER, 160, option_y_co_ord, 0, 0, font[arb])
-		let option_text = option_text + 1
-		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, option_text, process_next, RIGHT_ALIGN, 480, option_y_co_ord, 0, 0, font[arb])
-		let option_text = option_text + 1
-		let option_y_co_ord = option_y_co_ord + MENU_OPTION_HEIGHT
-	next
+	if continue_available = true then
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_1_NUMBER, process_next, NO_CENTER, 160, 204, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_1_LABEL, process_next, RIGHT_ALIGN, 480, 204, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_2_NUMBER, process_next, NO_CENTER, 160, 224, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_2_LABEL, process_next, RIGHT_ALIGN, 480, 224, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_3_NUMBER, process_next, NO_CENTER, 160, 244, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_3_LABEL, process_next, RIGHT_ALIGN, 480, 244, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_4_NUMBER, process_next, NO_CENTER, 160, 264, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_4_LABEL, process_next, RIGHT_ALIGN, 480, 264, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_5_NUMBER, process_next, NO_CENTER, 160, 284, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_5_LABEL, process_next, RIGHT_ALIGN, 480, 284, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_6_NUMBER, process_next, NO_CENTER, 160, 304, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_6_LABEL, process_next, RIGHT_ALIGN, 480, 304, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_7_NUMBER, process_next, NO_CENTER, 160, 324, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_7_LABEL, process_next, RIGHT_ALIGN, 480, 324, 0, 0, font[arb])
+	else
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_OPTION_1_NUMBER, process_next, NO_CENTER, 160, 214, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_OPTION_1_LABEL, process_next, RIGHT_ALIGN, 480, 214, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_OPTION_2_NUMBER, process_next, NO_CENTER, 160, 236, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_OPTION_2_LABEL, process_next, RIGHT_ALIGN, 480, 236, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_OPTION_3_NUMBER, process_next, NO_CENTER, 160, 258, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_OPTION_3_LABEL, process_next, RIGHT_ALIGN, 480, 258, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_OPTION_4_NUMBER, process_next, NO_CENTER, 160, 280, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_OPTION_4_LABEL, process_next, RIGHT_ALIGN, 480, 280, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_OPTION_5_NUMBER, process_next, NO_CENTER, 160, 302, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_OPTION_5_LABEL, process_next, RIGHT_ALIGN, 480, 302, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_OPTION_6_NUMBER, process_next, NO_CENTER, 160, 324, 0, 0, font[arb])
+		SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_OPTION_6_LABEL, process_next, RIGHT_ALIGN, 480, 324, 0, 0, font[arb])
+	end_if
 
 start
 
+.start_main_loop
+
 	// Now we just wait...
 
-	IF_INPUT_KEYBOARD_HIT key_1 then
-		set_global_flag (game_mode_single_player,TRUE)
-		goto start_game
-	end_if
+	if continue_available = true then
+		IF_INPUT_KEYBOARD_HIT key_1 then
+			goto continue_game
+		end_if
 
-	IF_INPUT_KEYBOARD_HIT key_2 then
-		set_global_flag (game_mode_single_player,FALSE)
-		goto start_game
-	end_if
+		IF_INPUT_KEYBOARD_HIT key_2 then
+			set_global_flag (game_mode_single_player,TRUE)
+			goto start_game
+		end_if
 
-	IF_INPUT_KEYBOARD_HIT key_3 then
-		goto select_options
-	end_if
+		IF_INPUT_KEYBOARD_HIT key_3 then
+			set_global_flag (game_mode_single_player,FALSE)
+			goto start_game
+		end_if
 
-	IF_INPUT_KEYBOARD_HIT key_4 then
-		goto show_hiscores
-	end_if
+		IF_INPUT_KEYBOARD_HIT key_4 then
+			goto select_options
+		end_if
 
-	IF_INPUT_KEYBOARD_HIT key_5 then
-		goto show_wiztips
-	end_if
+		IF_INPUT_KEYBOARD_HIT key_5 then
+			goto show_hiscores
+		end_if
 
-	IF_INPUT_KEYBOARD_HIT key_6 then
-		goto quit_game
+		IF_INPUT_KEYBOARD_HIT key_6 then
+			goto show_wiztips
+		end_if
+
+		IF_INPUT_KEYBOARD_HIT key_7 then
+			goto quit_game
+		end_if
+	else
+		IF_INPUT_KEYBOARD_HIT key_1 then
+			set_global_flag (game_mode_single_player,TRUE)
+			goto start_game
+		end_if
+
+		IF_INPUT_KEYBOARD_HIT key_2 then
+			set_global_flag (game_mode_single_player,FALSE)
+			goto start_game
+		end_if
+
+		IF_INPUT_KEYBOARD_HIT key_3 then
+			goto select_options
+		end_if
+
+		IF_INPUT_KEYBOARD_HIT key_4 then
+			goto show_hiscores
+		end_if
+
+		IF_INPUT_KEYBOARD_HIT key_5 then
+			goto show_wiztips
+		end_if
+
+		IF_INPUT_KEYBOARD_HIT key_6 then
+			goto quit_game
+		end_if
 	end_if
 
 	IF_INPUT_KEYBOARD_HIT key_esc then
@@ -126,37 +188,100 @@ start
 
 	IF (selector_id != CONST_UNSET) then
 		IF (selector_id.option_has_been_selected = TRUE) then
-			switch selector_id.OPTION_NUMBER_HIGHLIGHTED
-				case 0
-					set_global_flag (game_mode_single_player,TRUE)
-					goto start_game
-				break
+			if continue_available = true then
+				switch selector_id.OPTION_NUMBER_HIGHLIGHTED
+					case 0
+						goto continue_game
+					break
 
-				case 1
-					set_global_flag (game_mode_single_player,FALSE)
-					goto start_game
-				break
+					case 1
+						set_global_flag (game_mode_single_player,TRUE)
+						goto start_game
+					break
 
-				case 2
-					goto select_options
-				break
+					case 2
+						set_global_flag (game_mode_single_player,FALSE)
+						goto start_game
+					break
 
-				case 3
-					goto show_hiscores
-				break
+					case 3
+						goto select_options
+					break
 
-				case 4
-					goto show_wiztips
-				break
+					case 4
+						goto show_hiscores
+					break
 
-				case 5
-					goto quit_game
-				break
-			end_switch
+					case 5
+						goto show_wiztips
+					break
+
+					case 6
+						goto quit_game
+					break
+				end_switch
+			else
+				switch selector_id.OPTION_NUMBER_HIGHLIGHTED
+					case 0
+						set_global_flag (game_mode_single_player,TRUE)
+						goto start_game
+					break
+
+					case 1
+						set_global_flag (game_mode_single_player,FALSE)
+						goto start_game
+					break
+
+					case 2
+						goto select_options
+					break
+
+					case 3
+						goto show_hiscores
+					break
+
+					case 4
+						goto show_wiztips
+					break
+
+					case 5
+						goto quit_game
+					break
+				end_switch
+			end_if
 		END_IF
 	END_IF
 
 end
+
+
+
+.continue_game
+
+	if_flag (continue_game_available = false) then
+		PLAY_SOUND menu_select_back 255 CONST_SOUND_FREQUENCY 128
+		goto start_main_loop
+	end_if
+
+	PLAY_SOUND menu_select 255 CONST_SOUND_FREQUENCY 128
+
+	spawn_entity continue_game,0,0,process_next
+
+	if_flag (playing_music_channel_flag) != CONST_UNSET then
+		spawn_entity (fade_music,0,0,process_next)
+		let last_child.passed_param_1 = GET_GLOBAL_FLAG (playing_music_channel_flag)
+		let last_child.passed_param_2 = GET_GLOBAL_FLAG (playing_music_stream_flag)
+		let last_child.passed_param_3 = 15
+		let last_child.passed_param_4 = 255
+
+		SET_GLOBAL_FLAG (playing_music_channel_flag, CONST_UNSET)
+		SET_GLOBAL_FLAG (playing_music_stream_flag, CONST_UNSET)
+	end_if
+
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_SPECIFIC_MENU_ENTITY )
+	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_PERMANENT_MENU_ENTITY )
+
+	end
 
 
 
@@ -295,7 +420,3 @@ end
 	start
 
 	end
-
-
-
-

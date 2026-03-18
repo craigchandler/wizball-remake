@@ -23,6 +23,89 @@ int textfile_line_count = 0;
 
 char error_space[TEXT_LINE_SIZE];
 
+typedef struct
+{
+	char name[NAME_SIZE];
+} textfile_source_name;
+
+static int TEXTFILE_compare_source_names(const void *a, const void *b)
+{
+	const textfile_source_name *name_a = (const textfile_source_name *)a;
+	const textfile_source_name *name_b = (const textfile_source_name *)b;
+
+	return strcmp(name_a->name, name_b->name);
+}
+
+static void TEXTFILE_append_loaded_line(const char *tag, const char *line_text)
+{
+	int line_length;
+
+	tx = (textfile_line *)realloc(tx, (size_t)(textfile_line_count + 1) * sizeof(textfile_line));
+	assert(tx != NULL);
+
+	strncpy(tx[textfile_line_count].tag, tag, sizeof(tx[textfile_line_count].tag) - 1);
+	tx[textfile_line_count].tag[sizeof(tx[textfile_line_count].tag) - 1] = '\0';
+	STRING_uppercase(tx[textfile_line_count].tag);
+
+	tx[textfile_line_count].line = NULL;
+
+	line_length = (line_text != NULL) ? (int)strlen(line_text) : 0;
+	if (line_length > 0)
+	{
+		tx[textfile_line_count].line_size = line_length;
+		tx[textfile_line_count].line = (char *)malloc((size_t)(line_length + 1) * sizeof(char));
+		assert(tx[textfile_line_count].line != NULL);
+		strcpy(tx[textfile_line_count].line, line_text);
+	}
+	else
+	{
+		tx[textfile_line_count].line_size = (int)strlen("EMPTY LINE!");
+		tx[textfile_line_count].line = (char *)malloc((strlen("EMPTY LINE!") + 1) * sizeof(char));
+		assert(tx[textfile_line_count].line != NULL);
+		strcpy(tx[textfile_line_count].line, "EMPTY LINE!");
+	}
+
+	textfile_line_count++;
+}
+
+static void TEXTFILE_load_lines_from_file(const char *filename)
+{
+	char file_text_line[TEXTFILE_SUPER_SIZE];
+	char error[TEXT_LINE_SIZE];
+	char *pointer_1;
+	char *pointer_2;
+	FILE *file_pointer = NULL;
+
+	file_pointer = FILE_open_project_read_case_fallback((char *)filename);
+
+	if (file_pointer == NULL)
+	{
+		snprintf(error, sizeof(error), "ERROR! TEXTFILE '%s' NOT FOUND FOR LOADING FOR DESCRIPTIVE TEXT FILES!", filename);
+		OUTPUT_message(error);
+		return;
+	}
+
+	while (fgets(file_text_line, TEXTFILE_SUPER_SIZE, file_pointer) != NULL)
+	{
+		pointer_1 = strtok(file_text_line, "\r\n\t ");
+		pointer_2 = strtok(NULL, "\r\n");
+		if (pointer_2 != NULL)
+		{
+			while ((*pointer_2 == '\t') || (*pointer_2 == ' '))
+			{
+				pointer_2++;
+			}
+		}
+
+		if ((strlen(file_text_line) > 0) && ((file_text_line[0] != '/') && (file_text_line[1] != '/')) && (pointer_1 != NULL))
+		{
+			TEXTFILE_append_loaded_line(pointer_1, pointer_2);
+		}
+	}
+
+	fclose(file_pointer);
+}
+
 
 
 int TEXTFILE_get_text_length (int text_tag)
@@ -137,6 +220,52 @@ void TEXTFILE_load_text (void)
 
 	}
 
+}
+
+void TEXTFILE_load_text_from_source_files(void)
+{
+	char filename[NAME_SIZE];
+	char source_name[NAME_SIZE];
+	char *dir_entry = NULL;
+	textfile_source_name *source_names = NULL;
+	int source_name_count = 0;
+	int file_number;
+
+	tx = NULL;
+	textfile_line_count = 0;
+
+	dir_entry = FILE_open_dir(MAIN_get_project_filename("TEXTFILES"), (char *)".TXT", true);
+
+	while (dir_entry != NULL)
+	{
+		strncpy(source_name, dir_entry, sizeof(source_name) - 1);
+		source_name[sizeof(source_name) - 1] = '\0';
+
+		strtok(source_name, ".");
+
+		source_names = (textfile_source_name *)realloc(source_names, (size_t)(source_name_count + 1) * sizeof(textfile_source_name));
+		assert(source_names != NULL);
+
+		strncpy(source_names[source_name_count].name, source_name, sizeof(source_names[source_name_count].name) - 1);
+		source_names[source_name_count].name[sizeof(source_names[source_name_count].name) - 1] = '\0';
+		source_name_count++;
+
+		dir_entry = FILE_read_dir_entry(true);
+	}
+
+	if (source_name_count > 1)
+	{
+		qsort(source_names, (size_t)source_name_count, sizeof(textfile_source_name), TEXTFILE_compare_source_names);
+	}
+
+	for (file_number = 0; file_number < source_name_count; file_number++)
+	{
+		FILE_append_filename(filename, "TEXTFILES", source_names[file_number].name, sizeof(filename));
+		strncat(filename, ".TXT", sizeof(filename) - 1 - strlen(filename));
+		TEXTFILE_load_lines_from_file(filename);
+	}
+
+	free(source_names);
 }
 
 

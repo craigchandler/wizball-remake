@@ -1,0 +1,9 @@
+Total entities traced = 1.
+
+Entity 3911 tracer lines.
+
+	Script 'PAUSE_MANAGER' (Entity 3911) on frame 282...
+
+	
+
+

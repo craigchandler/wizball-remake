@@ -35,6 +35,10 @@
 	END_IF
 start
 
+	if parent = CONST_UNSET then
+		kill_entity own_id
+	end_if
+
 	IF top_or_bottom_position = top_position THEN
 		let y_offset = -208 % parent.opengl_scale_y
 		let y_offset = y_offset - 31

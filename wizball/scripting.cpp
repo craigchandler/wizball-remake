@@ -4162,6 +4162,14 @@ int SCRIPTING_get_int_value ( int entity_id , int line_number , int argument )
 	int data_bitmask;
 	int value;
 
+	if ((entity_id < 0) || (entity_id >= MAX_ENTITIES))
+	{
+		char msg[256];
+		snprintf(msg, sizeof(msg), "SCRIPTING_get_int_value: invalid entity_id %d on line %d. Returning 0.", entity_id, line_number);
+		MAIN_add_to_log(msg);
+		return 0;
+	}
+
 	// Validate script line and argument to avoid dereferencing invalid pointers
 	if ((line_number < 0) || (line_number >= script_line_count))
 	{
@@ -4193,10 +4201,55 @@ int SCRIPTING_get_int_value ( int entity_id , int line_number , int argument )
 
 	if ((data_bitmask & DATA_BITMASK_IDENTITY_VARIABLE) > 0)
 	{
-		value = entity [ entity[entity_id][data_type] ][data_value];
+		if ((data_type < 0) || (data_type >= MAX_ENTITY_VARIABLES))
+		{
+			char msg[256];
+			snprintf(
+				msg,
+				sizeof(msg),
+				"SCRIPTING_get_int_value: invalid identity variable %d for entity %d on line %d. Returning 0.",
+				data_type,
+				entity_id,
+				line_number);
+			MAIN_add_to_log(msg);
+			return 0;
+		}
+
+		if ((data_value < 0) || (data_value >= MAX_ENTITY_VARIABLES))
+		{
+			char msg[256];
+			snprintf(
+				msg,
+				sizeof(msg),
+				"SCRIPTING_get_int_value: invalid target variable %d via identity read for entity %d on line %d. Returning 0.",
+				data_value,
+				entity_id,
+				line_number);
+			MAIN_add_to_log(msg);
+			return 0;
+		}
+
+		int referenced_entity_id = entity[entity_id][data_type];
+
+		if ((referenced_entity_id < 0) || (referenced_entity_id >= MAX_ENTITIES))
+		{
+			char msg[256];
+			snprintf(
+				msg,
+				sizeof(msg),
+				"SCRIPTING_get_int_value: invalid referenced entity %d from entity %d variable %d on line %d. Returning 0.",
+				referenced_entity_id,
+				entity_id,
+				data_type,
+				line_number);
+			MAIN_add_to_log(msg);
+			return 0;
+		}
+
+		value = entity[referenced_entity_id][data_value];
 
 		#ifdef RETRENGINE_DEBUG_VERSION_COMPILE_INTERACTION_TABLE
-			SCRIPTING_add_to_interaction_table (entity_id,entity[entity_id][data_type],DEBUG_INTERACTION_READ);
+			SCRIPTING_add_to_interaction_table (entity_id,referenced_entity_id,DEBUG_INTERACTION_READ);
 		#endif
 
 		#ifdef RETRENGINE_DEBUG_VERSION_CHECK_VARIABLE_SCOPE
@@ -4209,6 +4262,20 @@ int SCRIPTING_get_int_value ( int entity_id , int line_number , int argument )
 	}
 	else if (data_type == VARIABLE)
 	{
+		if ((data_value < 0) || (data_value >= MAX_ENTITY_VARIABLES))
+		{
+			char msg[256];
+			snprintf(
+				msg,
+				sizeof(msg),
+				"SCRIPTING_get_int_value: invalid variable %d for entity %d on line %d. Returning 0.",
+				data_value,
+				entity_id,
+				line_number);
+			MAIN_add_to_log(msg);
+			return 0;
+		}
+
 		#ifdef RETRENGINE_DEBUG_VERSION_CHECK_VARIABLE_SCOPE
 			if (data_value>MAX_ENTITY_VARIABLES)
 			{

@@ -47,8 +47,6 @@ SET_GLOBAL_FLAG_AS_ENTITY_ID (MAIN_GAME_CONTROLLER_ENTITY_ID)
 
 LET WINDOW_NUMBER = GAME_MAIN_WINDOW
 
-set_global_flag (player_bonus_pearl_count,0)
-
 #define current_level					v0
 #define reset_flag					v1
 #define respawn_wait_counter				v2
@@ -107,16 +105,23 @@ set_global_flag (player_bonus_pearl_count,0)
 #define last_movement_direction				v9
 
 	set_global_flag (pause_allowed, false)
+	set_global_flag (continue_save_allowed, false)
 
 	enable_window SCORE_OVERLAY_WINDOW
-
-	call_script function_reset_fuzz_counter
-
-	spawn_entity (manage_score_and_enemy_display)
 
 	LET WORLD_X = 0
 	LET WORLD_Y = 0
 	SET_PRIVATE_CO_ORDS
+
+	if_flag (continue_mode_flag = true) then
+		goto continue_bootstrap
+	end_if
+
+	set_global_flag (player_bonus_pearl_count,0)
+
+	call_script function_reset_fuzz_counter
+
+	spawn_entity (manage_score_and_enemy_display)
 
 	for counter = 0 to CONST_NUMBER_OF_LEVELS
 		write_to_array ( 0 , own_id , LEVEL_ENEMY_COUNT_ARRAY_ID , counter )
@@ -172,9 +177,41 @@ set_global_flag (player_bonus_pearl_count,0)
 
 	let current_level = get_global_flag ( player_on_level_number)
 
+	goto restart_main_loop
+
+
+
+.continue_bootstrap
+
+	LOAD_SAVE_FILE (continue_game_save_tag)
+	OVER_WRITE_ENTITY_FROM_SAVE_FILE (own_id,9000)
+
+	CREATE_EVENT_QUEUE (10)
+	RESET_EVENT_QUEUE
+
+	spawn_entity (manage_score_and_enemy_display)
+
+	for counter = 0 to 4
+		spawn_entity (new_cauldron,0,0,process_previous)
+		let last_child.passed_param_1 = counter
+	next
+
+	SPAWN_ENTITY (wizball_life_indicator,0,0,process_next)
+
+	SPAWN_MATCHING_ENTITIES_FROM_SAVE_FILE (ENTITY_TYPE & ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION)
+	alter_entities ( ALTERATION_SLEEP , ENTITY_TYPE & ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION )
+
+	set_global_flag (continue_mode_flag, false)
+	set_global_flag (player_warp_direction,0)
+
+	ADD_EVENT_TO_QUEUE ( OWN_ID , LEVEL_RESET_FLAG_PLAYER_WARPED )
+
+	let current_level = get_global_flag ( player_on_level_number)
+
 .restart_main_loop
 
 	set_global_flag (currently_on_bonus_level,false)
+	set_global_flag (continue_save_allowed,true)
 
 	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
 
@@ -284,6 +321,7 @@ end
 	FADE_PERSISTANT_CHANNELS
 
 	set_global_flag (pause_allowed, false)
+	set_global_flag (continue_save_allowed,false)
 
 	let counter = 0
 
@@ -325,6 +363,8 @@ end
 .bonus_level_handler
 
 	wait 45
+
+	set_global_flag (continue_save_allowed,false)
 
 	gosub stop_music
 
@@ -483,6 +523,7 @@ end
 	FADE_PERSISTANT_CHANNELS
 
 	set_global_flag (pause_allowed, false)
+	set_global_flag (continue_save_allowed,false)
 
 	// Kill off the enemies and bullets and wizball, if need-be.
 
@@ -544,6 +585,7 @@ end
 	FADE_PERSISTANT_CHANNELS
 
 	set_global_flag (pause_allowed, false)
+	set_global_flag (continue_save_allowed,false)
 
 	BLANK_WINDOW (2)
 
@@ -659,6 +701,7 @@ end
 	FADE_PERSISTANT_CHANNELS
 
 	set_global_flag (pause_allowed, false)
+	set_global_flag (continue_save_allowed,false)
 
 	// If we're in a freakout, then we emerge from it due to the death.
 
@@ -772,6 +815,7 @@ end
 	FADE_PERSISTANT_CHANNELS
 
 	set_global_flag (pause_allowed, false)
+	set_global_flag (continue_save_allowed,false)
 
 	// Zero the pearl counter...
 	set_global_flag (current_level_pearl_count, 0)

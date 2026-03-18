@@ -25,6 +25,7 @@
 #include "new_editor.h"
 #include "tilesets.h"
 #include "tilemaps.h"
+#include "textfiles.h"
 #include "file_stuff.h"
 #include "math_stuff.h"
 #include "platform.h"
@@ -1472,6 +1473,12 @@ int main(int argc, char *argv[])
 
 	if (rebuild_scripts_only == true)
 	{
+		MAIN_add_to_log("Rebuild-scripts mode: regenerating compiled text...");
+		TEXTFILE_load_text_from_source_files();
+		TEXTFILE_save_compiled_text();
+		TEXTFILE_destroy();
+		MAIN_add_to_log("\tOK!");
+
 		MAIN_add_to_log("Rebuild-scripts mode complete. Exiting.");
 		return 0;
 	}

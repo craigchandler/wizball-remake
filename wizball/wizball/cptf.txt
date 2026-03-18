@@ -1,4 +1,4 @@
-379
+396
 12
 BONUS = 40 *
 1
@@ -517,6 +517,10 @@ missing_enemies_demo
 hiscores.txt
 14
 unlocked_tunes
+13
+game_continue
+18
+game_continue_meta
 3
 1 -
 10
@@ -539,6 +543,34 @@ HI-SCORES
 WIZTIPS
 3
 6 -
+9
+QUIT GAME
+3
+1 -
+8
+CONTINUE
+3
+2 -
+10
+ONE PLAYER
+3
+3 -
+10
+TWO PLAYER
+3
+4 -
+7
+OPTIONS
+3
+5 -
+9
+HI-SCORES
+3
+6 -
+7
+WIZTIPS
+3
+7 -
 9
 QUIT GAME
 3
@@ -651,6 +683,8 @@ FIRE
 GAME PAUSED
 11
 RESUME GAME
+13
+SAVE AND EXIT
 9
 QUIT GAME
 42

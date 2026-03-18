@@ -1,0 +1,8 @@
+	set_global_flag (continue_game_available, false)
+
+	RESET_SAVE_FILE
+	WRITE_FLAG_TO_SAVE_FILE continue_game_available
+	OUTPUT_SAVE_FILE continue_metadata_save_tag
+	RESET_SAVE_FILE
+
+	kill_entity own_id

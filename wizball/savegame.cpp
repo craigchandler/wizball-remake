@@ -340,6 +340,9 @@ int SAVEGAME_spawn_matching_loaded_entities(int variable, int operation, int com
 
 			if (new_entity_id != UNSET)
 			{
+				// Restored entities still need the normal reset-entity baseline before we
+				// copy saved variables and arrays over them.
+				SCRIPTING_setup_entity(new_entity_id);
 				SAVEGAME_restore_entity_variables(new_entity_id, loaded_entity);
 				SAVEGAME_restore_entity_arrays(new_entity_id, loaded_entity);
 				SAVEGAME_add_restored_entity_mapping(loaded_entity->loaded_entity_tag, new_entity_id);

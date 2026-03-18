@@ -14,6 +14,7 @@ typedef struct {
 
 
 void TEXTFILE_load_text (void);
+void TEXTFILE_load_text_from_source_files(void);
 void TEXTFILE_destroy (void);
 void TEXTFILE_save_compiled_text (void);
 void TEXTFILE_load_compiled_text (void);

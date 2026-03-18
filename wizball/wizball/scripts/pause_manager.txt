@@ -71,7 +71,7 @@ end
 
 
 .option_down
-	let focussed_option = focussed_option + 1 !> 1
+	let focussed_option = focussed_option + 1 !> 2
 	PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
 
 	return
@@ -83,6 +83,13 @@ end
 		PLAY_SOUND menu_select_back 255 CONST_SOUND_FREQUENCY 128
 		gosub end_pause
 	else_if focussed_option = 1 then
+		if_flag (continue_save_allowed = true) then
+			PLAY_SOUND menu_select 255 CONST_SOUND_FREQUENCY 128
+			goto save_and_exit
+		else
+			PLAY_SOUND menu_select_back 255 CONST_SOUND_FREQUENCY 128
+		end_if
+	else_if focussed_option = 2 then
 		PLAY_SOUND menu_select 255 CONST_SOUND_FREQUENCY 128
 		goto quit_game
 	end_if
@@ -98,7 +105,8 @@ end
 
 	SPAWN_ENTITIES_FROM_TEXT (FALSE, CONST_UNSET,pause_text, PAUSE_MENU_TITLE, process_next, center_x, 320, PAUSE_MENU_HEADER_Y, 0, 0, font[arb])
 	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, pause_text, PAUSE_MENU_RESUME, process_next, center_x, 320, PAUSE_MENU_RESUME_OPTION_Y, 0, 0, font[arb])
-	SPAWN_ENTITIES_FROM_TEXT (FALSE, 1, pause_text, PAUSE_MENU_QUIT, process_next, center_x, 320, PAUSE_MENU_QUIT_OPTION_Y, 0, 0, font[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 1, pause_text, PAUSE_MENU_SAVE_AND_EXIT, process_next, center_x, 320, PAUSE_MENU_QUIT_OPTION_Y, 0, 0, font[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 2, pause_text, PAUSE_MENU_QUIT, process_next, center_x, 320, 256, 0, 0, font[arb])
 	SPAWN_ENTITY (pause_rectangle)
 	let focussed_option = 0
 
@@ -112,6 +120,17 @@ end
 	let pause_status = FALSE
 
 	return
+
+
+
+.save_and_exit
+
+	spawn_entity (save_current_run,0,0,process_next)
+	spawn_entity (save_config,0,0,process_next)
+	spawn_entity (save_unlocked_tunes,0,0,process_next)
+	wait 1
+
+	goto quit_game
 
 
 

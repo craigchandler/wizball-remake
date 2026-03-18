@@ -30,8 +30,12 @@ let temp_3 = temp_1 + temp_2
 set_global_flag (display_mode_flag,temp_3)
 
 set_global_flag (played_tunes_flag,0)
+set_global_flag (continue_game_available,false)
+set_global_flag (continue_mode_flag,false)
+set_global_flag (continue_save_allowed,false)
 
 LOAD_SAVE_FILE (save_file_tag)
+LOAD_SAVE_FILE (continue_metadata_save_tag)
 
 SETUP_TILEMAP_COLLISION
 SETUP_TILE_PROFILES (16)
