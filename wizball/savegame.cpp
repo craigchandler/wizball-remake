@@ -3,6 +3,18 @@
 #include "savegame.h"
 #include "arrays.h"
 #include "output.h"
+#include "global_param_list.h"
+#include "string_size_constants.h"
+
+typedef struct
+{
+	int loaded_tag;
+	int live_entity_id;
+} restored_entity_mapping_struct;
+
+static restored_entity_mapping_struct *savegame_restored_entity_mappings = NULL;
+static int savegame_restored_entity_mapping_count = 0;
+static int savegame_restored_entity_mapping_capacity = 0;
 
 static bool SAVEGAME_compare_value(int value, int operation, int compare_value)
 {
@@ -43,6 +55,69 @@ static bool SAVEGAME_compare_value(int value, int operation, int compare_value)
 	}
 }
 
+static bool SAVEGAME_is_entity_reference_variable(int variable_number)
+{
+	switch (variable_number)
+	{
+	case ENT_PARENT:
+	case ENT_FIRST_CHILD:
+	case ENT_LAST_CHILD:
+	case ENT_PREV_SIBLING:
+	case ENT_NEXT_SIBLING:
+	case ENT_MATRIARCH:
+	case ENT_COLLIDED_ENTITY:
+	case ENT_TARGET_ENTITY:
+	case ENT_DRAW_BUDDY:
+		return true;
+
+	default:
+		return false;
+	}
+}
+
+static void SAVEGAME_reset_restored_entity_mappings(void)
+{
+	if (savegame_restored_entity_mappings != NULL)
+	{
+		free(savegame_restored_entity_mappings);
+		savegame_restored_entity_mappings = NULL;
+	}
+
+	savegame_restored_entity_mapping_count = 0;
+	savegame_restored_entity_mapping_capacity = 0;
+}
+
+static void SAVEGAME_add_restored_entity_mapping(int loaded_tag, int live_entity_id)
+{
+	if (savegame_restored_entity_mapping_count >= savegame_restored_entity_mapping_capacity)
+	{
+		int new_capacity = savegame_restored_entity_mapping_capacity + 32;
+		savegame_restored_entity_mappings = (restored_entity_mapping_struct *) realloc(
+			savegame_restored_entity_mappings,
+			sizeof(restored_entity_mapping_struct) * new_capacity);
+		savegame_restored_entity_mapping_capacity = new_capacity;
+	}
+
+	savegame_restored_entity_mappings[savegame_restored_entity_mapping_count].loaded_tag = loaded_tag;
+	savegame_restored_entity_mappings[savegame_restored_entity_mapping_count].live_entity_id = live_entity_id;
+	savegame_restored_entity_mapping_count++;
+}
+
+static int SAVEGAME_find_restored_live_entity_for_tag(int loaded_tag)
+{
+	int mapping_number;
+
+	for (mapping_number = 0; mapping_number < savegame_restored_entity_mapping_count; mapping_number++)
+	{
+		if (savegame_restored_entity_mappings[mapping_number].loaded_tag == loaded_tag)
+		{
+			return savegame_restored_entity_mappings[mapping_number].live_entity_id;
+		}
+	}
+
+	return UNSET;
+}
+
 static void SAVEGAME_restore_entity_variables(int entity_number, loaded_entity_struct *loaded_entity)
 {
 	int variable_number;
@@ -52,7 +127,10 @@ static void SAVEGAME_restore_entity_variables(int entity_number, loaded_entity_s
 		int variable_index = loaded_entity->loaded_entity_variable_list[variable_number];
 		int variable_value = loaded_entity->loaded_entity_value_list[variable_number];
 
-		entity[entity_number][variable_index] = variable_value;
+		if (!SAVEGAME_is_entity_reference_variable(variable_index))
+		{
+			entity[entity_number][variable_index] = variable_value;
+		}
 	}
 }
 
@@ -84,6 +162,25 @@ static void SAVEGAME_restore_entity_arrays(int entity_number, loaded_entity_stru
 
 			ARRAY_write_value(entity_number, loaded_array->uid, loaded_array->data[value_index], x, y, z);
 		}
+	}
+}
+
+static void SAVEGAME_restore_entity_references(int entity_number, loaded_entity_struct *loaded_entity)
+{
+	int reference_number;
+
+	for (reference_number = 0; reference_number < loaded_entity->loaded_reference_count; reference_number++)
+	{
+		int variable_index = loaded_entity->loaded_entity_reference_variable_list[reference_number];
+		int loaded_tag = loaded_entity->loaded_entity_reference_tag_list[reference_number];
+		int resolved_entity_id = UNSET;
+
+		if (loaded_tag != UNSET)
+		{
+			resolved_entity_id = SAVEGAME_find_restored_live_entity_for_tag(loaded_tag);
+		}
+
+		entity[entity_number][variable_index] = resolved_entity_id;
 	}
 }
 
@@ -125,8 +222,67 @@ bool SAVEGAME_restore_entity_from_loaded_tag(int entity_number, int tag)
 
 	SAVEGAME_restore_entity_variables(entity_number, loaded_entity);
 	SAVEGAME_restore_entity_arrays(entity_number, loaded_entity);
+	SAVEGAME_add_restored_entity_mapping(tag, entity_number);
+	SAVEGAME_restore_entity_references(entity_number, loaded_entity);
 
 	return true;
+}
+
+int SAVEGAME_find_saved_tag_for_live_entity(int entity_number)
+{
+	int saved_entity_number;
+
+	for (saved_entity_number = 0; saved_entity_number < save_data.saved_entity_count; saved_entity_number++)
+	{
+		if (save_data.saved_entity_number_list[saved_entity_number] == entity_number)
+		{
+			return save_data.saved_entity_tag_list[saved_entity_number];
+		}
+	}
+
+	return UNSET;
+}
+
+void SAVEGAME_output_entity_references_to_file(int ent_index, FILE *file_pointer)
+{
+	int variable_index;
+	int reference_count = 0;
+	char line[MAX_LINE_SIZE];
+
+	for (variable_index = 0; variable_index < MAX_ENTITY_VARIABLES; variable_index++)
+	{
+		if (SAVEGAME_is_entity_reference_variable(variable_index))
+		{
+			reference_count++;
+		}
+	}
+
+	snprintf(line, sizeof(line), "\t\t#START_OF_REFERENCES_COUNT = %i\n", reference_count);
+	fputs(line, file_pointer);
+
+	for (variable_index = 0; variable_index < MAX_ENTITY_VARIABLES; variable_index++)
+	{
+		if (SAVEGAME_is_entity_reference_variable(variable_index))
+		{
+			int referenced_entity_id = entity[ent_index][variable_index];
+			int referenced_tag = UNSET;
+
+			if ((referenced_entity_id >= 0) && (referenced_entity_id < MAX_ENTITIES))
+			{
+				referenced_tag = SAVEGAME_find_saved_tag_for_live_entity(referenced_entity_id);
+			}
+
+			snprintf(
+				line,
+				sizeof(line),
+				"\t\t\t#ENTITY_REFERENCE '%s' = %i\n",
+				GPL_get_entry_name("VARIABLE", variable_index),
+				referenced_tag);
+			fputs(line, file_pointer);
+		}
+	}
+
+	fputs("\t\t#END_OF_REFERENCES\n", file_pointer);
 }
 
 
@@ -160,6 +316,8 @@ int SAVEGAME_spawn_matching_loaded_entities(int variable, int operation, int com
 	int loaded_entity_number;
 	int spawned_count = 0;
 
+	SAVEGAME_reset_restored_entity_mappings();
+
 	for (loaded_entity_number = 0; loaded_entity_number < save_data.loaded_entity_count; loaded_entity_number++)
 	{
 		loaded_entity_struct *loaded_entity = &save_data.loaded_entity_data[loaded_entity_number];
@@ -182,11 +340,26 @@ int SAVEGAME_spawn_matching_loaded_entities(int variable, int operation, int com
 
 			if (new_entity_id != UNSET)
 			{
-				SAVEGAME_restore_entity_from_loaded_tag(new_entity_id, loaded_entity->loaded_entity_tag);
+				SAVEGAME_restore_entity_variables(new_entity_id, loaded_entity);
+				SAVEGAME_restore_entity_arrays(new_entity_id, loaded_entity);
+				SAVEGAME_add_restored_entity_mapping(loaded_entity->loaded_entity_tag, new_entity_id);
 				spawned_count++;
 			}
 		}
 	}
+
+	for (loaded_entity_number = 0; loaded_entity_number < save_data.loaded_entity_count; loaded_entity_number++)
+	{
+		loaded_entity_struct *loaded_entity = &save_data.loaded_entity_data[loaded_entity_number];
+		int live_entity_id = SAVEGAME_find_restored_live_entity_for_tag(loaded_entity->loaded_entity_tag);
+
+		if (live_entity_id != UNSET)
+		{
+			SAVEGAME_restore_entity_references(live_entity_id, loaded_entity);
+		}
+	}
+
+	SAVEGAME_reset_restored_entity_mappings();
 
 	return spawned_count;
 }

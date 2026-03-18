@@ -11319,6 +11319,16 @@ void SCRIPTING_free_loaded_save_data (void)
 				free(loaded_entity->loaded_entity_value_list);
 			}
 
+			if (loaded_entity->loaded_entity_reference_variable_list != NULL)
+			{
+				free(loaded_entity->loaded_entity_reference_variable_list);
+			}
+
+			if (loaded_entity->loaded_entity_reference_tag_list != NULL)
+			{
+				free(loaded_entity->loaded_entity_reference_tag_list);
+			}
+
 			if (loaded_entity->array_data != NULL)
 			{
 				for (array_number = 0; array_number < loaded_entity->loaded_entity_array_count; array_number++)
@@ -11547,10 +11557,13 @@ void SCRIPTING_input_entities_from_file (char *filename)
 				{
 					save_data.loaded_entity_data[entity_number].loaded_entity_array_count = 0;
 					save_data.loaded_entity_data[entity_number].loaded_variable_count = 0;
+					save_data.loaded_entity_data[entity_number].loaded_reference_count = 0;
 
 					save_data.loaded_entity_data[entity_number].array_data = NULL;
 					save_data.loaded_entity_data[entity_number].loaded_entity_variable_list = NULL;
 					save_data.loaded_entity_data[entity_number].loaded_entity_value_list = NULL;
+					save_data.loaded_entity_data[entity_number].loaded_entity_reference_variable_list = NULL;
+					save_data.loaded_entity_data[entity_number].loaded_entity_reference_tag_list = NULL;
 
 					save_data.loaded_entity_data[entity_number].loaded_entity_tag = UNSET;
 				}
@@ -11614,6 +11627,52 @@ void SCRIPTING_input_entities_from_file (char *filename)
 					}
 
 					variable_number++;
+				}
+
+				pointer = STRING_end_of_string(line,"#START_OF_REFERENCES_COUNT = ");
+				if (pointer != NULL)
+				{
+					variable_number = 0;
+					variable_count = atoi(pointer);
+
+					save_data.loaded_entity_data[entity_number].loaded_reference_count = variable_count;
+					save_data.loaded_entity_data[entity_number].loaded_entity_reference_variable_list = (int *) malloc (sizeof(int) * variable_count);
+					save_data.loaded_entity_data[entity_number].loaded_entity_reference_tag_list = (int *) malloc (sizeof(int) * variable_count);
+				}
+
+				pointer = STRING_end_of_string(line,"#ENTITY_REFERENCE '");
+				if (pointer != NULL)
+				{
+					strcpy(word,pointer);
+					strtok(word,"'");
+
+					variable_index = GPL_find_word_value("VARIABLE",word);
+
+					pointer = STRING_end_of_string(line,"' = ");
+					if (pointer != NULL)
+					{
+						variable_value = atoi(pointer);
+
+						save_data.loaded_entity_data[entity_number].loaded_entity_reference_variable_list[variable_number] = variable_index;
+						save_data.loaded_entity_data[entity_number].loaded_entity_reference_tag_list[variable_number] = variable_value;
+					}
+					else
+					{
+						OUTPUT_message("No value for entity reference!");
+						assert(0);
+					}
+
+					variable_number++;
+				}
+
+				pointer = STRING_end_of_string(line,"#END_OF_REFERENCES");
+				if (pointer != NULL)
+				{
+					if (variable_number != save_data.loaded_entity_data[entity_number].loaded_reference_count)
+					{
+						OUTPUT_message("Read in entity reference count does not match expected!");
+						assert(0);
+					}
 				}
 
 				pointer = STRING_end_of_string(line,"#END_OF_VARIABLES");
@@ -11781,6 +11840,7 @@ void SCRIPTING_output_entity_to_file (int ent_index, int ent_tag, FILE *file_poi
 
 	// This first outputs all the variable names and values... Note when it's reloaded it won't overwrite the parents or other relational variables.
 	SCRIPTING_output_entity_non_relation_properties_to_file (ent_index, file_pointer);
+	SAVEGAME_output_entity_references_to_file (ent_index, file_pointer);
 
 	// Then it outputs any arrays which the entity has...
 	ARRAY_output_entity_arrays_to_file (ent_index, file_pointer);

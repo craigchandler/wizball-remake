@@ -299,6 +299,30 @@ So the next step is not more low-level serialization. It is a controlled script-
 - a controller branch that performs only the bootstrap pieces that are still needed
 - modular save/continue scripts that use the new engine commands
 
+### Newly Closed Gap: Entity Reference Remapping
+
+The batch entity save/spawn work exposed one more engine-level issue:
+
+- entity-id variables like `parent`, sibling links, and `draw_buddy` were being restored as stale raw ids
+
+That would break exact bonus-return-equivalent resume even if the correct slept entities were restored.
+
+This is now handled generically in the save format by writing selected entity references as saved tags and remapping them after restore/spawn.
+
+The current remapped set is:
+
+- `PARENT`
+- `FIRST_CHILD`
+- `LAST_CHILD`
+- `PREV_SIBLING`
+- `NEXT_SIBLING`
+- `MATRIARCH`
+- `COLLIDED_ENTITY`
+- `TARGET_ENTITY`
+- `DRAW_BUDDY`
+
+This closes the biggest remaining engine-side fidelity issue for restoring persistent level enemy families.
+
 ## B. Add Save File Probe Support
 
 Recommended small generic feature:
@@ -311,6 +335,10 @@ Use cases:
 - reject broken or stale continue saves gracefully
 
 This keeps menu logic out of engine-specific hacks.
+
+### Practical Alternative
+
+Instead of a new engine command, a small continue-metadata save file could also be used to advertise menu availability without loading the full gameplay save into live flags on startup.
 
 ## C. Optional Later Feature: Delete Save File
 
@@ -354,6 +382,18 @@ The goal is to keep:
 - `main_game_controller.txt`
 
 as lightly touched as possible.
+
+## Resume Bootstrap Direction
+
+The most promising script-side resume path is:
+
+- load the gameplay save
+- restore the main controller by stable tag
+- respawn saved `ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION` entities
+- recreate non-serialized controller runtime state such as the event queue
+- re-enter the same-level transition path by setting `player_warp_direction = 0` and using the existing `LEVEL_RESET_FLAG_PLAYER_WARPED` / `swap_levels` flow
+
+That should behave much more like a real return from bonus/lab than a fresh-level reconstruction, while still avoiding frame-perfect pause-state serialization.
 
 ## Recommended Engine Module Structure
 

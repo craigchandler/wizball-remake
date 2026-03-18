@@ -321,6 +321,10 @@ typedef struct
 	int *loaded_entity_variable_list;
 	int *loaded_entity_value_list;
 
+	int loaded_reference_count;
+	int *loaded_entity_reference_variable_list;
+	int *loaded_entity_reference_tag_list;
+
 	int loaded_entity_array_count;
 	loaded_array_struct *array_data;
 } loaded_entity_struct;
@@ -381,7 +385,6 @@ extern save_data_struct save_data;
 #define FIX_ME_NOW 99
 
 #endif
-
 
 
 
