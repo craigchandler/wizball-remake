@@ -58,7 +58,8 @@
 	// This variable isn't used to kill this thing, though. Just as a reminder, really.
 	let ENTITY_TYPE = ENT_TYPE_PERMANENT_MENU_ENTITY
 
-	let continue_available = GET_GLOBAL_FLAG (continue_game_available)
+	let continue_available = GET_SAVE_FILE_EXISTS (continue_game_save_tag)
+	set_global_flag (continue_game_available, continue_available)
 	let option_y_co_ord = 204
 	let menu_option_gap = 20
 

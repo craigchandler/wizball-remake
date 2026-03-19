@@ -2544,6 +2544,9 @@ int SCRIPTING_spawn_restored_entity_last (void)
 		last_processed_entity_in_list = just_created_entity;
 	}
 
+	// Restored entities are immediately overwritten with saved variables, including
+	// their script line/state. Starting them as JUST_BORN re-runs startup logic and
+	// breaks resume semantics for persistent level entities.
 	just_created_entity_pointer[ENT_ALIVE] = ALIVE;
 
 	return just_created_entity;
@@ -9471,6 +9474,17 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 				SCRIPTING_load_save_file (first_value);
 			break;
 
+			case COM_DELETE_SAVE_FILE:
+				first_value = SCRIPTING_get_int_value(entity_id,line_number,1);
+				SCRIPTING_delete_save_file(first_value);
+			break;
+
+			case COM_GET_SAVE_FILE_EXISTS:
+				first_value = SCRIPTING_get_int_value(entity_id,line_number,4);
+				result_i = SCRIPTING_does_save_file_exist(first_value);
+				SCRIPTING_put_value ( entity_id , line_number , 1 , result_i );
+			break;
+
 			case COM_OVER_WRITE_ENTITY_FROM_SAVE_FILE:
 				first_value = SCRIPTING_get_int_value(entity_id,line_number,1);
 				second_value = SCRIPTING_get_int_value(entity_id,line_number,2);
@@ -11523,8 +11537,12 @@ void SCRIPTING_output_flags_to_file (char *filename)
 	char *flag_name;
 
 	char line[MAX_LINE_SIZE];
+	char normalised_filename[MAX_LINE_SIZE];
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename (filename, true),"a");
+	snprintf(normalised_filename, sizeof(normalised_filename), "%s", filename);
+	STRING_lowercase(normalised_filename);
+
+	FILE *file_pointer = fopen (MAIN_get_project_filename (normalised_filename, true),"a");
 
 	if (file_pointer != NULL)
 	{
@@ -11601,7 +11619,7 @@ void SCRIPTING_input_entities_from_file (char *filename)
 	bool can_exit = false;
 
 	FILE *file_pointer = FILE_open_project_read_case_fallback(filename);
-	
+
 	if (file_pointer != NULL)
 	{
 		while ( ( fgets ( line , MAX_LINE_SIZE , file_pointer ) != NULL ) && (exit_loop == false) )
@@ -11614,7 +11632,7 @@ void SCRIPTING_input_entities_from_file (char *filename)
 				// We've found the data start!
 
 				entity_count = atoi(pointer);
-				
+
 				save_data.loaded_entity_count = entity_count;
 				save_data.loaded_entity_data = (loaded_entity_struct *) malloc (sizeof(loaded_entity_struct) * entity_count);
 
@@ -11787,14 +11805,15 @@ void SCRIPTING_input_entities_from_file (char *filename)
 				if (pointer != NULL)
 				{
 					// Here's an array, but how big is it?
+					char *token;
 
 					strcpy(word,pointer);
-					strtok(word," *");
-					save_data.loaded_entity_data[entity_number].array_data[array_number].width = atoi(word);
-					strtok(word," *");
-					save_data.loaded_entity_data[entity_number].array_data[array_number].height = atoi(word);
-					strtok(word," *");
-					save_data.loaded_entity_data[entity_number].array_data[array_number].depth = atoi(word);
+					token = strtok(word," *");
+					save_data.loaded_entity_data[entity_number].array_data[array_number].width = (token != NULL) ? atoi(token) : 0;
+					token = strtok(NULL," *");
+					save_data.loaded_entity_data[entity_number].array_data[array_number].height = (token != NULL) ? atoi(token) : 0;
+					token = strtok(NULL," *");
+					save_data.loaded_entity_data[entity_number].array_data[array_number].depth = (token != NULL) ? atoi(token) : 0;
 
 					array_data_size = save_data.loaded_entity_data[entity_number].array_data[array_number].width * save_data.loaded_entity_data[entity_number].array_data[array_number].height * save_data.loaded_entity_data[entity_number].array_data[array_number].depth;
 
@@ -11815,15 +11834,16 @@ void SCRIPTING_input_entities_from_file (char *filename)
 				if (pointer != NULL)
 				{
 					// Here's an array, but how big is it?
+					char *token;
 
 					strcpy(word,pointer);
-					strtok(word,",");
+					token = strtok(word,",");
 
-					do
+					while (token != NULL)
 					{
 						if (array_data_counter < array_data_size)
 						{
-							save_data.loaded_entity_data[entity_number].array_data[array_number].data[array_data_counter] = atoi(word);
+							save_data.loaded_entity_data[entity_number].array_data[array_number].data[array_data_counter] = atoi(token);
 							array_data_counter++;
 						}
 						else
@@ -11832,8 +11852,8 @@ void SCRIPTING_input_entities_from_file (char *filename)
 							assert(0);
 						}
 
+						token = strtok(NULL,",");
 					}
-					while(strtok(NULL,",") != NULL);
 				}
 
 				if (strcmp(line,"#END_OF_THIS_ARRAY") == 0)
@@ -11849,17 +11869,11 @@ void SCRIPTING_input_entities_from_file (char *filename)
 
 				if (strcmp(line,"#ARRAY_DATA_END") == 0)
 				{
-					// No entities for you!
-
-					// Make sure we read in the same number of entities as we were expecting...
-
 					if (array_count != array_number)
 					{
 						OUTPUT_message("Read in array count does not match expected!");
 						assert(0);
 					}
-
-					exit_loop = true;
 				}
 
 				if (strcmp(line,"#END_OF_THIS_ENTITY") == 0)
@@ -11887,6 +11901,7 @@ void SCRIPTING_input_entities_from_file (char *filename)
 		}
 
 		fclose(file_pointer);
+
 	}
 	else
 	{
@@ -11926,8 +11941,12 @@ void SCRIPTING_output_entities_to_file (char *filename)
 {
 	int ent_num, ent_index, ent_tag;
 	char word[MAX_LINE_SIZE];
+	char normalised_filename[MAX_LINE_SIZE];
 
-	FILE *file_pointer = fopen (STRING_lowercase(MAIN_get_project_filename (filename)),"a");
+	snprintf(normalised_filename, sizeof(normalised_filename), "%s", filename);
+	STRING_lowercase(normalised_filename);
+
+	FILE *file_pointer = fopen (MAIN_get_project_filename (normalised_filename),"a");
 
 	if (file_pointer != NULL)
 	{
@@ -12098,16 +12117,18 @@ void SCRIPTING_input_flags_from_file (char *filename)
 char *SCRIPTING_get_checksum_from_save_file (char *filename)
 {
 	char *pointer;
-
+	char normalised_filename[MAX_LINE_SIZE];
 	char line[MAX_LINE_SIZE];
-
 	static char checkcode[MAX_LINE_SIZE];
 
 	snprintf (checkcode, sizeof(checkcode), "UNSET");
 
 	bool exit_loop = false;
 
-	FILE *file_pointer = FILE_open_project_read_case_fallback(filename);
+	snprintf(normalised_filename, sizeof(normalised_filename), "%s", filename);
+	STRING_lowercase(normalised_filename);
+
+	FILE *file_pointer = FILE_open_project_read_case_fallback(normalised_filename);
 
 	if (file_pointer != NULL)
 	{
@@ -12142,6 +12163,7 @@ char *SCRIPTING_generate_checkcode_for_save_file (char *filename)
 
 	char *save_file_text = NULL;
 	int save_file_text_length = 1; // So there's space for the /0.
+	char normalised_filename[MAX_LINE_SIZE];
 
 	char *pointer;
 
@@ -12149,7 +12171,10 @@ char *SCRIPTING_generate_checkcode_for_save_file (char *filename)
 
 	bool exit_loop = false;
 
-	FILE *file_pointer = FILE_open_project_read_case_fallback(filename);
+	snprintf(normalised_filename, sizeof(normalised_filename), "%s", filename);
+	STRING_lowercase(normalised_filename);
+
+	FILE *file_pointer = FILE_open_project_read_case_fallback(normalised_filename);
 
 	if (file_pointer != NULL)
 	{
@@ -12202,14 +12227,19 @@ char *SCRIPTING_generate_checkcode_for_save_file (char *filename)
 void SCRIPTING_append_checksum_to_save_file (char *filename)
 {
 	char line[MAX_LINE_SIZE];
+	char normalised_filename[MAX_LINE_SIZE];
 
 	snprintf (line, sizeof(line), "#SAVE FILE CHECKSUM = %s\n", SCRIPTING_generate_checkcode_for_save_file(filename));
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename (filename, true),"a");
+	snprintf(normalised_filename, sizeof(normalised_filename), "%s", filename);
+	STRING_lowercase(normalised_filename);
+
+	FILE *file_pointer = fopen (MAIN_get_project_filename (normalised_filename, true),"a");
 	
 	if (file_pointer != NULL)
 	{
 		fputs(line,file_pointer);
+		fclose(file_pointer);
 	}
 	else
 	{
@@ -12226,16 +12256,20 @@ void SCRIPTING_load_save_file (int filename_text_tag)
 
 	// Clean out the current crap.
 	SCRIPTING_reset_save_data ();
+	SAVEGAME_clear_restored_live_entity_flags();
 
 	char filename[MAX_LINE_SIZE];
+	char normalised_filename[MAX_LINE_SIZE];
 
 	char *filename_pointer = TEXTFILE_get_line_by_index (filename_text_tag);
 	
 	strcpy (filename,filename_pointer);
 	strcat (filename,".SAV");
 	STRING_uppercase (filename);
+	snprintf(normalised_filename, sizeof(normalised_filename), "%s", filename);
+	STRING_lowercase(normalised_filename);
 
-	FILE *file_pointer = FILE_open_project_read_case_fallback(filename);
+	FILE *file_pointer = FILE_open_project_read_case_fallback(normalised_filename);
 	
 	if (file_pointer == NULL)
 	{
@@ -12248,7 +12282,13 @@ void SCRIPTING_load_save_file (int filename_text_tag)
 
 		fclose(file_pointer);
 
-		if (strcmp (SCRIPTING_generate_checkcode_for_save_file (filename) , SCRIPTING_get_checksum_from_save_file(filename) ) == 0)
+		{
+			char generated_checkcode[MAX_LINE_SIZE];
+			char existing_checkcode[MAX_LINE_SIZE];
+			snprintf(generated_checkcode, sizeof(generated_checkcode), "%s", SCRIPTING_generate_checkcode_for_save_file(normalised_filename));
+			snprintf(existing_checkcode, sizeof(existing_checkcode), "%s", SCRIPTING_get_checksum_from_save_file(normalised_filename));
+
+			if ((strcmp(existing_checkcode, "UNSET") == 0) || (strcmp (generated_checkcode , existing_checkcode ) == 0))
 		{
 			// We read out the crap in the same order that we put it in, although
 			// given that each load routine parses the file completely there seems
@@ -12258,21 +12298,61 @@ void SCRIPTING_load_save_file (int filename_text_tag)
 
 			// LOAD AI ZONE PATHFINDING TABLES
 
-			SPAWNPOINTS_input_flags_from_file (filename);
+			SPAWNPOINTS_input_flags_from_file (normalised_filename);
 
-			TILEMAPS_input_zone_flags_from_file (filename);
+			TILEMAPS_input_zone_flags_from_file (normalised_filename);
 
-			SCRIPTING_input_flags_from_file (filename);
+			SCRIPTING_input_flags_from_file (normalised_filename);
 
-			SCRIPTING_input_entities_from_file (filename);
+			SCRIPTING_input_entities_from_file (normalised_filename);
+
 		}
 		else
 		{
 			// Mismatching checksum.
 			return;
 		}
+		}
 	}
 
+}
+
+void SCRIPTING_delete_save_file (int filename_text_tag)
+{
+	char filename[MAX_LINE_SIZE];
+	char normalised_filename[MAX_LINE_SIZE];
+	char *filename_pointer = TEXTFILE_get_line_by_index(filename_text_tag);
+
+	strcpy(filename, filename_pointer);
+	strcat(filename, ".SAV");
+	STRING_uppercase(filename);
+	snprintf(normalised_filename, sizeof(normalised_filename), "%s", filename);
+	STRING_lowercase(normalised_filename);
+
+	remove(MAIN_get_project_filename(normalised_filename, true));
+}
+
+int SCRIPTING_does_save_file_exist (int filename_text_tag)
+{
+	char filename[MAX_LINE_SIZE];
+	char normalised_filename[MAX_LINE_SIZE];
+	char *filename_pointer = TEXTFILE_get_line_by_index(filename_text_tag);
+	FILE *file_pointer;
+
+	strcpy(filename, filename_pointer);
+	strcat(filename, ".SAV");
+	STRING_uppercase(filename);
+	snprintf(normalised_filename, sizeof(normalised_filename), "%s", filename);
+	STRING_lowercase(normalised_filename);
+
+	file_pointer = FILE_open_project_read_case_fallback(normalised_filename);
+	if (file_pointer != NULL)
+	{
+		fclose(file_pointer);
+		return true;
+	}
+
+	return false;
 }
 
 

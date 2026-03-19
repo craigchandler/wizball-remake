@@ -1,3 +1,6 @@
+	let temp_1 = GET_SAVE_FILE_EXISTS (continue_game_save_tag)
+	set_global_flag (continue_game_available, temp_1)
+
 	if_flag (continue_game_available = false) then
 		kill_entity own_id
 		end
@@ -34,7 +37,6 @@
 
 	spawn_entity (main_game_controller, 0, 0, process_last)
 	spawn_entity (pause_manager,0,0,process_last)
-	spawn_entity (bonus_selection_panel_setup, 0, 0, process_next)
 
 	blank_window (GAME_MAIN_WINDOW,5)
 	blank_window (GAME_PANEL_WINDOW,5)

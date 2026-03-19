@@ -55,8 +55,11 @@ wizball/wizball/config.txt
 wizball/wizball/hiscores.txt
 wizball/wizball/interaction_table.txt
 wizball/wizball/report.txt
-wizball/wizball/unlocked_tunes.sav
+wizball/wizball/*.sav
 wizball/wizball/waypoint_lookup_tables.txt
+wizball/wizball/save_restore_debug.txt
+wizball/wizball/entity_dump.txt
+wizball/wizball/traced_script_lines.txt
 
 # Regenerated packed data outputs
 wizball/wizball/data.dat

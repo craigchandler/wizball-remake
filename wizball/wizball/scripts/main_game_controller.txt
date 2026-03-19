@@ -186,6 +186,15 @@ LET WINDOW_NUMBER = GAME_MAIN_WINDOW
 	LOAD_SAVE_FILE (continue_game_save_tag)
 	OVER_WRITE_ENTITY_FROM_SAVE_FILE (own_id,9000)
 
+	set_global_flag (currently_on_bonus_level,false)
+	set_global_flag (current_existant_enemy_bullets,0)
+	set_global_flag (enemies_shot_in_a_row,0)
+	set_global_flag (freak_out_flag,false)
+	set_global_flag (freak_out_counter,0)
+	set_global_flag (freak_out_landscape_bump_counter,0)
+	set_global_flag (freak_out_manager_entity_id,CONST_UNSET)
+	set_global_flag (proxy_entity_id_flag,CONST_UNSET)
+
 	CREATE_EVENT_QUEUE (10)
 	RESET_EVENT_QUEUE
 
@@ -198,15 +207,37 @@ LET WINDOW_NUMBER = GAME_MAIN_WINDOW
 
 	SPAWN_ENTITY (wizball_life_indicator,0,0,process_next)
 
-	SPAWN_MATCHING_ENTITIES_FROM_SAVE_FILE (ENTITY_TYPE & ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION)
-	alter_entities ( ALTERATION_SLEEP , ENTITY_TYPE & ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION )
-
-	set_global_flag (continue_mode_flag, false)
-	set_global_flag (player_warp_direction,0)
-
-	ADD_EVENT_TO_QUEUE ( OWN_ID , LEVEL_RESET_FLAG_PLAYER_WARPED )
-
 	let current_level = get_global_flag ( player_on_level_number)
+
+	goto resume_current_level
+
+.resume_current_level
+
+	set_global_flag (currently_on_bonus_level,false)
+	set_global_flag (continue_save_allowed,true)
+
+	LET ENTITY_TYPE = ENTITY_TYPE OR ENT_TYPE_PAUSABLE
+
+	BLANK_WINDOW (2)
+
+	gosub set_up_level_display
+	spawn_entity (bonus_selection_panel_setup, 0, 0, process_next)
+
+	spawn_entity (choose_wizball_start_position,0,0,process_first)
+	let last_child.passed_param_1 = WIZBALL_NEW_LIFE_APPEAR
+
+	start
+		if_flag (wizball_entity_id_flag) != CONST_UNSET then
+			goto continue_resume_complete
+		end_if
+	end
+
+.continue_resume_complete
+
+	SPAWN_MATCHING_ENTITIES_FROM_SAVE_FILE (ENTITY_TYPE & ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION)
+	ALTER_ENTITIES ( ALTERATION_SLEEP , ENTITY_TYPE & ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION )
+	ALTER_ENTITIES ( ALTERATION_WAKE , PARENT_LEVEL = current_level )
+	set_global_flag (continue_mode_flag, false)
 
 .restart_main_loop
 

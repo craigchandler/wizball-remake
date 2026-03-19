@@ -5123,8 +5123,12 @@ void TILEMAPS_output_altered_zone_flags_to_file (char *filename)
 	int map_uid,flag,uid;
 
 	char line[MAX_LINE_SIZE];
+	char normalised_filename[MAX_LINE_SIZE];
 
-	FILE *file_pointer = fopen (MAIN_get_project_filename (filename),"a");
+	snprintf(normalised_filename, sizeof(normalised_filename), "%s", filename);
+	STRING_lowercase(normalised_filename);
+
+	FILE *file_pointer = fopen (MAIN_get_project_filename (normalised_filename),"a");
 
 	if (file_pointer != NULL)
 	{

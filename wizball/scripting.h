@@ -149,7 +149,6 @@ void SCRIPTING_update_window_positions (void);
 void SCRIPTING_setup_data_stores (void);
 void SCRIPTING_load_prefabs (void);
 void SCRIPTING_free_prefabs (void);
-
 void SCRIPTING_save_compiled_prefabs (void);
 void SCRIPTING_load_compiled_prefabs (void);
 
@@ -179,6 +178,8 @@ void SCRIPTING_output_entity_to_file (int ent_index, int ent_tag, FILE *file_poi
 void SCRIPTING_output_entities_to_file (char *filename);
 void SCRIPTING_output_save_data_to_file (int filename_text_tag);
 void SCRIPTING_load_save_file (int filename_text_tag);
+void SCRIPTING_delete_save_file (int filename_text_tag);
+int SCRIPTING_does_save_file_exist (int filename_text_tag);
 void SCRIPTING_free_loaded_save_data (void);
 
 void SCRIPTING_append_checksum_to_save_file (char *filename);
@@ -385,9 +386,6 @@ extern save_data_struct save_data;
 #define FIX_ME_NOW 99
 
 #endif
-
-
-
 
 
 

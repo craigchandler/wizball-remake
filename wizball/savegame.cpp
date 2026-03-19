@@ -5,6 +5,7 @@
 #include "output.h"
 #include "global_param_list.h"
 #include "string_size_constants.h"
+#include "main.h"
 
 typedef struct
 {
@@ -15,6 +16,7 @@ typedef struct
 static restored_entity_mapping_struct *savegame_restored_entity_mappings = NULL;
 static int savegame_restored_entity_mapping_count = 0;
 static int savegame_restored_entity_mapping_capacity = 0;
+static bool savegame_restored_entity_flags[MAX_ENTITIES];
 
 static bool SAVEGAME_compare_value(int value, int operation, int compare_value)
 {
@@ -87,6 +89,11 @@ static void SAVEGAME_reset_restored_entity_mappings(void)
 	savegame_restored_entity_mapping_capacity = 0;
 }
 
+void SAVEGAME_clear_restored_live_entity_flags(void)
+{
+	memset(savegame_restored_entity_flags, 0, sizeof(savegame_restored_entity_flags));
+}
+
 static void SAVEGAME_add_restored_entity_mapping(int loaded_tag, int live_entity_id)
 {
 	if (savegame_restored_entity_mapping_count >= savegame_restored_entity_mapping_capacity)
@@ -101,6 +108,10 @@ static void SAVEGAME_add_restored_entity_mapping(int loaded_tag, int live_entity
 	savegame_restored_entity_mappings[savegame_restored_entity_mapping_count].loaded_tag = loaded_tag;
 	savegame_restored_entity_mappings[savegame_restored_entity_mapping_count].live_entity_id = live_entity_id;
 	savegame_restored_entity_mapping_count++;
+	if ((live_entity_id >= 0) && (live_entity_id < MAX_ENTITIES))
+	{
+		savegame_restored_entity_flags[live_entity_id] = true;
+	}
 }
 
 static int SAVEGAME_find_restored_live_entity_for_tag(int loaded_tag)
@@ -121,6 +132,16 @@ static int SAVEGAME_find_restored_live_entity_for_tag(int loaded_tag)
 static void SAVEGAME_restore_entity_variables(int entity_number, loaded_entity_struct *loaded_entity)
 {
 	int variable_number;
+	int loaded_old_alive = UNSET;
+
+	for (variable_number = 0; variable_number < loaded_entity->loaded_variable_count; variable_number++)
+	{
+		if (loaded_entity->loaded_entity_variable_list[variable_number] == ENT_OLD_ALIVE)
+		{
+			loaded_old_alive = loaded_entity->loaded_entity_value_list[variable_number];
+			break;
+		}
+	}
 
 	for (variable_number = 0; variable_number < loaded_entity->loaded_variable_count; variable_number++)
 	{
@@ -129,6 +150,13 @@ static void SAVEGAME_restore_entity_variables(int entity_number, loaded_entity_s
 
 		if (!SAVEGAME_is_entity_reference_variable(variable_index))
 		{
+			// Save-and-exit can happen while the game is paused, so pausable entities may
+			// be serialized as FROZEN. Resume should restore their live pre-pause state.
+			if ((variable_index == ENT_ALIVE) && (variable_value == FROZEN) && (loaded_old_alive != UNSET))
+			{
+				variable_value = loaded_old_alive;
+			}
+
 			entity[entity_number][variable_index] = variable_value;
 		}
 	}
@@ -209,7 +237,13 @@ bool SAVEGAME_restore_entity_from_loaded_tag(int entity_number, int tag)
 
 	if (loaded_entity == NULL)
 	{
-		OUTPUT_message("Save-game restore could not find matching entity tag!");
+		char error_line[MAX_LINE_SIZE];
+
+		snprintf(error_line, sizeof(error_line),
+			"Save-game restore could not find matching entity tag %i. Loaded entity count = %i.",
+			tag, save_data.loaded_entity_count);
+		OUTPUT_message(error_line);
+
 		return false;
 	}
 
@@ -289,21 +323,23 @@ void SAVEGAME_output_entity_references_to_file(int ent_index, FILE *file_pointer
 
 int SAVEGAME_save_matching_live_entities(int variable, int operation, int compare_value, int tag_offset)
 {
-	int entity_id = first_processed_entity_in_list;
 	int saved_count = 0;
+	int entity_id;
 
-	while (entity_id != UNSET)
+	for (entity_id = 0; entity_id < MAX_ENTITIES; entity_id++)
 	{
-		int next_entity_id = entity[entity_id][ENT_NEXT_PROCESS_ENT];
-		int value = entity[entity_id][variable];
+		int alive_state = entity[entity_id][ENT_ALIVE];
 
-		if (SAVEGAME_compare_value(value, operation, compare_value))
+		if (alive_state > DEAD)
 		{
-			SCRIPTING_save_entity(entity_id, tag_offset + entity_id);
-			saved_count++;
-		}
+			int value = entity[entity_id][variable];
 
-		entity_id = next_entity_id;
+			if (SAVEGAME_compare_value(value, operation, compare_value))
+			{
+				SCRIPTING_save_entity(entity_id, tag_offset + entity_id);
+				saved_count++;
+			}
+		}
 	}
 
 	return saved_count;
@@ -321,8 +357,8 @@ int SAVEGAME_spawn_matching_loaded_entities(int variable, int operation, int com
 	for (loaded_entity_number = 0; loaded_entity_number < save_data.loaded_entity_count; loaded_entity_number++)
 	{
 		loaded_entity_struct *loaded_entity = &save_data.loaded_entity_data[loaded_entity_number];
-		int variable_number;
 		bool matched = false;
+		int variable_number;
 
 		for (variable_number = 0; variable_number < loaded_entity->loaded_variable_count; variable_number++)
 		{
@@ -340,9 +376,6 @@ int SAVEGAME_spawn_matching_loaded_entities(int variable, int operation, int com
 
 			if (new_entity_id != UNSET)
 			{
-				// Restored entities still need the normal reset-entity baseline before we
-				// copy saved variables and arrays over them.
-				SCRIPTING_setup_entity(new_entity_id);
 				SAVEGAME_restore_entity_variables(new_entity_id, loaded_entity);
 				SAVEGAME_restore_entity_arrays(new_entity_id, loaded_entity);
 				SAVEGAME_add_restored_entity_mapping(loaded_entity->loaded_entity_tag, new_entity_id);

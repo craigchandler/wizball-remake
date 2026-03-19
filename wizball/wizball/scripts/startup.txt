@@ -35,7 +35,8 @@ set_global_flag (continue_mode_flag,false)
 set_global_flag (continue_save_allowed,false)
 
 LOAD_SAVE_FILE (save_file_tag)
-LOAD_SAVE_FILE (continue_metadata_save_tag)
+let temp_1 = GET_SAVE_FILE_EXISTS (continue_game_save_tag)
+set_global_flag (continue_game_available,temp_1)
 
 SETUP_TILEMAP_COLLISION
 SETUP_TILE_PROFILES (16)
