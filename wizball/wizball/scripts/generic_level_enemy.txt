@@ -318,19 +318,6 @@
 
 start
 
-	if draw_buddy = CONST_UNSET then
-		if enemy_behaviour_type = ENEMY_TYPE_SOLID_DIAMONDS then
-			spawn_entity solid_diamond_overlay,0,0,process_next
-			let draw_buddy = last_child
-		else_if enemy_behaviour_type = ENEMY_TYPE_SOLID_DIAMONDS_DEVIANT then
-			spawn_entity solid_diamond_overlay,0,0,process_next
-			let draw_buddy = last_child
-		else_if enemy_behaviour_type = ENEMY_TYPE_FUZZ then
-			spawn_entity fuzz_overlay,0,0,process_next
-			let draw_buddy = last_child
-		end_if
-	end_if
-
 	call_script function_normal_enemy_am_i_off_screen
 
 	if returned_value_1 = true then

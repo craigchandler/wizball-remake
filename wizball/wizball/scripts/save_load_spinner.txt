@@ -1,0 +1,29 @@
+	LET WINDOW_NUMBER = SCORE_OVERLAY_WINDOW
+	LET DRAW_ORDER = MENU_TEXT_DRAW_ORDER
+
+	SET_GLOBAL_FLAG_AS_ENTITY_ID (save_load_spinner_entity_id)
+	spawn_entity (save_load_spinner_glow,0,0,process_previous)
+
+	let sprite = wizball[set][48][48][24][24]
+	let current_frame = 0
+	let counter = 0
+
+	let world_x = 600
+	let world_y = 440
+
+	set_private_co_ords
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_MASKED + OPENGL_BOOLEAN_FILTERED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+
+	let opengl_scale_x = 9000
+	let opengl_scale_y = 9000
+
+start
+
+	let counter = counter + 8 !< 0 !> 512
+	let current_frame = counter / 8
+
+end

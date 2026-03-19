@@ -237,6 +237,10 @@ LET WINDOW_NUMBER = GAME_MAIN_WINDOW
 	SPAWN_MATCHING_ENTITIES_FROM_SAVE_FILE (ENTITY_TYPE & ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION)
 	ALTER_ENTITIES ( ALTERATION_SLEEP , ENTITY_TYPE & ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION )
 	ALTER_ENTITIES ( ALTERATION_WAKE , PARENT_LEVEL = current_level )
+	let temp_1 = GET_GLOBAL_FLAG (save_load_spinner_entity_id)
+	if temp_1 != CONST_UNSET then
+		kill_entity temp_1
+	end_if
 	set_global_flag (continue_mode_flag, false)
 
 .restart_main_loop

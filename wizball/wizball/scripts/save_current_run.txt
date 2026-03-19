@@ -4,6 +4,11 @@
 // Stable save tags for long-lived entities.
 // 9000 is the main game controller, and 100000+entity_id is used for saved live entities.
 
+	let temp_1 = GET_GLOBAL_FLAG (save_load_spinner_entity_id)
+	if temp_1 = CONST_UNSET then
+		spawn_entity (save_load_spinner,0,0,process_last)
+	end_if
+
 	RESET_SAVE_FILE
 
 	WRITE_SPAWN_POINT_FLAGS_TO_SAVE_FILE
@@ -37,5 +42,10 @@
 	WRITE_FLAG_TO_SAVE_FILE continue_game_available
 	OUTPUT_SAVE_FILE continue_metadata_save_tag
 	RESET_SAVE_FILE
+
+	let temp_1 = GET_GLOBAL_FLAG (save_load_spinner_entity_id)
+	if temp_1 != CONST_UNSET then
+		kill_entity temp_1
+	end_if
 
 	kill_entity own_id

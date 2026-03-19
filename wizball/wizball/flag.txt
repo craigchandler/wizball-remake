@@ -67,3 +67,4 @@ played_tunes_flag			// This is for the soundtest option.
 continue_game_available		// True when there is a valid saved run available from the main menu.
 continue_mode_flag		// Used during boot so the main controller knows to restore a saved run instead of starting fresh.
 continue_save_allowed		// Guards save-and-exit so it is only offered during stable in-level gameplay.
+save_load_spinner_entity_id		// Temporary bottom-right spinner shown during save/load.

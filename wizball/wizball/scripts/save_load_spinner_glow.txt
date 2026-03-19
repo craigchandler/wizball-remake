@@ -1,0 +1,40 @@
+	LET WINDOW_NUMBER = SCORE_OVERLAY_WINDOW
+	LET DRAW_ORDER = MENU_TEXT_DRAW_ORDER - 1
+
+	let sprite = particle_effects[arb]
+	let current_frame = 9
+	let world_x = 600
+	let world_y = 440
+	let counter = 0
+
+	set_private_co_ords
+
+	let draw_mode = DRAW_MODE_SPRITE
+
+	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD + OPENGL_BOOLEAN_FILTERED
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
+
+	let opengl_vertex_red = 112
+	let opengl_vertex_green = 255
+	let opengl_vertex_blue = 112
+	let opengl_vertex_alpha = 220
+
+	let opengl_scale_x = 8250
+	let opengl_scale_y = 8250
+
+start
+
+	let counter = counter + 700 !< 0 !> 35999
+	let temp_1 = 1300 sin counter
+	let opengl_scale_x = temp_1 + 8250
+	let opengl_scale_y = opengl_scale_x
+
+	let temp_2 = 40 sin counter
+	let opengl_vertex_alpha = temp_2 + 220
+
+	if parent.alive < 0 then
+		kill_entity own_id
+	end_if
+
+end
