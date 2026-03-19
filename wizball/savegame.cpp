@@ -77,6 +77,25 @@ static bool SAVEGAME_is_entity_reference_variable(int variable_number)
 	}
 }
 
+static bool SAVEGAME_is_draw_buddy_helper_entity(int entity_id)
+{
+	int parent_id;
+
+	if ((entity_id < 0) || (entity_id >= MAX_ENTITIES))
+	{
+		return false;
+	}
+
+	parent_id = entity[entity_id][ENT_PARENT];
+
+	if ((parent_id < 0) || (parent_id >= MAX_ENTITIES))
+	{
+		return false;
+	}
+
+	return (entity[parent_id][ENT_DRAW_BUDDY] == entity_id);
+}
+
 static void SAVEGAME_reset_restored_entity_mappings(void)
 {
 	if (savegame_restored_entity_mappings != NULL)
@@ -334,7 +353,8 @@ int SAVEGAME_save_matching_live_entities(int variable, int operation, int compar
 		{
 			int value = entity[entity_id][variable];
 
-			if (SAVEGAME_compare_value(value, operation, compare_value))
+			if (SAVEGAME_compare_value(value, operation, compare_value) &&
+				!SAVEGAME_is_draw_buddy_helper_entity(entity_id))
 			{
 				SCRIPTING_save_entity(entity_id, tag_offset + entity_id);
 				saved_count++;
