@@ -37,6 +37,7 @@
 #include "events.h"
 #include "paths.h"
 #include "savegame.h"
+#include "platform.h"
 
 #include "fortify.h"
 
@@ -123,6 +124,10 @@ static int entity_window_queue_stamp[MAX_ENTITIES];
 static int entity_window_queue_epoch = 0;
 static bool scripting_window_queue_guard_trace_checked = false;
 static bool scripting_window_queue_guard_trace_enabled = false;
+static unsigned int scripting_last_save_load_ui_pump_ms = 0;
+static int scripting_save_load_spinner_flag = UNSET;
+static int scripting_save_load_spinner_script = UNSET;
+static int scripting_save_load_spinner_glow_script = UNSET;
 
 static bool SCRIPTING_is_window_queue_guard_trace_enabled(void)
 {
@@ -307,6 +312,305 @@ void SCRIPTING_add_output_tracer_script_line (char *line,int entity_id)
 
 
 save_data_struct save_data;
+
+static long SCRIPTING_get_save_file_size_bytes(const char *filename)
+{
+	char normalised_filename[MAX_LINE_SIZE];
+	FILE *file_pointer;
+	long file_size = -1;
+
+	if (filename == NULL)
+	{
+		return -1;
+	}
+
+	snprintf(normalised_filename, sizeof(normalised_filename), "%s", filename);
+	STRING_lowercase(normalised_filename);
+
+	file_pointer = FILE_open_project_read_case_fallback(normalised_filename);
+
+	if (file_pointer != NULL)
+	{
+		if (fseek(file_pointer, 0, SEEK_END) == 0)
+		{
+			file_size = ftell(file_pointer);
+		}
+
+		fclose(file_pointer);
+	}
+
+	return file_size;
+}
+
+static void SCRIPTING_log_save_load_profile(
+	const char *operation,
+	const char *filename,
+	long file_size,
+	unsigned int total_ms,
+	unsigned int stage_1_ms,
+	unsigned int stage_2_ms,
+	unsigned int stage_3_ms,
+	unsigned int stage_4_ms,
+	unsigned int stage_5_ms,
+	unsigned int stage_6_ms,
+	int entity_count)
+{
+	char line[MAX_LINE_SIZE * 2];
+
+	snprintf(
+		line,
+		sizeof(line),
+		"SAVELOAD_PROFILE op=%s file=%s size=%ld total_ms=%u stage1_ms=%u stage2_ms=%u stage3_ms=%u stage4_ms=%u stage5_ms=%u stage6_ms=%u entities=%d",
+		(operation != NULL) ? operation : "unknown",
+		(filename != NULL) ? filename : "unknown",
+		file_size,
+		total_ms,
+		stage_1_ms,
+		stage_2_ms,
+		stage_3_ms,
+		stage_4_ms,
+		stage_5_ms,
+		stage_6_ms,
+		entity_count);
+
+	MAIN_add_to_log(line);
+}
+
+static void SCRIPTING_cache_save_load_ui_constants(void)
+{
+	if (scripting_save_load_spinner_flag == UNSET)
+	{
+		scripting_save_load_spinner_flag = GPL_find_word_value("FLAG", "SAVE_LOAD_SPINNER_ENTITY_ID");
+		scripting_save_load_spinner_script = GPL_find_word_value("SCRIPTS", "SAVE_LOAD_SPINNER");
+		scripting_save_load_spinner_glow_script = GPL_find_word_value("SCRIPTS", "SAVE_LOAD_SPINNER_GLOW");
+	}
+}
+
+static bool SCRIPTING_is_save_load_ui_entity(int entity_id)
+{
+	int script_number;
+
+	if ((entity_id < 0) || (entity_id >= MAX_ENTITIES))
+	{
+		return false;
+	}
+
+	if (entity[entity_id][ENT_ALIVE] <= DEAD)
+	{
+		return false;
+	}
+
+	script_number = entity[entity_id][ENT_SCRIPT_NUMBER];
+
+	return
+		(script_number == scripting_save_load_spinner_script) ||
+		(script_number == scripting_save_load_spinner_glow_script);
+}
+
+static void SCRIPTING_tick_save_load_ui_entities(void)
+{
+	int entity_id;
+	int next_entity_id;
+
+	entity_id = first_processed_entity_in_list;
+
+	while (entity_id != UNSET)
+	{
+		next_entity_id = entity[entity_id][ENT_NEXT_PROCESS_ENT];
+
+		if (SCRIPTING_is_save_load_ui_entity(entity_id))
+		{
+			SCRIPTING_interpret_script(entity_id, UNSET);
+		}
+
+		entity_id = next_entity_id;
+	}
+}
+
+static void SCRIPTING_hide_save_load_ui_from_normal_render(void)
+{
+	int entity_id = first_processed_entity_in_list;
+
+	while (entity_id != UNSET)
+	{
+		int next_entity_id = entity[entity_id][ENT_NEXT_PROCESS_ENT];
+
+		if (SCRIPTING_is_save_load_ui_entity(entity_id))
+		{
+			entity[entity_id][ENT_DRAW_MODE] = DRAW_MODE_INVISIBLE;
+		}
+
+		entity_id = next_entity_id;
+	}
+}
+
+static void SCRIPTING_draw_save_load_ui_entity(int entity_id)
+{
+	int sprite_number;
+	int frame_number;
+	int world_x;
+	int world_y;
+	float scale_x;
+	int red;
+	int green;
+	int blue;
+
+	if ((entity_id < 0) || (entity_id >= MAX_ENTITIES))
+	{
+		return;
+	}
+
+	if (entity[entity_id][ENT_ALIVE] <= DEAD)
+	{
+		return;
+	}
+
+	sprite_number = entity[entity_id][ENT_SPRITE];
+	frame_number = entity[entity_id][ENT_CURRENT_FRAME];
+
+	if ((sprite_number < 0) || (frame_number < 0))
+	{
+		return;
+	}
+
+	world_x = entity[entity_id][ENT_WORLD_X];
+	world_y = entity[entity_id][ENT_WORLD_Y];
+	scale_x = (float) entity[entity_id][ENT_OPENGL_SCALE_X] / 10000.0f;
+	red = entity[entity_id][ENT_OPENGL_VERTEX_RED];
+	green = entity[entity_id][ENT_OPENGL_VERTEX_GREEN];
+	blue = entity[entity_id][ENT_OPENGL_VERTEX_BLUE];
+
+	OUTPUT_draw_sprite_scale(
+		sprite_number,
+		frame_number,
+		world_x,
+		world_y,
+		scale_x,
+		red,
+		green,
+		blue);
+}
+
+static void SCRIPTING_draw_save_load_ui(void)
+{
+	int entity_id = first_processed_entity_in_list;
+
+	while (entity_id != UNSET)
+	{
+		int next_entity_id = entity[entity_id][ENT_NEXT_PROCESS_ENT];
+
+		if (SCRIPTING_is_save_load_ui_entity(entity_id))
+		{
+			SCRIPTING_draw_save_load_ui_entity(entity_id);
+		}
+
+		entity_id = next_entity_id;
+	}
+}
+
+static void SCRIPTING_reset_save_load_ui_pump(void)
+{
+	scripting_last_save_load_ui_pump_ms = 0;
+}
+
+static void SCRIPTING_pump_save_load_ui(bool force)
+{
+	unsigned int now_ms;
+	int spinner_entity_id = UNSET;
+
+	SCRIPTING_cache_save_load_ui_constants();
+
+	if (scripting_save_load_spinner_flag == UNSET)
+	{
+		return;
+	}
+
+	spinner_entity_id = flag_array[scripting_save_load_spinner_flag];
+
+	if ((spinner_entity_id < 0) || (spinner_entity_id >= MAX_ENTITIES))
+	{
+		return;
+	}
+
+	if (entity[spinner_entity_id][ENT_ALIVE] <= DEAD)
+	{
+		return;
+	}
+
+	now_ms = PLATFORM_get_wall_time_ms();
+
+	if ((force == false) && (scripting_last_save_load_ui_pump_ms != 0))
+	{
+		if ((now_ms - scripting_last_save_load_ui_pump_ms) < 33)
+		{
+			return;
+		}
+	}
+
+	scripting_last_save_load_ui_pump_ms = now_ms;
+
+	SCRIPTING_tick_save_load_ui_entities();
+	SCRIPTING_hide_save_load_ui_from_normal_render();
+	OUTPUT_clear_screen();
+	SCRIPTING_draw_save_load_ui();
+	OUTPUT_updatescreen();
+}
+
+static void SCRIPTING_reset_checkcode_state(unsigned char checksum[4], int *cycle)
+{
+	checksum[0] = 0;
+	checksum[1] = 0;
+	checksum[2] = 0;
+	checksum[3] = 0;
+	*cycle = 0;
+}
+
+static void SCRIPTING_update_checkcode_state(const char *text, unsigned char checksum[4], int *cycle)
+{
+	int c;
+
+	if (text == NULL)
+	{
+		return;
+	}
+
+	for (c = 0; c < signed(strlen(text)); c++)
+	{
+		unsigned char byte;
+
+		if (c % 2)
+		{
+			byte = (unsigned char) (text[c] - 32);
+		}
+		else
+		{
+			byte = (unsigned char) text[c];
+		}
+
+		checksum[*cycle] ^= byte;
+		*cycle += 1;
+		*cycle %= 4;
+	}
+}
+
+static char *SCRIPTING_get_checkcode_from_state(const unsigned char checksum[4])
+{
+	int c;
+	static char checkword[9] = {"        "};
+
+	for (c = 0; c < 8; c += 2)
+	{
+		unsigned char byte;
+
+		byte = (unsigned char) ((checksum[c / 2] >> 4) & 15);
+		checkword[c] = (char) (byte + 'A');
+
+		byte = (unsigned char) (checksum[c / 2] & 15);
+		checkword[c + 1] = (char) ('P' - byte);
+	}
+
+	return checkword;
+}
 
 // The window_details struct just says where each of the windows into the game are on the
 // screen and within the scope of the game. Each one has a bitmask so that only entities with
@@ -11634,6 +11938,7 @@ void SCRIPTING_input_entities_from_file (char *filename)
 	{
 		while ( ( fgets ( line , MAX_LINE_SIZE , file_pointer ) != NULL ) && (exit_loop == false) )
 		{
+			SCRIPTING_pump_save_load_ui(false);
 			STRING_strip_all_disposable (line);
 
 			pointer = STRING_end_of_string(line,"#START_OF_ENTITY_DATA_COUNT = ");
@@ -11965,6 +12270,7 @@ void SCRIPTING_output_entities_to_file (char *filename)
 
 		for (ent_num=0; ent_num<save_data.saved_entity_count; ent_num++)
 		{
+			SCRIPTING_pump_save_load_ui(false);
 			ent_index = save_data.saved_entity_number_list[ent_num];
 			ent_tag = save_data.saved_entity_tag_list[ent_num];
 
@@ -11991,12 +12297,26 @@ void SCRIPTING_output_save_data_to_file (int filename_text_tag)
 
 	char filename[MAX_LINE_SIZE];
 	char line[MAX_LINE_SIZE];
+	unsigned int total_start_ms;
+	unsigned int stage_start_ms;
+	unsigned int init_ms = 0;
+	unsigned int spawn_point_ms = 0;
+	unsigned int zone_flag_ms = 0;
+	unsigned int flag_ms = 0;
+	unsigned int entity_ms = 0;
+	unsigned int checksum_ms = 0;
+	unsigned int total_ms;
+	long file_size;
 
 	char *filename_pointer = TEXTFILE_get_line_by_index (filename_text_tag);
 	
 	strcpy (filename,filename_pointer);
 	strcat (filename,".sav");
 	STRING_uppercase (filename);
+	total_start_ms = PLATFORM_get_wall_time_ms();
+	stage_start_ms = total_start_ms;
+	SCRIPTING_reset_save_load_ui_pump();
+	SCRIPTING_pump_save_load_ui(true);
 
 	FILE *file_pointer = fopen (MAIN_get_project_filename (STRING_lowercase(filename), true),"w");
 
@@ -12011,6 +12331,7 @@ void SCRIPTING_output_save_data_to_file (int filename_text_tag)
 		OUTPUT_message("Cannot append Spawn Point Flags to save file!");
 		assert(0);
 	}
+	init_ms = PLATFORM_get_wall_time_ms() - stage_start_ms;
 
 	if (save_data.save_ai_node_pathfinding_tables)
 	{
@@ -12024,27 +12345,52 @@ void SCRIPTING_output_save_data_to_file (int filename_text_tag)
 
 	if (save_data.save_spawn_point_flags)
 	{
+		stage_start_ms = PLATFORM_get_wall_time_ms();
 		SPAWNPOINTS_output_altered_flags_to_file (filename);
+		spawn_point_ms = PLATFORM_get_wall_time_ms() - stage_start_ms;
 	}
 
 	if (save_data.save_zone_flags)
 	{
+		stage_start_ms = PLATFORM_get_wall_time_ms();
 		TILEMAPS_output_altered_zone_flags_to_file (filename);
+		zone_flag_ms = PLATFORM_get_wall_time_ms() - stage_start_ms;
 	}
 
 	if (save_data.saved_flag_count > 0)
 	{
+		stage_start_ms = PLATFORM_get_wall_time_ms();
 		SCRIPTING_output_flags_to_file (filename);
+		flag_ms = PLATFORM_get_wall_time_ms() - stage_start_ms;
 	}
 
 	if (save_data.saved_entity_count > 0)
 	{
+		stage_start_ms = PLATFORM_get_wall_time_ms();
 		SCRIPTING_output_entities_to_file (filename);
+		entity_ms = PLATFORM_get_wall_time_ms() - stage_start_ms;
 	}
 
 
 
+	stage_start_ms = PLATFORM_get_wall_time_ms();
 	SCRIPTING_append_checksum_to_save_file (filename);
+	checksum_ms = PLATFORM_get_wall_time_ms() - stage_start_ms;
+	total_ms = PLATFORM_get_wall_time_ms() - total_start_ms;
+	file_size = SCRIPTING_get_save_file_size_bytes(filename);
+
+	SCRIPTING_log_save_load_profile(
+		"save",
+		filename,
+		file_size,
+		total_ms,
+		init_ms,
+		spawn_point_ms,
+		zone_flag_ms,
+		flag_ms,
+		entity_ms,
+		checksum_ms,
+		save_data.saved_entity_count);
 
 	SCRIPTING_reset_save_data ();
 }
@@ -12066,6 +12412,7 @@ void SCRIPTING_input_flags_from_file (char *filename)
 	{
 		while ( ( fgets ( line , MAX_LINE_SIZE , file_pointer ) != NULL ) && (exit_loop == false) )
 		{
+			SCRIPTING_pump_save_load_ui(false);
 			STRING_strip_all_disposable (line);
 
 			if (strcmp(line,"#START_OF_FLAG_DATA") == 0)
@@ -12169,17 +12516,17 @@ char *SCRIPTING_get_checksum_from_save_file (char *filename)
 char *SCRIPTING_generate_checkcode_for_save_file (char *filename)
 {
 	// This reads lines from the given text file, strips all the junk from them
-	// and then adds them to one huge line.
-
-	char *save_file_text = NULL;
-	int save_file_text_length = 1; // So there's space for the /0.
+	// and updates the checksum incrementally. The old implementation repeatedly
+	// realloc'd and concatenated one giant buffer, which was disproportionately
+	// expensive on low-powered devices.
 	char normalised_filename[MAX_LINE_SIZE];
-
 	char *pointer;
-
 	char line[MAX_LINE_SIZE];
-
+	unsigned char checksum[4];
+	int cycle;
 	bool exit_loop = false;
+
+	SCRIPTING_reset_checkcode_state(checksum, &cycle);
 
 	snprintf(normalised_filename, sizeof(normalised_filename), "%s", filename);
 	STRING_lowercase(normalised_filename);
@@ -12199,19 +12546,7 @@ char *SCRIPTING_generate_checkcode_for_save_file (char *filename)
 
 				if (strlen(line)>0)
 				{
-					// Allocate space on the string...
-					save_file_text_length += strlen (line);
-
-					if (save_file_text == NULL)
-					{
-						save_file_text = (char *) malloc (sizeof(char) * save_file_text_length);
-						snprintf(save_file_text, save_file_text_length, "%s", line);
-					}
-					else
-					{
-						save_file_text = (char *) realloc (save_file_text,sizeof(char) * save_file_text_length);
-						strcat (save_file_text,line);
-					}
+					SCRIPTING_update_checkcode_state(line, checksum, &cycle);
 				}
 			}
 
@@ -12224,12 +12559,7 @@ char *SCRIPTING_generate_checkcode_for_save_file (char *filename)
 		assert (0);
 	}
 
-	pointer = STRING_checkcode (save_file_text);
-
-	free (save_file_text);
-	save_file_text = NULL;
-
-	return pointer;
+	return SCRIPTING_get_checkcode_from_state(checksum);
 }
 
 
@@ -12270,6 +12600,16 @@ void SCRIPTING_load_save_file (int filename_text_tag)
 
 	char filename[MAX_LINE_SIZE];
 	char normalised_filename[MAX_LINE_SIZE];
+	unsigned int total_start_ms;
+	unsigned int stage_start_ms;
+	unsigned int checksum_generate_ms = 0;
+	unsigned int checksum_read_ms = 0;
+	unsigned int spawn_point_ms = 0;
+	unsigned int zone_flag_ms = 0;
+	unsigned int flag_ms = 0;
+	unsigned int entity_ms = 0;
+	unsigned int total_ms;
+	long file_size;
 
 	char *filename_pointer = TEXTFILE_get_line_by_index (filename_text_tag);
 	
@@ -12278,6 +12618,10 @@ void SCRIPTING_load_save_file (int filename_text_tag)
 	STRING_uppercase (filename);
 	snprintf(normalised_filename, sizeof(normalised_filename), "%s", filename);
 	STRING_lowercase(normalised_filename);
+	total_start_ms = PLATFORM_get_wall_time_ms();
+	file_size = SCRIPTING_get_save_file_size_bytes(normalised_filename);
+	SCRIPTING_reset_save_load_ui_pump();
+	SCRIPTING_pump_save_load_ui(true);
 
 	FILE *file_pointer = FILE_open_project_read_case_fallback(normalised_filename);
 	
@@ -12295,8 +12639,12 @@ void SCRIPTING_load_save_file (int filename_text_tag)
 		{
 			char generated_checkcode[MAX_LINE_SIZE];
 			char existing_checkcode[MAX_LINE_SIZE];
+			stage_start_ms = PLATFORM_get_wall_time_ms();
 			snprintf(generated_checkcode, sizeof(generated_checkcode), "%s", SCRIPTING_generate_checkcode_for_save_file(normalised_filename));
+			checksum_generate_ms = PLATFORM_get_wall_time_ms() - stage_start_ms;
+			stage_start_ms = PLATFORM_get_wall_time_ms();
 			snprintf(existing_checkcode, sizeof(existing_checkcode), "%s", SCRIPTING_get_checksum_from_save_file(normalised_filename));
+			checksum_read_ms = PLATFORM_get_wall_time_ms() - stage_start_ms;
 
 			if ((strcmp(existing_checkcode, "UNSET") == 0) || (strcmp (generated_checkcode , existing_checkcode ) == 0))
 		{
@@ -12308,13 +12656,35 @@ void SCRIPTING_load_save_file (int filename_text_tag)
 
 			// LOAD AI ZONE PATHFINDING TABLES
 
+			stage_start_ms = PLATFORM_get_wall_time_ms();
 			SPAWNPOINTS_input_flags_from_file (normalised_filename);
+			spawn_point_ms = PLATFORM_get_wall_time_ms() - stage_start_ms;
 
+			stage_start_ms = PLATFORM_get_wall_time_ms();
 			TILEMAPS_input_zone_flags_from_file (normalised_filename);
+			zone_flag_ms = PLATFORM_get_wall_time_ms() - stage_start_ms;
 
+			stage_start_ms = PLATFORM_get_wall_time_ms();
 			SCRIPTING_input_flags_from_file (normalised_filename);
+			flag_ms = PLATFORM_get_wall_time_ms() - stage_start_ms;
 
+			stage_start_ms = PLATFORM_get_wall_time_ms();
 			SCRIPTING_input_entities_from_file (normalised_filename);
+			entity_ms = PLATFORM_get_wall_time_ms() - stage_start_ms;
+			total_ms = PLATFORM_get_wall_time_ms() - total_start_ms;
+
+			SCRIPTING_log_save_load_profile(
+				"load",
+				normalised_filename,
+				file_size,
+				total_ms,
+				checksum_generate_ms,
+				checksum_read_ms,
+				spawn_point_ms,
+				zone_flag_ms,
+				flag_ms,
+				entity_ms,
+				save_data.loaded_entity_count);
 
 		}
 		else
