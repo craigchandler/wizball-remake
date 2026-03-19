@@ -23,6 +23,7 @@ static int savegame_fuzz_overlay_script = UNSET;
 static int savegame_enemy_type_solid_diamonds = UNSET;
 static int savegame_enemy_type_solid_diamonds_deviant = UNSET;
 static int savegame_enemy_type_fuzz = UNSET;
+static int savegame_main_game_controller_flag = UNSET;
 
 static bool SAVEGAME_compare_value(int value, int operation, int compare_value)
 {
@@ -105,6 +106,7 @@ static void SAVEGAME_cache_script_and_enemy_constants(void)
 		savegame_enemy_type_solid_diamonds = GPL_find_word_value("CONSTANT", "ENEMY_TYPE_SOLID_DIAMONDS");
 		savegame_enemy_type_solid_diamonds_deviant = GPL_find_word_value("CONSTANT", "ENEMY_TYPE_SOLID_DIAMONDS_DEVIANT");
 		savegame_enemy_type_fuzz = GPL_find_word_value("CONSTANT", "ENEMY_TYPE_FUZZ");
+		savegame_main_game_controller_flag = GPL_find_word_value("FLAG", "MAIN_GAME_CONTROLLER_ENTITY_ID");
 	}
 }
 
@@ -125,6 +127,34 @@ static bool SAVEGAME_is_parent_draw_buddy_entity(int entity_id)
 	}
 
 	return (entity[parent_id][ENT_DRAW_BUDDY] == entity_id);
+}
+
+static bool SAVEGAME_is_active_window_level_entity(int entity_id)
+{
+	int controller_id;
+	int min_open_level;
+	int max_open_level;
+	int parent_level;
+
+	SAVEGAME_cache_script_and_enemy_constants();
+
+	if (savegame_main_game_controller_flag == UNSET)
+	{
+		return true;
+	}
+
+	controller_id = flag_array[savegame_main_game_controller_flag];
+
+	if ((controller_id < 0) || (controller_id >= MAX_ENTITIES))
+	{
+		return true;
+	}
+
+	min_open_level = entity[controller_id][ENT_V38];
+	max_open_level = entity[controller_id][ENT_V26];
+	parent_level = entity[entity_id][ENT_PARENT_LEVEL];
+
+	return ((parent_level >= min_open_level) && (parent_level <= max_open_level));
 }
 
 static void SAVEGAME_restore_missing_enemy_draw_buddy(int entity_id)
@@ -468,8 +498,20 @@ int SAVEGAME_save_matching_live_entities(int variable, int operation, int compar
 			{
 				if (SAVEGAME_is_parent_draw_buddy_entity(entity_id) == false)
 				{
-					SCRIPTING_save_entity(entity_id, tag_offset + entity_id);
-					saved_count++;
+					bool within_active_window = true;
+
+					if ((variable == ENT_ENTITY_TYPE) &&
+						(operation == CMP_BITWISE_AND) &&
+						(compare_value == SAVEGAME_get_slept_in_transition_entity_type()))
+					{
+						within_active_window = SAVEGAME_is_active_window_level_entity(entity_id);
+					}
+
+					if (within_active_window)
+					{
+						SCRIPTING_save_entity(entity_id, tag_offset + entity_id);
+						saved_count++;
+					}
 				}
 			}
 		}

@@ -139,6 +139,7 @@ bool SCRIPTING_find_next_entity (void);
 void SCRIPTING_setup_entity(int entity_id);
 int SCRIPTING_spawn_entity (int calling_entity_id , int script_number , int x_offset , int y_offset , int process_offset , int specific_entity);
 int SCRIPTING_spawn_restored_entity_last (void);
+extern int *flag_array;
 
 void SCRIPTING_spawn_shutdown_entity (void);
 void SCRIPTING_spawn_entity_by_name (char *script_name , int x , int y , int v0 , int v1 , int v2 );
@@ -387,7 +388,6 @@ extern save_data_struct save_data;
 #define FIX_ME_NOW 99
 
 #endif
-
 
 
 
