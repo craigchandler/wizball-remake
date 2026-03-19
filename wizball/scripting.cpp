@@ -11579,16 +11579,26 @@ void SCRIPTING_output_entity_non_relation_properties_to_file (int ent_index, FIL
 	int var_index;
 	int length = GPL_list_size ("VARIABLE");
 	char line[MAX_LINE_SIZE];
+	int actual_length = 0;
 
-	int actual_length = length - GPL_find_word_value ("VARIABLE", "ALIVE");
+	for (var_index = GPL_find_word_value ("VARIABLE", "ALIVE"); var_index<length; var_index++)
+	{
+		if (SAVEGAME_should_output_entity_variable(ent_index, var_index))
+		{
+			actual_length++;
+		}
+	}
 
-		snprintf(line,sizeof(line),"\t\t#START_OF_VARIABLES_COUNT = %i\n",actual_length);
+	snprintf(line,sizeof(line),"\t\t#START_OF_VARIABLES_COUNT = %i\n",actual_length);
 	fputs(line,file_pointer);
 
 	for (var_index = GPL_find_word_value ("VARIABLE", "ALIVE"); var_index<length; var_index++)
 	{
-				snprintf(line,sizeof(line),"\t\t\t#ENTITY_VARIABLE '%s' = %i\n",GPL_get_entry_name ("VARIABLE", var_index) , entity[ent_index][var_index]);
-		fputs(line,file_pointer);
+		if (SAVEGAME_should_output_entity_variable(ent_index, var_index))
+		{
+			snprintf(line,sizeof(line),"\t\t\t#ENTITY_VARIABLE '%s' = %i\n",GPL_get_entry_name ("VARIABLE", var_index) , entity[ent_index][var_index]);
+			fputs(line,file_pointer);
+		}
 	}
 
 	fputs("\t\t#END_OF_VARIABLES\n",file_pointer);

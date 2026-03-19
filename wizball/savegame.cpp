@@ -84,6 +84,109 @@ static bool SAVEGAME_is_entity_reference_variable(int variable_number)
 	}
 }
 
+static bool SAVEGAME_is_generic_enemy_redundant_default_variable(int variable_number)
+{
+	switch (variable_number)
+	{
+	case ENT_DRAW_OVERRIDE:
+	case ENT_SPECIAL_ORDER:
+	case ENT_BASE_X:
+	case ENT_BASE_Y:
+	case ENT_BASE_Z:
+	case ENT_RADIUS:
+	case ENT_ANGULAR_VEL:
+	case ENT_TARGET_ANGLE:
+	case ENT_DAMAGE_TYPE:
+	case ENT_HEALTH_DESENSITIZED:
+	case ENT_HEALTH_SUPERSENSITIZED:
+	case ENT_DESENSITIZED_SCALE:
+	case ENT_SUPERSENSITIZED_SCALE:
+	case ENT_SECONDARY_SPRITE:
+	case ENT_SECONDARY_CURRENT_FRAME:
+	case ENT_SECONDARY_INTERPOLATED_FRAME:
+	case ENT_SECONDARY_INTERPOLATION_X_PERCENTAGE:
+	case ENT_SECONDARY_INTERPOLATION_Y_PERCENTAGE:
+	case ENT_SECONDARY_OPENGL_BOOLEANS:
+	case ENT_OPENGL_SECONDARY_SCALE_X:
+	case ENT_OPENGL_SECONDARY_SCALE_Y:
+	case ENT_OPENGL_SECONDARY_ANGLE:
+	case ENT_FIXED_SWITCH_LINE:
+	case ENT_BASIC_SCENERY_COLLISION_FLAG:
+	case ENT_PLATFORM_COLLISION_FLAG:
+	case ENT_MAINTAIN_VELOCITY_X:
+	case ENT_MAINTAIN_VELOCITY_Y:
+	case ENT_PHYSICS_OBJECT_ARCHETYPE:
+	case ENT_PHYSICS_OBJECT_POINTER:
+	case ENT_HELPER_FLAGS:
+	case ENT_HELPER_TAG_TYPE:
+	case ENT_HELPER_TAG_X_OFFSET:
+	case ENT_HELPER_TAG_Y_OFFSET:
+	case ENT_TILEMAP_POSITION_X:
+	case ENT_TILEMAP_POSITION_Y:
+	case ENT_TILEMAP_LAYER:
+	case ENT_TILEMAP_NUMBER:
+	case ENT_EXTERNAL_CONVEY_X:
+	case ENT_EXTERNAL_CONVEY_Y:
+	case ENT_EXTERNAL_ACCELL_X:
+	case ENT_EXTERNAL_ACCELL_Y:
+	case ENT_PRIORITY:
+	case ENT_DISTANCE_FROM_TARGETTER:
+	case ENT_NEXT_IN_SORT:
+	case ENT_PREV_IN_SORT:
+	case ENT_TEMP_SORT_VAR:
+	case ENT_UNIQUE_ID:
+	case ENT_GUN_1_POSITION_OFFSET:
+	case ENT_GUN_2_POSITION_OFFSET:
+	case ENT_GUN_1_AMMO_COUNT:
+	case ENT_GUN_2_AMMO_COUNT:
+	case ENT_FACING_DIRECTION:
+	case ENT_EXTRA_ABILITIES:
+	case ENT_HEALTH:
+	case ENT_PAIN_THRESHOLD:
+	case ENT_DAMAGE:
+	case ENT_DAMAGE_RECEIVED:
+	case ENT_STATE:
+	case ENT_BOOLEAN_PROPERTIES:
+	case ENT_JOLT:
+	case ENT_SPEED:
+	case ENT_ACCEL:
+	case ENT_DROP_ITEM:
+	case ENT_JUMP_SPEED:
+	case ENT_MAXIMUM_FALL_HEIGHT:
+	case ENT_OLD_X_VEL:
+	case ENT_OLD_Y_VEL:
+	case ENT_TEXT_TAG_STORE:
+	case ENT_POINT_VALUE:
+	case ENT_CURRENT_ZONE:
+	case ENT_OLD_ZONE:
+	case ENT_SIGNAL:
+	case ENT_EXTERNAL_SIGNAL:
+	case ENT_CHANCE:
+	case ENT_DIFFICULTY:
+	case ENT_DAMAGE_TYPES_RECEIVED:
+	case ENT_DEBUG_INFO:
+	case ENT_ACTOR_NAME:
+	case ENT_ACTOR_GROUP:
+	case ENT_OVERRIDE_PIVOT_X:
+	case ENT_OVERRIDE_PIVOT_Y:
+	case ENT_SKEW_X:
+	case ENT_SKEW_Y:
+	case ENT_RETURNED_VALUE_1:
+	case ENT_RETURNED_VALUE_2:
+	case ENT_RETURNED_VALUE_3:
+	case ENT_RETURNED_VALUE_4:
+	case ENT_CUT_SPRITE_LEFT_INDENTATION:
+	case ENT_CUT_SPRITE_RIGHT_INDENTATION:
+	case ENT_CUT_SPRITE_TOP_INDENTATION:
+	case ENT_CUT_SPRITE_BOTTOM_INDENTATION:
+	case ENT_DEBUG_FLAGS:
+		return true;
+
+	default:
+		return false;
+	}
+}
+
 static int SAVEGAME_get_slept_in_transition_entity_type(void)
 {
 	static int cached_entity_type = UNSET;
@@ -108,6 +211,40 @@ static void SAVEGAME_cache_script_and_enemy_constants(void)
 		savegame_enemy_type_fuzz = GPL_find_word_value("CONSTANT", "ENEMY_TYPE_FUZZ");
 		savegame_main_game_controller_flag = GPL_find_word_value("FLAG", "MAIN_GAME_CONTROLLER_ENTITY_ID");
 	}
+}
+
+bool SAVEGAME_should_output_entity_variable(int ent_index, int var_index)
+{
+	SAVEGAME_cache_script_and_enemy_constants();
+
+	// Save files are currently dominated by generic_level_enemy state, so we do two
+	// conservative size reductions here:
+	// 1. raw entity-id references are skipped because references are already serialized
+	//    separately by stable save tags and restored from that section.
+	// 2. for GENERIC_LEVEL_ENEMY only, a small blocklist of obvious housekeeping fields
+	//    is skipped, but only when the value still matches the engine reset/default.
+	//
+	// This is intentionally cautious. If future work trims more aggressively, keep the
+	// continue-system requirement in mind: resumed enemies must preserve logical level
+	// state across saves, especially script flow, movement/path state, wake behavior,
+	// and cross-level persistence inside the active level window.
+	if (SAVEGAME_is_entity_reference_variable(var_index))
+	{
+		return false;
+	}
+
+	if (entity[ent_index][ENT_SCRIPT_NUMBER] == savegame_generic_level_enemy_script)
+	{
+		if (SAVEGAME_is_generic_enemy_redundant_default_variable(var_index))
+		{
+			if (entity[ent_index][var_index] == reset_entity[var_index])
+			{
+				return false;
+			}
+		}
+	}
+
+	return true;
 }
 
 static bool SAVEGAME_is_parent_draw_buddy_entity(int entity_id)

@@ -33,10 +33,20 @@ set_global_flag (played_tunes_flag,0)
 set_global_flag (continue_game_available,false)
 set_global_flag (continue_mode_flag,false)
 set_global_flag (continue_save_allowed,false)
+set_global_flag (continue_script_build_id,0)
 
 LOAD_SAVE_FILE (save_file_tag)
-let temp_1 = GET_SAVE_FILE_EXISTS (continue_game_save_tag)
-set_global_flag (continue_game_available,temp_1)
+let temp_1 = GET_SAVE_FILE_EXISTS (continue_metadata_save_tag)
+if temp_1 = true then
+	LOAD_SAVE_FILE (continue_metadata_save_tag)
+	let temp_1 = GET_GLOBAL_FLAG (continue_script_build_id)
+	let temp_2 = GET_GLOBAL_FLAG (current_script_build_id)
+	if temp_1 != temp_2 then
+		set_global_flag (continue_game_available,false)
+	end_if
+else
+	set_global_flag (continue_game_available,false)
+end_if
 
 SETUP_TILEMAP_COLLISION
 SETUP_TILE_PROFILES (16)

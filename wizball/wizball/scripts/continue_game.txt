@@ -1,4 +1,7 @@
-	let temp_1 = GET_SAVE_FILE_EXISTS (continue_game_save_tag)
+	let temp_1 = GET_GLOBAL_FLAG (continue_game_available)
+	if temp_1 = true then
+		let temp_1 = GET_SAVE_FILE_EXISTS (continue_game_save_tag)
+	end_if
 	set_global_flag (continue_game_available, temp_1)
 
 	if_flag (continue_game_available = false) then

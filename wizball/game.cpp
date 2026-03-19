@@ -36,6 +36,39 @@
 #include "platform.h"
 #include "string_stuff.h"
 
+static int GAME_get_compiled_script_build_id(void)
+{
+	FILE *file_pointer = FILE_open_project_read_case_fallback("scriptfile.tsl");
+	unsigned int hash = 2166136261u;
+
+	if (file_pointer == NULL)
+	{
+		return 0;
+	}
+
+	for (;;)
+	{
+		unsigned char buffer[4096];
+		size_t read_amount = fread(buffer, 1, sizeof(buffer), file_pointer);
+		size_t index;
+
+		for (index = 0; index < read_amount; index++)
+		{
+			hash ^= buffer[index];
+			hash *= 16777619u;
+		}
+
+		if (read_amount < sizeof(buffer))
+		{
+			break;
+		}
+	}
+
+	fclose(file_pointer);
+
+	return (int)(hash & 0x7fffffff);
+}
+
 void GAME_load_and_set_up_everything(void)
 {
 	bool result;
@@ -157,7 +190,14 @@ void GAME_game(void)
 
 	if (initialise == true)
 	{
+		int current_script_build_flag;
+
 		SCRIPTING_setup_everything();
+		current_script_build_flag = GPL_find_word_value("FLAG", "CURRENT_SCRIPT_BUILD_ID");
+		if (current_script_build_flag != UNSET)
+		{
+			flag_array[current_script_build_flag] = GAME_get_compiled_script_build_id();
+		}
 		MAIN_reset_frame_counter();
 		SCRIPTING_spawn_entity_by_name("STARTUP", 0, 0, 1, 2, 0);
 

@@ -379,6 +379,7 @@ extern int just_created_entity;
 extern int first_processed_entity_in_list;
 
 extern int entity [MAX_ENTITIES][MAX_ENTITY_VARIABLES];
+extern int reset_entity[MAX_ENTITY_VARIABLES];
 extern arbitrary_quads_struct arbitrary_quads[MAX_ENTITIES];
 extern arbitrary_vertex_colour_struct arbitrary_vertex_colours[MAX_ENTITIES];
 extern int *flag_array;
@@ -388,7 +389,6 @@ extern save_data_struct save_data;
 #define FIX_ME_NOW 99
 
 #endif
-
 
 
 

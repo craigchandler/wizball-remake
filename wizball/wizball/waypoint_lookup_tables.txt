@@ -1,0 +1,20 @@
+Waypoint Lookup Tables
+
+Tilemap 0 : 0 Families..
+
+Tilemap 1 : 0 Families..
+
+Tilemap 2 : 0 Families..
+
+Tilemap 3 : 0 Families..
+
+Tilemap 4 : 0 Families..
+
+Tilemap 5 : 0 Families..
+
+Tilemap 6 : 0 Families..
+
+Tilemap 7 : 0 Families..
+
+Tilemap 8 : 0 Families..
+

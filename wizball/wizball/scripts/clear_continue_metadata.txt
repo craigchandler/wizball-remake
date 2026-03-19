@@ -1,9 +1,11 @@
 	set_global_flag (continue_game_available, false)
+	set_global_flag (continue_script_build_id, 0)
 	DELETE_SAVE_FILE (continue_game_save_tag)
 	DELETE_SAVE_FILE (continue_metadata_save_tag)
 
 	RESET_SAVE_FILE
 	WRITE_FLAG_TO_SAVE_FILE continue_game_available
+	WRITE_FLAG_TO_SAVE_FILE continue_script_build_id
 	OUTPUT_SAVE_FILE continue_metadata_save_tag
 	RESET_SAVE_FILE
 
