@@ -5,6 +5,7 @@
 #define OPTION_HEIGHT			passed_param_2
 #define MAXIMUM_OPTIONS			passed_param_3
 #define OPTION_WIDTH			passed_param_4
+#define DISABLED_OPTION			passed_param_5
 
 #define OPTION_NUMBER_HIGHLIGHTED	v0
 #define target_vertex_alpha		v1
@@ -159,6 +160,11 @@ end
 .option_up
 	PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
 	let OPTION_NUMBER_HIGHLIGHTED = OPTION_NUMBER_HIGHLIGHTED - 1 !< 0 !> MAXIMUM_OPTIONS_MINUS_ONE
+	if DISABLED_OPTION != CONST_UNSET then
+		if OPTION_NUMBER_HIGHLIGHTED = DISABLED_OPTION then
+			let OPTION_NUMBER_HIGHLIGHTED = OPTION_NUMBER_HIGHLIGHTED - 1 !< 0 !> MAXIMUM_OPTIONS_MINUS_ONE
+		end_if
+	end_if
 	return
 
 
@@ -166,6 +172,11 @@ end
 .option_down
 	PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
 	let OPTION_NUMBER_HIGHLIGHTED = OPTION_NUMBER_HIGHLIGHTED + 1 !< 0 !> MAXIMUM_OPTIONS_MINUS_ONE
+	if DISABLED_OPTION != CONST_UNSET then
+		if OPTION_NUMBER_HIGHLIGHTED = DISABLED_OPTION then
+			let OPTION_NUMBER_HIGHLIGHTED = OPTION_NUMBER_HIGHLIGHTED + 1 !< 0 !> MAXIMUM_OPTIONS_MINUS_ONE
+		end_if
+	end_if
 	return
 
 
@@ -212,6 +223,5 @@ start
 
 	set_private_co_ords
 end
-
 
 
