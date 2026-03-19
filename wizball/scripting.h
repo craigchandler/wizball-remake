@@ -137,6 +137,7 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line);
 void SCRIPTING_remove_from_collision_bucket (int entity_id);
 bool SCRIPTING_find_next_entity (void);
 void SCRIPTING_setup_entity(int entity_id);
+int SCRIPTING_spawn_entity (int calling_entity_id , int script_number , int x_offset , int y_offset , int process_offset , int specific_entity);
 int SCRIPTING_spawn_restored_entity_last (void);
 
 void SCRIPTING_spawn_shutdown_entity (void);
@@ -386,7 +387,6 @@ extern save_data_struct save_data;
 #define FIX_ME_NOW 99
 
 #endif
-
 
 
 

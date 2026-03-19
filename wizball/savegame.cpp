@@ -17,6 +17,12 @@ static restored_entity_mapping_struct *savegame_restored_entity_mappings = NULL;
 static int savegame_restored_entity_mapping_count = 0;
 static int savegame_restored_entity_mapping_capacity = 0;
 static bool savegame_restored_entity_flags[MAX_ENTITIES];
+static int savegame_generic_level_enemy_script = UNSET;
+static int savegame_solid_diamond_overlay_script = UNSET;
+static int savegame_fuzz_overlay_script = UNSET;
+static int savegame_enemy_type_solid_diamonds = UNSET;
+static int savegame_enemy_type_solid_diamonds_deviant = UNSET;
+static int savegame_enemy_type_fuzz = UNSET;
 
 static bool SAVEGAME_compare_value(int value, int operation, int compare_value)
 {
@@ -87,6 +93,86 @@ static int SAVEGAME_get_slept_in_transition_entity_type(void)
 	}
 
 	return cached_entity_type;
+}
+
+static void SAVEGAME_cache_script_and_enemy_constants(void)
+{
+	if (savegame_generic_level_enemy_script == UNSET)
+	{
+		savegame_generic_level_enemy_script = GPL_find_word_value("SCRIPTS", "GENERIC_LEVEL_ENEMY");
+		savegame_solid_diamond_overlay_script = GPL_find_word_value("SCRIPTS", "SOLID_DIAMOND_OVERLAY");
+		savegame_fuzz_overlay_script = GPL_find_word_value("SCRIPTS", "FUZZ_OVERLAY");
+		savegame_enemy_type_solid_diamonds = GPL_find_word_value("CONSTANT", "ENEMY_TYPE_SOLID_DIAMONDS");
+		savegame_enemy_type_solid_diamonds_deviant = GPL_find_word_value("CONSTANT", "ENEMY_TYPE_SOLID_DIAMONDS_DEVIANT");
+		savegame_enemy_type_fuzz = GPL_find_word_value("CONSTANT", "ENEMY_TYPE_FUZZ");
+	}
+}
+
+static bool SAVEGAME_is_parent_draw_buddy_entity(int entity_id)
+{
+	int parent_id;
+
+	if ((entity_id < 0) || (entity_id >= MAX_ENTITIES))
+	{
+		return false;
+	}
+
+	parent_id = entity[entity_id][ENT_PARENT];
+
+	if ((parent_id < 0) || (parent_id >= MAX_ENTITIES))
+	{
+		return false;
+	}
+
+	return (entity[parent_id][ENT_DRAW_BUDDY] == entity_id);
+}
+
+static void SAVEGAME_restore_missing_enemy_draw_buddy(int entity_id)
+{
+	int behaviour_type;
+	int overlay_script = UNSET;
+	int overlay_entity_id;
+
+	SAVEGAME_cache_script_and_enemy_constants();
+
+	if ((entity_id < 0) || (entity_id >= MAX_ENTITIES))
+	{
+		return;
+	}
+
+	if (entity[entity_id][ENT_SCRIPT_NUMBER] != savegame_generic_level_enemy_script)
+	{
+		return;
+	}
+
+	if (entity[entity_id][ENT_DRAW_BUDDY] != UNSET)
+	{
+		return;
+	}
+
+	behaviour_type = entity[entity_id][ENT_PASSED_PARAM_11];
+
+	if ((behaviour_type == savegame_enemy_type_solid_diamonds) ||
+		(behaviour_type == savegame_enemy_type_solid_diamonds_deviant))
+	{
+		overlay_script = savegame_solid_diamond_overlay_script;
+	}
+	else if (behaviour_type == savegame_enemy_type_fuzz)
+	{
+		overlay_script = savegame_fuzz_overlay_script;
+	}
+
+	if (overlay_script == UNSET)
+	{
+		return;
+	}
+
+	overlay_entity_id = SCRIPTING_spawn_entity(entity_id, overlay_script, 0, 0, PROCESS_NEXT, UNSET);
+
+	if (overlay_entity_id != UNSET)
+	{
+		entity[entity_id][ENT_DRAW_BUDDY] = overlay_entity_id;
+	}
 }
 
 static void SAVEGAME_reset_restored_entity_mappings(void)
@@ -380,8 +466,11 @@ int SAVEGAME_save_matching_live_entities(int variable, int operation, int compar
 
 			if (SAVEGAME_compare_value(value, operation, compare_value))
 			{
-				SCRIPTING_save_entity(entity_id, tag_offset + entity_id);
-				saved_count++;
+				if (SAVEGAME_is_parent_draw_buddy_entity(entity_id) == false)
+				{
+					SCRIPTING_save_entity(entity_id, tag_offset + entity_id);
+					saved_count++;
+				}
 			}
 		}
 	}
@@ -436,6 +525,17 @@ int SAVEGAME_spawn_matching_loaded_entities(int variable, int operation, int com
 		if (live_entity_id != UNSET)
 		{
 			SAVEGAME_restore_entity_references(live_entity_id, loaded_entity);
+		}
+	}
+
+	for (loaded_entity_number = 0; loaded_entity_number < save_data.loaded_entity_count; loaded_entity_number++)
+	{
+		loaded_entity_struct *loaded_entity = &save_data.loaded_entity_data[loaded_entity_number];
+		int live_entity_id = SAVEGAME_find_restored_live_entity_for_tag(loaded_entity->loaded_entity_tag);
+
+		if (live_entity_id != UNSET)
+		{
+			SAVEGAME_restore_missing_enemy_draw_buddy(live_entity_id);
 		}
 	}
 
