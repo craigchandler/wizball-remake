@@ -77,6 +77,18 @@ static bool SAVEGAME_is_entity_reference_variable(int variable_number)
 	}
 }
 
+static int SAVEGAME_get_slept_in_transition_entity_type(void)
+{
+	static int cached_entity_type = UNSET;
+
+	if (cached_entity_type == UNSET)
+	{
+		cached_entity_type = GPL_find_word_value("CONSTANT", "ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION");
+	}
+
+	return cached_entity_type;
+}
+
 static void SAVEGAME_reset_restored_entity_mappings(void)
 {
 	if (savegame_restored_entity_mappings != NULL)
@@ -132,14 +144,26 @@ static int SAVEGAME_find_restored_live_entity_for_tag(int loaded_tag)
 static void SAVEGAME_restore_entity_variables(int entity_number, loaded_entity_struct *loaded_entity)
 {
 	int variable_number;
+	int loaded_alive = UNSET;
 	int loaded_old_alive = UNSET;
+	int loaded_entity_type = UNSET;
+	int slept_in_transition_type = SAVEGAME_get_slept_in_transition_entity_type();
 
 	for (variable_number = 0; variable_number < loaded_entity->loaded_variable_count; variable_number++)
 	{
+		if (loaded_entity->loaded_entity_variable_list[variable_number] == ENT_ALIVE)
+		{
+			loaded_alive = loaded_entity->loaded_entity_value_list[variable_number];
+		}
+
 		if (loaded_entity->loaded_entity_variable_list[variable_number] == ENT_OLD_ALIVE)
 		{
 			loaded_old_alive = loaded_entity->loaded_entity_value_list[variable_number];
-			break;
+		}
+
+		if (loaded_entity->loaded_entity_variable_list[variable_number] == ENT_ENTITY_TYPE)
+		{
+			loaded_entity_type = loaded_entity->loaded_entity_value_list[variable_number];
 		}
 	}
 
@@ -148,17 +172,37 @@ static void SAVEGAME_restore_entity_variables(int entity_number, loaded_entity_s
 		int variable_index = loaded_entity->loaded_entity_variable_list[variable_number];
 		int variable_value = loaded_entity->loaded_entity_value_list[variable_number];
 
-		if (!SAVEGAME_is_entity_reference_variable(variable_index))
-		{
-			// Save-and-exit can happen while the game is paused, so pausable entities may
-			// be serialized as FROZEN. Resume should restore their live pre-pause state.
-			if ((variable_index == ENT_ALIVE) && (variable_value == FROZEN) && (loaded_old_alive != UNSET))
+			if (!SAVEGAME_is_entity_reference_variable(variable_index))
 			{
-				variable_value = loaded_old_alive;
-			}
+				// Save-and-exit can happen while the game is paused, so pausable entities may
+				// be serialized as FROZEN. Resume should restore their live pre-pause state.
+				if ((variable_index == ENT_ALIVE) && (variable_value == FROZEN) && (loaded_old_alive != UNSET))
+				{
+					variable_value = loaded_old_alive;
+				}
 
-			entity[entity_number][variable_index] = variable_value;
+				// If a slept-transition entity was paused while already sleeping, the freeze step
+				// will have overwritten OLD_ALIVE with SLEEPING. Restore the semantic wake target
+				// so later level transitions can actually wake it back up.
+				if ((variable_index == ENT_OLD_ALIVE) &&
+					(loaded_alive == FROZEN) &&
+					(loaded_old_alive == SLEEPING) &&
+					(slept_in_transition_type != UNSET) &&
+					(loaded_entity_type & slept_in_transition_type))
+				{
+					variable_value = ALIVE;
+				}
+
+				entity[entity_number][variable_index] = variable_value;
+			}
 		}
+
+	// Ensure entities restored in a sleeping state will resume from their wake handler
+	// when later level transitions wake them again.
+	if ((entity[entity_number][ENT_ALIVE] == SLEEPING) &&
+		(entity[entity_number][ENT_WAKE_LINE] != UNSET))
+	{
+		entity[entity_number][ENT_PROGRAM_START] = entity[entity_number][ENT_WAKE_LINE];
 	}
 }
 

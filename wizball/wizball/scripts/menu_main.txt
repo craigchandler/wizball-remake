@@ -203,14 +203,15 @@ end
 
 	PLAY_SOUND menu_select 255 CONST_SOUND_FREQUENCY 128
 
-	let temp_1 = GET_GLOBAL_FLAG (save_load_spinner_entity_id)
-	if temp_1 = CONST_UNSET then
-		spawn_entity (save_load_spinner,0,0,process_last)
-	end_if
+		let temp_1 = GET_GLOBAL_FLAG (save_load_spinner_entity_id)
+		if temp_1 = CONST_UNSET then
+			spawn_entity (save_load_spinner,0,0,process_last)
+		end_if
 
-	wait 8
+		enable_window SCORE_OVERLAY_WINDOW
+		wait 6
 
-	spawn_entity continue_game,0,0,process_next
+		spawn_entity continue_game,0,0,process_next
 
 	if_flag (playing_music_channel_flag) != CONST_UNSET then
 		spawn_entity (fade_music,0,0,process_next)

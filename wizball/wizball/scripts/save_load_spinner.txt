@@ -23,7 +23,7 @@
 
 start
 
-	let counter = counter + 8 !< 0 !> 512
+	let counter = counter + 24 !< 0 !> 512
 	let current_frame = counter / 8
 
 end

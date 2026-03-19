@@ -13,13 +13,19 @@
 	let window_number = GAME_MAIN_WINDOW
 	enable_window GAME_MAIN_WINDOW
 	enable_window GAME_PANEL_WINDOW
+	enable_window SCORE_OVERLAY_WINDOW
 
-	disable_window MENU_WINDOW
-	disable_window GAME_TEMP_WINDOW
-	disable_window FLOATING_OVERLAY_WINDOW
+		disable_window MENU_WINDOW
+		disable_window GAME_TEMP_WINDOW
+		disable_window FLOATING_OVERLAY_WINDOW
 
-	REINITIALISE_STARFIELD (MAIN_GAME_STARFIELD_ID)
-	REINITIALISE_STARFIELD (FREAKOUT_STARFIELD_ID)
+		let temp_1 = GET_GLOBAL_FLAG (save_load_spinner_entity_id)
+		if temp_1 = CONST_UNSET then
+			spawn_entity (save_load_spinner,0,0,process_last)
+		end_if
+
+		REINITIALISE_STARFIELD (MAIN_GAME_STARFIELD_ID)
+		REINITIALISE_STARFIELD (FREAKOUT_STARFIELD_ID)
 	REINITIALISE_STARFIELD (BONUS_LEVEL_STARFIELD_ID)
 	REINITIALISE_STARFIELD (BONUS_LEVEL_STARFIELD_OTHER_ID)
 	REINITIALISE_STARFIELD (TUNNEL_STARFIELD_ID)
@@ -35,10 +41,10 @@
 		spawn_entity (debug_handler,0,0,process_last)
 	END_IF
 
-	spawn_entity (main_game_controller, 0, 0, process_last)
-	spawn_entity (pause_manager,0,0,process_last)
+		spawn_entity (main_game_controller, 0, 0, process_last)
+		spawn_entity (pause_manager,0,0,process_last)
 
-	blank_window (GAME_MAIN_WINDOW,5)
-	blank_window (GAME_PANEL_WINDOW,5)
+		blank_window (GAME_MAIN_WINDOW,5)
+		blank_window (GAME_PANEL_WINDOW,5)
 
-	kill_entity (own_id)
+		kill_entity (own_id)

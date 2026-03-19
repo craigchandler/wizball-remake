@@ -130,7 +130,7 @@ end
 		spawn_entity (save_load_spinner,0,0,process_last)
 	end_if
 
-	wait 8
+	wait 14
 
 	spawn_entity (save_current_run,0,0,process_next)
 	spawn_entity (save_config,0,0,process_next)
