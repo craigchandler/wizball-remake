@@ -458,14 +458,28 @@ static void SAVEGAME_restore_entity_variables(int entity_number, loaded_entity_s
 		entity[entity_number][ENT_PROGRAM_START] = entity[entity_number][ENT_WAKE_LINE];
 	}
 
-	// NOTE:
-	// We currently keep parsing the optional stable-state metadata, but do not
-	// apply it during restore. The narrowed continue-compatibility hash already
-	// protects saves against incompatible gameplay-script rebuilds while still
-	// allowing menu/UI/display script changes, and the first live use of the
-	// remap layer introduced gameplay regressions in continued runs. Leave raw
-	// compiled line restore as the active path until we have a more targeted
-	// compatibility model for persistent gameplay scripts.
+	// Apply stable-state overrides only for the main controller. Exact-label
+	// remaps for enemy scripts still altered live behavior in continued runs,
+	// so enemy/molecule entities currently stay on raw compiled-line restore.
+	if ((loaded_entity->loaded_state_count > 0) &&
+		(entity[entity_number][ENT_SCRIPT_NUMBER] >= 0) &&
+		(entity[entity_number][ENT_SCRIPT_NUMBER] == GPL_find_word_value("SCRIPTS", "MAIN_GAME_CONTROLLER")))
+	{
+		int state_index;
+
+		for (state_index = 0; state_index < loaded_entity->loaded_state_count; state_index++)
+		{
+			int variable_index = loaded_entity->loaded_state_variable_list[state_index];
+			const char *label = loaded_entity->loaded_state_label_list[state_index];
+			int offset = loaded_entity->loaded_state_offset_list[state_index];
+			int resolved_line = SCRIPTING_resolve_continue_state_line(entity[entity_number][ENT_SCRIPT_NUMBER], label, offset);
+
+			if ((variable_index >= 0) && (variable_index < MAX_ENTITY_VARIABLES) && (resolved_line != UNSET))
+			{
+				entity[entity_number][variable_index] = resolved_line;
+			}
+		}
+	}
 }
 
 

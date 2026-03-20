@@ -1299,11 +1299,6 @@ return
 
 .check_enemy_count
 
-	// Continue restore can safely land the controller back in the main loop,
-	// so re-sync the working current_level from the authoritative global before
-	// checking which level should receive a replacement wave.
-	let current_level = get_global_flag (player_on_level_number)
-
 	let enemy_count = read_from_array (own_id,LEVEL_ENEMY_COUNT_ARRAY_ID,current_level)
 
 	let pearl_count = get_global_flag (current_level_pearl_count)
@@ -1316,15 +1311,6 @@ return
 				let temp_1 = temp_1 + 1000 !> MAXIMUM_POSSIBLE_SCORE
 				set_global_flag (player_score,temp_1)
 			end_if
-
-			// Rebuild the wave count from the active zone before spawning a fresh
-			// normal wave. This keeps the wave generator aligned with the current
-			// level even if a continued game resumed the controller with stale
-			// cached locals.
-			let temp_1 = get_current_zone (0,0,game_room_zone)
-			let temp_2 = COUNT_SPAWNPOINTS_IN_ZONE (temp_1,c64_main_level_enemy)
-			let temp_2 = temp_2 / 2
-			set_global_flag (enemy_wave_count_in_level,temp_2)
 
 			PLAY_SOUND (spawn_new_wave_sound,255,CONST_SOUND_FREQUENCY,128)
 

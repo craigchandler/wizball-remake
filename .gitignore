@@ -60,6 +60,7 @@ wizball/wizball/waypoint_lookup_tables.txt
 wizball/wizball/save_restore_debug.txt
 wizball/wizball/entity_dump.txt
 wizball/wizball/traced_script_lines.txt
+wizball/wizball/script_state_map.txt
 
 # Regenerated packed data outputs
 wizball/wizball/data.dat
@@ -72,4 +73,3 @@ wizball/wizball/paths.dat
 /site/public/
 /site/resources/
 /site/.hugo_build.lock
-wizball/wizball/script_state_map.txt

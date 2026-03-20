@@ -55,11 +55,23 @@ Current safeguard:
 Tradeoff:
 - This is much less coarse than hashing the whole compiled script build, but it still treats any change inside the persistent gameplay scripts as potentially incompatible.
 
-Medium-term direction:
-- Break save compatibility away from raw compiled line numbers for the key persistent scripts.
-- The best target scripts are `main_game_controller` and `generic_level_enemy`.
-- That likely means saving stable state ids and resolving them back to current compiled lines through parser-emitted label/state metadata.
-- Once that exists, continue saves should survive many more script rebuilds without needing the coarse whole-build guard.
+Current state-id work:
+- `script_state_map.txt` is generated during `-rebuildscripts` for the persistent gameplay scripts.
+- Continue saves can carry optional stable state metadata alongside the raw compiled line numbers.
+- Live restore currently uses stable state remapping only for `main_game_controller`.
+- `generic_level_enemy` and `molecule` still restore from raw compiled line numbers.
+
+Why enemy stable remap is not live yet:
+- Exact-label remapping for enemy scripts was safer than arbitrary label+offset restore, but it still changed gameplay behavior in continued runs.
+- The current safe balance is:
+  - menu/UI/display script changes do not invalidate `Continue`
+  - controller restore gets limited rebuild tolerance
+  - enemy behavior stays on the known-good raw-line restore path
+
+Next compatibility direction:
+- Break enemy save compatibility away from raw compiled line numbers without changing live behavior.
+- The likely route is a more targeted notion of resumable enemy states, rather than generic line remapping.
+- Until that exists, continue compatibility should stay conservative for the persistent enemy scripts.
 
 ## Save/Load Speedups
 
@@ -115,8 +127,9 @@ SAVELOAD_PROFILE op=save file=game_continue_meta.sav size=236 total_ms=0 stage1_
 
 SAVELOAD_PROFILE op=load file=game_continue.sav size=354983 total_ms=23 stage1_ms=5 stage2_ms=1 stage3_ms=0 stage4_ms=0 stage5_ms=1 stage6_ms=16 entities=52
 
-Replace checksum generation with a streaming checksum while writing, so save does not reread and concatenate the whole file afterward.
-Replace load’s multi-pass parsing with one pass that collects spawn flags, zone flags, flags, entities, and checksum together.
-Add an O(1) live-entity-id -> saved-tag lookup table during save so reference output stops doing linear scans.
-Collapse entity variable output to one pass, or cache the selected variable list per entity/script type.
-Longer term, move entity data to binary if you still need more speed after the algorithmic fixes.
+Historical speed notes:
+- Replace checksum generation with a streaming checksum while writing, so save does not reread and concatenate the whole file afterward.
+- Replace load’s multi-pass parsing with one pass that collects spawn flags, zone flags, flags, entities, and checksum together.
+- Add an O(1) live-entity-id -> saved-tag lookup table during save so reference output stops doing linear scans.
+- Collapse entity variable output to one pass, or cache the selected variable list per entity/script type.
+- Longer term, move entity data to binary if more speed is still needed after the algorithmic fixes.

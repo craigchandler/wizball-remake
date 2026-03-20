@@ -33,41 +33,43 @@
 	let search_limit = total_wave_count + 1
 
 	// Small levels can have fewer available wave bits than the standard knockout count.
-	// Clamp first, then do a bounded search from a random starting bit so this can never
-	// spin forever rerolling already-cleared bits.
+	// Clamp first, then each knockout chooses one of the currently-live bits at random.
+	// This preserves the intended random mix without the old infinite reroll risk.
 	if total_bubble_Waves > search_limit then
 		let total_bubble_Waves = search_limit
 	end_if
 
 	start_loop (total_bubble_Waves > 0)
 
-		let bit_number = SPECIAL_RAND (0, 0,total_wave_count)
-		let search_offset = 0
-		let found_bit = FALSE
+		let search_limit = 0
 
-		start_loop (search_offset < search_limit)
-
-			let candidate_bit = bit_number + search_offset
-
-			if candidate_bit > total_wave_count then
-				let candidate_bit = candidate_bit - search_limit
-			end_if
-
-			let bit_value = 1 << candidate_bit
-
+		for bit_number = 0 to total_wave_count
+			let bit_value = 1 << bit_number
 			if enemy_wave_type_bitflag & bit_value then
-				let enemy_wave_type_bitflag = enemy_wave_type_bitflag xor bit_value
-				let total_bubble_Waves = total_bubble_Waves - 1
-				let found_bit = TRUE
-				let search_offset = search_limit
-			else
-				let search_offset = search_offset + 1
+				let search_limit = search_limit + 1
 			end_if
+		next
 
-		end_loop
-
-		if found_bit = FALSE then
+		if search_limit = 0 then
 			let total_bubble_Waves = 0
+		else
+			let search_offset = search_limit - 1
+			let found_bit = SPECIAL_RAND (0, 0,search_offset)
+			let candidate_bit = 0
+
+			for bit_number = 0 to total_wave_count
+				let bit_value = 1 << bit_number
+
+				if enemy_wave_type_bitflag & bit_value then
+					if candidate_bit = found_bit then
+						let enemy_wave_type_bitflag = enemy_wave_type_bitflag xor bit_value
+						let total_bubble_Waves = total_bubble_Waves - 1
+						let found_bit = CONST_UNSET
+					else_if found_bit != CONST_UNSET then
+						let candidate_bit = candidate_bit + 1
+					end_if
+				end_if
+			next
 		end_if
 
 	end_loop

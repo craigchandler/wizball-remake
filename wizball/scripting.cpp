@@ -224,8 +224,6 @@ static void SCRIPTING_load_continue_state_map(void)
 static bool SCRIPTING_describe_continue_state_line(int script_number, int absolute_line, char *out_label, int out_label_size, int *out_offset)
 {
 	int entry_index;
-	int best_index = UNSET;
-	int best_line = UNSET;
 
 	if ((out_label == NULL) || (out_offset == NULL))
 	{
@@ -244,25 +242,18 @@ static bool SCRIPTING_describe_continue_state_line(int script_number, int absolu
 			continue;
 		}
 
-		if (scripting_state_label_entries[entry_index].absolute_line <= absolute_line)
+		// Keep live remapping conservative: only exact labelled entry points are
+		// considered stable enough to survive harmless script edits. Arbitrary
+		// "nearest label + offset" restore was too fragile for the gameplay scripts.
+		if (scripting_state_label_entries[entry_index].absolute_line == absolute_line)
 		{
-			if ((best_index == UNSET) || (scripting_state_label_entries[entry_index].absolute_line > best_line))
-			{
-				best_index = entry_index;
-				best_line = scripting_state_label_entries[entry_index].absolute_line;
-			}
+			snprintf(out_label, out_label_size, "%s", scripting_state_label_entries[entry_index].label);
+			*out_offset = 0;
+			return true;
 		}
 	}
 
-	if (best_index == UNSET)
-	{
-		return false;
-	}
-
-	snprintf(out_label, out_label_size, "%s", scripting_state_label_entries[best_index].label);
-	*out_offset = absolute_line - scripting_state_label_entries[best_index].absolute_line;
-
-	return true;
+	return false;
 }
 
 int SCRIPTING_resolve_continue_state_line(int script_number, const char *label, int offset)
