@@ -18,6 +18,7 @@
 let MAXIMUM_OPTIONS_MINUS_ONE = MAXIMUM_OPTIONS - 1
 
 let entity_type = ENT_TYPE_PERMANENT_MENU_ENTITY
+let DISABLED_OPTION = CONST_UNSET
 
 let temp_1 = get_global_flag (cursor_controlled_menu)
 
@@ -223,5 +224,3 @@ start
 
 	set_private_co_ords
 end
-
-
