@@ -102,6 +102,7 @@
 	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_OPTION_6_LABEL, process_next, RIGHT_ALIGN, 480, 315, 0, 0, font[arb])
 	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_7_NUMBER, process_next, NO_CENTER, 160, 338, 0, 0, font[arb])
 	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_option_text, MAIN_MENU_CONTINUE_OPTION_7_LABEL, process_next, RIGHT_ALIGN, 480, 338, 0, 0, font[arb])
+	SPAWN_ENTITIES_FROM_TEXT (FALSE, 0, menu_version_stamp_text, MENU_VERSION_LABEL, process_next, RIGHT_ALIGN, 480, 372, 0, 0, font_small[arb])
 
 start
 

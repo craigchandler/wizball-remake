@@ -61,6 +61,7 @@ wizball/wizball/save_restore_debug.txt
 wizball/wizball/entity_dump.txt
 wizball/wizball/traced_script_lines.txt
 wizball/wizball/script_state_map.txt
+wizball/wizball/textfiles/version_generated.txt
 
 # Regenerated packed data outputs
 wizball/wizball/data.dat

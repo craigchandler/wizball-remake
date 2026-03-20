@@ -62,6 +62,20 @@ set(WIZBALL_SOURCES
 
 add_executable(wizball ${WIZBALL_SOURCES})
 
+set(WIZBALL_VERSION_TEXT_FILE "${CMAKE_SOURCE_DIR}/wizball/wizball/textfiles/version_generated.txt")
+
+add_custom_target(wizball_generate_version_text ALL
+  COMMAND ${CMAKE_COMMAND}
+    -DPROJECT_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+    -DOUTPUT_FILE=${WIZBALL_VERSION_TEXT_FILE}
+    -P ${CMAKE_SOURCE_DIR}/cmake/GenerateVersionText.cmake
+  BYPRODUCTS ${WIZBALL_VERSION_TEXT_FILE}
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  VERBATIM
+)
+
+add_dependencies(wizball wizball_generate_version_text)
+
 target_include_directories(wizball PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/wizball
 )
