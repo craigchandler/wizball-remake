@@ -457,6 +457,15 @@ static void SAVEGAME_restore_entity_variables(int entity_number, loaded_entity_s
 	{
 		entity[entity_number][ENT_PROGRAM_START] = entity[entity_number][ENT_WAKE_LINE];
 	}
+
+	// NOTE:
+	// We currently keep parsing the optional stable-state metadata, but do not
+	// apply it during restore. The narrowed continue-compatibility hash already
+	// protects saves against incompatible gameplay-script rebuilds while still
+	// allowing menu/UI/display script changes, and the first live use of the
+	// remap layer introduced gameplay regressions in continued runs. Leave raw
+	// compiled line restore as the active path until we have a more targeted
+	// compatibility model for persistent gameplay scripts.
 }
 
 

@@ -144,6 +144,8 @@ extern int *flag_array;
 void SCRIPTING_spawn_shutdown_entity (void);
 void SCRIPTING_spawn_entity_by_name (char *script_name , int x , int y , int v0 , int v1 , int v2 );
 bool SCRIPTING_load_script (char *filename);
+int SCRIPTING_get_continue_compatibility_build_id(void);
+int SCRIPTING_resolve_continue_state_line(int script_number, const char *label, int offset);
 void SCRIPTING_setup_everything (void);
 bool SCRIPTING_process_entities (void);
 int SCRIPTING_draw_all_windows (void);
@@ -328,6 +330,11 @@ typedef struct
 	int *loaded_entity_reference_variable_list;
 	int *loaded_entity_reference_tag_list;
 
+	int loaded_state_count;
+	int *loaded_state_variable_list;
+	int *loaded_state_offset_list;
+	char **loaded_state_label_list;
+
 	int loaded_entity_array_count;
 	loaded_array_struct *array_data;
 } loaded_entity_struct;
@@ -389,9 +396,6 @@ extern save_data_struct save_data;
 #define FIX_ME_NOW 99
 
 #endif
-
-
-
 
 
 

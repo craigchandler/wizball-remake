@@ -4,6 +4,10 @@
 #define bit_value			v3
 #define total_wave_count		v4
 #define bit_number			v5
+#define search_offset			v6
+#define search_limit			v7
+#define candidate_bit			v8
+#define found_bit			v9
 
 //	start_program_trace
 
@@ -26,15 +30,44 @@
 	// Knock out total_bubble_waves number of bits
 
 	let total_wave_count = total_wave_count - 1 // So we can use it to get a random bit number
+	let search_limit = total_wave_count + 1
+
+	// Small levels can have fewer available wave bits than the standard knockout count.
+	// Clamp first, then do a bounded search from a random starting bit so this can never
+	// spin forever rerolling already-cleared bits.
+	if total_bubble_Waves > search_limit then
+		let total_bubble_Waves = search_limit
+	end_if
 
 	start_loop (total_bubble_Waves > 0)
 
 		let bit_number = SPECIAL_RAND (0, 0,total_wave_count)
-		let bit_value = 1 << bit_number
+		let search_offset = 0
+		let found_bit = FALSE
 
-		if enemy_wave_type_bitflag & bit_value then
-			let enemy_wave_type_bitflag = enemy_wave_type_bitflag xor bit_value
-			let total_bubble_Waves = total_bubble_Waves - 1
+		start_loop (search_offset < search_limit)
+
+			let candidate_bit = bit_number + search_offset
+
+			if candidate_bit > total_wave_count then
+				let candidate_bit = candidate_bit - search_limit
+			end_if
+
+			let bit_value = 1 << candidate_bit
+
+			if enemy_wave_type_bitflag & bit_value then
+				let enemy_wave_type_bitflag = enemy_wave_type_bitflag xor bit_value
+				let total_bubble_Waves = total_bubble_Waves - 1
+				let found_bit = TRUE
+				let search_offset = search_limit
+			else
+				let search_offset = search_offset + 1
+			end_if
+
+		end_loop
+
+		if found_bit = FALSE then
+			let total_bubble_Waves = 0
 		end_if
 
 	end_loop

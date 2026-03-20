@@ -44,13 +44,16 @@ Recommendation for now:
 ## Save Compatibility
 
 Current safeguard:
-- Continue availability is gated by a script-build id derived from the compiled `scriptfile.tsl` contents.
-- This means repeated rebuilds with identical compiled output should keep the same id.
-- If the compiled script output changes, old continue saves are hidden by disabling `Continue` instead of being loaded unsafely.
+- Continue availability is gated by a compatibility id derived from the compiled persistent gameplay scripts, not the whole `scriptfile.tsl`.
+- The current compatibility set is:
+  - `main_game_controller`
+  - `generic_level_enemy`
+  - `molecule`
+- This means menu, display, spinner, and most graphical script rebuilds should no longer invalidate continue saves.
+- If one of the persistent gameplay scripts changes incompatibly, old continue saves are still hidden by disabling `Continue` instead of being loaded unsafely.
 
 Tradeoff:
-- This is safe, but coarse.
-- Harmless script rebuilds that still change compiled output will also invalidate continue saves.
+- This is much less coarse than hashing the whole compiled script build, but it still treats any change inside the persistent gameplay scripts as potentially incompatible.
 
 Medium-term direction:
 - Break save compatibility away from raw compiled line numbers for the key persistent scripts.
@@ -97,3 +100,23 @@ Remaining speed-focused options:
 Practical next recommendation:
 - If speed becomes important again, the best next engineering step is probably a binary entity-data format.
 - If UX becomes more important than raw throughput, chunked save/load is the better long-term path.
+
+SAVELOAD_PROFILE op=save file=unlocked_tunes.sav size=154 total_ms=0 stage1_ms=0 stage2_ms=0 stage3_ms=0 stage4_ms=0 stage5_ms=0 stage6_ms=0 entities=0
+SAVELOAD_PROFILE op=save file=game_continue.sav size=373387 total_ms=940 stage1_ms=0 stage2_ms=0 stage3_ms=0 stage4_ms=0 stage5_ms=3 stage6_ms=937 entities=55
+SAVELOAD_PROFILE op=save file=game_continue_meta.sav size=236 total_ms=0 stage1_ms=0 stage2_ms=0 stage3_ms=0 stage4_ms=0 stage5_ms=0 stage6_ms=0 entities=0
+
+SAVELOAD_PROFILE op=load file=game_continue.sav size=373387 total_ms=917 stage1_ms=904 stage2_ms=1 stage3_ms=0 stage4_ms=0 stage5_ms=0 stage6_ms=12 entities=55
+
+after checksum fix
+
+SAVELOAD_PROFILE op=save file=unlocked_tunes.sav size=153 total_ms=1 stage1_ms=0 stage2_ms=0 stage3_ms=0 stage4_ms=0 stage5_ms=0 stage6_ms=1 entities=0
+SAVELOAD_PROFILE op=save file=game_continue.sav size=354983 total_ms=7 stage1_ms=0 stage2_ms=0 stage3_ms=0 stage4_ms=0 stage5_ms=3 stage6_ms=4 entities=52
+SAVELOAD_PROFILE op=save file=game_continue_meta.sav size=236 total_ms=0 stage1_ms=0 stage2_ms=0 stage3_ms=0 stage4_ms=0 stage5_ms=0 stage6_ms=0 entities=0
+
+SAVELOAD_PROFILE op=load file=game_continue.sav size=354983 total_ms=23 stage1_ms=5 stage2_ms=1 stage3_ms=0 stage4_ms=0 stage5_ms=1 stage6_ms=16 entities=52
+
+Replace checksum generation with a streaming checksum while writing, so save does not reread and concatenate the whole file afterward.
+Replace load’s multi-pass parsing with one pass that collects spawn flags, zone flags, flags, entities, and checksum together.
+Add an O(1) live-entity-id -> saved-tag lookup table during save so reference output stops doing linear scans.
+Collapse entity variable output to one pass, or cache the selected variable list per entity/script type.
+Longer term, move entity data to binary if you still need more speed after the algorithmic fixes.

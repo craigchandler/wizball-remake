@@ -103,6 +103,8 @@ int total_command_syntax_archetypes;
 int total_scripts_loaded;
 // This is the number of scripts loaded. Duh!
 
+static bool parser_script_state_map_started = false;
+
 int label_list_index;
 // This is set when the language parser encounters a list called "LABEL", as it's a special case.
 // ie, it is the index of the word_list which contains the labels.
@@ -2093,6 +2095,108 @@ int PARSER_process_script(void)
 void PARSER_delete_debug_files(void)
 {
 	remove(MAIN_get_project_filename("processed_scripts_test.txt"));
+	remove(MAIN_get_project_filename("script_state_map.txt"));
+	parser_script_state_map_started = false;
+}
+
+static bool PARSER_should_output_script_state_map_for_script(const char *script_name)
+{
+	if (script_name == NULL)
+	{
+		return false;
+	}
+
+	return
+		(strcmp(script_name, "MAIN_GAME_CONTROLLER") == 0) ||
+		(strcmp(script_name, "GENERIC_LEVEL_ENEMY") == 0) ||
+		(strcmp(script_name, "MOLECULE") == 0);
+}
+
+static void PARSER_begin_script_state_map_file(void)
+{
+	FILE *file_pointer;
+
+	if (parser_script_state_map_started)
+	{
+		return;
+	}
+
+	file_pointer = fopen(MAIN_get_project_filename("script_state_map.txt", true), "w");
+
+	if (file_pointer == NULL)
+	{
+		OUTPUT_message("CANNOT OUTPUT SCRIPT STATE MAP FILE");
+		assert(0);
+	}
+
+	fputs("#SCRIPT_STATE_MAP\n\n", file_pointer);
+	fclose(file_pointer);
+
+	parser_script_state_map_started = true;
+}
+
+static void PARSER_finish_script_state_map_file(void)
+{
+	FILE *file_pointer;
+
+	if (!parser_script_state_map_started)
+	{
+		return;
+	}
+
+	file_pointer = fopen(MAIN_get_project_filename("script_state_map.txt", true), "a");
+
+	if (file_pointer == NULL)
+	{
+		OUTPUT_message("CANNOT FINALISE SCRIPT STATE MAP FILE");
+		assert(0);
+	}
+
+	fputs("#END_OF_SCRIPT_STATE_MAP\n", file_pointer);
+	fclose(file_pointer);
+}
+
+static void PARSER_output_script_state_map_for_current_script(int script_number)
+{
+	FILE *file_pointer;
+	int label_number;
+	const char *script_name;
+
+	if ((script_number < 0) || (script_number >= word_list[script_list_index].word_list_size))
+	{
+		return;
+	}
+
+	script_name = word_list[script_list_index].words[script_number].text_word;
+
+	if (!PARSER_should_output_script_state_map_for_script(script_name))
+	{
+		return;
+	}
+
+	PARSER_begin_script_state_map_file();
+
+	file_pointer = fopen(MAIN_get_project_filename("script_state_map.txt", true), "a");
+
+	if (file_pointer == NULL)
+	{
+		OUTPUT_message("CANNOT APPEND TO SCRIPT STATE MAP FILE");
+		assert(0);
+	}
+
+	fprintf(file_pointer, "SCRIPT %s\n", script_name);
+
+	for (label_number = 0; label_number < word_list[label_list_index].word_list_size; label_number++)
+	{
+		fprintf(
+			file_pointer,
+			"LABEL %s %d\n",
+			word_list[label_list_index].words[label_number].text_word,
+			word_list[label_list_index].word_values[label_number]);
+	}
+
+	fputs("END_SCRIPT\n\n", file_pointer);
+	fclose(file_pointer);
 }
 
 void PARSER_output_processed_script_back_as_text(int script_number)
@@ -3637,6 +3741,7 @@ bool PARSER_parse(char *filename)
 		PARSER_read_script(MAIN_get_project_filename(script_filename), true, true);
 		PARSER_process_script();
 		PARSER_output_processed_script_back_as_text(script_number);
+		PARSER_output_script_state_map_for_current_script(script_number);
 		PARSER_add_script_details_to_table();
 		PARSER_append_temp_script_to_real_script(script_number);
 	}
@@ -3644,6 +3749,7 @@ bool PARSER_parse(char *filename)
 	// Okay, now we save everything to one honking great file.
 
 	PARSER_save_full_script();
+	PARSER_finish_script_state_map_file();
 
 	// And now we free up any memory that might be tied up.
 

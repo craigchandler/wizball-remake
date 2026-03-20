@@ -51,6 +51,371 @@ static int SCRIPTING_bswap32(int v)
 	return (int) u;
 }
 
+typedef struct
+{
+	int script_number;
+	int absolute_line;
+	char label[NAME_SIZE];
+} scripting_state_label_entry_struct;
+
+extern script_line *scr;
+extern int *scr_lookup;
+extern int script_count;
+
+static scripting_state_label_entry_struct *scripting_state_label_entries = NULL;
+static int scripting_state_label_entry_count = 0;
+
+static void SCRIPTING_hash_compatibility_int(unsigned int *hash, int value)
+{
+	unsigned int u = (unsigned int) value;
+	int index;
+
+	for (index = 0; index < 4; index++)
+	{
+		unsigned char byte = (unsigned char) ((u >> (index * 8)) & 0xffU);
+		*hash ^= byte;
+		*hash *= 16777619u;
+	}
+}
+
+static void SCRIPTING_hash_compatibility_text(unsigned int *hash, const char *text)
+{
+	if (text == NULL)
+	{
+		SCRIPTING_hash_compatibility_int(hash, 0);
+		return;
+	}
+
+	while (*text != '\0')
+	{
+		*hash ^= (unsigned char) *text;
+		*hash *= 16777619u;
+		text++;
+	}
+}
+
+static void SCRIPTING_free_continue_state_map(void)
+{
+	if (scripting_state_label_entries != NULL)
+	{
+		free(scripting_state_label_entries);
+		scripting_state_label_entries = NULL;
+	}
+
+	scripting_state_label_entry_count = 0;
+}
+
+static bool SCRIPTING_is_persistent_continue_script(int script_number)
+{
+	if ((script_number < 0) || (script_number >= GPL_list_size("SCRIPTS")))
+	{
+		return false;
+	}
+
+	return
+		(strcmp(GPL_get_entry_name("SCRIPTS", script_number), "MAIN_GAME_CONTROLLER") == 0) ||
+		(strcmp(GPL_get_entry_name("SCRIPTS", script_number), "GENERIC_LEVEL_ENEMY") == 0) ||
+		(strcmp(GPL_get_entry_name("SCRIPTS", script_number), "MOLECULE") == 0);
+}
+
+static bool SCRIPTING_is_persistent_continue_state_variable(int variable_index)
+{
+	switch (variable_index)
+	{
+	case ENT_PROGRAM_START:
+	case ENT_WAIT_RESTART:
+	case ENT_WAKE_LINE:
+	case ENT_ENTITY_HIT_LINE:
+	case ENT_WORLD_HIT_LINE:
+		return true;
+
+	default:
+		return false;
+	}
+}
+
+static void SCRIPTING_add_continue_state_label(int script_number, const char *label, int absolute_line)
+{
+	if ((label == NULL) || (label[0] == '\0'))
+	{
+		return;
+	}
+
+	if (scripting_state_label_entries == NULL)
+	{
+		scripting_state_label_entries = (scripting_state_label_entry_struct *) malloc(sizeof(scripting_state_label_entry_struct));
+	}
+	else
+	{
+		scripting_state_label_entries = (scripting_state_label_entry_struct *) realloc(
+			scripting_state_label_entries,
+			sizeof(scripting_state_label_entry_struct) * (scripting_state_label_entry_count + 1));
+	}
+
+	if (scripting_state_label_entries == NULL)
+	{
+		OUTPUT_message("Could not allocate continue state label map.");
+		assert(0);
+	}
+
+	scripting_state_label_entries[scripting_state_label_entry_count].script_number = script_number;
+	scripting_state_label_entries[scripting_state_label_entry_count].absolute_line = absolute_line;
+	snprintf(
+		scripting_state_label_entries[scripting_state_label_entry_count].label,
+		sizeof(scripting_state_label_entries[scripting_state_label_entry_count].label),
+		"%s",
+		label);
+	scripting_state_label_entry_count++;
+}
+
+static void SCRIPTING_load_continue_state_map(void)
+{
+	FILE *file_pointer;
+	char line[MAX_LINE_SIZE];
+	int current_script_number = UNSET;
+
+	SCRIPTING_free_continue_state_map();
+
+	file_pointer = FILE_open_project_read_case_fallback("script_state_map.txt");
+
+	if (file_pointer == NULL)
+	{
+		return;
+	}
+
+	while (fgets(line, MAX_LINE_SIZE, file_pointer) != NULL)
+	{
+		char script_name[NAME_SIZE];
+		char label_name[NAME_SIZE];
+		int local_line = UNSET;
+
+		STRING_strip_all_disposable(line);
+
+		if (sscanf(line, "SCRIPT %127s", script_name) == 1)
+		{
+			current_script_number = GPL_find_word_value("SCRIPTS", script_name);
+			continue;
+		}
+
+		if (strcmp(line, "END_SCRIPT") == 0)
+		{
+			current_script_number = UNSET;
+			continue;
+		}
+
+		if ((current_script_number != UNSET) &&
+			(sscanf(line, "LABEL %127s %d", label_name, &local_line) == 2))
+		{
+			if ((current_script_number >= 0) &&
+				(current_script_number < script_count) &&
+				(scr_lookup != NULL))
+			{
+				SCRIPTING_add_continue_state_label(
+					current_script_number,
+					label_name,
+					scr_lookup[current_script_number] + local_line);
+			}
+		}
+	}
+
+	fclose(file_pointer);
+}
+
+static bool SCRIPTING_describe_continue_state_line(int script_number, int absolute_line, char *out_label, int out_label_size, int *out_offset)
+{
+	int entry_index;
+	int best_index = UNSET;
+	int best_line = UNSET;
+
+	if ((out_label == NULL) || (out_offset == NULL))
+	{
+		return false;
+	}
+
+	if (!SCRIPTING_is_persistent_continue_script(script_number))
+	{
+		return false;
+	}
+
+	for (entry_index = 0; entry_index < scripting_state_label_entry_count; entry_index++)
+	{
+		if (scripting_state_label_entries[entry_index].script_number != script_number)
+		{
+			continue;
+		}
+
+		if (scripting_state_label_entries[entry_index].absolute_line <= absolute_line)
+		{
+			if ((best_index == UNSET) || (scripting_state_label_entries[entry_index].absolute_line > best_line))
+			{
+				best_index = entry_index;
+				best_line = scripting_state_label_entries[entry_index].absolute_line;
+			}
+		}
+	}
+
+	if (best_index == UNSET)
+	{
+		return false;
+	}
+
+	snprintf(out_label, out_label_size, "%s", scripting_state_label_entries[best_index].label);
+	*out_offset = absolute_line - scripting_state_label_entries[best_index].absolute_line;
+
+	return true;
+}
+
+int SCRIPTING_resolve_continue_state_line(int script_number, const char *label, int offset)
+{
+	int entry_index;
+
+	if ((label == NULL) || !SCRIPTING_is_persistent_continue_script(script_number))
+	{
+		return UNSET;
+	}
+
+	for (entry_index = 0; entry_index < scripting_state_label_entry_count; entry_index++)
+	{
+		if (scripting_state_label_entries[entry_index].script_number != script_number)
+		{
+			continue;
+		}
+
+		if (strcmp(scripting_state_label_entries[entry_index].label, label) == 0)
+		{
+			int resolved_line = scripting_state_label_entries[entry_index].absolute_line + offset;
+			int script_start = scr_lookup[script_number];
+			int script_end = scr_lookup[script_number + 1];
+
+			if ((resolved_line >= script_start) && (resolved_line < script_end))
+			{
+				return resolved_line;
+			}
+
+			return UNSET;
+		}
+	}
+
+	return UNSET;
+}
+
+static int SCRIPTING_count_entity_state_overrides_for_save(int ent_index)
+{
+	int variable_index;
+	int count = 0;
+	int script_number = entity[ent_index][ENT_SCRIPT_NUMBER];
+	const char *script_name = GPL_get_entry_name("SCRIPTS", script_number);
+
+	if (!SCRIPTING_is_persistent_continue_script(script_number))
+	{
+		return 0;
+	}
+
+	if ((script_name != NULL) && (strcmp(script_name, "MAIN_GAME_CONTROLLER") == 0))
+	{
+		if (SAVEGAME_should_output_entity_variable(ent_index, ENT_PROGRAM_START))
+		{
+			count++;
+		}
+
+		if (SAVEGAME_should_output_entity_variable(ent_index, ENT_WAIT_RESTART))
+		{
+			count++;
+		}
+
+		return count;
+	}
+
+	for (variable_index = GPL_find_word_value("VARIABLE", "ALIVE"); variable_index < GPL_list_size("VARIABLE"); variable_index++)
+	{
+		if (SAVEGAME_should_output_entity_variable(ent_index, variable_index) &&
+			SCRIPTING_is_persistent_continue_state_variable(variable_index))
+		{
+			char label[NAME_SIZE];
+			int offset;
+
+			if (SCRIPTING_describe_continue_state_line(script_number, entity[ent_index][variable_index], label, sizeof(label), &offset))
+			{
+				count++;
+			}
+		}
+	}
+
+	return count;
+}
+
+static void SCRIPTING_output_entity_state_overrides_to_file(int ent_index, FILE *file_pointer)
+{
+	int variable_index;
+	int script_number = entity[ent_index][ENT_SCRIPT_NUMBER];
+	int state_count = SCRIPTING_count_entity_state_overrides_for_save(ent_index);
+	char line[MAX_LINE_SIZE];
+	const char *script_name = GPL_get_entry_name("SCRIPTS", script_number);
+
+	snprintf(line, sizeof(line), "\t\t#START_OF_STATE_COUNT = %i\n", state_count);
+	fputs(line, file_pointer);
+
+	if (!SCRIPTING_is_persistent_continue_script(script_number))
+	{
+		fputs("\t\t#END_OF_STATES\n", file_pointer);
+		return;
+	}
+
+	if ((script_name != NULL) && (strcmp(script_name, "MAIN_GAME_CONTROLLER") == 0))
+	{
+		if (SAVEGAME_should_output_entity_variable(ent_index, ENT_PROGRAM_START))
+		{
+			snprintf(
+				line,
+				sizeof(line),
+				"\t\t\t#ENTITY_STATE '%s' = '%s' + %i\n",
+				GPL_get_entry_name("VARIABLE", ENT_PROGRAM_START),
+				"RESTART_MAIN_LOOP",
+				0);
+			fputs(line, file_pointer);
+		}
+
+		if (SAVEGAME_should_output_entity_variable(ent_index, ENT_WAIT_RESTART))
+		{
+			snprintf(
+				line,
+				sizeof(line),
+				"\t\t\t#ENTITY_STATE '%s' = '%s' + %i\n",
+				GPL_get_entry_name("VARIABLE", ENT_WAIT_RESTART),
+				"RESTART_MAIN_LOOP",
+				0);
+			fputs(line, file_pointer);
+		}
+
+		fputs("\t\t#END_OF_STATES\n", file_pointer);
+		return;
+	}
+
+	for (variable_index = GPL_find_word_value("VARIABLE", "ALIVE"); variable_index < GPL_list_size("VARIABLE"); variable_index++)
+	{
+		if (SAVEGAME_should_output_entity_variable(ent_index, variable_index) &&
+			SCRIPTING_is_persistent_continue_state_variable(variable_index))
+		{
+			char label[NAME_SIZE];
+			int offset;
+
+			if (SCRIPTING_describe_continue_state_line(script_number, entity[ent_index][variable_index], label, sizeof(label), &offset))
+			{
+				snprintf(
+					line,
+					sizeof(line),
+					"\t\t\t#ENTITY_STATE '%s' = '%s' + %i\n",
+					GPL_get_entry_name("VARIABLE", variable_index),
+					label,
+					offset);
+				fputs(line, file_pointer);
+			}
+		}
+	}
+
+	fputs("\t\t#END_OF_STATES\n", file_pointer);
+}
+
 int total_process_counter;
 int drawn_process_counter;
 int alive_process_counter;
@@ -3367,6 +3732,20 @@ void SCRIPTING_spawn_all_points_in_zone (int tilemap_number, int zone_number, in
 	int list_size;
 	int *list_pointer;
 	int last_created = UNSET;
+	int matching_points = 0;
+	int created_points = 0;
+	static int cached_c64_main_level_enemy_type = UNSET;
+	static int cached_c64_pre_level_enemy_type = UNSET;
+
+	if (cached_c64_main_level_enemy_type == UNSET)
+	{
+		cached_c64_main_level_enemy_type = GPL_find_word_value("SPAWN_POINT_TYPES", "C64_MAIN_LEVEL_ENEMY");
+	}
+
+	if (cached_c64_pre_level_enemy_type == UNSET)
+	{
+		cached_c64_pre_level_enemy_type = GPL_find_word_value("SPAWN_POINT_TYPES", "C64_PRE_LEVEL_ENEMY");
+	}
 
 	if (tilemap_number < 0 || tilemap_number >= number_of_tilemaps_loaded)
 	{
@@ -3404,7 +3783,12 @@ void SCRIPTING_spawn_all_points_in_zone (int tilemap_number, int zone_number, in
 		{
 			if (cm[tilemap_number].spawn_point_list_pointer[spawn_point_number].type_value == spawn_point_type)
 			{
+				matching_points++;
 				last_created = SCRIPTING_recursively_spawn_from_spawn_points (tilemap_number, spawn_point_number, calling_entity_id, process_offset);
+				if (last_created != UNSET)
+				{
+					created_points++;
+				}
 			}
 		}
 	}
@@ -4098,6 +4482,7 @@ void SCRIPTING_destroy_flag_arrays (void)
 void SCRIPTING_destroy_all_scripts (void)
 {
 	free (scr_lookup);
+	SCRIPTING_free_continue_state_map();
 
 	int script_line;
 
@@ -4300,6 +4685,7 @@ bool SCRIPTING_load_script ( char *filename )
 	// And set the globals...
 
 	script_line_count = line_length_table_size;
+	SCRIPTING_load_continue_state_map();
 	script_count = script_index_table_size;
 
 	// And then find the actual command which starts each line...
@@ -4618,6 +5004,64 @@ int SCRIPTING_get_int_value ( int entity_id , int line_number , int argument )
 	return value;
 }
 
+int SCRIPTING_get_continue_compatibility_build_id(void)
+{
+	static const char *persistent_script_names[] =
+	{
+		"MAIN_GAME_CONTROLLER",
+		"GENERIC_LEVEL_ENEMY",
+		"MOLECULE"
+	};
+	unsigned int hash = 2166136261u;
+	int script_name_index;
+
+	for (script_name_index = 0; script_name_index < signed(sizeof(persistent_script_names) / sizeof(persistent_script_names[0])); script_name_index++)
+	{
+		const char *script_name = persistent_script_names[script_name_index];
+		int script_number = GPL_find_word_value("SCRIPTS", (char *) script_name);
+
+		SCRIPTING_hash_compatibility_text(&hash, script_name);
+
+		if ((script_number == UNSET) || (scr_lookup == NULL) || (scr == NULL))
+		{
+			SCRIPTING_hash_compatibility_int(&hash, UNSET);
+			continue;
+		}
+
+		SCRIPTING_hash_compatibility_int(&hash, script_number);
+
+		if ((script_number < 0) || (script_number >= script_count))
+		{
+			SCRIPTING_hash_compatibility_int(&hash, UNSET - 1);
+			continue;
+		}
+
+		{
+			int line_number = scr_lookup[script_number];
+			int end_line_number = scr_lookup[script_number + 1];
+
+			SCRIPTING_hash_compatibility_int(&hash, end_line_number - line_number);
+
+			for (; line_number < end_line_number; line_number++)
+			{
+				int argument_number;
+
+				SCRIPTING_hash_compatibility_int(&hash, scr[line_number].script_line_size);
+				SCRIPTING_hash_compatibility_int(&hash, scr[line_number].indentation_level);
+
+				for (argument_number = 0; argument_number < scr[line_number].script_line_size; argument_number++)
+				{
+					SCRIPTING_hash_compatibility_int(&hash, scr[line_number].script_line_pointer[argument_number].data_type);
+					SCRIPTING_hash_compatibility_int(&hash, scr[line_number].script_line_pointer[argument_number].data_value);
+					SCRIPTING_hash_compatibility_int(&hash, scr[line_number].script_line_pointer[argument_number].data_bitmask);
+				}
+			}
+		}
+	}
+
+	return (int)(hash & 0x7fffffff);
+}
+
 
 
 int SCRIPTING_spawn_entity (int calling_entity_id , int script_number , int x_offset , int y_offset , int process_offset , int specific_entity=UNSET )
@@ -4633,6 +5077,9 @@ int SCRIPTING_spawn_entity (int calling_entity_id , int script_number , int x_of
 
 	int *calling_entity_pointer;
 	int *just_created_entity_pointer;
+	static int cached_create_normal_enemies_script = UNSET;
+	static int cached_player_on_level_number_flag = UNSET;
+	static int cached_enemy_wave_count_in_level_flag = UNSET;
 
 	if (SCRIPTING_is_valid_script_index(script_number) == false)
 	{
@@ -4640,6 +5087,21 @@ int SCRIPTING_spawn_entity (int calling_entity_id , int script_number , int x_of
 		snprintf(line, sizeof(line), "Invalid spawn script index (%d) requested by entity %d.", script_number, calling_entity_id);
 		MAIN_add_to_log(line);
 		return UNSET;
+	}
+
+	if (cached_create_normal_enemies_script == UNSET)
+	{
+		cached_create_normal_enemies_script = GPL_find_word_value("SCRIPTS", "CREATE_NORMAL_ENEMIES");
+	}
+
+	if (cached_player_on_level_number_flag == UNSET)
+	{
+		cached_player_on_level_number_flag = GPL_find_word_value("FLAG", "PLAYER_ON_LEVEL_NUMBER");
+	}
+
+	if (cached_enemy_wave_count_in_level_flag == UNSET)
+	{
+		cached_enemy_wave_count_in_level_flag = GPL_find_word_value("FLAG", "ENEMY_WAVE_COUNT_IN_LEVEL");
 	}
 
 	calling_entity_pointer = &entity[calling_entity_id][0];
@@ -5582,8 +6044,14 @@ int SCRIPTING_interpret_script (int entity_id , int over_ride_line)
 	int *entity_pointer;
 	int script_lines_executed = 0;
 	static char line[MAX_LINE_SIZE];
+	static int cached_create_normal_enemies_script_for_interpret = UNSET;
 
 	entity_pointer = &entity[entity_id][0];
+
+	if (cached_create_normal_enemies_script_for_interpret == UNSET)
+	{
+		cached_create_normal_enemies_script_for_interpret = GPL_find_word_value("SCRIPTS", "CREATE_NORMAL_ENEMIES");
+	}
 
 	if ( (int (entity_pointer[ENT_WAIT_COUNTER]) > 1) && (over_ride_line == UNSET) )
 	{
@@ -11714,6 +12182,31 @@ void SCRIPTING_free_loaded_save_data (void)
 				free(loaded_entity->loaded_entity_reference_tag_list);
 			}
 
+			if (loaded_entity->loaded_state_variable_list != NULL)
+			{
+				free(loaded_entity->loaded_state_variable_list);
+			}
+
+			if (loaded_entity->loaded_state_offset_list != NULL)
+			{
+				free(loaded_entity->loaded_state_offset_list);
+			}
+
+			if (loaded_entity->loaded_state_label_list != NULL)
+			{
+				int state_number;
+
+				for (state_number = 0; state_number < loaded_entity->loaded_state_count; state_number++)
+				{
+					if (loaded_entity->loaded_state_label_list[state_number] != NULL)
+					{
+						free(loaded_entity->loaded_state_label_list[state_number]);
+					}
+				}
+
+				free(loaded_entity->loaded_state_label_list);
+			}
+
 			if (loaded_entity->array_data != NULL)
 			{
 				for (array_number = 0; array_number < loaded_entity->loaded_entity_array_count; array_number++)
@@ -11921,6 +12414,7 @@ void SCRIPTING_input_entities_from_file (char *filename)
 	int variable_index;
 	int variable_value;
 	int variable_count;
+	int state_count;
 	int array_number;
 	int array_count;
 	int array_data_counter;
@@ -11958,12 +12452,16 @@ void SCRIPTING_input_entities_from_file (char *filename)
 					save_data.loaded_entity_data[entity_number].loaded_entity_array_count = 0;
 					save_data.loaded_entity_data[entity_number].loaded_variable_count = 0;
 					save_data.loaded_entity_data[entity_number].loaded_reference_count = 0;
+					save_data.loaded_entity_data[entity_number].loaded_state_count = 0;
 
 					save_data.loaded_entity_data[entity_number].array_data = NULL;
 					save_data.loaded_entity_data[entity_number].loaded_entity_variable_list = NULL;
 					save_data.loaded_entity_data[entity_number].loaded_entity_value_list = NULL;
 					save_data.loaded_entity_data[entity_number].loaded_entity_reference_variable_list = NULL;
 					save_data.loaded_entity_data[entity_number].loaded_entity_reference_tag_list = NULL;
+					save_data.loaded_entity_data[entity_number].loaded_state_variable_list = NULL;
+					save_data.loaded_entity_data[entity_number].loaded_state_offset_list = NULL;
+					save_data.loaded_entity_data[entity_number].loaded_state_label_list = NULL;
 
 					save_data.loaded_entity_data[entity_number].loaded_entity_tag = UNSET;
 				}
@@ -12065,12 +12563,99 @@ void SCRIPTING_input_entities_from_file (char *filename)
 					variable_number++;
 				}
 
+				pointer = STRING_end_of_string(line,"#START_OF_STATE_COUNT = ");
+				if (pointer != NULL)
+				{
+					variable_number = 0;
+					state_count = atoi(pointer);
+
+					save_data.loaded_entity_data[entity_number].loaded_state_count = state_count;
+					save_data.loaded_entity_data[entity_number].loaded_state_variable_list = (int *) malloc (sizeof(int) * state_count);
+					save_data.loaded_entity_data[entity_number].loaded_state_offset_list = (int *) malloc (sizeof(int) * state_count);
+					save_data.loaded_entity_data[entity_number].loaded_state_label_list = (char **) malloc (sizeof(char *) * state_count);
+				}
+
+				pointer = STRING_end_of_string(line,"#ENTITY_STATE '");
+				if (pointer != NULL)
+				{
+					char *label_start;
+					char *label_end;
+					char *offset_start;
+
+					strcpy(word,pointer);
+					strtok(word,"'");
+
+					variable_index = GPL_find_word_value("VARIABLE",word);
+
+					label_start = strchr(pointer, '\'');
+					if (label_start != NULL)
+					{
+						label_start = strchr(label_start + 1, '\'');
+					}
+
+					if (label_start != NULL)
+					{
+						label_start += 1;
+						label_end = strchr(label_start, '\'');
+
+						if (label_end != NULL)
+						{
+							int label_length = (int)(label_end - label_start);
+							char label_word[NAME_SIZE];
+
+							if (label_length >= NAME_SIZE)
+							{
+								label_length = NAME_SIZE - 1;
+							}
+
+							strncpy(label_word, label_start, label_length);
+							label_word[label_length] = '\0';
+
+							offset_start = STRING_end_of_string(label_end, "' + ");
+							if (offset_start != NULL)
+							{
+								save_data.loaded_entity_data[entity_number].loaded_state_variable_list[variable_number] = variable_index;
+								save_data.loaded_entity_data[entity_number].loaded_state_offset_list[variable_number] = atoi(offset_start);
+								save_data.loaded_entity_data[entity_number].loaded_state_label_list[variable_number] = (char *) malloc(strlen(label_word) + 1);
+								strcpy(save_data.loaded_entity_data[entity_number].loaded_state_label_list[variable_number], label_word);
+							}
+							else
+							{
+								OUTPUT_message("No offset for entity state!");
+								assert(0);
+							}
+						}
+						else
+						{
+							OUTPUT_message("No label end for entity state!");
+							assert(0);
+						}
+					}
+					else
+					{
+						OUTPUT_message("No label for entity state!");
+						assert(0);
+					}
+
+					variable_number++;
+				}
+
 				pointer = STRING_end_of_string(line,"#END_OF_REFERENCES");
 				if (pointer != NULL)
 				{
 					if (variable_number != save_data.loaded_entity_data[entity_number].loaded_reference_count)
 					{
 						OUTPUT_message("Read in entity reference count does not match expected!");
+						assert(0);
+					}
+				}
+
+				pointer = STRING_end_of_string(line,"#END_OF_STATES");
+				if (pointer != NULL)
+				{
+					if (variable_number != save_data.loaded_entity_data[entity_number].loaded_state_count)
+					{
+						OUTPUT_message("Read in entity state count does not match expected!");
 						assert(0);
 					}
 				}
@@ -12237,6 +12822,7 @@ void SCRIPTING_output_entity_to_file (int ent_index, int ent_tag, FILE *file_poi
 
 	// This first outputs all the variable names and values... Note when it's reloaded it won't overwrite the parents or other relational variables.
 	SCRIPTING_output_entity_non_relation_properties_to_file (ent_index, file_pointer);
+	SCRIPTING_output_entity_state_overrides_to_file (ent_index, file_pointer);
 	SAVEGAME_output_entity_references_to_file (ent_index, file_pointer);
 
 	// Then it outputs any arrays which the entity has...
