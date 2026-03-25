@@ -177,6 +177,7 @@
 	if parent.script_number = wizball_new_life_appear then
 		if_flag (continue_mode_flag = true) then
 			let weapon_collection = get_global_flag (wizball_current_loadout)
+			set_global_flag (continue_mode_flag , false)
 		else
 			let weapon_collection = get_global_flag (wizball_starting_loadout)
 			set_global_flag (wizball_current_loadout , weapon_collection)
@@ -1196,6 +1197,5 @@ set_global_flag (wizball_entity_id_flag,CONST_UNSET) // So they all stop looking
 	set_global_flag (player_bonus_pearl_count,current_pickup_count)
 
 	return
-
 
 

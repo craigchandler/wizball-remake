@@ -6,6 +6,7 @@
 #include "global_param_list.h"
 #include "string_size_constants.h"
 #include "main.h"
+#include "graphics.h"
 
 typedef struct
 {
@@ -18,12 +19,14 @@ static int savegame_restored_entity_mapping_count = 0;
 static int savegame_restored_entity_mapping_capacity = 0;
 static bool savegame_restored_entity_flags[MAX_ENTITIES];
 static int savegame_generic_level_enemy_script = UNSET;
+static int savegame_molecule_script = UNSET;
 static int savegame_solid_diamond_overlay_script = UNSET;
 static int savegame_fuzz_overlay_script = UNSET;
 static int savegame_enemy_type_solid_diamonds = UNSET;
 static int savegame_enemy_type_solid_diamonds_deviant = UNSET;
 static int savegame_enemy_type_fuzz = UNSET;
 static int savegame_main_game_controller_flag = UNSET;
+static int savegame_player_on_level_number_flag = UNSET;
 
 static bool SAVEGAME_compare_value(int value, int operation, int compare_value)
 {
@@ -204,12 +207,14 @@ static void SAVEGAME_cache_script_and_enemy_constants(void)
 	if (savegame_generic_level_enemy_script == UNSET)
 	{
 		savegame_generic_level_enemy_script = GPL_find_word_value("SCRIPTS", "GENERIC_LEVEL_ENEMY");
+		savegame_molecule_script = GPL_find_word_value("SCRIPTS", "MOLECULE");
 		savegame_solid_diamond_overlay_script = GPL_find_word_value("SCRIPTS", "SOLID_DIAMOND_OVERLAY");
 		savegame_fuzz_overlay_script = GPL_find_word_value("SCRIPTS", "FUZZ_OVERLAY");
 		savegame_enemy_type_solid_diamonds = GPL_find_word_value("CONSTANT", "ENEMY_TYPE_SOLID_DIAMONDS");
 		savegame_enemy_type_solid_diamonds_deviant = GPL_find_word_value("CONSTANT", "ENEMY_TYPE_SOLID_DIAMONDS_DEVIANT");
 		savegame_enemy_type_fuzz = GPL_find_word_value("CONSTANT", "ENEMY_TYPE_FUZZ");
 		savegame_main_game_controller_flag = GPL_find_word_value("FLAG", "MAIN_GAME_CONTROLLER_ENTITY_ID");
+		savegame_player_on_level_number_flag = GPL_find_word_value("FLAG", "PLAYER_ON_LEVEL_NUMBER");
 	}
 }
 
@@ -686,8 +691,15 @@ int SAVEGAME_spawn_matching_loaded_entities(int variable, int operation, int com
 {
 	int loaded_entity_number;
 	int spawned_count = 0;
+	int current_player_level = UNSET;
 
 	SAVEGAME_reset_restored_entity_mappings();
+	SAVEGAME_cache_script_and_enemy_constants();
+
+	if ((savegame_player_on_level_number_flag >= 0) && (savegame_player_on_level_number_flag < MAX_FLAGS))
+	{
+		current_player_level = flag_array[savegame_player_on_level_number_flag];
+	}
 
 	for (loaded_entity_number = 0; loaded_entity_number < save_data.loaded_entity_count; loaded_entity_number++)
 	{
@@ -713,6 +725,58 @@ int SAVEGAME_spawn_matching_loaded_entities(int variable, int operation, int com
 			{
 				SAVEGAME_restore_entity_variables(new_entity_id, loaded_entity);
 				SAVEGAME_restore_entity_arrays(new_entity_id, loaded_entity);
+
+				if ((entity[new_entity_id][ENT_ENTITY_TYPE] & SAVEGAME_get_slept_in_transition_entity_type()) &&
+					(current_player_level != UNSET))
+				{
+					bool is_current_level_enemy = (entity[new_entity_id][ENT_PARENT_LEVEL] == current_player_level);
+					bool is_current_level_molecule =
+						(is_current_level_enemy &&
+						(entity[new_entity_id][ENT_SCRIPT_NUMBER] == savegame_molecule_script));
+
+					if (is_current_level_molecule)
+					{
+						// Molecules should re-enter through their own wake path
+						// (`choose_new_position`) rather than staying live at the
+						// saved on-screen position. Unlike the normal wave enemies,
+						// keep their collide masks intact because the molecule
+						// script does not rebuild those on wake.
+						if (entity[new_entity_id][ENT_ALIVE] != SLEEPING)
+						{
+							entity[new_entity_id][ENT_OLD_ALIVE] = entity[new_entity_id][ENT_ALIVE];
+							entity[new_entity_id][ENT_ALIVE] = SLEEPING;
+						}
+
+						entity[new_entity_id][ENT_DRAW_MODE] = DRAW_MODE_INVISIBLE;
+						entity[new_entity_id][ENT_COLLISION_SHAPE] = 0;
+
+						if (entity[new_entity_id][ENT_WAKE_LINE] != UNSET)
+						{
+							entity[new_entity_id][ENT_PROGRAM_START] = entity[new_entity_id][ENT_WAKE_LINE];
+						}
+					}
+					else if (entity[new_entity_id][ENT_ALIVE] != SLEEPING)
+					{
+						entity[new_entity_id][ENT_OLD_ALIVE] = entity[new_entity_id][ENT_ALIVE];
+						entity[new_entity_id][ENT_ALIVE] = SLEEPING;
+
+						if (is_current_level_enemy)
+						{
+							// Keep only restored current-level main-wave enemies
+							// hidden until their wake script reinitialises them
+							// through the normal off-screen entry path.
+							entity[new_entity_id][ENT_DRAW_MODE] = DRAW_MODE_INVISIBLE;
+							entity[new_entity_id][ENT_COLLIDE_TYPE] = 0;
+							entity[new_entity_id][ENT_COLLIDE_WITH] = 0;
+
+							if (entity[new_entity_id][ENT_WAKE_LINE] != UNSET)
+							{
+								entity[new_entity_id][ENT_PROGRAM_START] = entity[new_entity_id][ENT_WAKE_LINE];
+							}
+						}
+					}
+				}
+
 				SAVEGAME_add_restored_entity_mapping(loaded_entity->loaded_entity_tag, new_entity_id);
 				spawned_count++;
 			}

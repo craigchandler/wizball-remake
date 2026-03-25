@@ -222,7 +222,9 @@ LET WINDOW_NUMBER = GAME_MAIN_WINDOW
 
 	BLANK_WINDOW (2)
 
+	gosub restore_continue_level_tiles
 	gosub set_up_level_display
+	gosub check_for_full_colour_complement
 	spawn_entity (bonus_selection_panel_setup, 0, 0, process_next)
 
 	spawn_entity (choose_wizball_start_position,0,0,process_first)
@@ -232,28 +234,18 @@ LET WINDOW_NUMBER = GAME_MAIN_WINDOW
 		if_flag (wizball_entity_id_flag) != CONST_UNSET then
 			goto continue_resume_complete
 		end_if
-	end
+	end_if
 
-	.continue_resume_complete
+.continue_resume_complete
 
 	SPAWN_MATCHING_ENTITIES_FROM_SAVE_FILE (ENTITY_TYPE & ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION)
-	for counter = 0 to CONST_NUMBER_OF_LEVELS
-		let temp_1 = COUNT_MATCHING_ENTITIES (PARENT_LEVEL = counter) FALSE
-		let temp_1 = COUNT_MATCHING_ENTITIES (SCRIPT_NUMBER = generic_level_enemy) TRUE
-
-		let temp_2 = COUNT_MATCHING_ENTITIES (PARENT_LEVEL = counter) FALSE
-		let temp_2 = COUNT_MATCHING_ENTITIES (SCRIPT_NUMBER = molecule) TRUE
-
-		let temp_3 = temp_1 + temp_2
-		WRITE_TO_ARRAY (temp_3, own_id, LEVEL_ENEMY_COUNT_ARRAY_ID, counter)
-	next
-	ALTER_ENTITIES ( ALTERATION_SLEEP , ENTITY_TYPE & ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION )
-	ALTER_ENTITIES ( ALTERATION_WAKE , PARENT_LEVEL = current_level )
+	wait 1
+	alter_entities ( ALTERATION_WAKE , PARENT_LEVEL = current_level )
 	let temp_1 = GET_GLOBAL_FLAG (save_load_spinner_entity_id)
 	if temp_1 != CONST_UNSET then
 		kill_entity temp_1
 	end_if
-	set_global_flag (continue_mode_flag, false)
+	spawn_entity (clear_continue_metadata,0,0,process_next)
 
 .restart_main_loop
 
@@ -875,21 +867,6 @@ end
 	// Wizball, bullets, level masking elements, paintdrops, game window handlers.
 	alter_entities ( ALTERATION_KILL , ENTITY_TYPE & ENT_TYPE_DESTROYED_IN_LEVEL_TRANSITION )
 
-	// Now, we should confirm the entity count for this level because it may be that in
-	// destroying stuff (ie. fecking pearls) we have reduced it to 0 without realizing. Lawks.
-
-	let current_level = get_global_flag (player_on_level_number)
-	
-	let temp_1 = COUNT_MATCHING_ENTITIES (PARENT_LEVEL = current_level) FALSE
-	let temp_1 = COUNT_MATCHING_ENTITIES (SCRIPT_NUMBER = generic_level_enemy) TRUE
-
-	let temp_2 = COUNT_MATCHING_ENTITIES (PARENT_LEVEL = current_level) FALSE
-	let temp_2 = COUNT_MATCHING_ENTITIES (SCRIPT_NUMBER = molecule) TRUE
-
-	let temp_3 = temp_1 + temp_2
-
-	write_to_array (temp_3, own_id, LEVEL_ENEMY_COUNT_ARRAY_ID, current_level)
-
 	let warping_from_level = current_level
 
 	// This is the direction we're moving in.
@@ -902,6 +879,7 @@ end
 
 	BLANK_WINDOW (2)
 
+	gosub restore_continue_level_tiles
 	gosub set_up_level_display
 
 	gosub check_for_full_colour_complement
@@ -939,15 +917,7 @@ end
 
 	wait 1
 
-	let temp_1 = COUNT_MATCHING_ENTITIES (PARENT_LEVEL = current_level) FALSE
-	let temp_1 = COUNT_MATCHING_ENTITIES (SCRIPT_NUMBER = generic_level_enemy) TRUE
-
-	let temp_2 = COUNT_MATCHING_ENTITIES (PARENT_LEVEL = current_level) FALSE
-	let temp_2 = COUNT_MATCHING_ENTITIES (SCRIPT_NUMBER = molecule) TRUE
-
-	let temp_3 = temp_1 + temp_2
-
-	write_to_array (temp_3, own_id, LEVEL_ENEMY_COUNT_ARRAY_ID, current_level)
+	let temp_3 = READ_FROM_ARRAY (own_id, LEVEL_ENEMY_COUNT_ARRAY_ID, current_level)
 
 	if temp_3 = 0 then
 		spawn_entity (create_normal_enemies,0,0,process_previous)
@@ -1024,7 +994,39 @@ end
 
 	USE_TILEMAP_CONVERSION_TABLE (current_level_tilemap_index,0,1)
 
-return
+  return
+
+
+
+.restore_continue_level_tiles
+
+	let current_level_tilemap_index = current_level + LEVEL_1_TILEMAP
+
+	let level_progress = read_from_array ( own_id , LEVEL_COMPLETION_ARRAY_ID , current_level )
+	if level_progress > 0 then
+		RESET_TILEMAP_CONVERSION_TABLE (current_level_tilemap_index)
+
+		for temp_1 = 0 to level_progress
+
+			let label_index = current_level * 4
+			let label_index = label_index + temp_1
+
+			let first_line_number = GET_ARRAY_LINE_INDEX (replacement_tiles, label_index)
+			let end_line_number = GET_ARRAY_LINE_COUNT_AFTER_INDEX (replacement_tiles, label_index)
+			let end_line_number = end_line_number + first_line_number
+
+			for counter = first_line_number to end_line_number
+				let to_tile_start = READ_FROM_DATATABLE (replacement_tiles, counter, 0)
+				let to_tile_end = READ_FROM_DATATABLE (replacement_tiles, counter, 1)
+				let from_tile_start = READ_FROM_DATATABLE (replacement_tiles, counter, 2)
+				ALTER_TILEMAP_CONVERSION_TABLE (current_level_tilemap_index, to_tile_start, to_tile_end, from_tile_start)
+			next
+
+			USE_TILEMAP_CONVERSION_TABLE (current_level_tilemap_index,0,2)
+		next
+	end_if
+
+	return
 
 
 
@@ -1040,7 +1042,7 @@ return
 
 	write_to_array ( level_progress , own_id , LEVEL_COMPLETION_ARRAY_ID , current_level )
 
-return
+	return
 
 
 
@@ -1060,7 +1062,6 @@ return
 	next
 
 	set_global_flag (cauldron_colour_datatable_line_flag, temp_1)
-
 	return
 
 

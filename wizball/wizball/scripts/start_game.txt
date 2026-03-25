@@ -6,8 +6,6 @@ set_global_flag ( player_display_score, 0)
 set_global_flag ( continue_mode_flag, FALSE )
 set_global_flag ( continue_save_allowed, FALSE )
 
-spawn_entity (clear_continue_metadata,0,0,process_next)
-
 let window_number = GAME_MAIN_WINDOW
 enable_window GAME_MAIN_WINDOW
 enable_window GAME_PANEL_WINDOW
