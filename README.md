@@ -99,6 +99,7 @@ The recovered codebase was not originally in a state that built and ran cleanly 
 - Audio: migrated off the legacy FMOD path onto the SDL2 audio stack, using `SDL_mixer` for sound effects and streamed audio.
 - Frame pacing/input: stabilized the main loop so simulation/input handling is less coupled to render refresh rate, and added optional safeguards for timer/refresh stalls during compositor/display transitions.
 - Data/asset loading: hardened resource loading for Linux (case sensitivity and path assumptions) and added runtime diagnostics/validation to fail fast on bad or partial loads.
+- Asset packaging: the active packaging path now vendors and statically links PhysFS, mounts a single `data.zip`, and keeps already-compressed media stored in the zip without extra compression.
 - Safety hardening: added guard rails around collision/map/tile-set handling to avoid crashes from malformed or missing data during bring-up.
 - Packaging workflow: moved the active Linux/PortMaster path to direct on-disk assets and stopped tracking generated runtime artifacts in git.
 
@@ -114,7 +115,10 @@ The project uses `pkg-config` for dependency discovery.
 - SDL2
 - SDL2_mixer
 - SDL2_image
+- Python 3 for generating `data.zip` during the build
 - OpenGLESv2 or GLESv2 development library if you want a `GLES2` build
+
+`PhysFS` is vendored in `third_party/physfs` and built statically as part of the project; you do not need a system PhysFS package.
 
 ### Linux desktop build
 
@@ -178,6 +182,8 @@ Useful flags:
 - `-rebuildscripts wizball` rebuilds the compiled script output.
 - `-rebuildtilesets wizball` rebuilds `tilesets.dat` from the source tileset files.
 - `-rebuildtilemaps wizball` rebuilds `tilemaps.dat` from the source tilemap files.
+
+At runtime, the SDL/PhysFS asset layer will look for `data.zip` in the working directory first and fall back to the unpacked project directory for local development. Runtime-generated user files such as config, hiscores, and reports are written beside the binary in the game root and do not need to be shipped as package assets.
 
 ### Rebuild generated data
 

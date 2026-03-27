@@ -12,6 +12,7 @@
 
 #include "platform_renderer.h"
 #include "main.h"
+#include "asset_vfs.h"
 #include "output.h"
 #include "scripting.h"
 #include "platform_renderer_texture_entry.h"
@@ -11823,7 +11824,8 @@ bool PLATFORM_RENDERER_prepare_sdl2_stub(int width, int height, bool windowed)
 	}
 
 	{
-		SDL_Surface *icon = IMG_Load("wizball/icon.png");
+		SDL_RWops *icon_rw = ASSET_VFS_open_rwops_read_case_fallback("wizball/icon.png");
+		SDL_Surface *icon = (icon_rw != NULL) ? IMG_Load_RW(icon_rw, 1) : IMG_Load("wizball/icon.png");
 		if (icon != NULL)
 		{
 			SDL_SetWindowIcon(platform_renderer_sdl_window, icon);

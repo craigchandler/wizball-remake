@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "file_stuff.h"
+#include "asset_vfs.h"
 
 static Mix_Chunk *sound_effects[MAX_SAMPLES];
 static Mix_Chunk *sound_streams[MAX_STREAMS];
@@ -155,6 +156,8 @@ static Mix_Chunk *SOUND_load_chunk_from_memory(char *data_pointer, int data_leng
 
 static Mix_Chunk *SOUND_load_chunk_from_file(const char *filename)
 {
+	SDL_RWops *rw;
+
 	if (filename == NULL)
 	{
 		return NULL;
@@ -162,6 +165,12 @@ static Mix_Chunk *SOUND_load_chunk_from_file(const char *filename)
 
 	char lower_filename[TEXT_LINE_SIZE];
 	lowercase_last_path_components(filename, lower_filename, sizeof(lower_filename), 1);
+	rw = ASSET_VFS_open_rwops_read_case_fallback(lower_filename);
+	if (rw != NULL)
+	{
+		return Mix_LoadWAV_RW(rw, 1);
+	}
+
 	if (strcmp(lower_filename, filename) != 0)
 	{
 		return Mix_LoadWAV(lower_filename);

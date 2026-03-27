@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/stat.h>
 
 #include <signal.h>
 #ifdef ALLEGRO_LINUX
@@ -12,6 +13,7 @@
 #endif
 #ifdef ALLEGRO_WINDOWS
 #include <windows.h>
+#include <direct.h>
 #endif
 
 #include "string_size_constants.h"
@@ -29,6 +31,7 @@
 #include "file_stuff.h"
 #include "math_stuff.h"
 #include "platform.h"
+#include "asset_vfs.h"
 
 #include "output.h"
 #include "sound.h"
@@ -102,6 +105,38 @@ static bool MAIN_strings_equal_ignore_case(const char *a, const char *b)
 	}
 
 	return (*a == '\0') && (*b == '\0');
+}
+
+static void MAIN_ensure_parent_directories_exist(const char *filename)
+{
+	char path[FULL_PROJECT_NAME_LENGTH];
+	size_t i;
+
+	if (filename == NULL)
+	{
+		return;
+	}
+
+	strncpy(path, filename, sizeof(path) - 1);
+	path[sizeof(path) - 1] = '\0';
+
+	for (i = 0; path[i] != '\0'; i++)
+	{
+		if ((path[i] == '/') || (path[i] == '\\'))
+		{
+			char saved = path[i];
+			path[i] = '\0';
+			if (path[0] != '\0')
+			{
+#ifdef ALLEGRO_WINDOWS
+				_mkdir(path);
+#else
+				mkdir(path, 0777);
+#endif
+			}
+			path[i] = saved;
+		}
+	}
 }
 float loading_screen_scale = 1.0f;
 
@@ -329,6 +364,22 @@ char *MAIN_get_project_filename(char *filename, bool writeable)
 	}
 	return FILE_append_filename(full_project_filename, dir, filename, sizeof(full_project_filename));
 #else
+	if (writeable)
+	{
+		FILE_append_filename(full_project_filename, ".", filename, sizeof(full_project_filename));
+		MAIN_ensure_parent_directories_exist(full_project_filename);
+		return full_project_filename;
+	}
+
+	{
+		FILE *probe = fopen(filename, "rb");
+		if (probe != NULL)
+		{
+			fclose(probe);
+			return FILE_append_filename(full_project_filename, ".", filename, sizeof(full_project_filename));
+		}
+	}
+
 	// In -dat mode, prefer read-only resources from the selected pack/data dir
 	// (e.g. -datdir wizball/repacked), but fall back to the project dir if absent.
 	if (!writeable && load_from_dat_file)
@@ -1326,6 +1377,8 @@ int main(int argc, char *argv[])
 		strcpy(pack_project, dat_directory_override);
 	}
 
+	ASSET_VFS_init(argv[0], project, (pack_project[0] != '\0') ? pack_project : project);
+
 #ifdef ALLEGRO_WINDOWS
 	SystemParametersInfo(SPI_GETSCREENSAVEACTIVE, 0, &restorescreensaver, 0);
 
@@ -1712,6 +1765,8 @@ int main(int argc, char *argv[])
 	Fortify_ListAllMemory();
 	Fortify_CheckAllMemory();
 #endif
+
+	ASSET_VFS_shutdown();
 
 	return (result);
 }

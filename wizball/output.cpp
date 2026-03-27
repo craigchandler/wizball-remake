@@ -16,6 +16,7 @@
 #include "tilemaps.h"
 #include "tilesets.h"
 #include "main.h"
+#include "asset_vfs.h"
 #include "control.h"
 #include "particles.h"
 #include "string_stuff.h"
@@ -1654,8 +1655,8 @@ int INPUT_load_bitmap_SDL(const char *filename, SDL_Renderer *renderer)
 
 	lowercase_last_path_components(project_filename, lower_filename, sizeof(lower_filename), 1);
 
-	// Load the bitmap
-	SDL_Surface *surface = IMG_Load(lower_filename); // Use SDL_image for broader format support
+	SDL_RWops *rw = ASSET_VFS_open_rwops_read_case_fallback(lower_filename);
+	SDL_Surface *surface = (rw != NULL) ? IMG_Load_RW(rw, 1) : IMG_Load(lower_filename);
 	if (surface == NULL)
 	{
 		fprintf(stderr, "[SDL-Image] Could not load bitmap '%s': %s\n", lower_filename, IMG_GetError());

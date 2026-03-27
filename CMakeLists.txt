@@ -1,8 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(WizBall LANGUAGES CXX)
+project(WizBall LANGUAGES C CXX)
 include(CheckCXXSymbolExists)
 include(CheckCXXSourceCompiles)
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,9 +17,11 @@ set_property(CACHE WIZBALL_RENDER_BACKEND PROPERTY STRINGS SDL GLES2)
 # Sources
 # ---------------------------
 set(WIZBALL_SOURCES
+  third_party/physfs/extras/physfsrwops.c
   wizball/ai_nodes.cpp
   wizball/ai_zones.cpp
   wizball/arrays.cpp
+  wizball/asset_vfs.cpp
   wizball/control.cpp
   wizball/events.cpp
   wizball/file_stuff.cpp
@@ -77,8 +80,36 @@ add_custom_target(wizball_generate_version_text ALL
 add_dependencies(wizball wizball_generate_version_text)
 
 target_include_directories(wizball PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/third_party/physfs/extras
   ${CMAKE_CURRENT_SOURCE_DIR}/wizball
 )
+
+# ---------------------------
+# PhysFS
+# ---------------------------
+set(PHYSFS_BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(PHYSFS_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(PHYSFS_BUILD_TEST OFF CACHE BOOL "" FORCE)
+set(PHYSFS_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(PHYSFS_INSTALL OFF CACHE BOOL "" FORCE)
+set(PHYSFS_INSTALL_MAN OFF CACHE BOOL "" FORCE)
+set(PHYSFS_ARCHIVE_ZIP ON CACHE BOOL "" FORCE)
+set(PHYSFS_ARCHIVE_7Z OFF CACHE BOOL "" FORCE)
+set(PHYSFS_ARCHIVE_GRP OFF CACHE BOOL "" FORCE)
+set(PHYSFS_ARCHIVE_WAD OFF CACHE BOOL "" FORCE)
+set(PHYSFS_ARCHIVE_CSM OFF CACHE BOOL "" FORCE)
+set(PHYSFS_ARCHIVE_HOG OFF CACHE BOOL "" FORCE)
+set(PHYSFS_ARCHIVE_MVL OFF CACHE BOOL "" FORCE)
+set(PHYSFS_ARCHIVE_QPAK OFF CACHE BOOL "" FORCE)
+set(PHYSFS_ARCHIVE_ROFS OFF CACHE BOOL "" FORCE)
+set(PHYSFS_ARCHIVE_SLB OFF CACHE BOOL "" FORCE)
+set(PHYSFS_ARCHIVE_ISO9660 OFF CACHE BOOL "" FORCE)
+set(PHYSFS_ARCHIVE_VDF OFF CACHE BOOL "" FORCE)
+set(PHYSFS_ARCHIVE_LECARCHIVES OFF CACHE BOOL "" FORCE)
+set(PHYSFS_ARCHIVE_POD OFF CACHE BOOL "" FORCE)
+add_subdirectory(third_party/physfs)
+target_link_libraries(wizball PRIVATE physfs-static)
+target_compile_definitions(wizball PRIVATE PHYSFS_STATIC)
 
 # ---------------------------
 # SDL2 deps
@@ -141,7 +172,7 @@ endif()
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(wizball PRIVATE
     -Wno-write-strings
-    -Wno-noexcept-type
+    $<$<COMPILE_LANGUAGE:CXX>:-Wno-noexcept-type>
   )
   # Define RELEASE_MODE for Release builds: enables dat-file loading by default
   # and disables debug scripting paths / in-game debug keys.
@@ -168,6 +199,42 @@ endif()
 # PortMaster staging / install
 # ---------------------------
 option(WIZBALL_PORTMASTER "Enable PortMaster-style staging install" ON)
+set(WIZBALL_DATA_ZIP "${CMAKE_CURRENT_BINARY_DIR}/data.zip")
+set(WIZBALL_DATA_ZIP_INPUTS
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/cptf.txt"
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/datatable.dat"
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/global_parameter_list.txt"
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/gpl_list_size.txt"
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/icon.png"
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/project_settings.txt"
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/scriptfile.tsl"
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/tilemaps.dat"
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/tilesets.dat"
+)
+file(GLOB_RECURSE WIZBALL_DATA_ZIP_FOLDER_INPUTS CONFIGURE_DEPENDS
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/paths/*"
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/prefabs/*"
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/sound_fx/*"
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/sprites/*"
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/streams/*"
+)
+list(APPEND WIZBALL_DATA_ZIP_INPUTS ${WIZBALL_DATA_ZIP_FOLDER_INPUTS})
+
+add_custom_command(
+  OUTPUT "${WIZBALL_DATA_ZIP}"
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tools/package_data_zip.py"
+          --root "${CMAKE_SOURCE_DIR}"
+          --output "${WIZBALL_DATA_ZIP}"
+  DEPENDS
+    "${CMAKE_SOURCE_DIR}/tools/package_data_zip.py"
+    wizball_generate_version_text
+    ${WIZBALL_DATA_ZIP_INPUTS}
+  WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+  VERBATIM
+)
+
+add_custom_target(wizball_data_zip ALL DEPENDS "${WIZBALL_DATA_ZIP}")
+add_dependencies(wizball_data_zip wizball_generate_version_text)
 
 # Determine PortMaster arch label
 set(PM_ARCH "unknown")
@@ -214,31 +281,10 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/portmaster/"
   PATTERN "WizBall.sh"   EXCLUDE
 )
 
-# Game data -> staging/wizball/wizball/
-# Generated .dat artifacts are rebuilt explicitly via the wizball binary's
-# command-line options and are not staged by default.
-install(DIRECTORY "${CMAKE_SOURCE_DIR}/wizball/wizball/"
-  DESTINATION "${WIZBALL_PORTNAME}/wizball"
-  PATTERN "*.cpp" EXCLUDE
-  PATTERN "*.c"   EXCLUDE
-  PATTERN "*.h"   EXCLUDE
-  PATTERN "*.hpp" EXCLUDE
-  PATTERN "datatables/*" EXCLUDE
-  PATTERN "scripts/*"    EXCLUDE
-  PATTERN "tilemaps/*"   EXCLUDE
-  PATTERN "textfiles/*"  EXCLUDE
-  PATTERN "tilesets/*"   EXCLUDE
-  PATTERN "gfx.dat"      EXCLUDE
-  PATTERN "stream.dat"   EXCLUDE
-  PATTERN "sfx.dat"      EXCLUDE
-  PATTERN "tilesets.dat" EXCLUDE
-  PATTERN "tilemaps.dat" EXCLUDE
-  PATTERN "paths.dat"    EXCLUDE
-  PATTERN "prefabs.dat"  EXCLUDE
-  PATTERN "data.dat"     EXCLUDE
-  PATTERN "WizBall.sh" EXCLUDE
-  PATTERN "port.json"  EXCLUDE
+install(FILES "${WIZBALL_DATA_ZIP}"
+  DESTINATION "${WIZBALL_PORTNAME}"
 )
+
 else()
   set_target_properties(wizball PROPERTIES OUTPUT_NAME "wizball")
 endif()
@@ -282,3 +328,7 @@ add_custom_target(rebuild_wizball_tilemaps
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wizball
   USES_TERMINAL
 )
+
+add_dependencies(wizball_data_zip rebuild_wizball_scripts)
+add_dependencies(wizball_data_zip rebuild_wizball_tilesets)
+add_dependencies(wizball_data_zip rebuild_wizball_tilemaps)

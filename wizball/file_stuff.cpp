@@ -7,6 +7,7 @@
 #include <assert.h>
 
 #include "main.h"
+#include "asset_vfs.h"
 #include "string_size_constants.h"
 #include "output.h"
 
@@ -554,6 +555,10 @@ FILE* FILE_open_case_fallback(const char* filename, const char* mode)
             return file_pointer;
     }
 #endif
+
+    file_pointer = ASSET_VFS_open_read_case_fallback(filename, mode);
+    if (file_pointer)
+        return file_pointer;
 
     return NULL;
 }

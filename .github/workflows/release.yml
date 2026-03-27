@@ -14,9 +14,9 @@ permissions:
 jobs:
 
   # ────────────────────────────────────────────────────────────────────────────
-  # Pre-build: generate tilesets.dat and tilemaps.dat from source text files.
-  # Both rebuild modes exit before SDL creates a window — fully headless-safe.
-  # The generated dat files are shared across all four packaging jobs.
+  # Pre-build: rebuild generated runtime assets and package them into data.zip.
+  # The wizball_data_zip target runs the headless rebuild steps first, then
+  # creates the archive that all packaging jobs consume.
   # ────────────────────────────────────────────────────────────────────────────
   build-gamedata:
     name: Build game data files
@@ -31,51 +31,18 @@ jobs:
             libsdl2-dev libsdl2-mixer-dev libsdl2-image-dev \
             ninja-build
 
-      - name: Build wizball (data generation only)
+      - name: Build wizball data.zip
         run: |
           cmake -S . -B build-data -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DWIZBALL_PORTMASTER=OFF \
             -DWIZBALL_RENDER_BACKEND=SDL
-          cmake --build build-data -j$(nproc)
+          cmake --build build-data --target wizball_data_zip -j1
 
-      - name: Assemble and generate complete game data
-        # Run all three headless rebuild modes (all exit before SDL creates a
-        # window — fully headless-safe), then explicitly copy every file and
-        # directory that belongs in a release package.  Listing inclusions is
-        # clearer than a long exclude list and makes it obvious what ships.
+      - name: Collect packaged game data
         run: |
-          cd wizball
-          ../build-data/wizball -rebuildscripts wizball
-          ../build-data/wizball -rebuildtilesets wizball
-          ../build-data/wizball -rebuildtilemaps wizball
-          cd ..
-          D=wizball/wizball
           mkdir -p generated-data
-
-          # Static config / lookup text files
-          cp \
-            $D/cptf.txt \
-            $D/global_parameter_list.txt \
-            $D/gpl_list_size.txt \
-            $D/icon.png \
-            $D/project_settings.txt \
-            generated-data/
-
-          # Asset directories (sprites, audio, paths, prefabs)
-          cp -r $D/sprites    generated-data/
-          cp -r $D/sound_fx   generated-data/
-          cp -r $D/streams    generated-data/
-          cp -r $D/paths      generated-data/
-          cp -r $D/prefabs    generated-data/
-
-          # Generated binary data (produced by the rebuild steps above)
-          cp \
-            $D/scriptfile.tsl \
-            $D/datatable.dat \
-            $D/tilesets.dat \
-            $D/tilemaps.dat \
-            generated-data/
+          cp build-data/data.zip generated-data/
 
       - uses: actions/upload-artifact@v6
         with:
@@ -116,9 +83,9 @@ jobs:
 
       - name: Package
         run: |
-          mkdir -p dist/wizball-linux-x86_64/wizball
+          mkdir -p dist/wizball-linux-x86_64
           cp build-linux/wizball dist/wizball-linux-x86_64/wizball.x86_64
-          cp -r generated-data/. dist/wizball-linux-x86_64/wizball/
+          cp generated-data/data.zip dist/wizball-linux-x86_64/
           tar -czf wizball-linux-x86_64-${{ github.ref_name }}.tar.gz -C dist wizball-linux-x86_64
 
       - uses: actions/upload-artifact@v6
@@ -182,10 +149,10 @@ jobs:
 
       - name: Package
         run: |
-          mkdir -p dist/wizball-windows-x86_64/wizball
+          mkdir -p dist/wizball-windows-x86_64
           cp build-windows/wizball.exe dist/wizball-windows-x86_64/
           cp build-windows/*.dll       dist/wizball-windows-x86_64/
-          cp -r generated-data/. dist/wizball-windows-x86_64/wizball/
+          cp generated-data/data.zip   dist/wizball-windows-x86_64/
           cd dist && zip -r ../wizball-windows-x86_64-${{ github.ref_name }}.zip wizball-windows-x86_64
 
       - uses: actions/upload-artifact@v6
@@ -313,8 +280,8 @@ jobs:
           #   ports/wizball/wizball.aarch64
           #   ports/wizball/wizball.armhf
           #   ports/wizball/port.json  (+ other portmaster metadata)
-          #   ports/wizball/wizball/   (game data)
-          mkdir -p staging/wizball/wizball
+          #   ports/wizball/data.zip
+          mkdir -p staging/wizball
 
           # Launch script at ports root
           install -m 755 portmaster/WizBall.sh staging/
@@ -333,7 +300,7 @@ jobs:
           cp -r portmaster/licenses    staging/wizball/
 
           # Game data
-          cp -r generated-data/. staging/wizball/wizball/
+          cp generated-data/data.zip staging/wizball/
 
       - name: Package
         run: |

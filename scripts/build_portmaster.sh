@@ -57,9 +57,12 @@ docker compose run --rm "$COMPOSE_SERVICE" bash -lc '
   cmake --install "${BUILD_DIR}" --prefix /workspace/staging
 '
 
-echo "Packaging staging into wizball/WizBall.zip..."
+echo "Packaging staging into WizBall.zip..."
 
-zip -r "$WORKDIR/WizBall.zip" "$WORKDIR/wizball"
+rm -f "$WORKDIR/WizBall.zip"
+cd "$WORKDIR/staging"
+zip -r "$WORKDIR/WizBall.zip" .
+cd "$WORKDIR"
 
 echo "Stopping qemu and cleaning up compose services..."
 docker compose down
