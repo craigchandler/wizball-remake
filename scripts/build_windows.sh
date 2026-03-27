@@ -3,6 +3,7 @@
 # Usage: ./scripts/build_windows.sh
 #
 # Output: build-windows/wizball.exe + required DLLs copied alongside it.
+# Pair the resulting build with data.zip when packaging a release.
 set -euo pipefail
 
 WORKDIR="$(pwd)"
@@ -19,7 +20,7 @@ docker compose run --rm builder-windows bash -lc '
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE=/toolchain-windows.cmake \
     -DWIZBALL_PORTMASTER=OFF
-  cmake --build '"$BUILD_DIR"' -j$(nproc)
+  cmake --build '"$BUILD_DIR"' --target wizball -j$(nproc)
 
   # Copy the SDL2 runtime DLLs next to wizball.exe so the build directory is self-contained.
   echo "Copying SDL2 DLLs..."
@@ -37,4 +38,4 @@ echo "Windows build complete."
 echo "  Binary : $WORKDIR/$BUILD_DIR/wizball.exe"
 echo "  DLLs   : $WORKDIR/$BUILD_DIR/*.dll"
 echo ""
-echo "Ship the contents of $BUILD_DIR/ together with the wizball/ game data directory."
+echo "Ship the contents of $BUILD_DIR/ together with data.zip."

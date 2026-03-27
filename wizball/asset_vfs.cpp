@@ -11,7 +11,7 @@
 
 #if defined(_WIN32)
 #include <direct.h>
-#define WIZBALL_PATH_MAX MAX_PATH
+#define WIZBALL_PATH_MAX 260
 #else
 #include <limits.h>
 #define WIZBALL_PATH_MAX PATH_MAX

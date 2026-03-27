@@ -63,6 +63,10 @@ set(WIZBALL_SOURCES
   wizball/world_collision.cpp
 )
 
+if(WIN32)
+  list(APPEND WIZBALL_SOURCES wizball/windows_resource.rc)
+endif()
+
 add_executable(wizball ${WIZBALL_SOURCES})
 
 set(WIZBALL_VERSION_TEXT_FILE "${CMAKE_SOURCE_DIR}/wizball/wizball/textfiles/version_generated.txt")
@@ -200,16 +204,12 @@ endif()
 # ---------------------------
 option(WIZBALL_PORTMASTER "Enable PortMaster-style staging install" ON)
 set(WIZBALL_DATA_ZIP "${CMAKE_CURRENT_BINARY_DIR}/data.zip")
-set(WIZBALL_DATA_ZIP_INPUTS
+set(WIZBALL_DATA_ZIP_STATIC_INPUTS
   "${CMAKE_SOURCE_DIR}/wizball/wizball/cptf.txt"
-  "${CMAKE_SOURCE_DIR}/wizball/wizball/datatable.dat"
   "${CMAKE_SOURCE_DIR}/wizball/wizball/global_parameter_list.txt"
   "${CMAKE_SOURCE_DIR}/wizball/wizball/gpl_list_size.txt"
   "${CMAKE_SOURCE_DIR}/wizball/wizball/icon.png"
   "${CMAKE_SOURCE_DIR}/wizball/wizball/project_settings.txt"
-  "${CMAKE_SOURCE_DIR}/wizball/wizball/scriptfile.tsl"
-  "${CMAKE_SOURCE_DIR}/wizball/wizball/tilemaps.dat"
-  "${CMAKE_SOURCE_DIR}/wizball/wizball/tilesets.dat"
 )
 file(GLOB_RECURSE WIZBALL_DATA_ZIP_FOLDER_INPUTS CONFIGURE_DEPENDS
   "${CMAKE_SOURCE_DIR}/wizball/wizball/paths/*"
@@ -218,7 +218,10 @@ file(GLOB_RECURSE WIZBALL_DATA_ZIP_FOLDER_INPUTS CONFIGURE_DEPENDS
   "${CMAKE_SOURCE_DIR}/wizball/wizball/sprites/*"
   "${CMAKE_SOURCE_DIR}/wizball/wizball/streams/*"
 )
-list(APPEND WIZBALL_DATA_ZIP_INPUTS ${WIZBALL_DATA_ZIP_FOLDER_INPUTS})
+set(WIZBALL_DATA_ZIP_INPUTS
+  ${WIZBALL_DATA_ZIP_STATIC_INPUTS}
+  ${WIZBALL_DATA_ZIP_FOLDER_INPUTS}
+)
 
 add_custom_command(
   OUTPUT "${WIZBALL_DATA_ZIP}"
@@ -233,7 +236,7 @@ add_custom_command(
   VERBATIM
 )
 
-add_custom_target(wizball_data_zip ALL DEPENDS "${WIZBALL_DATA_ZIP}")
+add_custom_target(wizball_data_zip DEPENDS "${WIZBALL_DATA_ZIP}")
 add_dependencies(wizball_data_zip wizball_generate_version_text)
 
 # Determine PortMaster arch label
@@ -329,6 +332,8 @@ add_custom_target(rebuild_wizball_tilemaps
   USES_TERMINAL
 )
 
-add_dependencies(wizball_data_zip rebuild_wizball_scripts)
-add_dependencies(wizball_data_zip rebuild_wizball_tilesets)
-add_dependencies(wizball_data_zip rebuild_wizball_tilemaps)
+if(NOT CMAKE_CROSSCOMPILING)
+  add_dependencies(wizball_data_zip rebuild_wizball_scripts)
+  add_dependencies(wizball_data_zip rebuild_wizball_tilesets)
+  add_dependencies(wizball_data_zip rebuild_wizball_tilemaps)
+endif()

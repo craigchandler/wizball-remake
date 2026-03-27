@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     g++-mingw-w64-x86-64 \
     cmake \
     ninja-build \
+    python3 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
