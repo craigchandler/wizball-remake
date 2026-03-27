@@ -46,6 +46,8 @@ wizball/data_compile*
 wizball/logfile.txt
 wizball/the_last_thing_i_did.txt
 wizball/OpenGL_Extension.txt
+wizball/processed_scripts_test.txt
+wizball/script_state_map.txt
 the_last_thing_i_did.txt
 logfile.txt
 *.log
@@ -72,6 +74,8 @@ wizball/wizball/gfx.dat
 wizball/wizball/sfx.dat
 wizball/wizball/stream.dat
 wizball/wizball/paths.dat
+wizball/wizball/tilemaps.dat
+wizball/wizball/tilesets.dat
 
 #hugo
 /site/public/
