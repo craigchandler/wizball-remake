@@ -67,6 +67,11 @@ wizball/wizball/entity_dump.txt
 wizball/wizball/traced_script_lines.txt
 wizball/wizball/script_state_map.txt
 wizball/wizball/textfiles/version_generated.txt
+wizball/waypoint_lookup_tables.txt
+wizball/config.txt
+wizball/hiscores.txt
+wizball/report.txt
+wizball/unlocked_tunes.sav
 
 # Regenerated packed data outputs
 wizball/wizball/data.dat
@@ -81,3 +86,4 @@ wizball/wizball/tilesets.dat
 /site/public/
 /site/resources/
 /site/.hugo_build.lock
+wizball/waypoint_lookup_tables.txt
