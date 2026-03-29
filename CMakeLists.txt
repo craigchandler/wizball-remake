@@ -219,6 +219,13 @@ file(GLOB_RECURSE WIZBALL_SCRIPT_REBUILD_INPUTS CONFIGURE_DEPENDS
   "${CMAKE_SOURCE_DIR}/wizball/wizball/scripts/*"
   "${CMAKE_SOURCE_DIR}/wizball/wizball/textfiles/*"
 )
+file(GLOB_RECURSE WIZBALL_TILESET_REBUILD_INPUTS CONFIGURE_DEPENDS
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/tilesets/*"
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/sprites/*"
+)
+file(GLOB_RECURSE WIZBALL_TILEMAP_REBUILD_INPUTS CONFIGURE_DEPENDS
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/tilemaps/*"
+)
 add_custom_command(
   OUTPUT
     "${WIZBALL_SCRIPTFILE_TSL}"
@@ -351,18 +358,32 @@ add_custom_target(run_wizball_debug
   USES_TERMINAL
 )
 
-add_custom_target(rebuild_wizball_tilesets
+add_custom_command(
+  OUTPUT "${WIZBALL_TILESETS_DATA_FILE}"
   COMMAND $<TARGET_FILE:wizball> -rebuildtilesets wizball
-  DEPENDS wizball
+  DEPENDS
+    wizball
+    rebuild_wizball_scripts
+    ${WIZBALL_TILESET_REBUILD_INPUTS}
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wizball
-  USES_TERMINAL
+  VERBATIM
+)
+add_custom_target(rebuild_wizball_tilesets
+  DEPENDS "${WIZBALL_TILESETS_DATA_FILE}"
 )
 
-add_custom_target(rebuild_wizball_tilemaps
+add_custom_command(
+  OUTPUT "${WIZBALL_TILEMAPS_DATA_FILE}"
   COMMAND $<TARGET_FILE:wizball> -rebuildtilemaps wizball
-  DEPENDS wizball
+  DEPENDS
+    wizball
+    rebuild_wizball_scripts
+    ${WIZBALL_TILEMAP_REBUILD_INPUTS}
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wizball
-  USES_TERMINAL
+  VERBATIM
+)
+add_custom_target(rebuild_wizball_tilemaps
+  DEPENDS "${WIZBALL_TILEMAPS_DATA_FILE}"
 )
 
 add_dependencies(rebuild_wizball_tilesets rebuild_wizball_scripts)
