@@ -60,6 +60,9 @@ wizball/wizball/report.txt
 wizball/wizball/*.sav
 wizball/wizball/waypoint_lookup_tables.txt
 wizball/wizball/cptf.txt
+wizball/wizball/datatable.dat
+wizball/wizball/global_parameter_list.txt
+wizball/wizball/gpl_list_size.txt
 wizball/wizball/scriptfile.tsl
 wizball/wizball/processed_scripts_test.txt
 wizball/wizball/save_restore_debug.txt

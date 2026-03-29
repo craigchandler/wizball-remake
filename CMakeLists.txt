@@ -70,6 +70,13 @@ endif()
 add_executable(wizball ${WIZBALL_SOURCES})
 
 set(WIZBALL_VERSION_TEXT_FILE "${CMAKE_SOURCE_DIR}/wizball/wizball/textfiles/version_generated.txt")
+set(WIZBALL_SCRIPTFILE_TSL "${CMAKE_SOURCE_DIR}/wizball/wizball/scriptfile.tsl")
+set(WIZBALL_GLOBAL_PARAMETER_LIST_FILE "${CMAKE_SOURCE_DIR}/wizball/wizball/global_parameter_list.txt")
+set(WIZBALL_GPL_LIST_SIZE_FILE "${CMAKE_SOURCE_DIR}/wizball/wizball/gpl_list_size.txt")
+set(WIZBALL_CPTF_FILE "${CMAKE_SOURCE_DIR}/wizball/wizball/cptf.txt")
+set(WIZBALL_DATATABLE_DATA_FILE "${CMAKE_SOURCE_DIR}/wizball/wizball/datatable.dat")
+set(WIZBALL_TILESETS_DATA_FILE "${CMAKE_SOURCE_DIR}/wizball/wizball/tilesets.dat")
+set(WIZBALL_TILEMAPS_DATA_FILE "${CMAKE_SOURCE_DIR}/wizball/wizball/tilemaps.dat")
 
 add_custom_target(wizball_generate_version_text ALL
   COMMAND ${CMAKE_COMMAND}
@@ -205,11 +212,36 @@ endif()
 option(WIZBALL_PORTMASTER "Enable PortMaster-style staging install" ON)
 set(WIZBALL_DATA_ZIP "${CMAKE_CURRENT_BINARY_DIR}/data.zip")
 set(WIZBALL_DATA_ZIP_STATIC_INPUTS
-  "${CMAKE_SOURCE_DIR}/wizball/wizball/cptf.txt"
-  "${CMAKE_SOURCE_DIR}/wizball/wizball/global_parameter_list.txt"
-  "${CMAKE_SOURCE_DIR}/wizball/wizball/gpl_list_size.txt"
   "${CMAKE_SOURCE_DIR}/wizball/wizball/icon.png"
   "${CMAKE_SOURCE_DIR}/wizball/wizball/project_settings.txt"
+)
+file(GLOB_RECURSE WIZBALL_SCRIPT_REBUILD_INPUTS CONFIGURE_DEPENDS
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/scripts/*"
+  "${CMAKE_SOURCE_DIR}/wizball/wizball/textfiles/*"
+)
+add_custom_command(
+  OUTPUT
+    "${WIZBALL_SCRIPTFILE_TSL}"
+    "${WIZBALL_GLOBAL_PARAMETER_LIST_FILE}"
+    "${WIZBALL_GPL_LIST_SIZE_FILE}"
+    "${WIZBALL_CPTF_FILE}"
+    "${WIZBALL_DATATABLE_DATA_FILE}"
+  COMMAND $<TARGET_FILE:wizball> -rebuildscripts wizball
+  DEPENDS
+    wizball
+    wizball_generate_version_text
+    "${CMAKE_SOURCE_DIR}/wizball/SCRIPTLANGUAGE.TXT"
+    ${WIZBALL_SCRIPT_REBUILD_INPUTS}
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/wizball"
+  VERBATIM
+)
+add_custom_target(rebuild_wizball_scripts
+  DEPENDS
+    "${WIZBALL_SCRIPTFILE_TSL}"
+    "${WIZBALL_GLOBAL_PARAMETER_LIST_FILE}"
+    "${WIZBALL_GPL_LIST_SIZE_FILE}"
+    "${WIZBALL_CPTF_FILE}"
+    "${WIZBALL_DATATABLE_DATA_FILE}"
 )
 file(GLOB_RECURSE WIZBALL_DATA_ZIP_FOLDER_INPUTS CONFIGURE_DEPENDS
   "${CMAKE_SOURCE_DIR}/wizball/wizball/paths/*"
@@ -219,6 +251,13 @@ file(GLOB_RECURSE WIZBALL_DATA_ZIP_FOLDER_INPUTS CONFIGURE_DEPENDS
   "${CMAKE_SOURCE_DIR}/wizball/wizball/streams/*"
 )
 set(WIZBALL_DATA_ZIP_INPUTS
+  "${WIZBALL_GLOBAL_PARAMETER_LIST_FILE}"
+  "${WIZBALL_GPL_LIST_SIZE_FILE}"
+  "${WIZBALL_CPTF_FILE}"
+  "${WIZBALL_SCRIPTFILE_TSL}"
+  "${WIZBALL_DATATABLE_DATA_FILE}"
+  "${WIZBALL_TILESETS_DATA_FILE}"
+  "${WIZBALL_TILEMAPS_DATA_FILE}"
   ${WIZBALL_DATA_ZIP_STATIC_INPUTS}
   ${WIZBALL_DATA_ZIP_FOLDER_INPUTS}
 )
@@ -238,6 +277,7 @@ add_custom_command(
 
 add_custom_target(wizball_data_zip DEPENDS "${WIZBALL_DATA_ZIP}")
 add_dependencies(wizball_data_zip wizball_generate_version_text)
+add_dependencies(wizball_data_zip rebuild_wizball_scripts)
 
 # Determine PortMaster arch label
 set(PM_ARCH "unknown")
@@ -311,13 +351,6 @@ add_custom_target(run_wizball_debug
   USES_TERMINAL
 )
 
-add_custom_target(rebuild_wizball_scripts
-  COMMAND $<TARGET_FILE:wizball> -rebuildscripts wizball
-  DEPENDS wizball
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wizball
-  USES_TERMINAL
-)
-
 add_custom_target(rebuild_wizball_tilesets
   COMMAND $<TARGET_FILE:wizball> -rebuildtilesets wizball
   DEPENDS wizball
@@ -332,8 +365,10 @@ add_custom_target(rebuild_wizball_tilemaps
   USES_TERMINAL
 )
 
+add_dependencies(rebuild_wizball_tilesets rebuild_wizball_scripts)
+add_dependencies(rebuild_wizball_tilemaps rebuild_wizball_scripts)
+
 if(NOT CMAKE_CROSSCOMPILING)
-  add_dependencies(wizball_data_zip rebuild_wizball_scripts)
   add_dependencies(wizball_data_zip rebuild_wizball_tilesets)
   add_dependencies(wizball_data_zip rebuild_wizball_tilemaps)
 endif()
