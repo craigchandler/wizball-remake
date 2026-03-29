@@ -64,9 +64,21 @@
 	let sprite = intro_logos[arb]
 
 	let base_frame = number_in_sequence
+	if number_in_sequence = 0 then
+		let base_frame = 2
+	else_if number_in_sequence = 1 then
+		let base_frame = 3
+	else_if number_in_sequence = 2 then
+		let base_frame = 4
+	else_if number_in_sequence = 3 then
+		let base_frame = 5
+	else_if number_in_sequence = 4 then
+		let base_frame = 0
+	end_if
 	let current_frame = base_frame
 	let draw_mode = DRAW_MODE_SPRITE
 	let opengl_booleans = OPENGL_BOOLEAN_BLEND_ADD
+	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_MASKED
 	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_SCALE
 	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_ROTATE
 	let opengl_booleans = opengl_booleans + OPENGL_BOOLEAN_VERTEX_COLOUR_ALPHA
@@ -138,7 +150,3 @@ start
 
 	let progress_percentage = progress_percentage + 100 !> 10000
 end
-
-
-
-
