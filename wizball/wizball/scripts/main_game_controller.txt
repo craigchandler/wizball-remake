@@ -238,6 +238,8 @@ LET WINDOW_NUMBER = GAME_MAIN_WINDOW
 
 .continue_resume_complete
 
+	gosub start_in_game_music
+
 	SPAWN_MATCHING_ENTITIES_FROM_SAVE_FILE (ENTITY_TYPE & ENT_TYPE_SLEPT_IN_LEVEL_TRANSITION)
 	wait 1
 	alter_entities ( ALTERATION_WAKE , PARENT_LEVEL = current_level )

@@ -46,6 +46,9 @@ pm_platform_helper "$BIN"
 cd $GAMEDIR
 chmod +x "$BIN"
 
+# Set renderer backend to GLES2 - this is the most compatible option across all devices, and the fallback if Vulkan support is spotty.
+WIZBALL_RENDERER_BACKEND=gles2
+
 # Start keymapper for this binary (kill-mode hotkey support)
 export LD_LIBRARY_PATH="$controlfolder:$LD_LIBRARY_PATH"
 $GPTOKEYB "$BIN" -c "./wizball.gptk" &
