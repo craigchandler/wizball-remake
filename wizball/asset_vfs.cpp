@@ -149,10 +149,18 @@ static const char *ASSET_VFS_materialise_to_cache(const char *logical_path, char
 {
 	PHYSFS_File *file_handle;
 	PHYSFS_sint64 file_length;
+	PHYSFS_sint64 source_last_mod_time;
 	unsigned char *buffer = NULL;
 	PHYSFS_sint64 bytes_read;
 	FILE *fp;
 	char resolved[TEXT_LINE_SIZE];
+	char meta_path[WIZBALL_PATH_MAX];
+	bool cache_is_current = false;
+
+	if (logical_path == NULL)
+	{
+		return NULL;
+	}
 
 	if (ASSET_VFS_find_existing_path_case_fallback(logical_path, resolved, sizeof(resolved)) == NULL)
 	{
@@ -165,11 +173,31 @@ static const char *ASSET_VFS_materialise_to_cache(const char *logical_path, char
 	}
 
 	ASSET_VFS_join_path(cache_path, cache_path_size, g_cache_root, resolved);
+	ASSET_VFS_copy_string(meta_path, sizeof(meta_path), cache_path);
+	strncat(meta_path, ".meta", sizeof(meta_path) - strlen(meta_path) - 1);
+
+	source_last_mod_time = PHYSFS_getLastModTime(resolved);
+	fp = fopen(meta_path, "r");
+	if (fp != NULL)
+	{
+		long long cached_last_mod_time = -1;
+		if (fscanf(fp, "%lld", &cached_last_mod_time) == 1)
+		{
+			cache_is_current = (source_last_mod_time >= 0) && (cached_last_mod_time == (long long)source_last_mod_time);
+		}
+		fclose(fp);
+	}
+
 	fp = fopen(cache_path, "rb");
 	if (fp != NULL)
 	{
 		fclose(fp);
-		return cache_path;
+		if (cache_is_current)
+		{
+			return cache_path;
+		}
+		remove(cache_path);
+		remove(meta_path);
 	}
 
 	file_handle = PHYSFS_openRead(resolved);
@@ -223,6 +251,17 @@ static const char *ASSET_VFS_materialise_to_cache(const char *logical_path, char
 
 	fclose(fp);
 	free(buffer);
+
+	if (source_last_mod_time >= 0)
+	{
+		fp = fopen(meta_path, "w");
+		if (fp != NULL)
+		{
+			fprintf(fp, "%lld\n", (long long)source_last_mod_time);
+			fclose(fp);
+		}
+	}
+
 	return cache_path;
 }
 

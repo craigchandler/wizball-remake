@@ -19,7 +19,6 @@
 	enable_window SCORE_OVERLAY_WINDOW
 
 		disable_window MENU_WINDOW
-		disable_window GAME_TEMP_WINDOW
 		disable_window FLOATING_OVERLAY_WINDOW
 
 		let temp_1 = GET_GLOBAL_FLAG (save_load_spinner_entity_id)

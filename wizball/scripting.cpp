@@ -2858,6 +2858,7 @@ void SCRIPTING_create_windows (int window_count)
 	for (window_number=0;window_number<window_count;window_number++)
 	{
 		window_details[window_number].active = false;
+		window_details[window_number].new_active = false;
 
 		window_details[window_number].buffer_size = UNSET;
 		window_details[window_number].buffered_br_x = 0;
@@ -2928,6 +2929,7 @@ void SCRIPTING_set_up_window (int window_number, int screen_x, int screen_y, int
 	if (SCRIPTING_is_valid_window_index(window_number))
 	{
 		window_details[window_number].active = false;
+		window_details[window_number].new_active = false;
 
 		window_details[window_number].buffer_size = buffer_size;
 		window_details[window_number].buffered_br_x = 0;

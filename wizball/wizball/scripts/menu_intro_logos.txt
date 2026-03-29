@@ -56,4 +56,3 @@ end
 	kill_entity own_id
 
 	end
-
