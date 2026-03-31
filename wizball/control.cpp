@@ -3606,7 +3606,7 @@ bool CONTROL_check_any_joypad_control_hit (int player_number)
 
 	for (button_number=0; button_number<NUM_BUTTONS; button_number++)
 	{
-		if ((controls[button_number][player_number].device > DEVICE_KEYBOARD) && (controls[button_number][player_number].device < DEVICE_MOUSE_BUTTONS))
+		if ((controls[player_number][button_number].device > DEVICE_KEYBOARD) && (controls[player_number][button_number].device < DEVICE_MOUSE_BUTTONS))
 		{
 			if (CONTROL_player_button_hit(player_number,button_number) == true)
 			{

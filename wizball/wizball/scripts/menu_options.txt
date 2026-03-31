@@ -203,8 +203,6 @@ end
 
 	end
 
-
-
 .define_nifta_keys
 
 	PLAY_SOUND menu_select 255 CONST_SOUND_FREQUENCY 128
@@ -390,5 +388,3 @@ end
 	kill_entity own_id
 
 	end
-
-

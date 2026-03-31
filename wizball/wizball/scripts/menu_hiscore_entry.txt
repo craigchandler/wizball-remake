@@ -172,16 +172,32 @@ start
 		let temp_1 = GET_KEYBOARD_HIT
 
 		if temp_1 != const_unset then
+			// Only switch to direct-entry mode for real name-entry keys.
+			// This keeps mapped arrow keys from kicking joypad navigation into keyboard mode.
+			let added_letter = GET_ASCII_FOR_SCANCODE temp_1
 
-			let hiscore_entry_type = use_direct_hiscore_entry
+			if temp_1 = KEY_BACKSPACE then
+				let hiscore_entry_type = use_direct_hiscore_entry
+			else_if temp_1 = KEY_ENTER then
+				let hiscore_entry_type = use_direct_hiscore_entry
+			else
+				for counter = 0 to delete_symbol
+					let temp_3 = READ_TEXT_LETTER (HISCORE_LETTERS_STRING,counter)
+					if added_letter = temp_3 then
+						let hiscore_entry_type = use_direct_hiscore_entry
+					end_if
+				next
+			end_if
 
-			let spawn_instruction_text_counter = 0
+			if hiscore_entry_type = use_direct_hiscore_entry then
+				let spawn_instruction_text_counter = 0
 
-			let signal = signal OR SLEEP_JOYPAD_HISCORE_INPUT_ITEMS
+				let signal = signal OR SLEEP_JOYPAD_HISCORE_INPUT_ITEMS
 
-			if current_letter_number >= 40 then
-				// So the cursor isn't left hanging over nothing...
-				let current_letter_number = 0
+				if current_letter_number >= 40 then
+					// So the cursor isn't left hanging over nothing...
+					let current_letter_number = 0
+				end_if
 			end_if
 		end_if
 
@@ -189,12 +205,24 @@ start
 			PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
 			let current_letter_number = current_letter_number - 10 !< 0 !> 49
 			gosub bodge_to_correct_button
+		else
+			IF_INPUT_KEYBOARD_HIT key_up then
+				PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
+				let current_letter_number = current_letter_number - 10 !< 0 !> 49
+				gosub bodge_to_correct_button
+			END_IF
 		END_IF
 
 		IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,DOWN) then
 			PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
 			let current_letter_number = current_letter_number + 10 !< 0 !> 49
 			gosub bodge_to_correct_button
+		else
+			IF_INPUT_KEYBOARD_HIT key_down then
+				PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
+				let current_letter_number = current_letter_number + 10 !< 0 !> 49
+				gosub bodge_to_correct_button
+			END_IF
 		END_IF
 
 		IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,LEFT) then
@@ -216,6 +244,27 @@ start
 					let current_letter_number = current_letter_number - 1
 				end_if
 			end_if
+		else
+			IF_INPUT_KEYBOARD_HIT key_left then
+				PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
+
+				let temp_1 = current_letter_number mod 10
+
+				if current_letter_number < 40 then
+
+					if temp_1 = 0 then
+						let current_letter_number = current_letter_number + 9
+					else
+						let current_letter_number = current_letter_number - 1
+					end_if
+				else
+					if temp_1 = 0 then
+						let current_letter_number = current_letter_number + 1
+					else
+						let current_letter_number = current_letter_number - 1
+					end_if
+				end_if
+			END_IF
 		END_IF
 
 		IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,RIGHT) then
@@ -237,6 +286,27 @@ start
 					let current_letter_number = current_letter_number + 1
 				end_if
 			end_if
+		else
+			IF_INPUT_KEYBOARD_HIT key_right then
+				PLAY_SOUND menu_selector_move 255 CONST_SOUND_FREQUENCY 128
+
+				let temp_1 = current_letter_number mod 10
+
+				if current_letter_number < 40 then
+
+					if temp_1 = 9 then
+						let current_letter_number = current_letter_number - 9
+					else
+						let current_letter_number = current_letter_number + 1
+					end_if
+				else
+					if temp_1 = 1 then
+						let current_letter_number = current_letter_number - 1
+					else
+						let current_letter_number = current_letter_number + 1
+					end_if
+				end_if
+			END_IF
 		END_IF
 
 		IF_INPUT_PLAYER_CONTROL_HIT (PLAYER_1,FIRE_1) then
