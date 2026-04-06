@@ -98,6 +98,7 @@ int MATH_largest_int (int a, int b);
 int MATH_smallest_int (int a, int b);
 int MATH_rand (int lowest, int highest);
 int MATH_special_rand (int seed_index, int lowest, int highest);
+int MATH_get_special_rand_seed (int seed_index);
 
 int MATH_wrap (int value , int wrap);
 int MATH_fold (int number, int start, int end);
@@ -189,4 +190,3 @@ extern int arcangle_scalar;
 extern float angle_conversion_ratio;
 
 #endif
-

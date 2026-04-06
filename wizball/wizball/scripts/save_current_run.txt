@@ -30,6 +30,7 @@
 	WRITE_FLAG_TO_SAVE_FILE fuzz_counter
 	WRITE_FLAG_TO_SAVE_FILE game_mode_single_player
 	WRITE_FLAG_TO_SAVE_FILE current_script_build_id
+	WRITE_FLAG_TO_SAVE_FILE randomise_seed
 
 	let temp_1 = GET_GLOBAL_FLAG (main_game_controller_entity_id)
 	WRITE_ENTITY_TO_SAVE_FILE (temp_1, 9000)

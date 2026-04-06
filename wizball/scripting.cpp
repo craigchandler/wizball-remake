@@ -64,6 +64,53 @@ extern int script_count;
 
 static scripting_state_label_entry_struct *scripting_state_label_entries = NULL;
 static int scripting_state_label_entry_count = 0;
+static int scripting_randomise_seed_flag = UNSET;
+
+static int SCRIPTING_get_randomise_seed_flag(void)
+{
+	if (scripting_randomise_seed_flag == UNSET)
+	{
+		scripting_randomise_seed_flag = GPL_find_word_value("FLAG", "RANDOMISE_SEED");
+	}
+
+	return scripting_randomise_seed_flag;
+}
+
+static void SCRIPTING_sync_special_random_seed_flag(int seed_index)
+{
+	int flag_index;
+
+	if (seed_index != 0)
+	{
+		return;
+	}
+
+	flag_index = SCRIPTING_get_randomise_seed_flag();
+
+	if ((flag_index >= 0) && (flag_index < MAX_FLAGS))
+	{
+		flag_array[flag_index] = MATH_get_special_rand_seed(seed_index);
+	}
+}
+
+static void SCRIPTING_restore_special_random_seed_from_flags(void)
+{
+	int flag_index = SCRIPTING_get_randomise_seed_flag();
+
+	if ((flag_index >= 0) && (flag_index < MAX_FLAGS))
+	{
+		int seed_value = flag_array[flag_index];
+
+		if (seed_value <= 0)
+		{
+			seed_value = 1;
+		}
+
+		MATH_seed_special_rand(0, (unsigned int) seed_value);
+		MATH_srand((unsigned int) seed_value);
+		flag_array[flag_index] = MATH_get_special_rand_seed(0);
+	}
+}
 
 static void SCRIPTING_hash_compatibility_int(unsigned int *hash, int value)
 {
@@ -1840,11 +1887,11 @@ void SCRIPTING_output_tracer_script_to_file (bool called_from_script)
 		FILE *fp = fopen (MAIN_get_project_filename("traced_script_lines.txt"),"w");
 		int l,e;
 
-		snprintf(line, sizeof(line),"Total entities traced = %i.\n\n",tracer_output_entity_list_size);
-		fputs(line,fp);
-
 		if (fp != NULL)
 		{
+			snprintf(line, sizeof(line),"Total entities traced = %i.\n\n",tracer_output_entity_list_size);
+			fputs(line,fp);
+
 			if (complete_trace_from_now_on == true)
 			{
 				for (l=0;l<tracer_output_script_length;l++)
@@ -12332,6 +12379,10 @@ void SCRIPTING_output_flags_to_file (char *filename)
 	snprintf(normalised_filename, sizeof(normalised_filename), "%s", filename);
 	STRING_lowercase(normalised_filename);
 
+	// Continue saves need the live special-random strand state, not just whatever
+	// happened to be sitting in the backing flag from earlier script activity.
+	SCRIPTING_sync_special_random_seed_flag(0);
+
 	FILE *file_pointer = fopen (MAIN_get_project_filename (normalised_filename, true),"a");
 
 	if (file_pointer != NULL)
@@ -13245,6 +13296,7 @@ void SCRIPTING_load_save_file (int filename_text_tag)
 
 			stage_start_ms = PLATFORM_get_wall_time_ms();
 			SCRIPTING_input_flags_from_file (normalised_filename);
+			SCRIPTING_restore_special_random_seed_from_flags();
 			flag_ms = PLATFORM_get_wall_time_ms() - stage_start_ms;
 
 			stage_start_ms = PLATFORM_get_wall_time_ms();

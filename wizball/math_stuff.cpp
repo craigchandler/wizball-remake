@@ -907,6 +907,16 @@ int MATH_special_rand (int seed_index, int lowest, int highest)
 	return ((temp_val % diff) + lowest);
 }
 
+int MATH_get_special_rand_seed (int seed_index)
+{
+	if ((seed_index < 0) || (seed_index >= MAX_RANDOM_NUMBER_STRANDS))
+	{
+		return 1;
+	}
+
+	return random_number[seed_index];
+}
+
 
 
 int MATH_rand (int lowest, int highest)
@@ -2297,6 +2307,5 @@ void MATH_convert_hsl_to_rgb (int h, int s, int l, int *r, int *g, int *b)
 	*g = (int)(green * 255.0f);
 	*b = (int)(blue * 255.0f);
 }
-
 
 

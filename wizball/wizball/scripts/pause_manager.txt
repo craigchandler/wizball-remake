@@ -143,8 +143,6 @@ end
 
 .quit_game
 
-	start_program_trace
-
 	FADE_PERSISTANT_CHANNELS
 
 	let temp_1 = GET_RECORD_PLAYBACK_STATUS (PLAYER_1)

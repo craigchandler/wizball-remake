@@ -74,8 +74,6 @@ end
 // This is our main loop.
 .activate_selector
 
-start_program_trace
-
 let draw_mode = draw_mode_sprite
 
 let sprite = intro_logos[arb]
