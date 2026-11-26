@@ -183,7 +183,7 @@ Useful flags:
 - `-rebuildtilesets wizball` rebuilds `tilesets.dat` from the source tileset files.
 - `-rebuildtilemaps wizball` rebuilds `tilemaps.dat` from the source tilemap files.
 
-At runtime, the SDL/PhysFS asset layer will look for `data.zip` in the working directory first and fall back to the unpacked project directory for local development. Runtime-generated user files such as config, hiscores, and reports are written beside the binary in the game root and do not need to be shipped as package assets.
+Keep `data.zip` beside the executable when installing a release. The game also checks the working directory and the selected data directory for `data.zip`. Local development can use the unpacked project directory. The game writes config, hiscores, and reports to the working directory.
 
 ### Rebuild generated data
 

@@ -116,26 +116,22 @@ void GAME_load_and_set_up_everything(void)
 	MAIN_add_to_log("\tOK!\n");
 	MAIN_draw_loading_picture("", 50);
 
-	if (parse_all_data)
+#ifdef ALLEGRO_MACOSX
+	if (!parse_all_data)
 	{
-		MAIN_add_to_log("Loading prefabs...");
-		stage_start_ms = PLATFORM_get_wall_time_ms();
-		SCRIPTING_load_prefabs();
-		MAIN_add_to_log("\tOK!\n");
-	}
-	else
-	{
-#ifdef ALLEGRO_LINUX
-		MAIN_add_to_log("Linux compatibility mode: loading verbose prefabs...");
-		stage_start_ms = PLATFORM_get_wall_time_ms();
-		SCRIPTING_load_prefabs();
-		MAIN_add_to_log("\tOK!\n");
-#else
 		MAIN_add_to_log("Loading compiled prefabs...");
 		stage_start_ms = PLATFORM_get_wall_time_ms();
 		SCRIPTING_load_compiled_prefabs();
 		MAIN_add_to_log("\tOK!\n");
+	}
+	else
 #endif
+	{
+		// The SDL data package ships text prefabs, including the entity reset template.
+		MAIN_add_to_log("Loading prefabs...");
+		stage_start_ms = PLATFORM_get_wall_time_ms();
+		SCRIPTING_load_prefabs();
+		MAIN_add_to_log("\tOK!\n");
 	}
 	MAIN_draw_loading_picture("", 65);
 

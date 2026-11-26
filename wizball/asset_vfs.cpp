@@ -3,9 +3,11 @@
 #include <physfs.h>
 #include <physfsrwops.h>
 
+#include <algorithm>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string>
 #include <string.h>
 #include <sys/stat.h>
 
@@ -130,8 +132,19 @@ static const char *ASSET_VFS_find_existing_path_case_fallback(const char *logica
 	}
 
 	ASSET_VFS_copy_string(variants[0], sizeof(variants[0]), logical_path);
-	ASSET_VFS_build_variant(variants[1], sizeof(variants[1]), logical_path, 1);
-	ASSET_VFS_build_variant(variants[2], sizeof(variants[2]), logical_path, 2);
+	std::replace(variants[0], variants[0] + strlen(variants[0]), '\\', '/');
+	// PhysFS requires forward slashes and rejects the leading ./ used by native paths.
+	const char *archive_path = variants[0];
+	while (strncmp(archive_path, "./", 2) == 0)
+	{
+		archive_path += 2;
+	}
+	if (archive_path != variants[0])
+	{
+		memmove(variants[0], archive_path, strlen(archive_path) + 1);
+	}
+	ASSET_VFS_build_variant(variants[1], sizeof(variants[1]), variants[0], 1);
+	ASSET_VFS_build_variant(variants[2], sizeof(variants[2]), variants[0], 2);
 
 	for (i = 0; i < 3; i++)
 	{
@@ -265,7 +278,7 @@ static const char *ASSET_VFS_materialise_to_cache(const char *logical_path, char
 	return cache_path;
 }
 
-bool ASSET_VFS_init(const char *argv0, const char *project_name, const char *pack_project_name)
+bool ASSET_VFS_init(const char *argv0, const char *project_name, const char *pack_project_name, bool find_bundled_archive)
 {
 	char archive_path[WIZBALL_PATH_MAX];
 	char pref_cache_root[WIZBALL_PATH_MAX];
@@ -281,12 +294,19 @@ bool ASSET_VFS_init(const char *argv0, const char *project_name, const char *pac
 		return false;
 	}
 
-	if (PHYSFS_mount("data.zip", NULL, 0) == 0)
+	bool archive_mounted = PHYSFS_mount("data.zip", NULL, 0) != 0;
+	if (!archive_mounted && pack_project_name != NULL && pack_project_name[0] != '\0')
 	{
-		if ((pack_project_name != NULL) && (pack_project_name[0] != '\0'))
+		ASSET_VFS_join_path(archive_path, sizeof(archive_path), pack_project_name, "data.zip");
+		archive_mounted = PHYSFS_mount(archive_path, NULL, 0) != 0;
+	}
+	if (!archive_mounted && find_bundled_archive)
+	{
+		const char *base_dir = PHYSFS_getBaseDir();
+		if (base_dir != NULL && base_dir[0] != '\0')
 		{
-			ASSET_VFS_join_path(archive_path, sizeof(archive_path), pack_project_name, "data.zip");
-			PHYSFS_mount(archive_path, NULL, 0);
+			const std::string bundled_archive = std::string(base_dir) + "data.zip";
+			PHYSFS_mount(bundled_archive.c_str(), NULL, 0);
 		}
 	}
 

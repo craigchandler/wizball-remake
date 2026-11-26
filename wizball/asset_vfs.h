@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <SDL.h>
 
-bool ASSET_VFS_init(const char *argv0, const char *project_name, const char *pack_project_name);
+bool ASSET_VFS_init(const char *argv0, const char *project_name, const char *pack_project_name, bool find_bundled_archive);
 void ASSET_VFS_shutdown(void);
 bool ASSET_VFS_is_available(void);
 

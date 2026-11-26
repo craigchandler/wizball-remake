@@ -90,3 +90,6 @@ wizball/wizball/tilesets.dat
 /site/resources/
 /site/.hugo_build.lock
 wizball/waypoint_lookup_tables.txt
+
+# temp android files
+android/

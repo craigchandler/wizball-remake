@@ -1377,7 +1377,9 @@ int main(int argc, char *argv[])
 		strcpy(pack_project, dat_directory_override);
 	}
 
-	ASSET_VFS_init(argv[0], project, (pack_project[0] != '\0') ? pack_project : project);
+	const bool find_bundled_archive = (release_mode || force_dat_mode) &&
+		!rebuild_scripts_only && !rebuild_tilesets_only && !rebuild_tilemaps_only;
+	ASSET_VFS_init(argv[0], project, (pack_project[0] != '\0') ? pack_project : project, find_bundled_archive);
 
 #ifdef ALLEGRO_WINDOWS
 	SystemParametersInfo(SPI_GETSCREENSAVEACTIVE, 0, &restorescreensaver, 0);
